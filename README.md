@@ -256,6 +256,10 @@ SourceFlow 建立在长期积累的开源笔记基础之上，也持续受益于
 有任何bug或者建议,请提 Issues,我会酌情封装到笔记,或者开发插件。
 由于项目只有我个人维护,所以精力有限,请多多体谅!
 
+---
+
 ![微信](screenshots/wx.jpg)
+
+---
 
 ![火币](screenshots/huobi.png)

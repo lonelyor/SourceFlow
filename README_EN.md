@@ -247,7 +247,14 @@ SourceFlow keeps benefiting from user feedback, testing, and real-world use.
 
 If SourceFlow helps you, you are welcome to buy me a milk tea and support further development.
 
+If you hit a bug or have a feature suggestion, please open an issue. I will prioritize fixes, note workflows, or package them into built-in features or plugins when feasible.
 
-![微信](screenshots/1679abe82402f285747dd7bc2dcb5bc2.jpg)
+This project is maintained by one person, so testing and iteration capacity is limited. Thank you for the patience and help.
 
-![火币](screenshots/image.png)
+---
+
+![WeChat](screenshots/wx.jpg)
+
+---
+
+![Huobi](screenshots/huobi.png)
