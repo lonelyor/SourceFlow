@@ -1,0 +1,459 @@
+{
+	"ID": "20230805232018-hgrq0ju",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230805232018-hgrq0ju",
+		"title": "Use Cloudflare R2 for S3 backup",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "2601-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "2026040219500063-g0063",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500064-g0064",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "What to prepare"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500071-g0071",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500072-g0072",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500073-g0073",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500074-g0074",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500065-g0065",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500066-g0066",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Create a Bucket in Cloudflare R2."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500075-g0075",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500076-g0076",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500067-g0067",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500068-g0068",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Create an Access Key and Secret Key with read/write access to that Bucket."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500077-g0077",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500078-g0078",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500069-g0069",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500070-g0070",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Record the S3 endpoint, usually "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "https://<AccountID>.r2.cloudflarestorage.com"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500079-g0079",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500080-g0080",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Configure in SourceFlow"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500089-g0089",
+			"Type": "NodeList",
+			"ListData": {
+				"Typ": 1
+			},
+			"Properties": {
+				"id": "2026040219500090-g0090",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500091-g0091",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "MS4=",
+						"Num": 1
+					},
+					"Properties": {
+						"id": "2026040219500092-g0092",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500081-g0081",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500082-g0082",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Settings"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Remote"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": choose provider "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "S3"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500093-g0093",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "Mi4=",
+						"Num": 2
+					},
+					"Properties": {
+						"id": "2026040219500094-g0094",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500083-g0083",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500084-g0084",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Fill in Endpoint, Access Key, Secret Key, and Bucket."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500095-g0095",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "My4=",
+						"Num": 3
+					},
+					"Properties": {
+						"id": "2026040219500096-g0096",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500085-g0085",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500086-g0086",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Use "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "auto"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " for Region, keep "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "Path-style"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " for path style, and keep TLS verification enabled."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500097-g0097",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "NC4=",
+						"Num": 4
+					},
+					"Properties": {
+						"id": "2026040219500098-g0098",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500087-g0087",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500088-g0088",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Enable "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Sync and Restore Backup"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ". The first device can keep the remote backup directory as "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "main"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500099-g0099",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500100-g0100",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Restore and migration"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500107-g0107",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500108-g0108",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500109-g0109",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500110-g0110",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500101-g0101",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500102-g0102",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Keep "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " safe."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500111-g0111",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500112-g0112",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500103-g0103",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500104-g0104",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Restore by importing the backup profile first, then downloading the remote backup snapshot."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500113-g0113",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500114-g0114",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500105-g0105",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500106-g0106",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "For an exact replacement, restore into an empty workspace."
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

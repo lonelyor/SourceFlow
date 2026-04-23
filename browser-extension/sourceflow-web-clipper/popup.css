@@ -1,0 +1,270 @@
+body {
+    margin: 0;
+    font: 13px/1.45 "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #1f2937;
+    background: #f5f7fb;
+}
+
+.app {
+    width: 360px;
+    padding: 16px;
+    box-sizing: border-box;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+h1 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.brand {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.brand-logo {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.brand-copy {
+    min-width: 0;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.field span {
+    color: #475569;
+}
+
+input,
+select,
+button {
+    font: inherit;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.grow {
+    flex: 1;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 8px;
+    white-space: nowrap;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+button {
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+}
+
+button.primary {
+    flex: 1;
+    color: #fff;
+    background: #0f766e;
+}
+
+button.secondary {
+    color: #1f2937;
+    background: #e2e8f0;
+}
+
+.page-info,
+.hint {
+    margin: 10px 0 0;
+    color: #64748b;
+}
+
+.status {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: #f8fafc;
+}
+
+.status[hidden] {
+    display: none;
+}
+
+.status p {
+    margin: 0;
+}
+
+.status-title {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.status-detail,
+.status-hint,
+.status-meta {
+    margin-top: 6px;
+    color: #475569;
+}
+
+.status-hint {
+    color: #334155;
+}
+
+.status-meta {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.status.error {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.status.error .status-title {
+    color: #991b1b;
+}
+
+.status.success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.status.success .status-title {
+    color: #166534;
+}
+
+.status.info {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.status.info .status-title {
+    color: #1d4ed8;
+}
+
+.status.warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.status.warning .status-title {
+    color: #b45309;
+}
+
+.jobs {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.jobs-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.jobs h2 {
+    margin: 0;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.jobs-note {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.job-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.job-card {
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.job-card.empty {
+    color: #64748b;
+}
+
+.job-card.success {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.job-card.warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.job-card.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.job-card.info {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+
+.job-title {
+    margin: 0;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.job-detail,
+.job-hint,
+.job-meta,
+.job-time {
+    margin: 6px 0 0;
+    color: #475569;
+}
+
+.job-hint,
+.job-time {
+    font-size: 12px;
+}
+
+.job-time {
+    color: #64748b;
+}

@@ -1,0 +1,14 @@
+.git
+.github
+.tmp
+node_modules
+app/node_modules
+app/build
+app/build-*
+app/stage
+browser-extension
+examples
+marketplace
+plans
+screenshots
+build.log

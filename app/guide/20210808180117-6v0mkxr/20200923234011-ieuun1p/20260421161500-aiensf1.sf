@@ -1,0 +1,70 @@
+{
+	"ID": "20260421161500-aiensf1",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f916",
+		"id": "20260421161500-aiensf1",
+		"title": "AI Assistant",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194006-aien01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194006-aien01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "AI Assistant is the built-in workspace for model profiles, conversations, and SourceFlow AI features."
+				}
+			]
+		},
+		{
+			"ID": "20260421194006-aien02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194006-aien02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Before using it for the first time, finish your model setup and set one profile as the default profile. The default profile is shared by both AI Assistant and the built-in AI actions."
+				}
+			]
+		},
+		{
+			"ID": "20260421194006-aien03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194006-aien03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Once configured, you can ask questions directly, or use it to summarize the current note, rewrite text, continue drafting, break down tasks, and handle everyday assistance."
+				}
+			]
+		},
+		{
+			"ID": "20260421194006-aien04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194006-aien04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "AI Assistant does not overwrite existing notes until you explicitly accept, copy, or write the result back, so it fits a review-first writing workflow."
+				}
+			]
+		}
+	]
+}

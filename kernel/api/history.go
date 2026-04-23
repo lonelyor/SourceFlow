@@ -1,0 +1,256 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package api
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lonelyor/sourceflow/kernel/model"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+)
+
+func searchHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	notebook := ""
+	if nil != arg["notebook"] {
+		notebook = arg["notebook"].(string)
+	}
+	typ := model.HistoryTypeDoc
+	if nil != arg["type"] {
+		typ = int(arg["type"].(float64))
+	}
+
+	query := arg["query"].(string)
+	page := 1
+	if nil != arg["page"] {
+		page = int(arg["page"].(float64))
+	}
+	op := "all"
+	if nil != arg["op"] {
+		op = arg["op"].(string)
+	}
+	histories, pageCount, totalCount := model.FullTextSearchHistory(query, notebook, op, typ, page)
+	ret.Data = map[string]interface{}{
+		"histories":  histories,
+		"pageCount":  pageCount,
+		"totalCount": totalCount,
+	}
+}
+
+func getHistoryItems(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	created := arg["created"].(string)
+
+	notebook := ""
+	if nil != arg["notebook"] {
+		notebook = arg["notebook"].(string)
+	}
+	typ := model.HistoryTypeDoc
+	if nil != arg["type"] {
+		typ = int(arg["type"].(float64))
+	}
+
+	query := arg["query"].(string)
+	op := "all"
+	if nil != arg["op"] {
+		op = arg["op"].(string)
+	}
+	histories := model.FullTextSearchHistoryItems(created, query, notebook, op, typ)
+	ret.Data = map[string]interface{}{
+		"items": histories,
+	}
+}
+
+func reindexHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	model.ReindexHistory()
+}
+
+func getNotebookHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	histories, err := model.GetNotebookHistory()
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"histories": histories,
+	}
+}
+
+func clearWorkspaceHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	msgId := util.PushMsg(model.Conf.Language(100), 1000*60*15)
+	time.Sleep(3 * time.Second)
+	err := model.ClearWorkspaceHistory()
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	util.PushUpdateMsg(msgId, model.Conf.Language(99), 1000*5)
+}
+
+func getDocHistoryContent(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	historyPath := arg["historyPath"].(string)
+	k := arg["k"]
+	var keyword string
+	if nil != k {
+		keyword = k.(string)
+	}
+	highlight := true
+	if val, ok := arg["highlight"]; ok {
+		highlight = val.(bool)
+	}
+	id, rootID, content, isLargeDoc, err := model.GetDocHistoryContent(historyPath, keyword, highlight)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"id":         id,
+		"rootID":     rootID,
+		"content":    content,
+		"isLargeDoc": isLargeDoc,
+	}
+}
+
+func rollbackDocHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var notebook, historyPath string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("notebook", true, &notebook),
+		util.BindJsonArg("historyPath", true, &historyPath),
+	) {
+		return
+	}
+	err := model.RollbackDocHistory(notebook, historyPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"box": notebook,
+	}
+}
+
+func rollbackAssetsHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var historyPath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("historyPath", true, &historyPath)) {
+		return
+	}
+	err := model.RollbackAssetsHistory(historyPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}
+
+func rollbackNotebookHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var historyPath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("historyPath", true, &historyPath)) {
+		return
+	}
+	err := model.RollbackNotebookHistory(historyPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}
+
+func rollbackAttributeViewHistory(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var historyPath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("historyPath", true, &historyPath)) {
+		return
+	}
+	err := model.RollbackAttributeViewHistory(historyPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}

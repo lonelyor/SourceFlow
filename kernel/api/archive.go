@@ -1,0 +1,121 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package api
+
+import (
+	"net/http"
+	"path/filepath"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+)
+
+func zip(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var entryPath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("path", true, &entryPath)) {
+		return
+	}
+	entryAbsPath, err := util.GetAbsPathInWorkspace(entryPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	var zipFilePath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("zipPath", true, &zipFilePath)) {
+		return
+	}
+	zipAbsFilePath, err := util.GetAbsPathInWorkspace(zipFilePath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	zipFile, err := gulu.Zip.Create(zipAbsFilePath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	base := filepath.Base(entryAbsPath)
+	if gulu.File.IsDir(entryAbsPath) {
+		err = zipFile.AddDirectory(base, entryAbsPath)
+	} else {
+		err = zipFile.AddEntry(base, entryAbsPath)
+	}
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	if err = zipFile.Close(); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}
+
+func unzip(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var zipFilePath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("zipPath", true, &zipFilePath)) {
+		return
+	}
+	zipAbsFilePath, err := util.GetAbsPathInWorkspace(zipFilePath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	var entryPath string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("path", true, &entryPath)) {
+		return
+	}
+	entryAbsPath, err := util.GetAbsPathInWorkspace(entryPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	if err := gulu.Zip.Unzip(zipAbsFilePath, entryAbsPath); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}

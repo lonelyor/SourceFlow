@@ -1,0 +1,5 @@
+.sourceflow-hello-status {
+  padding: 0 8px;
+  color: var(--b3-theme-on-surface);
+  opacity: 0.9;
+}

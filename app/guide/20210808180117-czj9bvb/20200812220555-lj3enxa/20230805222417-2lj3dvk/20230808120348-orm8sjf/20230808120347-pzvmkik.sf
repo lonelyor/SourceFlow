@@ -1,0 +1,318 @@
+{
+	"ID": "20230808120347-pzvmkik",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120347-pzvmkik",
+		"title": "恢复描述文件与备份目录",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f5c2"
+	},
+	"Children": [
+		{
+			"ID": "2026040219300145-g0145",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300146-g0146",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "自托管同步依赖工作空间、远端备份目录和恢复描述文件三部分。"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300155-g0155",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300156-g0156",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300157-g0157",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300158-g0158",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300147-g0147",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300148-g0148",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "：当前笔记数据。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300159-g0159",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300160-g0160",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300149-g0149",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300150-g0150",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "：配置、窗口状态、恢复描述文件等。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300161-g0161",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300162-g0162",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300151-g0151",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300152-g0152",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "：保存 provider、远端备份目录、repo key 等恢复所需元数据。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300163-g0163",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300164-g0164",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300153-g0153",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300154-g0154",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "_meta/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "：远端冗余副本，仅作兜底，不改变现有恢复流程。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300165-g0165",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300166-g0166",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "最稳的备份方式"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300171-g0171",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300172-g0172",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300173-g0173",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300174-g0174",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300167-g0167",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300168-g0168",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "退出源流后直接复制整个便携目录。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300175-g0175",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300176-g0176",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300169-g0169",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300170-g0170",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "至少同时保留程序文件、"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " 和 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300177-g0177",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300178-g0178",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "目录搬家"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300179-g0179",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300180-g0180",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "如果 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "code",
+					"TextMarkTextContent": "Local File System"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 备份目录移动了，不需要手改 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "code",
+					"TextMarkTextContent": "backup-profile.json"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "。导入恢复描述文件后，重新选择当前备份目录即可。"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,405 @@
+{
+	"ID": "20230805222417-2lj3dvk",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f4be",
+		"id": "20230805222417-2lj3dvk",
+		"title": "备份同步系统",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194005-sync01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194005-sync01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "源流的备份同步系统把整目录备份、自托管同步与恢复放在同一套数据安全流程里，重点是先备份，再同步，再恢复。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194005-sync02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194005-sync02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "建议先判断自己是单机备份还是多端同步：单机或 NAS 场景优先看整目录备份、本地文件系统备份；多端协作再看自托管同步与恢复，以及 Cloudflare R2 / S3 / WebDAV 等路径。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194005-sync03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194005-sync03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "执行恢复、迁移或大规模整理前，先做一次整目录备份，会比事后补救更稳。"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300001-g0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300002-g0002",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "当前绿色版无需注册、登录或付费，笔记编辑、导入导出、集市、自托管同步与恢复备份都可以直接使用。"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300003-g0003",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300004-g0004",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "推荐先阅读下面几篇："
+				}
+			]
+		},
+		{
+			"ID": "2026040219300025-g0025",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300026-g0026",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300027-g0027",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300028-g0028",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300005-g0005",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300006-g0006",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230805225107-qm1m2f5",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "自托管存储服务"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300029-g0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300030-g0030",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300007-g0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300008-g0008",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120348-orm8sjf",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "自托管同步与恢复"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300031-g0031",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300032-g0032",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300009-g0009",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300010-g0010",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120347-3cob0nb",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "同步与恢复备份"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300033-g0033",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300034-g0034",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300011-g0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300012-g0012",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120348-lgcp9zm",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "整目录备份与恢复"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300035-g0035",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300036-g0036",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300013-g0013",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300014-g0014",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120348-hynr7og",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "使用本地文件系统备份"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300037-g0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300038-g0038",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300015-g0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300016-g0016",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230805230131-sn7obzb",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "使用 Cloudflare R2 进行 S3 备份"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300039-g0039",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300040-g0040",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300017-g0017",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300018-g0018",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120348-vaxi6eq",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "恢复描述文件与远端恢复"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300041-g0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300042-g0042",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300019-g0019",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300020-g0020",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120347-mw3qrwy",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "使用 Cloudflare R2 作为图床"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300043-g0043",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300044-g0044",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300021-g0021",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300022-g0022",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20200813125307-pxsjela",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "导入和导出"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300045-g0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300046-g0046",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300023-g0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300024-g0024",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230808120348-yut741f",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "使用注意事项"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,387 @@
+{
+	"ID": "20230808120348-lgcp9zm",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120348-lgcp9zm",
+		"title": "整目录备份与恢复",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "1f4e6"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-p9zm0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-p9zm0002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "最稳的备份方式仍然是退出源流后直接复制整个便携目录。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-p9zm0004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "需要一起备份的内容"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0017",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-p9zm0018",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-p9zm0005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "程序目录，例如 sourceflow-portable。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "workspace。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0014",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0016",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "userdata。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-p9zm0020",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "恢复方式"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0033",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-p9zm0034",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-p9zm0021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "关闭当前源流。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "把备份目录整体复制回来。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "重新启动 SourceFlow.exe。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0035",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-p9zm0036",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "适合的场景"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0049",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-p9zm0050",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-p9zm0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0038",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0039",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0040",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "升级绿色版。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0042",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0044",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Windows 到 Windows 迁移。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-p9zm0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-p9zm0046",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-p9zm0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-p9zm0048",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "需要最省心、最完整的恢复。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0051",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-p9zm0052",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "和自托管备份的关系"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-p9zm0053",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-p9zm0054",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "整目录复制是主恢复方案。S3、WebDAV、Local File System 更适合作为后台持续备份和第二恢复路径。"
+				}
+			]
+		}
+	]
+}

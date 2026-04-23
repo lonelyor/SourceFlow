@@ -1,0 +1,110 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package api
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lonelyor/sourceflow/kernel/model"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+)
+
+func getTag(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	sortParam := arg["sort"]
+	sortMode := model.Conf.Tag.Sort
+	if nil != sortParam {
+		sortMode = int(sortParam.(float64))
+	}
+
+	model.Conf.Tag.Sort = sortMode
+	model.Conf.Save()
+
+	// API `getTag` add an optional parameter `ignoreMaxListHint` https://github.com/lonelyor/SourceFlow/issues/16000
+	ignoreMaxListHint := false
+	ignoreMaxListHintArg := arg["ignoreMaxListHint"]
+	if nil != ignoreMaxListHintArg {
+		ignoreMaxListHint = ignoreMaxListHintArg.(bool)
+	}
+
+	var app string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("app", true, &app)) {
+		return
+	}
+	tags := model.BuildTags(ignoreMaxListHint, app)
+
+	if model.IsReadOnlyRoleContext(c) {
+		publishAccess := model.GetPublishAccess()
+		publishIgnore := model.GetInvisiblePublishAccess(publishAccess)
+		tags = model.FilterTagsByPublishIgnore(publishIgnore, tags)
+	}
+	ret.Data = tags
+}
+
+func renameTag(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var oldLabel, newLabel string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("oldLabel", true, &oldLabel),
+		util.BindJsonArg("newLabel", true, &newLabel),
+	) {
+		return
+	}
+	if err := model.RenameTag(oldLabel, newLabel); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+		return
+	}
+}
+
+func removeTag(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var label string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("label", true, &label)) {
+		return
+	}
+	if err := model.RemoveTag(label); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+		return
+	}
+}

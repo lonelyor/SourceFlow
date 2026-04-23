@@ -1,0 +1,358 @@
+{
+	"ID": "20230808120348-yut741f",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120348-yut741f",
+		"title": "使用注意事项",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "26a0-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-741f0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-741f0002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "为了让绿色版长期稳定可用，建议优先遵守下面这些规则。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-741f0004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "稳定性建议"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0017",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-741f0018",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-741f0005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "工作空间不要直接放到第三方同步盘的实时同步目录中。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "需要第三方同步时，让它同步 Local File System 的备份目录，而不是 workspace。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0014",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0016",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "升级绿色版时手动替换程序目录，不要依赖自动下载安装包。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-741f0020",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "迁移建议"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0033",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-741f0034",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-741f0021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "跨设备迁移优先使用整目录复制。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "日常后台备份优先使用 S3、WebDAV 或 Local File System。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "需要恢复到完全一致的状态时，在空工作空间中执行恢复。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0035",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-741f0036",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "功能边界"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-741f0049",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-741f0050",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-741f0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0038",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0039",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0040",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "发布功能默认关闭，按需开启。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0042",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0044",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Windows 便携版启动后会自动注册 sf:// 协议。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-741f0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-741f0046",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-741f0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-741f0048",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "图床和备份是两套独立能力，不要混用目录。"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

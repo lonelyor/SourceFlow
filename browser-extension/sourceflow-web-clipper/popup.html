@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>SourceFlow Page Saver</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<main class="app">
+    <header class="brand">
+        <img class="brand-logo" src="icon.png" alt="SourceFlow Logo" width="32" height="32">
+        <div class="brand-copy">
+            <h1>SourceFlow 网页采集</h1>
+            <p class="hint">用于已登录网页和动态页面。公开网页建议直接在 SourceFlow 中输入 URL 保存。</p>
+        </div>
+    </header>
+    <label class="field">
+        <span>内核地址</span>
+        <input id="kernelURL" type="text" spellcheck="false" placeholder="http://127.0.0.1:6806">
+    </label>
+    <label class="field">
+        <span>API Token</span>
+        <input id="apiToken" type="password" spellcheck="false" placeholder="在 源流 -> 设置 -> 关于 中获取">
+    </label>
+    <div class="row">
+        <label class="field grow">
+            <span>目标笔记本</span>
+            <select id="notebook"></select>
+        </label>
+        <button id="refreshNotebooks" class="secondary">刷新</button>
+    </div>
+    <label class="field">
+        <span>保存目录</span>
+        <input id="pathPrefix" type="text" spellcheck="false" placeholder="收件箱/网页导入">
+    </label>
+    <div id="pageInfo" class="page-info"></div>
+    <div class="actions">
+        <button id="collectPage" class="primary">保存当前页</button>
+    </div>
+    <section id="status" class="status" hidden>
+        <p id="statusTitle" class="status-title"></p>
+        <p id="statusDetail" class="status-detail"></p>
+        <p id="statusHint" class="status-hint"></p>
+        <p id="statusMeta" class="status-meta"></p>
+    </section>
+    <section class="jobs">
+        <div class="jobs-head">
+            <h2>后台任务</h2>
+            <span class="jobs-note">关闭弹窗后仍会继续保存</span>
+        </div>
+        <div id="jobList" class="job-list"></div>
+    </section>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

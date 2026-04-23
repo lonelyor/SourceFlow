@@ -1,0 +1,329 @@
+{
+	"ID": "20220708103401-mgydrfg",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20220708103401-mgydrfg",
+		"title": "Whole-directory backup and restore",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f4e6"
+	},
+	"Children": [
+		{
+			"ID": "2026040219600001-g0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600002-g0002",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The safest recovery path is restoring the whole portable directory, not remote restore."
+				}
+			]
+		},
+		{
+			"ID": "2026040219600003-g0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600004-g0004",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Backup"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600011-g0011",
+			"Type": "NodeList",
+			"ListData": {
+				"Typ": 1
+			},
+			"Properties": {
+				"id": "2026040219600012-g0012",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600013-g0013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "MS4=",
+						"Num": 1
+					},
+					"Properties": {
+						"id": "2026040219600014-g0014",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600005-g0005",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600006-g0006",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Exit SourceFlow."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600015-g0015",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "Mi4=",
+						"Num": 2
+					},
+					"Properties": {
+						"id": "2026040219600016-g0016",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600007-g0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600008-g0008",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Copy the whole portable directory, or at least the program files together with "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600017-g0017",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "My4=",
+						"Num": 3
+					},
+					"Properties": {
+						"id": "2026040219600018-g0018",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600009-g0009",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600010-g0010",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "When upgrading the portable build, replace program files only and keep "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219600019-g0019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600020-g0020",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Restore"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600029-g0029",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600030-g0030",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600031-g0031",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600032-g0032",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600021-g0021",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600022-g0022",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "If you have a whole-directory backup, copy it back directly."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600033-g0033",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600034-g0034",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600023-g0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600024-g0024",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "If only remote backup remains, import "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and restore from there."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600035-g0035",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600036-g0036",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600025-g0025",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600026-g0026",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Restore into the current workspace merges data by default and is safer."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600037-g0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600038-g0038",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600027-g0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600028-g0028",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "For an exact replacement, restore into an empty workspace."
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

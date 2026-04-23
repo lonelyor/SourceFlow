@@ -1,0 +1,97 @@
+{
+	"ID": "20260421111700-rn7x5mk",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f3e0",
+		"id": "20260421111700-rn7x5mk",
+		"title": "主页定制",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194003-homec01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194003-homec01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "主页既可以使用默认模板，也可以加载自定义 HTML / Markdown 模板，或者直接把一篇笔记设为主页。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194003-homec02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194003-homec02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "最快捷的方式是在文档树右键笔记，或打开文档标题菜单，选择 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "设为主页"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "。这样常用仪表盘、周报、项目入口都能直接固定到主页。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194003-homec03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194003-homec03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "如果你有自己的模板，也可以指定模板目录，或直接指定单个 HTML / Markdown 文件来生成自定义主页。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194003-homec04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194003-homec04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "主页打开后可以继续选择 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "编辑主页笔记"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 或 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "恢复默认主页"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "，方便随时在默认首页和自定义工作台之间切换。"
+				}
+			]
+		}
+	]
+}

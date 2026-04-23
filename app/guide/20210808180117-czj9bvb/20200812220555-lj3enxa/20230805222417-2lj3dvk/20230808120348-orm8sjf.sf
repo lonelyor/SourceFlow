@@ -1,0 +1,220 @@
+{
+	"ID": "20230808120348-orm8sjf",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f501",
+		"id": "20230808120348-orm8sjf",
+		"title": "自托管同步与恢复",
+		"type": "doc",
+		"updated": "20260402193000"
+	},
+	"Children": [
+		{
+			"ID": "2026040219300119-g0119",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300120-g0120",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "绿色版的远端能力只用于自托管同步与恢复备份。"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300131-g0131",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300132-g0132",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300133-g0133",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300134-g0134",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300121-g0121",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300122-g0122",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "默认自动触发：启动时、退出时、内容变更后延迟、后台定时。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300135-g0135",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300136-g0136",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300123-g0123",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300124-g0124",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "仍然可以手动点击同步按钮，立即执行一次同步与恢复备份。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300137-g0137",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300138-g0138",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300125-g0125",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300126-g0126",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "远端备份目录默认名称为 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "main"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "，一个工作空间只应固定使用一个远端备份目录。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300139-g0139",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300140-g0140",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300127-g0127",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300128-g0128",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "恢复描述文件会保存在 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "，并冗余到远端 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "_meta/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300141-g0141",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300142-g0142",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300129-g0129",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300130-g0130",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "无需注册、登录或付费。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300143-g0143",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300144-g0144",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "如果只是迁移到新电脑，整目录复制仍然是最稳的主恢复方案。"
+				}
+			]
+		}
+	]
+}

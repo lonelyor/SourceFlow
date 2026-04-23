@@ -1,0 +1,53 @@
+{
+  "url": "lonelyor/sourceflow-hello@24019cc1db296abc82ca95ad979b87f27364c25f",
+  "updated": "2026-04-20T06:41:32.198Z",
+  "stars": 0,
+  "openIssues": 0,
+  "size": 3247,
+  "installSize": 4653,
+  "package": {
+    "author": "By lonelyor",
+    "url": "https://github.com/lonelyor/sourceflow-hello",
+    "version": "1.0.0",
+    "minAppVersion": "0.1.0",
+    "archiveSHA256": "934510f92479ddc7bb8c8e3774c1dff7f40c8f69a9ecb8a6f98be5f625a40017",
+    "permissions": [
+      "storage",
+      "ui.topbar",
+      "ui.statusbar",
+      "ui.command",
+      "ui.setting"
+    ],
+    "disabledInPublish": false,
+    "backends": [
+      "all"
+    ],
+    "frontends": [
+      "desktop"
+    ],
+    "displayName": {
+      "default": "SourceFlow Hello",
+      "zh_CN": "源流示例插件",
+      "en_US": "SourceFlow Hello"
+    },
+    "description": {
+      "default": "A production-style example plugin for the SourceFlow plugin system.",
+      "zh_CN": "用于验证 SourceFlow 插件系统的生产风格示例插件。",
+      "en_US": "A production-style example plugin for the SourceFlow plugin system."
+    },
+    "readme": {
+      "default": "README.md"
+    },
+    "funding": {
+      "github": "lonelyor"
+    },
+    "keywords": [
+      "sourceflow",
+      "plugin",
+      "sourceflow-hello"
+    ],
+    "name": "sourceflow-hello",
+    "iconURL": "icon.png",
+    "previewURL": "icon.png"
+  }
+}

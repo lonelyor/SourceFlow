@@ -1,0 +1,63 @@
+{
+    "name": "SourceFlow",
+    "short_name": "SF",
+    "description": "SourceFlow is a local-first personal knowledge workspace with block references and Markdown WYSIWYG.",
+    "lang": "en",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
+    "display": "fullscreen",
+    "display_override": [
+        "window-controls-overlay",
+        "fullscreen",
+        "standalone",
+        "minimal-ui",
+        "browser"
+    ],
+    "categories": [
+        "education",
+        "productivity",
+        "utilities"
+    ],
+    "icons": [
+        {
+            "src": "favicon.ico",
+            "type": "image/png",
+            "sizes": "any",
+            "purpose": "any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "SourceFlow Desktop",
+            "description": "Desktop web side for SourceFlow",
+            "url": "/stage/build/desktop/",
+            "icons": [
+                {
+                    "src": "favicon.ico",
+                    "type": "image/png",
+                    "sizes": "512x512"
+                }
+            ]
+        },
+        {
+            "name": "SourceFlow Mobile",
+            "description": "Mobile web side for SourceFlow",
+            "url": "/stage/build/mobile/",
+            "icons": [
+                {
+                    "src": "favicon.ico",
+                    "type": "image/png",
+                    "sizes": "512x512"
+                }
+            ]
+        }
+    ],
+    "related_applications": [],
+    "protocol_handlers": [
+        {
+            "protocol": "web+sf",
+            "url": "/?url=%s"
+        }
+    ]
+}

@@ -1,0 +1,277 @@
+{
+	"ID": "20230104144904-39br4c6",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230104144904-39br4c6",
+		"title": "文档本地分享与导出",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "1f4e4"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-r4c60001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-r4c60002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "当前绿色版不再提供依赖账号的在线分享。需要把单篇或整本笔记发送给别人时，请优先使用本地导出。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r4c60004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "常用方式"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60017",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-r4c60018",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-r4c60005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "导出 Markdown 或 md.zip，适合继续在其他 Markdown 工具中使用。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r4c60009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "导出 SourceFlow .sf.zip，适合在另一套源流或二开版中完整恢复单篇或单个笔记本。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r4c60013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60014",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60016",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "导出 PDF、HTML、Word 等格式，适合阅读、归档和发送。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r4c60020",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "推荐做法"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60033",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-r4c60034",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-r4c60021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "跨设备长期迁移优先使用导出 Data、导入 Data，或者直接复制整个便携目录。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r4c60025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "单篇分享优先使用 Markdown、PDF 或 HTML。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r4c60029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r4c60030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r4c60031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r4c60032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "需要保留块结构、属性和资源时，优先使用 .sf.zip。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60035",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r4c60036",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "发布功能"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r4c60037",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-r4c60038",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "发布功能仍然可用，但它是本地或局域网只读发布，不依赖账号，默认也不会自动开启。"
+				}
+			]
+		}
+	]
+}
