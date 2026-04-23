@@ -201,7 +201,6 @@ SourceFlow currently supports `Local file system`, `S3`, and `WebDAV` as sync pr
 SourceFlow already has a plugin runtime and an independent Bazaar flow, but the current release still does not ship with a mature set of official plugins.
 
 - The host side already supports plugin installation, ZIP import, source tracking, `SHA-256` verification, declared permissions, and explicit confirmation before enabling.
-- The repository currently includes an example/self-test plugin here: [examples/plugins/sourceflow-hello](examples/plugins/sourceflow-hello).
 - For ordinary users, the current stage is best understood as “the plugin framework is ready, but the ecosystem is still under construction”.
 - If you want to test the plugin system, report feedback, or build your own plugin, the groundwork is already there.
 

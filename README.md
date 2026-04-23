@@ -205,7 +205,6 @@ SourceFlow 当前支持 `本地文件系统`、`S3`、`WebDAV` 三种同步 prov
 SourceFlow 已经具备插件系统和独立 Bazaar 集市机制，但当前版本还没有随 release 一起提供一批成熟的官方插件包。
 
 - 宿主侧已经支持插件安装、ZIP 导入、来源记录、`SHA-256` 校验、权限声明和启用前确认。
-- 仓库里目前提供的是用于自测和开发示例的插件：[examples/plugins/sourceflow-hello](examples/plugins/sourceflow-hello)。
 - 对普通用户来说，可以把当前阶段理解为“插件框架已经具备，生态还在建设中”。
 - 如果你愿意测试插件系统、提交反馈或自己编写插件，这部分能力已经可以开始用了。
 
