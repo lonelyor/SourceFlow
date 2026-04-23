@@ -89,9 +89,13 @@ REQUIRED_EXPORT_PATHS = (
     "app",
     "app/package.json",
     "kernel",
-    "package.json",
+    "third_party",
     "README.md",
+    "README_EN.md",
     "LICENSE",
+    "NOTICE.md",
+    ".gitignore",
+    ".gitattributes",
 )
 HARD_EXCLUDED_RELATIVE_PATHS = {
     ".git",
@@ -99,13 +103,34 @@ HARD_EXCLUDED_RELATIVE_PATHS = {
     "发布.py",
     "编译.py",
 }
+PUBLIC_EXPORT_INCLUDED_ROOT_PATHS = {
+    ".gitattributes",
+    ".gitignore",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md",
+    "README_EN.md",
+    "app",
+    "browser-extension",
+    "kernel",
+    "screenshots",
+    "third_party",
+}
 PUBLIC_EXPORT_EXCLUDED_RELATIVE_PATHS = {
     ".github",
+    ".dockerignore",
+    "Dockerfile",
+    "PORTABLE_BUILD.md",
+    "examples",
+    "marketplace",
     "node_modules",
+    "package.json",
     "plans",
+    "pnpm-lock.yaml",
     "scripts",
     "build.log",
 }
+SCREENSHOT_REFERENCE_RE = re.compile(r"\]\((screenshots/[A-Za-z0-9_.\-/]+)\)")
 
 
 @dataclass(frozen=True)
@@ -1132,10 +1157,26 @@ def is_hard_excluded(relative_path: str) -> bool:
 
 def is_public_export_excluded(relative_path: str) -> bool:
     normalized = normalize_repo_relative(relative_path)
+    top_level_name = normalized.split("/", 1)[0]
+    if top_level_name not in PUBLIC_EXPORT_INCLUDED_ROOT_PATHS:
+        return True
     return any(
         normalized == excluded or normalized.startswith(f"{excluded}/")
         for excluded in PUBLIC_EXPORT_EXCLUDED_RELATIVE_PATHS
     )
+
+
+@functools.lru_cache(maxsize=1)
+def get_public_export_referenced_screenshots() -> frozenset[str]:
+    referenced: set[str] = set()
+    for readme_name in ("README.md", "README_EN.md"):
+        readme_path = PROJECT_ROOT / readme_name
+        if not readme_path.is_file():
+            continue
+        content = readme_path.read_text(encoding="utf-8")
+        for match in SCREENSHOT_REFERENCE_RE.findall(content):
+            referenced.add(normalize_repo_relative(match))
+    return frozenset(referenced)
 
 
 def get_export_candidates() -> list[ExportCandidate]:
@@ -1155,6 +1196,8 @@ def get_export_candidates() -> list[ExportCandidate]:
 
     for relative_path in relative_files:
         if is_hard_excluded(relative_path) or is_public_export_excluded(relative_path):
+            continue
+        if relative_path.startswith("screenshots/") and relative_path not in get_public_export_referenced_screenshots():
             continue
 
         full_path = PROJECT_ROOT / Path(relative_path)
