@@ -1,0 +1,256 @@
+{
+	"ID": "20230808120347-3cob0nb",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120347-3cob0nb",
+		"title": "同步与恢复备份",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f504"
+	},
+	"Children": [
+		{
+			"ID": "2026040219300181-g0181",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300182-g0182",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "这套机制本质上是快照型增量同步/备份，而不是简单的文件夹镜像。"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300191-g0191",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300192-g0192",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300193-g0193",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300194-g0194",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300183-g0183",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300184-g0184",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "同步前会先生成数据快照，再按增量上传或下载。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300195-g0195",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300196-g0196",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300185-g0185",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300186-g0186",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "默认自动触发：启动、退出、内容变更后延迟、定时。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300197-g0197",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300198-g0198",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300187-g0187",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300188-g0188",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "仍可手动触发一次同步。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300199-g0199",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300200-g0200",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300189-g0189",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300190-g0190",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "多设备请交替同步，不要同时并发同步同一工作空间。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300201-g0201",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300202-g0202",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "不要这样使用"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300207-g0207",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300208-g0208",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300209-g0209",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300210-g0210",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300203-g0203",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300204-g0204",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不要让 OneDrive、Dropbox、坚果云、iCloud 等第三方同步软件直接同步工作空间。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300211-g0211",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300212-g0212",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300205-g0205",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300206-g0206",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不要把 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "Local File System"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " 备份目录放到工作空间内部。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300213-g0213",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219300214-g0214",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "如果要配合第三方同步盘，请只同步独立的备份目录，不要同步工作空间本体。"
+				}
+			]
+		}
+	]
+}

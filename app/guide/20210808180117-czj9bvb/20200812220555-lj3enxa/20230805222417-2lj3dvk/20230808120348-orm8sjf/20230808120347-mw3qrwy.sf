@@ -1,0 +1,358 @@
+{
+	"ID": "20230808120347-mw3qrwy",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120347-mw3qrwy",
+		"title": "使用 Cloudflare R2 作为图床",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "1f5bc-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-qrwy0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-qrwy0002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "当前绿色版不再提供官方云图床。如需稳定的公网图片地址，推荐自建 Cloudflare R2。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-qrwy0004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "准备工作"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0017",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-qrwy0018",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-qrwy0005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "在 Cloudflare 中创建一个 R2 Bucket。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "准备好 Bucket 名称、Account ID、Access Key 和 Secret Key。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0014",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0016",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如需外网访问，请为 R2 绑定自定义域名或配置公开访问地址。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-qrwy0020",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "配置思路"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0033",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-qrwy0034",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-qrwy0021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "让你的图床工具或上传脚本把图片写入 R2。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "在笔记中引用图片的公网 URL，而不是工作空间内部路径。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如果图片同时要参与导出或离线迁移，建议原图仍保留在当前笔记的资源目录中。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0035",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-qrwy0036",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "注意区分"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-qrwy0049",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-qrwy0050",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-qrwy0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0038",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0039",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0040",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "图床用于公开访问图片地址。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0042",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0044",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "S3、WebDAV、Local File System 用于笔记备份与恢复。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-qrwy0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-qrwy0046",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-qrwy0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-qrwy0048",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不要把图床路径直接当成工作空间或备份目录。"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

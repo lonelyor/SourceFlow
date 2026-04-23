@@ -1,0 +1,220 @@
+{
+	"ID": "20210808180303-v9awwp0",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f501",
+		"id": "20210808180303-v9awwp0",
+		"title": "Self-hosted sync and restore",
+		"type": "doc",
+		"updated": "20260402193000"
+	},
+	"Children": [
+		{
+			"ID": "2026040219500115-g0115",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500116-g0116",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The Remote section in this portable build is only used for self-hosted sync and restore backup."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500127-g0127",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500128-g0128",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500129-g0129",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500130-g0130",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500117-g0117",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500118-g0118",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Automatic triggers are enabled by default: startup, exit, delayed after content changes, and scheduled runs."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500131-g0131",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500132-g0132",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500119-g0119",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500120-g0120",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "The manual sync button is still available."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500133-g0133",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500134-g0134",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500121-g0121",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500122-g0122",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "The default remote backup directory name is "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "main"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ". One workspace should keep using one remote backup directory."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500135-g0135",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500136-g0136",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500123-g0123",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500124-g0124",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "The backup profile is stored in "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and mirrored to remote "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "_meta/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500137-g0137",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500138-g0138",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500125-g0125",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500126-g0126",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "No registration, login, or payment is required."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500139-g0139",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500140-g0140",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If you are only moving to a new computer, restoring the whole portable directory is still the safest option."
+				}
+			]
+		}
+	]
+}

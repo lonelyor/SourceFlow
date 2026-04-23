@@ -1,0 +1,59 @@
+// Lute - 一款结构化的 Markdown 引擎，支持 Go 和 JavaScript
+// Copyright (c) 2019-present, b3log.org
+//
+// Lute is licensed under Mulan PSL v2.
+// You can use this software according to the terms and conditions of the Mulan PSL v2.
+// You may obtain a copy of Mulan PSL v2 at:
+//         http://license.coscl.org.cn/MulanPSL2
+// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+// See the Mulan PSL v2 for more details.
+
+package test
+
+import (
+	"testing"
+
+	"github.com/lonelyor/sourceflow/third_party/go/lute"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
+)
+
+var blockDOM2HTMLTest = []parseTest{
+
+	{"3", "<div data-node-id=\"20260221110521-rxuzsf4\" data-node-index=\"0\" data-type=\"NodeTable\" class=\"table\" updated=\"20260221124435\" caption=\"&amp;lt;caption contenteditable=&amp;quot;false&amp;quot; style=&amp;quot;caption-side: bottom;&amp;quot;&amp;gt;foo&amp;lt;/caption&amp;gt;\" colgroup=\"width: 60px;|width: 60px;\"><div contenteditable=\"false\"><table contenteditable=\"true\" spellcheck=\"false\"><caption contenteditable=\"false\" style=\"caption-side: bottom;\">foo</caption><colgroup><col style=\"width: 60px;\"><col style=\"width: 60px;\"></colgroup><thead><tr><th>bar</th><th>baz</th></tr></thead><tbody></tbody></table><div class=\"protyle-action__table\"><div class=\"table__resize\"></div><div class=\"table__select\"></div></div></div><div class=\"protyle-attr\" contenteditable=\"false\">&ZeroWidthSpace;</div></div>", "<table>\n<caption style=\"caption-side: bottom;\">foo</caption>\n<colgroup><col style=\"width: 60px;\" /><col style=\"width: 60px;\" /></colgroup><thead><tr>\n<th>bar</th>\n<th>baz</th>\n</tr>\n</thead><tbody>\n</table>\n"},
+	{"2", "<div data-node-id=\"20250713111927-m1adqgm\" data-node-index=\"11\" data-type=\"NodeMathBlock\" class=\"render-node protyle-wysiwyg--select\" updated=\"20250713111932\" data-content=\"123\" data-subtype=\"math\" data-render=\"true\"><div spin=\"1\"><span contenteditable=\"false\"><span class=\"katex-display\"><span class=\"katex\"><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em;\"></span><span class=\"mord\">123</span></span><span class=\"fn__flex-1\"></span></span></span></span></span><span class=\"protyle-cursor\">​</span></div><div class=\"protyle-attr\" contenteditable=\"false\">​</div></div>", "<div class=\"language-math\" id=\"20250713111927-m1adqgm\" updated=\"20250713111932\">123</div>\n"},
+	{"1", "<div data-node-id=\"20230708221830-dbk6i2j\" data-type=\"NodeList\" class=\"list\" data-subtype=\"u\"><div data-marker=\"*\" data-subtype=\"u\" data-node-id=\"20230708221825-6cebbvv\" data-type=\"NodeListItem\" class=\"li protyle-wysiwyg--select\" updated=\"20230708221901\" custom-t=\"{&amp;quot;11&amp;quot;}\"><div class=\"protyle-action\" draggable=\"true\"><svg><use xlink:href=\"#iconDot\"></use></svg></div><div data-node-id=\"20230708221825-zfrqic3\" data-type=\"NodeParagraph\" class=\"p\" updated=\"20230708221825\"><div contenteditable=\"true\" spellcheck=\"false\">foo</div><div class=\"protyle-attr\" contenteditable=\"false\">​</div></div><div class=\"protyle-attr\" contenteditable=\"false\">​</div></div><div class=\"protyle-attr\" contenteditable=\"false\"></div></div>", "<ul id=\"20230708221830-dbk6i2j\" updated=\"20230708221830\">\n<li id=\"20230708221825-6cebbvv\" updated=\"20230708221901\" custom-t=\"&#123;&quot;11&quot;&#125;\">foo</li>\n</ul>\n"},
+	{"0", "foo <span data-type=\"code\">​bar</span>​ baz", "<p id=\"20060102150405-1a2b3c4\" updated=\"20060102150405\">foo <span data-type=\"code\">bar</span>\u200b baz</p>\n"},
+}
+
+func TestBlockDOM2HTML(t *testing.T) {
+	luteEngine := lute.New()
+	luteEngine.SetProtyleWYSIWYG(true)
+	luteEngine.SetToC(true)
+	luteEngine.ParseOptions.BlockRef = true
+	luteEngine.ParseOptions.KramdownBlockIAL = true
+	luteEngine.RenderOptions.KramdownBlockIAL = true
+	luteEngine.ParseOptions.Tag = true
+	luteEngine.ParseOptions.SuperBlock = true
+	luteEngine.ParseOptions.GitConflict = true
+	luteEngine.ParseOptions.LinkRef = false
+	luteEngine.SetAutoSpace(true)
+	luteEngine.SetParagraphBeginningSpace(true)
+	luteEngine.SetFileAnnotationRef(true)
+	luteEngine.SetImgPathAllowSpace(true)
+	luteEngine.SetSanitize(true)
+	luteEngine.SetTextMark(true)
+	luteEngine.SetTag(true)
+	luteEngine.SetTextMark(true)
+	luteEngine.SetHTMLTag2TextMark(true)
+	luteEngine.SetSub(true)
+	luteEngine.SetSup(true)
+	luteEngine.SetMark(true)
+
+	ast.Testing = true
+	for _, test := range blockDOM2HTMLTest {
+		md := luteEngine.BlockDOM2HTML(test.from)
+		if test.to != md {
+			t.Fatalf("test case [%s] failed\nexpected\n\t%q\ngot\n\t%q\noriginal html\n\t%q", test.name, test.to, md, test.from)
+		}
+	}
+}

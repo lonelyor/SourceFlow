@@ -1,0 +1,468 @@
+{
+	"ID": "20230805230131-sn7obzb",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230805230131-sn7obzb",
+		"title": "使用 Cloudflare R2 进行 S3 备份",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "2601-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "2026040219300067-g0067",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300068-g0068",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "准备工作"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300075-g0075",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300076-g0076",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300077-g0077",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300078-g0078",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300069-g0069",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300070-g0070",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "在 Cloudflare R2 中创建一个 Bucket。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300079-g0079",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300080-g0080",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300071-g0071",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300072-g0072",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "创建可读写该 Bucket 的 Access Key 和 Secret Key。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300081-g0081",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300082-g0082",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300073-g0073",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300074-g0074",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "记录 S3 Endpoint，格式通常为 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "https://<AccountID>.r2.cloudflarestorage.com"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300083-g0083",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300084-g0084",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "在源流中配置"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300093-g0093",
+			"Type": "NodeList",
+			"ListData": {
+				"Typ": 1
+			},
+			"Properties": {
+				"id": "2026040219300094-g0094",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300095-g0095",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "MS4=",
+						"Num": 1
+					},
+					"Properties": {
+						"id": "2026040219300096-g0096",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300085-g0085",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300086-g0086",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "设置"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "远端"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " 中选择 provider 为 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "S3"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300097-g0097",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "Mi4=",
+						"Num": 2
+					},
+					"Properties": {
+						"id": "2026040219300098-g0098",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300087-g0087",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300088-g0088",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "填写 Endpoint、Access Key、Secret Key、Bucket。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300099-g0099",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "My4=",
+						"Num": 3
+					},
+					"Properties": {
+						"id": "2026040219300100-g0100",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300089-g0089",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300090-g0090",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Region 建议填写 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "auto"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "；Path-style 建议选 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "Path-style"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "；TLS 校验保持 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "Verify"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300101-g0101",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "NC4=",
+						"Num": 4
+					},
+					"Properties": {
+						"id": "2026040219300102-g0102",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300091-g0091",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300092-g0092",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "启用 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "同步与恢复备份"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "，首次使用远端备份目录可直接用默认值 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "main"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219300103-g0103",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219300104-g0104",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "恢复与迁移"
+				}
+			]
+		},
+		{
+			"ID": "2026040219300111-g0111",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219300112-g0112",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219300113-g0113",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300114-g0114",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300105-g0105",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300106-g0106",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "请妥善保存 "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300115-g0115",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300116-g0116",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300107-g0107",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300108-g0108",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "恢复时先导入恢复描述文件，再执行下载远端备份快照。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219300117-g0117",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219300118-g0118",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219300109-g0109",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219300110-g0110",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如果需要精确替换现有数据，请在空工作空间中执行恢复。"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

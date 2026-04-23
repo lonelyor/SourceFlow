@@ -1,0 +1,909 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package api
+
+import (
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lonelyor/sourceflow/kernel/model"
+	"github.com/lonelyor/sourceflow/kernel/treenode"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/filelock"
+	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
+	"github.com/mssola/useragent"
+)
+
+func exportCodeBlock(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	filePath, err := model.ExportCodeBlock(id)
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"path": filePath,
+	}
+}
+
+func exportAttributeView(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var avID, blockID string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &avID),
+		util.BindJsonArg("blockID", true, &blockID),
+	) {
+		return
+	}
+	zipPath, err := model.ExportAv2CSV(avID, blockID)
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"zip": zipPath,
+	}
+}
+
+func exportEPUB(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "epub", ".epub")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportRTF(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "rtf", ".rtf")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportODT(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "odt", ".odt")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportMediaWiki(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "mediawiki", ".wiki")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportOrgMode(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "org", ".org")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportOPML(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "opml", ".opml")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportTextile(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "textile", ".textile")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportAsciiDoc(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "asciidoc", ".adoc")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportReStructuredText(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "rst", ".rst")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportDataInFolder(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var exportFolder string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("folder", true, &exportFolder)) {
+		return
+	}
+	name, err := model.ExportDataInFolder(exportFolder)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"name": name,
+	}
+}
+
+func exportData(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	zipPath, err := model.ExportData()
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"zip": zipPath,
+	}
+}
+
+func exportResources(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var name string
+	if nil != arg["name"] {
+		name = util.TruncateLenFileName(arg["name"].(string))
+	}
+	if name == "" {
+		name = time.Now().Format("export-2006-01-02_15-04-05") // 生成的 *.zip 文件主文件名
+	}
+
+	if nil == arg["paths"] {
+		ret.Code = 1
+		ret.Data = ""
+		ret.Msg = "[paths] is required"
+		return
+	}
+
+	var resourcePaths []string // 文件/文件夹在工作空间中的路径
+	for _, resourcePath := range arg["paths"].([]interface{}) {
+		resourcePaths = append(resourcePaths, resourcePath.(string))
+	}
+
+	zipFilePath, err := model.ExportResources(resourcePaths, name)
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"path": zipFilePath, // 相对于工作空间目录的路径
+	}
+}
+
+func exportNotebookMd(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var notebook string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("notebook", true, &notebook)) {
+		return
+	}
+	zipPath := model.ExportNotebookMarkdown(notebook)
+	ret.Data = map[string]interface{}{
+		"name": path.Base(zipPath),
+		"zip":  zipPath,
+	}
+}
+
+func exportMds(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	idsArg := arg["ids"].([]interface{})
+	var ids []string
+	for _, id := range idsArg {
+		ids = append(ids, id.(string))
+	}
+
+	name, zipPath := model.ExportPandocConvertZip(ids, "", ".md")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportMd(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	name, zipPath := model.ExportPandocConvertZip([]string{id}, "", ".md")
+	ret.Data = map[string]interface{}{
+		"name": name,
+		"zip":  zipPath,
+	}
+}
+
+func exportNotebookSY(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	zipPath := model.ExportNotebookSY(id)
+	ret.Data = map[string]interface{}{
+		"zip": zipPath,
+	}
+}
+
+func exportSYs(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	idsArg := arg["ids"].([]interface{})
+	var ids []string
+	for _, id := range idsArg {
+		ids = append(ids, id.(string))
+	}
+
+	zipPath := model.ExportSYs(ids)
+	ret.Data = map[string]interface{}{
+		"zip": zipPath,
+	}
+}
+
+func exportSY(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	zipPath := model.ExportSYs([]string{id})
+	ret.Data = map[string]interface{}{
+		"zip": zipPath,
+	}
+}
+
+func exportMdContent(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+	if util.InvalidIDPattern(id, ret) {
+		return
+	}
+
+	refMode := model.Conf.Export.BlockRefMode
+	if nil != arg["refMode"] {
+		refMode = int(arg["refMode"].(float64))
+	}
+
+	embedMode := model.Conf.Export.BlockEmbedMode
+	if nil != arg["embedMode"] {
+		embedMode = int(arg["embedMode"].(float64))
+	}
+
+	yfm := true
+	if nil != arg["yfm"] {
+		yfm = arg["yfm"].(bool)
+	}
+
+	var fillCSSVar, adjustHeadingLevel, imgTag bool
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("fillCSSVar", false, &fillCSSVar),
+		util.BindJsonArg("adjustHeadingLevel", false, &adjustHeadingLevel),
+		util.BindJsonArg("imgTag", false, &imgTag),
+	) {
+		return
+	}
+
+	addTitle := model.Conf.Export.AddTitle
+	if nil != arg["addTitle"] {
+		if arg["addTitle"].(bool) {
+			addTitle = true
+		} else {
+			addTitle = false
+		}
+	}
+
+	hPath, content := model.ExportMarkdownContent(id, refMode, embedMode, yfm, fillCSSVar, adjustHeadingLevel, imgTag, addTitle)
+	ret.Data = map[string]interface{}{
+		"hPath":   hPath,
+		"content": content,
+	}
+}
+
+func exportDocx(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id, savePath string
+	var removeAssets, merge bool
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &id),
+		util.BindJsonArg("savePath", true, &savePath),
+		util.BindJsonArg("removeAssets", true, &removeAssets),
+		util.BindJsonArg("merge", false, &merge),
+	) {
+		return
+	}
+
+	fullPath, err := model.ExportDocx(id, savePath, removeAssets, merge)
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"path": fullPath,
+	}
+}
+
+func exportMdHTML(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id, savePath string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &id),
+		util.BindJsonArg("savePath", true, &savePath),
+	) {
+		return
+	}
+
+	savePath = strings.TrimSpace(savePath)
+	if savePath == "" {
+		folderName := "htmlmd-" + id + "-" + util.CurrentTimeSecondsStr()
+		tmpDir := filepath.Join(util.TempDir, "export", folderName)
+		name, content := model.ExportMarkdownHTML(id, tmpDir, false, false)
+		ret.Data = map[string]interface{}{
+			"id":      id,
+			"name":    name,
+			"content": content,
+			"folder":  folderName,
+		}
+		return
+	}
+
+	name, content := model.ExportMarkdownHTML(id, savePath, false, false)
+	ret.Data = map[string]interface{}{
+		"id":      id,
+		"name":    name,
+		"content": content,
+	}
+}
+
+func exportTempContent(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var content string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("content", true, &content)) {
+		return
+	}
+	tmpExport := filepath.Join(util.TempDir, "export", "temp")
+	if err := os.MkdirAll(tmpExport, 0755); err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	p := filepath.Join(tmpExport, gulu.Rand.String(7))
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		ret.Code = 1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
+	urlPath := path.Join("/export/temp/", filepath.Base(p))
+	ret.Data = map[string]interface{}{
+		"url": "http://" + util.LocalHost + ":" + util.ServerPort + urlPath,
+	}
+}
+
+func exportBrowserHTML(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var folder, htmlContent, name string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("folder", true, &folder),
+		util.BindJsonArg("html", true, &htmlContent),
+		util.BindJsonArg("name", true, &name),
+	) {
+		return
+	}
+
+	tmpDir := filepath.Join(util.TempDir, "export", folder)
+
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := filelock.WriteFile(htmlPath, []byte(htmlContent)); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = nil
+		return
+	}
+
+	zipFileName := util.FilterFileName(name) + ".zip"
+	zipPath := filepath.Join(util.TempDir, "export", zipFileName)
+	zip, err := gulu.Zip.Create(zipPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = nil
+		return
+	}
+
+	err = zip.AddDirectory("", tmpDir, func(string) {})
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = nil
+		return
+	}
+
+	if err = zip.Close(); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = nil
+		return
+	}
+
+	os.RemoveAll(tmpDir)
+
+	zipURL := "/export/" + url.PathEscape(filepath.Base(zipPath))
+	ret.Data = map[string]interface{}{
+		"zip": zipURL,
+	}
+}
+
+func exportPreviewHTML(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	var keepFold, merge, image bool
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &id),
+		util.BindJsonArg("keepFold", false, &keepFold),
+		util.BindJsonArg("merge", false, &merge),
+		util.BindJsonArg("image", false, &image),
+	) {
+		return
+	}
+	name, content, node := model.ExportHTML(id, "", true, keepFold, merge)
+	// 导出 PDF 预览时点击块引转换后的脚注跳转不正确 https://github.com/lonelyor/SourceFlow/issues/5894
+	content = strings.ReplaceAll(content, "http://"+util.LocalHost+":"+util.ServerPort+"/#", "#")
+
+	// Add `data-doc-type` and attribute when exporting image and PDF https://github.com/lonelyor/SourceFlow/issues/9497
+	attrs := map[string]string{}
+	var typ string
+	if nil != node {
+		attrs = parse.IAL2Map(node.KramdownIAL)
+		typ = node.Type.String()
+	}
+
+	ret.Data = map[string]interface{}{
+		"id":      id,
+		"name":    name,
+		"content": content,
+		"attrs":   attrs,
+		"type":    typ,
+	}
+}
+
+func exportHTML(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id, savePath string
+	var pdf, keepFold, merge bool
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &id),
+		util.BindJsonArg("pdf", true, &pdf),
+		util.BindJsonArg("savePath", true, &savePath),
+		util.BindJsonArg("keepFold", false, &keepFold),
+		util.BindJsonArg("merge", false, &merge),
+	) {
+		return
+	}
+
+	savePath = strings.TrimSpace(savePath)
+	if savePath == "" {
+		folderName := "html-" + id + "-" + util.CurrentTimeSecondsStr()
+		tmpDir := filepath.Join(util.TempDir, "export", folderName)
+		name, content, _ := model.ExportHTML(id, tmpDir, pdf, keepFold, merge)
+		ret.Data = map[string]interface{}{
+			"id":      id,
+			"name":    name,
+			"content": content,
+			"folder":  folderName,
+		}
+		return
+	}
+
+	name, content, _ := model.ExportHTML(id, savePath, pdf, keepFold, merge)
+	ret.Data = map[string]interface{}{
+		"id":      id,
+		"name":    name,
+		"content": content,
+	}
+}
+
+func processPDF(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id, pdfPath string
+	var merge bool
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("id", true, &id),
+		util.BindJsonArg("path", true, &pdfPath),
+		util.BindJsonArg("merge", false, &merge),
+	) {
+		return
+	}
+	removeAssets := arg["removeAssets"].(bool)
+	watermark := arg["watermark"].(bool)
+	err := model.ProcessPDF(id, pdfPath, merge, removeAssets, watermark)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}
+
+func exportPreview(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	var id string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("id", true, &id)) {
+		return
+	}
+
+	userAgentStr := c.GetHeader("User-Agent")
+	fillCSSVar := true
+	if userAgentStr != "" {
+		ua := useragent.New(userAgentStr)
+		name, _ := ua.Browser()
+		// Chrome、Edge 以及桌面端应用不需要替换 CSS 变量
+		if util.IsPreviewStyleUserAgent(userAgentStr, name, ua.Mobile()) {
+			fillCSSVar = false
+		}
+	}
+
+	stdHTML := model.ExportPreview(id, fillCSSVar)
+	if model.IsReadOnlyRoleContext(c) {
+		bt := treenode.GetBlockTree(id)
+		if bt != nil {
+			publishAccess := model.GetPublishAccess()
+			stdHTML = model.FilterContentByPublishAccess(c, publishAccess, bt.BoxID, bt.Path, stdHTML, true)
+		}
+	}
+	ret.Data = map[string]interface{}{
+		"html":       stdHTML,
+		"fillCSSVar": fillCSSVar,
+	}
+}
+
+func exportAsFile(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		logging.LogErrorf("export as file failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	file := form.File["file"][0]
+	reader, err := file.Open()
+	if err != nil {
+		logging.LogErrorf("export as file failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		logging.LogErrorf("export as file failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	name := "file-" + file.Filename
+	typ := form.Value["type"][0]
+	exts, _ := mime.ExtensionsByType(typ)
+	if 0 < len(exts) && filepath.Ext(name) != exts[0] {
+		name += exts[0]
+	}
+	name = util.FilterFileName(name)
+	name = strings.ReplaceAll(name, "#", "_")
+	tmpDir := filepath.Join(util.TempDir, "export")
+	if err = os.MkdirAll(tmpDir, 0755); err != nil {
+		logging.LogErrorf("export as file failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	tmp := filepath.Join(tmpDir, name)
+	err = os.WriteFile(tmp, data, 0644)
+	if err != nil {
+		logging.LogErrorf("export as file failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	ret.Data = map[string]interface{}{
+		"file": path.Join("/export/", name),
+	}
+}

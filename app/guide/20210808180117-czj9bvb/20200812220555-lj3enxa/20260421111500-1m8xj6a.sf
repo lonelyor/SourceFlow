@@ -1,0 +1,70 @@
+{
+	"ID": "20260421111500-1m8xj6a",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f916",
+		"id": "20260421111500-1m8xj6a",
+		"title": "AI 助手",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194001-aizhc01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194001-aizhc01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "AI 助手是源流的内置智能工作台，用来统一管理模型配置、对话和内置 AI 功能。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194001-aizhc02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194001-aizhc02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "第一次使用建议先完成模型配置，并把常用模型设为默认配置。默认配置会同时供 AI 助手和内置 AI 功能使用。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194001-aizhc03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194001-aizhc03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "准备好之后，就可以直接提问，或者围绕当前笔记做总结、润色、继续写作、拆解任务和日常问答。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194001-aizhc04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194001-aizhc04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "在你主动采纳、复制或写回之前，AI 助手不会直接改写现有笔记；适合先生成方案，再按需落到文档里。"
+				}
+			]
+		}
+	]
+}

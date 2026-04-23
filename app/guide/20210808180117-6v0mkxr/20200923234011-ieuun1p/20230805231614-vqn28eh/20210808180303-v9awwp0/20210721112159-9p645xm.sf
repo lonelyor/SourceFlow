@@ -1,0 +1,309 @@
+{
+	"ID": "20210721112159-9p645xm",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20210721112159-9p645xm",
+		"title": "Backup profile and backup directory",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f5c2"
+	},
+	"Children": [
+		{
+			"ID": "2026040219500141-g0141",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500142-g0142",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Self-hosted restore depends on three things: the workspace, the remote backup directory, and the backup profile."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500151-g0151",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500152-g0152",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500153-g0153",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500154-g0154",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500143-g0143",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500144-g0144",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": current note data."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500155-g0155",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500156-g0156",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500145-g0145",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500146-g0146",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": config, window state, and backup profile."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500157-g0157",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500158-g0158",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500147-g0147",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500148-g0148",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": provider, remote backup directory, repo key, and other metadata needed for restore."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500159-g0159",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500160-g0160",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500149-g0149",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500150-g0150",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "_meta/backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": remote redundant copy only; it does not change the current restore flow."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500161-g0161",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500162-g0162",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Safest backup"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500167-g0167",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500168-g0168",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500169-g0169",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500170-g0170",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500163-g0163",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500164-g0164",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Exit SourceFlow and copy the whole portable directory."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500171-g0171",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500172-g0172",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500165-g0165",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500166-g0166",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "At minimum, keep the program files together with "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "workspace"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "userdata"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500173-g0173",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500174-g0174",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If the backup directory moves"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500175-g0175",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500176-g0176",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If the Local File System backup directory has moved, do not edit "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "code",
+					"TextMarkTextContent": "backup-profile.json"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " manually. Import it and then relink the current backup directory in the UI."
+				}
+			]
+		}
+	]
+}

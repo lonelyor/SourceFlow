@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--suppress XmlUnusedNamespaceDeclaration -->
+<Package
+        xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+        xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+        xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+        xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+    <!-- use single quotes to avoid double quotes escaping in the publisher value  -->
+    <Identity Name="89C2A984.SourceFlow"
+              ProcessorArchitecture="arm64"
+              Publisher="CN=087C656E-C1D9-42D8-8807-CED45A74FC0F"
+              Version="0.1.0.0"/>
+    <Properties>
+        <DisplayName>SourceFlow</DisplayName>
+        <PublisherDisplayName>SourceFlow</PublisherDisplayName>
+        <Description>Let knowledge flow and insight stay</Description>
+        <Logo>assets\StoreLogo.png</Logo>
+    </Properties>
+    <Resources>
+        <Resource Language="ar-SA"/>
+        <Resource Language="de-DE"/>
+        <Resource Language="en-US"/>
+        <Resource Language="es-ES"/>
+        <Resource Language="fr-FR"/>
+        <Resource Language="he-IL"/>
+        <Resource Language="it-IT"/>
+        <Resource Language="ja-JP"/>
+        <Resource Language="pl-PL"/>
+        <Resource Language="pt-BR"/>
+        <Resource Language="ru-RU"/>
+        <Resource Language="zh-TW"/>
+        <Resource Language="zh-CN"/>
+    </Resources>
+    <Dependencies>
+        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.14316.0"/>
+    </Dependencies>
+    <Capabilities>
+        <rescap:Capability Name="runFullTrust"/>
+    </Capabilities>
+    <Applications>
+        <Application Id="SourceFlow" Executable="app\SourceFlow.exe" EntryPoint="Windows.FullTrustApplication">
+            <uap:VisualElements
+                    BackgroundColor="transparent"
+                    DisplayName="SourceFlow"
+                    Square150x150Logo="assets\Square150x150Logo.png"
+                    Square44x44Logo="assets\Square44x44Logo.png"
+                    Description="Let knowledge flow and insight stay">
+                <uap:DefaultTile Wide310x150Logo="assets\Wide310x150Logo.png"/>
+            </uap:VisualElements>
+
+            <Extensions>
+                <uap:Extension Category="windows.protocol">
+                    <uap:Protocol Name="sf"/>
+                </uap:Extension>
+            </Extensions>
+        </Application>
+    </Applications>
+</Package>

@@ -1,0 +1,297 @@
+{
+	"ID": "20230802114825-2jkkct7",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230802114825-2jkkct7",
+		"title": "Use Local File System backup",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f4c1"
+	},
+	"Children": [
+		{
+			"ID": "2026040219600075-g0075",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600076-g0076",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Local File System is suitable for local disks, NAS, or a backup directory later mirrored by a third-party sync service."
+				}
+			]
+		},
+		{
+			"ID": "2026040219600077-g0077",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600078-g0078",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Setup"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600085-g0085",
+			"Type": "NodeList",
+			"ListData": {
+				"Typ": 1
+			},
+			"Properties": {
+				"id": "2026040219600086-g0086",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600087-g0087",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "MS4=",
+						"Num": 1
+					},
+					"Properties": {
+						"id": "2026040219600088-g0088",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600079-g0079",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600080-g0080",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Settings"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Remote"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": choose provider "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "Local File System"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600089-g0089",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "Mi4=",
+						"Num": 2
+					},
+					"Properties": {
+						"id": "2026040219600090-g0090",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600081-g0081",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600082-g0082",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Pick an independent backup directory."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600091-g0091",
+					"Type": "NodeListItem",
+					"ListData": {
+						"Typ": 1,
+						"Delimiter": 46,
+						"Marker": "My4=",
+						"Num": 3
+					},
+					"Properties": {
+						"id": "2026040219600092-g0092",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600083-g0083",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600084-g0084",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Enable "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Sync and Restore Backup"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219600093-g0093",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600094-g0094",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Recommendations"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600101-g0101",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600102-g0102",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600103-g0103",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600104-g0104",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600095-g0095",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600096-g0096",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Do not place the backup directory inside the workspace."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600105-g0105",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600106-g0106",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600097-g0097",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600098-g0098",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "It is okay to let OneDrive or Dropbox sync only this backup directory."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600107-g0107",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600108-g0108",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600099-g0099",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600100-g0100",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "If the backup directory moves, import "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " and relink the current directory."
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,374 @@
+{
+	"ID": "20230805231614-vqn28eh",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f4be",
+		"id": "20230805231614-vqn28eh",
+		"title": "Backup and Sync System",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194010-sync01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194010-sync01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "SourceFlow uses one backup and sync system for full-directory backup, self-hosted sync, and restore workflows. The practical rule is simple: back up first, sync second, restore only when needed."
+				}
+			]
+		},
+		{
+			"ID": "20260421194010-sync02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194010-sync02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Start by deciding whether you need single-device backup or multi-device sync. For a single machine or NAS, read the full-directory and Local File System backup chapters first. For multi-device collaboration, continue with self-hosted sync and providers such as Cloudflare R2, S3, or WebDAV."
+				}
+			]
+		},
+		{
+			"ID": "20260421194010-sync03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194010-sync03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Before a restore, migration, or large cleanup, make a fresh full-directory backup. That is the safest default workflow."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500001-g0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500002-g0002",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The current portable build does not require registration, login, or payment. Notes, import/export, marketplace, and self-hosted sync/restore backup are all available directly."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500003-g0003",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500004-g0004",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Recommended reading order:"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500023-g0023",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500024-g0024",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500025-g0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500026-g0026",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500005-g0005",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500006-g0006",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230805231816-h1z9mpc",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Self-hosted storage providers"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500027-g0027",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500028-g0028",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500007-g0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500008-g0008",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20210808180303-v9awwp0",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Self-hosted sync and restore"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500029-g0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500030-g0030",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500009-g0009",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500010-g0010",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20210721112206-mhr9wxi",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Sync and Restore Backup"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500031-g0031",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500032-g0032",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500011-g0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500012-g0012",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20220708103401-mgydrfg",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Whole-directory backup and restore"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500033-g0033",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500034-g0034",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500013-g0013",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500014-g0014",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230802114825-2jkkct7",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Use Local File System backup"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500035-g0035",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500036-g0036",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500015-g0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500016-g0016",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20230805232018-hgrq0ju",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Use Cloudflare R2 for S3 backup"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500037-g0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500038-g0038",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500017-g0017",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500018-g0018",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20210721160238-yvhbh0h",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Use Cloudflare R2 as image hosting"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500039-g0039",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500040-g0040",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500019-g0019",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500020-g0020",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20200924100808-j9sddk9",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Import and Export"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500041-g0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500042-g0042",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500021-g0021",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500022-g0022",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "block-ref",
+									"TextMarkBlockRefID": "20220105101227-n5zpr1a",
+									"TextMarkBlockRefSubtype": "d",
+									"TextMarkTextContent": "Usage notes"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,202 @@
+{
+	"ID": "20220105101227-n5zpr1a",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20220105101227-n5zpr1a",
+		"title": "Usage notes",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "26a0-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "2026040219600121-g0121",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600122-g0122",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600123-g0123",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600124-g0124",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600109-g0109",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600110-g0110",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Do not let third-party sync software sync the workspace directly."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600125-g0125",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600126-g0126",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600111-g0111",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600112-g0112",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "One workspace should stick to one remote backup directory. Do not switch back and forth."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600127-g0127",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600128-g0128",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600113-g0113",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600114-g0114",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Sync multiple devices alternately instead of concurrently."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600129-g0129",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600130-g0130",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600115-g0115",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600116-g0116",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Keep "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "backup-profile.json"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " together with a whole-directory backup."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600131-g0131",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600132-g0132",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600117-g0117",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600118-g0118",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "If the repo key is lost and no other device or backup profile remains, the remote backup may become unrecoverable."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600133-g0133",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600134-g0134",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600119-g0119",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600120-g0120",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Storage limits, billing, and availability are decided by the third-party provider, such as Cloudflare R2 or your WebDAV host."
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

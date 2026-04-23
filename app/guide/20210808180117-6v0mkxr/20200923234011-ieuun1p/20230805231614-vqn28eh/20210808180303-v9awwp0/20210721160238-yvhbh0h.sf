@@ -1,0 +1,262 @@
+{
+	"ID": "20210721160238-yvhbh0h",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20210721160238-yvhbh0h",
+		"title": "Use Cloudflare R2 as image hosting",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f5bc-fe0f"
+	},
+	"Children": [
+		{
+			"ID": "2026040219600039-g0039",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600040-g0040",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "This portable build no longer provides the official cloud asset hosting service. If you need stable public image URLs, self-host them with Cloudflare R2."
+				}
+			]
+		},
+		{
+			"ID": "2026040219600041-g0041",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600042-g0042",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "What to prepare"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600049-g0049",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600050-g0050",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600051-g0051",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600052-g0052",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600043-g0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600044-g0044",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Create a public R2 Bucket."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600053-g0053",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600054-g0054",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600045-g0045",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600046-g0046",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "For production, bind a custom domain instead of relying on temporary test access."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600055-g0055",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600056-g0056",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600047-g0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600048-g0048",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Prepare your own upload script, object-storage client, or publishing pipeline."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219600057-g0057",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219600058-g0058",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Recommended usage"
+				}
+			]
+		},
+		{
+			"ID": "2026040219600065-g0065",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600066-g0066",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600067-g0067",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600068-g0068",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600059-g0059",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600060-g0060",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Upload images that need public access to R2."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600069-g0069",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600070-g0070",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600061-g0061",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600062-g0062",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Reference the R2 URL in exported Markdown or HTML."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600071-g0071",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600072-g0072",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600063-g0063",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600064-g0064",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "If your goal is backup, do not use image hosting as a backup repository. Use S3 backup instead."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219600073-g0073",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600074-g0074",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "There is no built-in one-click upload button for R2 image hosting in this build. Treat R2 image hosting as part of your own publishing workflow."
+				}
+			]
+		}
+	]
+}

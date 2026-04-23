@@ -1,0 +1,73 @@
+﻿productName: "SourceFlow"
+appId: "io.github.lonelyor.sourceflow"
+asar: true
+compression: "normal"
+copyright: "(c) 2020-present By lonelyor"
+artifactName: "sourceflow-${version}-${os}-portable.${ext}"
+extraMetadata:
+  main: "electron/main.js"
+directories:
+  output: "build"
+files:
+  - "electron"
+afterPack: "./scripts/afterPack.js"
+extraFiles:
+  - from: "../LICENSE"
+    to: "LICENSE"
+  - from: "../browser-extension/sourceflow-web-clipper/dist/sourceflow-page-saver.zip"
+    to: "sourceflow-page-saver.zip"
+
+linux:
+  icon: "src/assets/icon.png"
+  category: "Utility"
+  executableName: "sourceflow"
+  desktop: {
+    entry: {
+      Name: "SourceFlow",
+      Comment: "Make knowledge flow",
+      Type: "Application",
+      Categories: "Utility;"
+    }
+  }
+  extraResources:
+    - from: "kernel-linux"
+      to: "kernel"
+  target:
+    - target: "tar.gz"
+
+extraResources:
+  - from: "changelogs"
+    to: "changelogs"
+  - from: "stage"
+    to: "stage"
+  - from: "guide"
+    to: "guide"
+    filter: "!**/{.DS_Store,.git,.gitignore,.idea}"
+  - from: "appearance/boot"
+    to: "appearance/boot"
+    filter: "!**/{.DS_Store}"
+  - from: "appearance/icons"
+    to: "appearance/icons"
+    filter: "!**/{.DS_Store}"
+  - from: "appearance/langs"
+    to: "appearance/langs"
+    filter: "!**/{.DS_Store}"
+  - from: "appearance/emojis"
+    to: "appearance/emojis"
+    filter: "!**/{.DS_Store}"
+  - from: "appearance/themes/midnight"
+    to: "appearance/themes/midnight"
+    filter: "!**/{.DS_Store,custom.css}"
+  - from: "appearance/themes/daylight"
+    to: "appearance/themes/daylight"
+    filter: "!**/{.DS_Store,custom.css}"
+  - from: "appearance/fonts"
+    to: "appearance/fonts"
+    filter: "!**/{.DS_Store}"
+  - from: "pandoc/pandoc-linux-amd64.zip"
+    to: "pandoc.zip"
+  - from: "pandoc/pandoc-resources"
+    to: "pandoc-resources"
+    filter: "!**/{.DS_Store}"
+
+

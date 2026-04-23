@@ -1,0 +1,122 @@
+{
+	"ID": "20210808180320-qgr0b3q",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f3a8",
+		"id": "20210808180320-qgr0b3q",
+		"title": "笔记外观",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194004-apcn01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194004-apcn01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "源流的笔记外观不只包含主题和图标，还支持看板娘、启动页图片、笔记背景图和自定义光标。个性化设置只影响显示效果，不会改动你的笔记内容。"
+				}
+			]
+		},
+		{
+			"ID": "20210808180320-20o026n",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20210808180320-20o026n",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20200922101913-d5yitmq",
+					"TextMarkBlockRefSubtype": "d",
+					"TextMarkTextContent": "图标"
+				}
+			]
+		},
+		{
+			"ID": "20240508000030-hqwj7ey",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20240508000030-hqwj7ey",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20200922102318-oz84yu3",
+					"TextMarkBlockRefSubtype": "d",
+					"TextMarkTextContent": "主题"
+				}
+			]
+		},
+		{
+			"ID": "20260421194004-apcn02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194004-apcn02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "在 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "设置"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "外观"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 中，可以分别配置看板娘和启动页图片。看板娘支持本地导入、位置与特效，并可在运行时隐藏和唤醒；启动页图片支持本地文件或远程地址，并可调节透明度和模糊度。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194004-apcn03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194004-apcn03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "同一组外观设置里还可以配置笔记背景图和自定义光标。背景图和光标只参与显示层，不会写入文档内容，也不会污染导出结果。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194004-apcn04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194004-apcn04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "本地导入的看板娘、启动页图片、背景图和光标都会以内嵌方式保存，不依赖原始文件路径，适合把整套工作区直接带走。"
+				}
+			]
+		}
+	]
+}

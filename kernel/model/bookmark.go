@@ -1,0 +1,207 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package model
+
+import (
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/lonelyor/sourceflow/kernel/av"
+	"github.com/lonelyor/sourceflow/kernel/cache"
+	"github.com/lonelyor/sourceflow/kernel/sql"
+	"github.com/lonelyor/sourceflow/kernel/treenode"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
+)
+
+func RemoveBookmark(bookmark string) (err error) {
+	util.PushEndlessProgress(Conf.Language(116))
+
+	bookmarks := sql.QueryBookmarkBlocks()
+	treeBlocks := map[string][]string{}
+	for _, tag := range bookmarks {
+		if blocks, ok := treeBlocks[tag.RootID]; !ok {
+			treeBlocks[tag.RootID] = []string{tag.ID}
+		} else {
+			treeBlocks[tag.RootID] = append(blocks, tag.ID)
+		}
+	}
+
+	for treeID, blocks := range treeBlocks {
+		util.PushEndlessProgress("[" + treeID + "]")
+		tree, e := LoadTreeByBlockID(treeID)
+		if nil != e {
+			util.PushClearProgress()
+			return e
+		}
+
+		for _, blockID := range blocks {
+			node := treenode.GetNodeInTree(tree, blockID)
+			if nil == node {
+				continue
+			}
+
+			if bookmarkAttrVal := node.IALAttr("bookmark"); bookmarkAttrVal == bookmark {
+				node.RemoveIALAttr("bookmark")
+				cache.PutBlockIAL(node.ID, parse.IAL2Map(node.KramdownIAL))
+			}
+		}
+
+		util.PushEndlessProgress(fmt.Sprintf(Conf.Language(111), util.EscapeHTML(tree.Root.IALAttr("title"))))
+		if err = writeTreeUpsertQueue(tree); err != nil {
+			util.ClearPushProgress(100)
+			return
+		}
+		util.RandomSleep(50, 150)
+	}
+
+	util.ReloadUI()
+	return
+}
+
+func RenameBookmark(oldBookmark, newBookmark string) (err error) {
+	if invalidChar := treenode.ContainsMarker(newBookmark); "" != invalidChar {
+		return errors.New(fmt.Sprintf(Conf.Language(112), invalidChar))
+	}
+
+	newBookmark = strings.TrimSpace(newBookmark)
+	if "" == newBookmark {
+		return errors.New(Conf.Language(126))
+	}
+
+	if oldBookmark == newBookmark {
+		return
+	}
+
+	util.PushEndlessProgress(Conf.Language(110))
+
+	bookmarks := sql.QueryBookmarkBlocks()
+	treeBlocks := map[string][]string{}
+	for _, tag := range bookmarks {
+		if blocks, ok := treeBlocks[tag.RootID]; !ok {
+			treeBlocks[tag.RootID] = []string{tag.ID}
+		} else {
+			treeBlocks[tag.RootID] = append(blocks, tag.ID)
+		}
+	}
+
+	for treeID, blocks := range treeBlocks {
+		util.PushEndlessProgress("[" + treeID + "]")
+		tree, e := LoadTreeByBlockID(treeID)
+		if nil != e {
+			util.ClearPushProgress(100)
+			return e
+		}
+
+		for _, blockID := range blocks {
+			node := treenode.GetNodeInTree(tree, blockID)
+			if nil == node {
+				continue
+			}
+
+			if bookmarkAttrVal := node.IALAttr("bookmark"); bookmarkAttrVal == oldBookmark {
+				node.SetIALAttr("bookmark", newBookmark)
+				cache.PutBlockIAL(node.ID, parse.IAL2Map(node.KramdownIAL))
+			}
+		}
+
+		util.PushEndlessProgress(fmt.Sprintf(Conf.Language(111), util.EscapeHTML(tree.Root.IALAttr("title"))))
+		if err = writeTreeUpsertQueue(tree); err != nil {
+			util.ClearPushProgress(100)
+			return
+		}
+		util.RandomSleep(50, 150)
+	}
+
+	util.ReloadUI()
+	return
+}
+
+type BookmarkLabel string
+type BookmarkBlocks []*Block
+
+type Bookmark struct {
+	Name   BookmarkLabel `json:"name"`
+	Blocks []*Block      `json:"blocks"`
+	Type   string        `json:"type"` // "bookmark"
+	Depth  int           `json:"depth"`
+	Count  int           `json:"count"`
+}
+
+type Bookmarks []*Bookmark
+
+func (s Bookmarks) Len() int           { return len(s) }
+func (s Bookmarks) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s Bookmarks) Less(i, j int) bool { return s[i].Name < s[j].Name }
+
+func BookmarkLabels() (ret []string) {
+	ret = sql.QueryBookmarkLabels()
+	return
+}
+
+func BuildBookmark() (ret *Bookmarks) {
+	FlushTxQueue()
+	sql.FlushQueue()
+
+	ret = &Bookmarks{}
+	sqlBlocks := sql.QueryBookmarkBlocks()
+
+	labelBlocks := map[BookmarkLabel]BookmarkBlocks{}
+	blocks := fromSQLBlocks(&sqlBlocks, "", 0)
+	luteEngine := NewLute()
+	for _, block := range blocks {
+		if "" != block.Name {
+			// Blocks in the bookmark panel display their name instead of content https://github.com/lonelyor/SourceFlow/issues/8514
+			block.Content = block.Name
+		} else if "NodeAttributeView" == block.Type {
+			// Display database title in bookmark panel https://github.com/lonelyor/SourceFlow/issues/11666
+			avID := gulu.Str.SubStringBetween(block.Markdown, "av-id=\"", "\"")
+			block.Content, _ = av.GetAttributeViewName(avID)
+		} else {
+			// Improve bookmark panel rendering https://github.com/lonelyor/SourceFlow/issues/9361
+			tree, err := LoadTreeByBlockID(block.ID)
+			if err != nil {
+				logging.LogErrorf("parse block [%s] failed: %s", block.ID, err)
+			} else {
+				n := treenode.GetNodeInTree(tree, block.ID)
+				block.Content = renderOutline(n, luteEngine)
+			}
+		}
+
+		label := BookmarkLabel(block.IAL["bookmark"])
+		if bs, ok := labelBlocks[label]; ok {
+			bs = append(bs, block)
+			labelBlocks[label] = bs
+		} else {
+			labelBlocks[label] = []*Block{block}
+		}
+	}
+
+	for label, bs := range labelBlocks {
+		for _, b := range bs {
+			b.Depth = 1
+		}
+		*ret = append(*ret, &Bookmark{Name: label, Blocks: bs, Type: "bookmark", Count: len(bs)})
+	}
+
+	sort.Sort(ret)
+	return
+}

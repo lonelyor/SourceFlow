@@ -1,0 +1,27 @@
+﻿productName: "SourceFlow"
+appId: "io.github.lonelyor.sourceflow"
+asar: true
+compression: "normal"
+copyright: "(c) 2020-present By lonelyor"
+artifactName: "sourceflow-${version}-${os}-portable.${ext}"
+extraMetadata:
+  main: "electron/main.js"
+directories:
+  output: "build"
+files:
+  - "electron"
+afterPack: "./scripts/afterPack.js"
+extraFiles:
+  - from: "../LICENSE"
+    to: "LICENSE"
+  - from: "../browser-extension/sourceflow-web-clipper/dist/sourceflow-page-saver.zip"
+    to: "sourceflow-page-saver.zip"
+win:
+  icon: "src/assets/icon.ico"
+  requestedExecutionLevel: "asInvoker"
+  signtoolOptions:
+    signingHashAlgorithms: [ 'sha256' ]
+    rfc3161TimeStampServer: "http://timestamp.acs.microsoft.com/"
+  target:
+    - target: "dir"
+

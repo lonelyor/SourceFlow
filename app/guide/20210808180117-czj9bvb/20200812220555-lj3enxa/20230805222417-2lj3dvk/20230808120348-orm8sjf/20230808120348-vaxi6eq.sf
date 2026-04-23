@@ -1,0 +1,358 @@
+{
+	"ID": "20230808120348-vaxi6eq",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120348-vaxi6eq",
+		"title": "恢复描述文件与远端恢复",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "1f4cb"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-i6eq0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-i6eq0002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "backup-profile.json 会保存恢复所需的元数据，例如 provider、repo key、cloudName 和对应配置。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-i6eq0004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "文件位置"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0013",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-i6eq0014",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-i6eq0005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "本地：userdata/backup-profile.json。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "远端冗余：备份仓库的 _meta/backup-profile.json。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0015",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-i6eq0016",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "如何恢复"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0033",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-i6eq0034",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-i6eq0017",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0018",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0019",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0020",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "在新环境中打开源流。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "导入 backup-profile.json。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如果使用 Local File System 且备份目录已经搬家，重新选择当前备份目录。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "选择合并恢复，或者在空工作空间中做精确恢复。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0035",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-i6eq0036",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "重要提醒"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-i6eq0049",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-i6eq0050",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-i6eq0037",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0038",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0039",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0040",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "恢复描述文件不等于工作空间本体，但没有它恢复会更麻烦。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0042",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0044",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "它可能包含同步凭据，请妥善保管。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-i6eq0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-i6eq0046",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-i6eq0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-i6eq0048",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如果只剩远端备份，可以先从远端把它下载回来，再执行恢复。"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

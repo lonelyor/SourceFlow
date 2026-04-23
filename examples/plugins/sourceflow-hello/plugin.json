@@ -1,0 +1,34 @@
+{
+  "manifestVersion": 1,
+  "name": "sourceflow-hello",
+  "displayName": {
+    "default": "SourceFlow Hello",
+    "zh_CN": "源流示例插件",
+    "en_US": "SourceFlow Hello"
+  },
+  "description": {
+    "default": "A production-style example plugin for the SourceFlow plugin system.",
+    "zh_CN": "用于验证 SourceFlow 插件系统的生产风格示例插件。",
+    "en_US": "A production-style example plugin for the SourceFlow plugin system."
+  },
+  "version": "1.0.0",
+  "minAppVersion": "0.1.0",
+  "author": "By lonelyor",
+  "url": "https://github.com/lonelyor/SourceFlow",
+  "frontends": [
+    "desktop"
+  ],
+  "backends": [
+    "all"
+  ],
+  "entry": "index.js",
+  "style": "index.css",
+  "permissions": [
+    "storage",
+    "ui.topbar",
+    "ui.statusbar",
+    "ui.command",
+    "ui.setting"
+  ],
+  "allowedRequireModules": []
+}

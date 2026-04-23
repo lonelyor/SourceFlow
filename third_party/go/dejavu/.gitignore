@@ -1,0 +1,24 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.log
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IDE
+.idea/
+
+# Test
+!testdata/data/foo
+!testdata/data/bar
+testdata/data/
+testdata/data-checkout/
+testdata/repo/
+covprofile

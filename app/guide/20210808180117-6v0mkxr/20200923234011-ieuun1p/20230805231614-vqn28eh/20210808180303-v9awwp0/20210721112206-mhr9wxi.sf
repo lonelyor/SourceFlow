@@ -1,0 +1,247 @@
+{
+	"ID": "20210721112206-mhr9wxi",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20210721112206-mhr9wxi",
+		"title": "Sync and Restore Backup",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f504"
+	},
+	"Children": [
+		{
+			"ID": "2026040219500177-g0177",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500178-g0178",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "This mechanism is a snapshot-based incremental sync/backup flow, not a plain folder mirror."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500187-g0187",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500188-g0188",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500189-g0189",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500190-g0190",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500179-g0179",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500180-g0180",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "A snapshot is generated before upload or download starts."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500191-g0191",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500192-g0192",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500181-g0181",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500182-g0182",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Automatic triggers are enabled by default: startup, exit, delayed after content changes, and scheduled runs."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500193-g0193",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500194-g0194",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500183-g0183",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500184-g0184",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Manual sync is still available at any time."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500195-g0195",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500196-g0196",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500185-g0185",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500186-g0186",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Use alternate sync between devices. Do not sync the same workspace concurrently from multiple devices."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500197-g0197",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "2026040219500198-g0198",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Do not do this"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500203-g0203",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500204-g0204",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500205-g0205",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500206-g0206",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500199-g0199",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500200-g0200",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Do not let OneDrive, Dropbox, iCloud, or similar tools sync the workspace directly."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500207-g0207",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500208-g0208",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500201-g0201",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500202-g0202",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Do not place the Local File System backup directory inside the workspace."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500209-g0209",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500210-g0210",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If you want to combine SourceFlow with a third-party sync tool, only sync the independent backup directory generated by Local File System. Never sync the workspace itself."
+				}
+			]
+		}
+	]
+}

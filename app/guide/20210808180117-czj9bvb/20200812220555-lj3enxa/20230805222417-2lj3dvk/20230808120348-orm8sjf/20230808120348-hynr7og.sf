@@ -1,0 +1,386 @@
+{
+	"ID": "20230808120348-hynr7og",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230808120348-hynr7og",
+		"title": "使用本地文件系统备份",
+		"type": "doc",
+		"updated": "20260402195000",
+		"icon": "1f4c1"
+	},
+	"Children": [
+		{
+			"ID": "20260402195000-r7og0001",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260402195000-r7og0002",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Local File System 适合把备份仓库写到本地磁盘、移动硬盘、NAS，或者再交给第三方同步盘搬运。"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0003",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r7og0004",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "适合的场景"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0017",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-r7og0018",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-r7og0005",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0006",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0007",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0008",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "单机定时备份。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0009",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0010",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0011",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0012",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "先备份到本地目录，再由 OneDrive、群晖或坚果云同步这个备份目录。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0013",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0014",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0015",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0016",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不希望第三方同步盘直接碰工作空间。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0019",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r7og0020",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "使用方式"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0037",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-r7og0038",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-r7og0021",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0022",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0023",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0024",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "在同步与恢复备份中选择 Local File System。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0025",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0026",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0027",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0028",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "选择一个独立的备份目录，不要和 workspace 混在一起。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0029",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0030",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0031",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0032",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "打开同步开关后，会在启动、退出、内容变更后和定时任务中自动备份。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0033",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0034",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0035",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0036",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "仍然可以手动点击同步按钮，立即执行一次备份。"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0039",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260402195000-r7og0040",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "不要这样做"
+				}
+			]
+		},
+		{
+			"ID": "20260402195000-r7og0053",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "20260402195000-r7og0054",
+				"updated": "20260402195000"
+			},
+			"Children": [
+				{
+					"ID": "20260402195000-r7og0041",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0042",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0043",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0044",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不要让第三方同步盘直接实时同步 workspace。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0045",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0046",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0048",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "不要把备份目录放到工作空间内部。"
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "20260402195000-r7og0049",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "20260402195000-r7og0050",
+						"updated": "20260402195000"
+					},
+					"Children": [
+						{
+							"ID": "20260402195000-r7og0051",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "20260402195000-r7og0052",
+								"updated": "20260402195000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "如果备份目录搬家，恢复时重新选择当前目录即可，不需要手改恢复描述文件。"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

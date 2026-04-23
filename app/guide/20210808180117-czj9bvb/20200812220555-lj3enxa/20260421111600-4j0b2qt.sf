@@ -1,0 +1,79 @@
+{
+	"ID": "20260421111600-4j0b2qt",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f5a5",
+		"id": "20260421111600-4j0b2qt",
+		"title": "终端集成",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194002-termc01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194002-termc01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "终端集成把 PTY 会话直接放进笔记工作台，可以一边记笔记一边跑命令。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194002-termc02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194002-termc02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "首次使用前，建议先准备至少一个终端配置，并把常用 shell 设为默认终端配置；没有可用配置时，无法创建会话或运行代码块。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194002-termc03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194002-termc03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "打开终端后点击 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "新终端"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 创建第一个 PTY 会话。你可以在多个会话之间切换、查看实时输出、搜索当前终端输出，必要时再切到浮窗查看。"
+				}
+			]
+		},
+		{
+			"ID": "20260421194002-termc04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194002-termc04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "代码块运行会复用默认终端配置，适合边执行脚本边整理输出结果，把命令过程和笔记记录放在同一条工作流中。"
+				}
+			]
+		}
+	]
+}

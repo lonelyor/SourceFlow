@@ -1,0 +1,52 @@
+export const setLute = (options: ILuteOptions) => {
+    const lute: Lute = Lute.New();
+    lute.SetSpellcheck(window.sourceflow.config.editor.spellcheck);
+    lute.SetProtyleMarkNetImg(window.sourceflow.config.editor.displayNetImgMark);
+    lute.SetFileAnnotationRef(true);
+    lute.SetHTMLTag2TextMark(true);
+    lute.SetTextMark(true);
+    lute.SetHeadingID(false);
+    lute.SetYamlFrontMatter(false);
+    lute.PutEmojis(options.emojis);
+    lute.SetEmojiSite(options.emojiSite);
+    lute.SetHeadingAnchor(options.headingAnchor);
+    lute.SetInlineMathAllowDigitAfterOpenMarker(true);
+    lute.SetToC(false);
+    lute.SetIndentCodeBlock(false);
+    lute.SetParagraphBeginningSpace(true);
+    lute.SetSetext(false);
+    lute.SetFootnotes(false);
+    lute.SetLinkRef(false);
+    lute.SetSanitize(options.sanitize);
+    lute.SetChineseParagraphBeginningSpace(options.paragraphBeginningSpace);
+    lute.SetRenderListStyle(options.listStyle);
+    lute.SetImgPathAllowSpace(true);
+    lute.SetKramdownIAL(true);
+    lute.SetTag(true);
+    lute.SetSuperBlock(true);
+    lute.SetCallout(true);
+    lute.SetInlineAsterisk(window.sourceflow.config.editor.markdown.inlineAsterisk);
+    lute.SetInlineUnderscore(window.sourceflow.config.editor.markdown.inlineUnderscore);
+    lute.SetSup(window.sourceflow.config.editor.markdown.inlineSup);
+    lute.SetSub(window.sourceflow.config.editor.markdown.inlineSub);
+    lute.SetTag(window.sourceflow.config.editor.markdown.inlineTag);
+    lute.SetInlineMath(window.sourceflow.config.editor.markdown.inlineMath);
+    lute.SetGFMStrikethrough1(false);
+    lute.SetGFMStrikethrough(window.sourceflow.config.editor.markdown.inlineStrikethrough);
+    lute.SetMark(window.sourceflow.config.editor.markdown.inlineMark);
+    lute.SetSpin(true);
+    lute.SetProtyleWYSIWYG(true);
+    if (options.lazyLoadImage) {
+        lute.SetImageLazyLoading(options.lazyLoadImage);
+    }
+    lute.SetBlockRef(true);
+    if (window.sourceflow.emojis?.[0]?.items?.length > 0) {
+        const emojis: IObject = {};
+        window.sourceflow.emojis[0].items.forEach(item => {
+            emojis[item.keywords] = options.emojiSite + "/" + item.unicode;
+        });
+        lute.PutEmojis(emojis);
+    }
+    lute.SetUnorderedListMarker("-");;
+    return lute;
+};

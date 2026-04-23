@@ -1,0 +1,122 @@
+{
+	"ID": "20210808180303-axh6q1d",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f3a8",
+		"id": "20210808180303-axh6q1d",
+		"title": "Note Appearance",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194009-appen01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194009-appen01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "SourceFlow note appearance goes beyond themes and icons. You can personalize the workspace with a mascot, startup page image, note background, and custom cursor without changing the note content itself."
+				}
+			]
+		},
+		{
+			"ID": "20240508004341-z4ugefi",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20240508004341-z4ugefi",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20200924100110-vcg96wy",
+					"TextMarkBlockRefSubtype": "d",
+					"TextMarkTextContent": "Icon"
+				}
+			]
+		},
+		{
+			"ID": "20240508004341-6pgvimp",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20240508004341-6pgvimp",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20200924095938-a9p5450",
+					"TextMarkBlockRefSubtype": "d",
+					"TextMarkTextContent": "Theme"
+				}
+			]
+		},
+		{
+			"ID": "20260421194009-appen02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194009-appen02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "In "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Settings"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Appearance"
+				},
+				{
+					"Type": "NodeText",
+					"Data": ", you can configure the mascot and Startup Page Image. The mascot supports local image import, position, visual effects, plus hide and wake controls during runtime; the startup page image supports local files or remote URLs with opacity and blur controls."
+				}
+			]
+		},
+		{
+			"ID": "20260421194009-appen03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194009-appen03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The same appearance area also lets you configure the note background image and a custom cursor. Both stay in the presentation layer and do not rewrite the document content."
+				}
+			]
+		},
+		{
+			"ID": "20260421194009-appen04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194009-appen04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "When you import local images for the mascot, startup page, note background, or cursor, SourceFlow stores them as embedded assets so the setup does not depend on the original file path."
+				}
+			]
+		}
+	]
+}

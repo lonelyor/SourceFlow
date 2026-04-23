@@ -1,0 +1,48 @@
+// Lute - 一款结构化的 Markdown 引擎，支持 Go 和 JavaScript
+// Copyright (c) 2019-present, b3log.org
+//
+// Lute is licensed under Mulan PSL v2.
+// You can use this software according to the terms and conditions of the Mulan PSL v2.
+// You may obtain a copy of Mulan PSL v2 at:
+//         http://license.coscl.org.cn/MulanPSL2
+// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+// See the Mulan PSL v2 for more details.
+
+//go:build !javascript
+// +build !javascript
+
+package parse
+
+import (
+	"bytes"
+
+	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/editor"
+	"golang.org/x/text/cases"
+)
+
+func (t *Tree) FindLinkRefDefLink(label []byte) (link *ast.Node) {
+	if !t.Context.ParseOption.LinkRef {
+		return
+	}
+
+	if t.Context.ParseOption.VditorIR || t.Context.ParseOption.VditorSV || t.Context.ParseOption.VditorWYSIWYG || t.Context.ParseOption.ProtyleWYSIWYG {
+		label = bytes.ReplaceAll(label, editor.CaretTokens, nil)
+	}
+	ast.Walk(t.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
+		if !entering || ast.NodeLinkRefDef != n.Type {
+			return ast.WalkContinue
+		}
+		if bytes.EqualFold(n.Tokens, label) {
+			link = n.FirstChild
+			return ast.WalkStop
+		}
+
+		if c := cases.Fold(); bytes.EqualFold(c.Bytes(label), n.Tokens) || bytes.EqualFold(c.Bytes(n.Tokens), label) {
+			link = n.FirstChild
+			return ast.WalkStop
+		}
+		return ast.WalkContinue
+	})
+	return
+}

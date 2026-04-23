@@ -1,0 +1,192 @@
+{
+	"ID": "20230104152135-1iei0xa",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"id": "20230104152135-1iei0xa",
+		"title": "Local document sharing and export",
+		"type": "doc",
+		"updated": "20260402193000",
+		"icon": "1f4e4"
+	},
+	"Children": [
+		{
+			"ID": "2026040219600135-g0135",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600136-g0136",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "This portable build no longer supports posting to Liandi, the official cloud asset hosting flow, or account-based document sharing. Use local export instead."
+				}
+			]
+		},
+		{
+			"ID": "2026040219600145-g0145",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219600146-g0146",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219600147-g0147",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600148-g0148",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600137-g0137",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600138-g0138",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Markdown or "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": "md.zip"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": suitable for other Markdown tools."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600149-g0149",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600150-g0150",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600139-g0139",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600140-g0140",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "SourceFlow "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "code",
+									"TextMarkTextContent": ".sf.zip"
+								},
+								{
+									"Type": "NodeText",
+									"Data": ": suitable for high-fidelity migration of a single document or notebook."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600151-g0151",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600152-g0152",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600141-g0141",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600142-g0142",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Data: suitable for migrating a whole workspace."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219600153-g0153",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219600154-g0154",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219600143-g0143",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219600144-g0144",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "PDF, Word, and HTML preview: suitable for read-only sharing."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219600155-g0155",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219600156-g0156",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "For complete machine-to-machine migration, copying the whole portable directory is still preferred. For a single document, prefer "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "code",
+					"TextMarkTextContent": "md.zip"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " or PDF."
+				}
+			]
+		}
+	]
+}

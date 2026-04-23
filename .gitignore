@@ -1,0 +1,71 @@
+# Binaries for programs and plugins
+*.exe
+!app/elevator/elevator-*.exe
+*.dll
+*.so
+*.dylib
+*.aar
+*.jar
+*.syso
+.DS_Store
+.eslintcache
+app/node_modules
+node_modules
+app/stage/build
+app/build
+app/build-linux-portable
+app/build-linux-arm64-portable
+app/build-darwin-portable
+app/build-darwin-arm64-portable
+app/src/types/dist
+app/kernel*
+app/.portable-unsigned-*.yml
+ios
+pprof
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+electron/dist
+
+# IDE
+.idea/
+.vscode/
+
+# Log
+logs
+*.log*
+
+# NPM Package
+package-lock.json
+yarn.lock
+
+# Workflows
+**/__pycache__
+
+# Open source publishing safety
+.env
+.env.*
+*.local.env
+.release.local.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.tmp/
+app/.tmp-tscheck/
+.opensource-release/
+examples/**/dist/
+marketplace/sourceflow-bazaar/dist/
+browser-extension/sourceflow-web-clipper/dist/
+marketplace/sourceflow-bazaar/tmp-import-test/
+plans/
+
+# Public export exclusions
+.github/
+/scripts/
+build.log

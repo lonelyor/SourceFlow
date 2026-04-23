@@ -1,0 +1,79 @@
+{
+	"ID": "20260421161600-termsf2",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f5a5",
+		"id": "20260421161600-termsf2",
+		"title": "Terminal Integration",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194007-term01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194007-term01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Terminal Integration keeps PTY sessions inside the note workspace, so you can run commands and document the results side by side."
+				}
+			]
+		},
+		{
+			"ID": "20260421194007-term02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194007-term02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Before the first session, prepare at least one terminal profile and set your common shell as the default terminal profile. Without an available profile, SourceFlow cannot create sessions or run code blocks."
+				}
+			]
+		},
+		{
+			"ID": "20260421194007-term03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194007-term03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "After opening the terminal dock, click "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "New Terminal"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " to create the first PTY session. You can switch between sessions, inspect live output, search the current terminal output, and float the session when needed."
+				}
+			]
+		},
+		{
+			"ID": "20260421194007-term04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194007-term04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "Code block run reuses the default terminal profile, which makes it practical to execute scripts and capture the output in the same workflow as your notes."
+				}
+			]
+		}
+	]
+}

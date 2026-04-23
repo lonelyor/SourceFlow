@@ -1,0 +1,151 @@
+{
+	"ID": "20230805231816-h1z9mpc",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f5c4",
+		"id": "20230805231816-h1z9mpc",
+		"title": "Self-hosted storage providers",
+		"type": "doc",
+		"updated": "20260402193000"
+	},
+	"Children": [
+		{
+			"ID": "2026040219500043-g0043",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500044-g0044",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The current portable build keeps three self-hosted providers:"
+				}
+			]
+		},
+		{
+			"ID": "2026040219500051-g0051",
+			"Type": "NodeList",
+			"ListData": {},
+			"Properties": {
+				"id": "2026040219500052-g0052",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"ID": "2026040219500053-g0053",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500054-g0054",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500045-g0045",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500046-g0046",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "S3: compatible with the Amazon S3 API. The recommended default example is Cloudflare R2."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500055-g0055",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500056-g0056",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500047-g0047",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500048-g0048",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "WebDAV: easy to understand, but usually slower and less stable than S3."
+								}
+							]
+						}
+					]
+				},
+				{
+					"ID": "2026040219500057-g0057",
+					"Type": "NodeListItem",
+					"ListData": {
+						"BulletChar": 42,
+						"Marker": "Kg=="
+					},
+					"Properties": {
+						"id": "2026040219500058-g0058",
+						"updated": "20260402193000"
+					},
+					"Children": [
+						{
+							"ID": "2026040219500049-g0049",
+							"Type": "NodeParagraph",
+							"Properties": {
+								"id": "2026040219500050-g0050",
+								"updated": "20260402193000"
+							},
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "Local File System: suitable for local disks, NAS, or a backup directory later mirrored by third-party sync software."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "2026040219500059-g0059",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500060-g0060",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "This build no longer depends on the official account system, official cloud space, official cloud sync directories, or paid unlocking."
+				}
+			]
+		},
+		{
+			"ID": "2026040219500061-g0061",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "2026040219500062-g0062",
+				"updated": "20260402193000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If your priority is stable backup, the recommended order is: S3 (R2 recommended) > WebDAV > Local File System."
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,65 @@
+// SourceFlow - Make knowledge flow
+// Copyright (c) 2020-present, SourceFlow contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package sql
+
+import (
+	"database/sql"
+	"strings"
+
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
+)
+
+type Stat struct {
+	Key string `json:"key"`
+	Val string `json:"value"`
+}
+
+func getDatabaseVer() (ret string) {
+	key := "sourceflow_database_ver"
+	stmt := "SELECT value FROM stat WHERE `key` = ?"
+	row := db.QueryRow(stmt, key)
+	if err := row.Scan(&ret); err != nil {
+		if !strings.Contains(err.Error(), "no such table") {
+			logging.LogErrorf("query database version failed: %s", err)
+		}
+	}
+	return
+}
+
+func setDatabaseVer() {
+	key := "sourceflow_database_ver"
+	tx, err := beginTx()
+	if err != nil {
+		return
+	}
+	if err = putStat(tx, key, util.DatabaseVer); err != nil {
+		return
+	}
+	commitTx(tx)
+}
+
+func putStat(tx *sql.Tx, key, value string) (err error) {
+	stmt := "DELETE FROM stat WHERE `key` = '" + key + "'"
+	if err = execStmtTx(tx, stmt); err != nil {
+		return
+	}
+
+	stmt = "INSERT INTO stat VALUES ('" + key + "', '" + value + "')"
+	err = execStmtTx(tx, stmt)
+	return
+}

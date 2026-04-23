@@ -1,0 +1,97 @@
+{
+	"ID": "20260421161700-homesf3",
+	"Spec": "2",
+	"Type": "NodeDocument",
+	"Properties": {
+		"icon": "1f3e0",
+		"id": "20260421161700-homesf3",
+		"title": "Homepage Customization",
+		"type": "doc",
+		"updated": "20260421194000"
+	},
+	"Children": [
+		{
+			"ID": "20260421194008-home01",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194008-home01",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The homepage can use the default template, a custom HTML / Markdown template, or a regular note as the landing page."
+				}
+			]
+		},
+		{
+			"ID": "20260421194008-home02",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194008-home02",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "The fastest path is to right-click a note in the doc tree, or open the document title menu, and choose "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Set as Homepage"
+				},
+				{
+					"Type": "NodeText",
+					"Data": ". This is useful for dashboards, weekly reviews, and project entry notes."
+				}
+			]
+		},
+		{
+			"ID": "20260421194008-home03",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194008-home03",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "If you want a custom layout, you can point SourceFlow to a template folder, or to a single HTML / Markdown file, and use that as the homepage source."
+				}
+			]
+		},
+		{
+			"ID": "20260421194008-home04",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260421194008-home04",
+				"updated": "20260421194000"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "From the homepage toolbar, you can switch between "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Edit Homepage Note"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " and "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Reset Default Homepage"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " whenever you want to return to the built-in homepage."
+				}
+			]
+		}
+	]
+}
