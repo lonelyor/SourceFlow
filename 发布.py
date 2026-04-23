@@ -56,6 +56,7 @@ SEMVER_RE = re.compile(r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$")
 _GITHUB_GIT_CREDENTIAL_FALLBACK_ANNOUNCED = False
 _GITHUB_PREFER_BASIC_AUTH = False
 _INTERRUPT_COUNT = 0
+_POST_RUN_WARNINGS: list[str] = []
 RELEASE_UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024
 RELEASE_UPLOAD_TIMEOUT_SECONDS = 180
 RELEASE_UPLOAD_MAX_ATTEMPTS = 8
@@ -1268,7 +1269,7 @@ def remove_directory_safe(target_path: Path) -> None:
             return
         except OSError:
             if attempt == 4:
-                print(f"Warning: deferred cleanup left behind: {cleanup_target}", file=sys.stderr)
+                _POST_RUN_WARNINGS.append(f"临时导出目录未能完全清理: {cleanup_target}")
                 return
             time.sleep(0.5)
 
@@ -1333,8 +1334,8 @@ def prepare_export_repo(branch: str, repository_url: str, export_dir: Path) -> N
         check=False,
     )
     if branch_check.returncode == 0:
-        run(["git", "fetch", "--depth=1", "origin", branch], cwd=export_dir)
-        run(["git", "checkout", "-B", branch, "FETCH_HEAD"], cwd=export_dir)
+        run(["git", "fetch", "--depth=1", "origin", branch], cwd=export_dir, capture_output=True)
+        run(["git", "checkout", "-B", branch, "FETCH_HEAD"], cwd=export_dir, capture_output=True)
         return
 
     if branch_check.returncode != 2:
@@ -1633,6 +1634,7 @@ def preview_release(
 
 
 def main(argv: list[str] | None = None) -> int:
+    _POST_RUN_WARNINGS.clear()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -1706,6 +1708,7 @@ def main(argv: list[str] | None = None) -> int:
         ensure_github_repository_exists(github_auth.token, repo_slug, args.visibility)
 
     injected_build_support = False
+    success_message = ""
 
     try:
         if version != current_version:
@@ -1794,11 +1797,20 @@ def main(argv: list[str] | None = None) -> int:
             print("Artifacts:")
             for artifact in artifact_paths:
                 print(f"- {artifact}")
-        return 0
+        success_message = "发布完成,没有问题"
     finally:
         if injected_build_support:
             print_step("Remove transient build support")
             clear_transient_build_support(publish_repo)
+    if success_message and _POST_RUN_WARNINGS:
+        print()
+        print("发布完成,但有问题:")
+        for warning in _POST_RUN_WARNINGS:
+            print(f"- {warning}")
+    elif success_message:
+        print()
+        print(success_message)
+    return 0
 
 
 if __name__ == "__main__":
@@ -1806,8 +1818,8 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except KeyboardInterrupt:
-        print("Interrupted by user, stopping release gracefully.", file=sys.stderr)
+        print("发布失败,原因: 用户中断了发布流程。", file=sys.stderr)
         raise SystemExit(130)
     except Exception as exc:  # pragma: no cover - top-level CLI behavior
-        print(str(exc), file=sys.stderr)
+        print(f"发布失败,原因: {exc}", file=sys.stderr)
         raise SystemExit(1)
