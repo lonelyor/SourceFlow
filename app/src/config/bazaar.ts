@@ -45,10 +45,10 @@ const getBazaarSourceFields = (): Array<{key: TBazaarSourceKey, label: string, p
 
 const sourceflowGitHubBazaarPreset: Record<TBazaarSourceKey, string> = {
     bazaarHash: "",
-    bazaarVersionInfoURL: "https://lonelyor.github.io/sourceflow-bazaar/version.json",
-    bazaarStageBaseURL: "https://lonelyor.github.io/sourceflow-bazaar",
-    bazaarPackageBaseURL: "https://lonelyor.github.io/sourceflow-bazaar",
-    bazaarStatBaseURL: "https://lonelyor.github.io/sourceflow-bazaar/stat",
+    bazaarVersionInfoURL: "https://lonelyor.github.io/SourceFlow-plugins/version.json",
+    bazaarStageBaseURL: "https://lonelyor.github.io/SourceFlow-plugins",
+    bazaarPackageBaseURL: "https://lonelyor.github.io/SourceFlow-plugins",
+    bazaarStatBaseURL: "https://lonelyor.github.io/SourceFlow-plugins/stat",
     bazaarReadmeCDNBaseURL: "https://cdn.jsdelivr.net/gh",
 };
 

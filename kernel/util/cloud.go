@@ -54,7 +54,7 @@ var (
 )
 
 const (
-	defaultBazaarRootBaseURL      = "https://lonelyor.github.io/sourceflow-bazaar"
+	defaultBazaarRootBaseURL      = "https://lonelyor.github.io/SourceFlow-plugins"
 	defaultBazaarVersionInfoURL   = defaultBazaarRootBaseURL + "/version.json"
 	defaultBazaarStageBaseURL     = defaultBazaarRootBaseURL
 	defaultBazaarPackageBaseURL   = defaultBazaarRootBaseURL
