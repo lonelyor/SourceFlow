@@ -104,28 +104,37 @@ func getRhyResult0(ctx context.Context) (map[string]any, error) {
 	rhyResultLock.Lock()
 	defer rhyResultLock.Unlock()
 
-	request := httpclient.NewCloudRequest30s()
-	versionInfoURL := GetBazaarVersionInfoURL()
-	if strings.Contains(versionInfoURL, "?") {
-		versionInfoURL += "&ver=" + Ver
-	} else {
-		versionInfoURL += "?ver=" + Ver
-	}
-	resp, err := request.SetContext(ctx).SetSuccessResult(&cachedRhyResult).Get(versionInfoURL)
-	if err != nil {
-		if isBenignRhyNetworkError(err) {
-			logging.LogInfof("version info unavailable, continue without online metadata: %s", err)
+	var lastErr error
+	for _, versionInfoURL := range GetBazaarVersionInfoURLs() {
+		if strings.Contains(versionInfoURL, "?") {
+			versionInfoURL += "&ver=" + Ver
 		} else {
-			logging.LogErrorf("get version info failed: %s", err)
+			versionInfoURL += "?ver=" + Ver
 		}
-		return nil, err
+		result := map[string]any{}
+		resp, err := httpclient.NewCloudRequest30s().SetContext(ctx).SetSuccessResult(&result).Get(versionInfoURL)
+		if err != nil {
+			lastErr = err
+			if isBenignRhyNetworkError(err) {
+				logging.LogInfof("version info [%s] unavailable, trying next source: %s", versionInfoURL, err)
+			} else {
+				logging.LogErrorf("get version info [%s] failed: %s", versionInfoURL, err)
+			}
+			continue
+		}
+		if 200 != resp.StatusCode {
+			lastErr = fmt.Errorf("get rhy result failed: %d", resp.StatusCode)
+			logging.LogErrorf("get rhy result [%s] failed: %d", versionInfoURL, resp.StatusCode)
+			continue
+		}
+		cachedRhyResult = result
+		rhyResultCacheTime = time.Now().Unix()
+		return cachedRhyResult, nil
 	}
-	if 200 != resp.StatusCode {
-		logging.LogErrorf("get rhy result failed: %d", resp.StatusCode)
-		return nil, fmt.Errorf("get rhy result failed: %d", resp.StatusCode)
+	if nil == lastErr {
+		lastErr = errors.New("version info unavailable")
 	}
-	rhyResultCacheTime = time.Now().Unix()
-	return cachedRhyResult, nil
+	return nil, lastErr
 }
 
 func syncRhyBazaarHashFromResult(m map[string]any) {

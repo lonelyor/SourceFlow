@@ -74,15 +74,25 @@ GH_TOKEN=
 
 ## 笔记端集市源设置
 
-GitHub Pages 部署成功后，在 SourceFlow 的集市源中填入：
+插件仓库发布成功后，在 SourceFlow 的集市源中优先填入 CDN 静态源：
 
-- 版本信息地址：`https://<owner>.github.io/<bazaar-repo>/version.json`
-- 清单基地址：`https://<owner>.github.io/<bazaar-repo>`
-- 包基地址：`https://<owner>.github.io/<bazaar-repo>`
-- 统计基地址：`https://<owner>.github.io/<bazaar-repo>/stat`
+- 版本信息地址：`https://cdn.jsdelivr.net/gh/<owner>/<bazaar-repo>@main/version.json`
+- 清单基地址：`https://cdn.jsdelivr.net/gh/<owner>/<bazaar-repo>@main`
+- 包基地址：`https://cdn.jsdelivr.net/gh/<owner>/<bazaar-repo>@main`
+- 统计基地址：`https://cdn.jsdelivr.net/gh/<owner>/<bazaar-repo>@main/stat`
 - README CDN 基地址：`https://cdn.jsdelivr.net/gh`
 
 以默认仓库为例：
+
+```text
+https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/version.json
+https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main
+https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main
+https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/stat
+https://cdn.jsdelivr.net/gh
+```
+
+如果 CDN 临时不可用，可以使用 GitHub Pages 备用源：
 
 ```text
 https://lonelyor.github.io/SourceFlow-plugins/version.json

@@ -2,6 +2,40 @@ package util
 
 import "testing"
 
+func TestDefaultBazaarSourceUsesCDN(t *testing.T) {
+	ApplyBazaarSettings("", "", "", "", "", "")
+
+	got := GetBazaarVersionInfoURL()
+	want := "https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/version.json"
+	if got != want {
+		t.Fatalf("unexpected default version info url, got %q want %q", got, want)
+	}
+}
+
+func TestLegacyGitHubPagesBazaarSourceAddsCDNFallbacks(t *testing.T) {
+	ApplyBazaarSettings("", "https://lonelyor.github.io/SourceFlow-plugins/version.json", "https://lonelyor.github.io/SourceFlow-plugins", "https://lonelyor.github.io/SourceFlow-plugins", "https://lonelyor.github.io/SourceFlow-plugins/stat", "")
+	defer ApplyBazaarSettings("", "", "", "", "", "")
+
+	versionURLs := GetBazaarVersionInfoURLs()
+	if len(versionURLs) < 2 {
+		t.Fatalf("expected fallback version urls, got %#v", versionURLs)
+	}
+	if versionURLs[0] != "https://lonelyor.github.io/SourceFlow-plugins/version.json" {
+		t.Fatalf("expected configured legacy url first, got %#v", versionURLs)
+	}
+	if versionURLs[1] != "https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/version.json" {
+		t.Fatalf("expected CDN fallback second, got %#v", versionURLs)
+	}
+
+	packageURLs := GetBazaarPackageURLs("lonelyor/sourceflow-hello@abcdef123456")
+	if len(packageURLs) < 2 {
+		t.Fatalf("expected fallback package urls, got %#v", packageURLs)
+	}
+	if packageURLs[1] != "https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/package/lonelyor/sourceflow-hello@abcdef123456.zip" {
+		t.Fatalf("expected CDN package fallback, got %#v", packageURLs)
+	}
+}
+
 func TestGetBazaarPackageURLDynamicServerKeepsLegacyPath(t *testing.T) {
 	ApplyBazaarSettings("", "", "", "https://sync.sourceflow.app/bazaar/package", "", "")
 	defer ApplyBazaarSettings("", "", "", "", "", "")
