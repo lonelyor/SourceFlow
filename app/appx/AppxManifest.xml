@@ -9,7 +9,7 @@
     <Identity Name="89C2A984.SourceFlow"
               ProcessorArchitecture="x64"
               Publisher="CN=087C656E-C1D9-42D8-8807-CED45A74FC0F"
-              Version="0.1.2.0"/>
+              Version="0.1.1.0"/>
     <Properties>
         <DisplayName>SourceFlow</DisplayName>
         <PublisherDisplayName>SourceFlow</PublisherDisplayName>

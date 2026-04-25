@@ -794,8 +794,9 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 	} else {
 		block := treenode.GetBlockTreeRootByPath(boxID, toPath)
 		if nil == block {
-			logging.LogErrorf("not found block by path [%s]", toPath)
-			return nil
+			err = fmt.Errorf("not found block by path [%s]", toPath)
+			logging.LogErrorf(err.Error())
+			return err
 		}
 		baseHPath = block.HPath
 		baseTargetPath = strings.TrimSuffix(block.Path, ".sf")

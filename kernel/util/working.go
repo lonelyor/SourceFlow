@@ -17,6 +17,7 @@
 package util
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	figure "github.com/common-nighthawk/go-figure"
 	"github.com/gofrs/flock"
@@ -44,7 +46,7 @@ import (
 var Mode = "prod"
 
 const (
-	Ver       = "0.1.2"
+	Ver       = "0.1.1"
 	IsInsider = false
 )
 
@@ -465,6 +467,10 @@ func initWorkspaceDir(workspaceArg string) {
 	HistoryDir = filepath.Join(WorkspaceDir, "history")
 	TempDir = filepath.Join(WorkspaceDir, "temp")
 	osTmpDir := filepath.Join(TempDir, "os")
+	if err := ensureWorkspaceDirectory(TempDir, "temp"); err != nil {
+		logging.LogErrorf("create temp folder [%s] failed: %s", TempDir, err)
+		os.Exit(logging.ExitCodeInitWorkspaceErr)
+	}
 	os.RemoveAll(osTmpDir)
 	if err := os.MkdirAll(osTmpDir, 0755); err != nil {
 		logging.LogErrorf("create os tmp dir [%s] failed: %s", osTmpDir, err)
@@ -482,6 +488,79 @@ func initWorkspaceDir(workspaceArg string) {
 	ShortcutsPath = filepath.Join(userHomeConfDir, "shortcuts")
 }
 
+type workspaceState struct {
+	Workspace  string   `json:"workspace"`
+	Workspaces []string `json:"workspaces"`
+}
+
+func normalizeWorkspacePathForCompare(workspacePath string) string {
+	workspacePath = filepath.Clean(resolveWorkspacePath(workspacePath))
+	if "windows" == runtime.GOOS {
+		workspacePath = strings.ToLower(workspacePath)
+	}
+	return workspacePath
+}
+
+func workspacePathsEqual(a, b string) bool {
+	return normalizeWorkspacePathForCompare(a) == normalizeWorkspacePathForCompare(b)
+}
+
+func appendUniqueWorkspacePath(paths []string, workspacePath string) []string {
+	workspacePath = strings.TrimSpace(workspacePath)
+	if "" == workspacePath {
+		return paths
+	}
+	for _, existing := range paths {
+		if workspacePathsEqual(existing, workspacePath) {
+			return paths
+		}
+	}
+	return append(paths, workspacePath)
+}
+
+func decodeWorkspaceConfPaths(data []byte) (ret []string, err error) {
+	text := strings.TrimSpace(string(data))
+	if "" == text {
+		return []string{}, nil
+	}
+
+	var raw any
+	if err = json.Unmarshal([]byte(text), &raw); err != nil {
+		return nil, err
+	}
+	switch parsed := raw.(type) {
+	case []any:
+		for _, item := range parsed {
+			if workspacePath, ok := item.(string); ok {
+				ret = appendUniqueWorkspacePath(ret, workspacePath)
+			}
+		}
+	case map[string]any:
+		current, _ := parsed["workspace"].(string)
+		var objectWorkspaces []string
+		if rawWorkspaces, ok := parsed["workspaces"].([]any); ok {
+			for _, item := range rawWorkspaces {
+				if workspacePath, ok := item.(string); ok {
+					objectWorkspaces = append(objectWorkspaces, workspacePath)
+				}
+			}
+		}
+		if "" == strings.TrimSpace(current) && 0 < len(objectWorkspaces) {
+			current = objectWorkspaces[0]
+		}
+		for _, workspacePath := range objectWorkspaces {
+			if "" != strings.TrimSpace(current) && workspacePathsEqual(workspacePath, current) {
+				continue
+			}
+			ret = appendUniqueWorkspacePath(ret, workspacePath)
+		}
+		ret = appendUniqueWorkspacePath(ret, current)
+	default:
+		return nil, fmt.Errorf("unsupported workspace conf shape")
+	}
+	return
+}
+
 func ReadWorkspacePaths() (ret []string, err error) {
 	ret = []string{}
 	workspaceConf := GetWorkspaceConfPath()
@@ -493,7 +572,7 @@ func ReadWorkspacePaths() (ret []string, err error) {
 		return
 	}
 
-	if err = gulu.JSON.UnmarshalJSON(data, &ret); err != nil {
+	if ret, err = decodeWorkspaceConfPaths(data); err != nil {
 		msg := fmt.Sprintf("unmarshal workspace conf [%s] failed: %s", workspaceConf, err)
 		logging.LogErrorf(msg)
 		err = errors.New(msg)
@@ -511,13 +590,12 @@ func ReadWorkspacePaths() (ret []string, err error) {
 
 		d = resolveWorkspacePath(d)
 		if gulu.File.IsDir(d) {
-			tmp = append(tmp, d)
+			tmp = appendUniqueWorkspacePath(tmp, d)
 		} else {
 			logging.LogWarnf("workspace path [%s] is not a dir", d)
 		}
 	}
 	ret = tmp
-	ret = gulu.Str.RemoveDuplicatedElem(ret)
 	return
 }
 
@@ -526,11 +604,10 @@ func WriteWorkspacePaths(workspacePaths []string) (err error) {
 	for _, workspacePath := range workspacePaths {
 		workspacePath = serializeWorkspacePath(workspacePath)
 		if "" != workspacePath {
-			normalized = append(normalized, workspacePath)
+			normalized = appendUniqueWorkspacePath(normalized, workspacePath)
 		}
 	}
 	workspacePaths = normalized
-	workspacePaths = gulu.Str.RemoveDuplicatedElem(workspacePaths)
 	workspaceConf := GetWorkspaceConfPath()
 	if err = os.MkdirAll(filepath.Dir(workspaceConf), 0755); err != nil && !os.IsExist(err) {
 		msg := fmt.Sprintf("create workspace conf dir [%s] failed: %s", filepath.Dir(workspaceConf), err)
@@ -538,7 +615,14 @@ func WriteWorkspacePaths(workspacePaths []string) (err error) {
 		err = errors.New(msg)
 		return
 	}
-	data, err := gulu.JSON.MarshalJSON(workspacePaths)
+	state := workspaceState{Workspaces: []string{}}
+	if 0 < len(workspacePaths) {
+		state.Workspace = workspacePaths[len(workspacePaths)-1]
+		for i := len(workspacePaths) - 1; i >= 0 && len(state.Workspaces) < 12; i-- {
+			state.Workspaces = append(state.Workspaces, workspacePaths[i])
+		}
+	}
+	data, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		msg := fmt.Sprintf("marshal workspace conf [%s] failed: %s", workspaceConf, err)
 		logging.LogErrorf(msg)
@@ -553,6 +637,23 @@ func WriteWorkspacePaths(workspacePaths []string) (err error) {
 		return
 	}
 	return
+}
+
+func ensureWorkspaceDirectory(dir, label string) error {
+	info, err := os.Stat(dir)
+	if nil == err {
+		if info.IsDir() {
+			return nil
+		}
+		quarantinePath := fmt.Sprintf("%s.invalid-%d", dir, time.Now().UnixNano())
+		if renameErr := os.Rename(dir, quarantinePath); nil != renameErr {
+			return fmt.Errorf("%s path exists but is not a directory and could not be moved: %w", label, renameErr)
+		}
+		logging.LogWarnf("moved non-directory %s path [%s] to [%s]", label, dir, quarantinePath)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return os.MkdirAll(dir, 0755)
 }
 
 var (
@@ -579,13 +680,13 @@ const (
 )
 
 func initPathDir() {
-	if err := os.MkdirAll(ConfDir, 0755); err != nil && !os.IsExist(err) {
+	if err := ensureWorkspaceDirectory(ConfDir, "conf"); err != nil {
 		logging.LogFatalf(logging.ExitCodeInitWorkspaceErr, "create conf folder [%s] failed: %s", ConfDir, err)
 	}
-	if err := os.MkdirAll(DataDir, 0755); err != nil && !os.IsExist(err) {
+	if err := ensureWorkspaceDirectory(DataDir, "data"); err != nil {
 		logging.LogFatalf(logging.ExitCodeInitWorkspaceErr, "create data folder [%s] failed: %s", DataDir, err)
 	}
-	if err := os.MkdirAll(TempDir, 0755); err != nil && !os.IsExist(err) {
+	if err := ensureWorkspaceDirectory(TempDir, "temp"); err != nil {
 		logging.LogFatalf(logging.ExitCodeInitWorkspaceErr, "create temp folder [%s] failed: %s", TempDir, err)
 	}
 

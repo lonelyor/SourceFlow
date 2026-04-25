@@ -49,6 +49,7 @@ const resolveAppFile = (...segments) => {
     return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[candidates.length - 1];
 };
 const {migrateWorkspace} = require(resolveAppFile("electron", "workspaceMigration.js"));
+const {normalizeStartupExitCode, shouldRetryKernelPort, shouldSuppressGenericPortFailure} = require(resolveAppFile("electron", "kernelStartupFailure.js"));
 const isDevEnv = process.env.NODE_ENV === "development";
 const appVer = app.getVersion();
 const appBrandName = "SourceFlow";
@@ -212,6 +213,7 @@ let latestActiveWindow;
 let firstOpen = false;
 let workspaces = []; // workspaceDir, id, browserWindow, tray, hideShortcut
 let kernelPort = 6806;
+const maxAutoKernelPortRetries = 5;
 let resetWindowStateOnRestart = false;
 let openAsHidden = false;
 let isQuittingApp = false;
@@ -1304,8 +1306,9 @@ const showWindow = (wnd) => {
     wnd.show();
 };
 
-const initKernel = (workspace, port, lang) => {
+const initKernel = (workspace, port, lang, portRetryAttempt = 0) => {
     return new Promise(async (resolve) => {
+        const hasManualPort = !!(port && "" !== port && "0" !== port);
         const startupWorkspaceDir = resolveBootWorkspaceDir(workspace);
         bootWindow = new BrowserWindow({
             show: false,
@@ -1352,43 +1355,44 @@ const initKernel = (workspace, port, lang) => {
             return;
         }
 
-        if (!isDevEnv || workspaces.length > 0) {
-            if (port && "" !== port) {
-                kernelPort = port;
-            } else {
-                const getAvailablePort = () => {
-                    // https://gist.github.com/mikeal/1840641
-                    return new Promise((portResolve, portReject) => {
-                        const server = gNet.createServer();
-                        server.on("error", error => {
-                            writeLog(error);
-                            kernelPort = "";
-                            portReject();
-                        });
-                        server.listen(0, () => {
-                            kernelPort = server.address().port;
-                            server.close(() => portResolve(kernelPort));
-                        });
+        if (hasManualPort) {
+            kernelPort = port;
+        } else if (!isDevEnv || workspaces.length > 0) {
+            const getAvailablePort = () => {
+                // https://gist.github.com/mikeal/1840641
+                return new Promise((portResolve, portReject) => {
+                    const server = gNet.createServer();
+                    server.on("error", error => {
+                        writeLog(error);
+                        kernelPort = "";
+                        portReject(error);
                     });
-                };
+                    server.listen(0, () => {
+                        kernelPort = server.address().port;
+                        server.close(() => portResolve(kernelPort));
+                    });
+                });
+            };
+            try {
                 await getAvailablePort();
+            } catch (e) {
+                writeLog(`get available kernel port failed: ${e.message || e}`);
+                kernelPort = "";
             }
         }
-        writeLog("got kernel port [" + kernelPort + "]");
+        writeLog("got kernel port [" + kernelPort + "]" + (portRetryAttempt > 0 ? ` after retry [${portRetryAttempt}]` : ""));
         if (!kernelPort) {
             bootWindow.destroy();
             resolve(false);
             return;
         }
+        let kernelStartupExitCode = null;
         const cmds = ["--port", kernelPort, "--wd", appDir];
         if (isDevEnv && workspaces.length === 0) {
             cmds.push("--mode", "dev");
         }
         if (workspace && "" !== workspace) {
             cmds.push("--workspace", workspace);
-        }
-        if (port && "" !== port) {
-            cmds.push("--port", port);
         }
         if (lang && "" !== lang) {
             cmds.push("--lang", lang);
@@ -1407,9 +1411,14 @@ const initKernel = (workspace, port, lang) => {
 
             const currentKernelPort = kernelPort;
             writeLog("booted kernel process [pid=" + kernelProcess.pid + ", port=" + kernelPort + "]");
-            kernelProcess.on("close", (code) => {
-                writeLog(`kernel [pid=${kernelProcess.pid}, port=${currentKernelPort}] exited with code [${code}]`);
+            kernelProcess.on("close", (code, signal) => {
+                kernelStartupExitCode = normalizeStartupExitCode(code, signal);
+                writeLog(`kernel [pid=${kernelProcess.pid}, port=${currentKernelPort}] exited with code [${code}] signal [${signal || ""}]`);
                 if (0 !== code) {
+                    if (shouldRetryKernelPort(kernelStartupExitCode, hasManualPort, portRetryAttempt, maxAutoKernelPortRetries)) {
+                        writeLog(`kernel port [${currentKernelPort}] became unavailable, will retry with another port`);
+                        return;
+                    }
                     let errorWindowId;
                     switch (code) {
                         case 20:
@@ -1455,6 +1464,18 @@ const initKernel = (workspace, port, lang) => {
                 break;
             } catch (e) {
                 writeLog("get kernel version failed: " + e.message);
+                if (shouldRetryKernelPort(kernelStartupExitCode, hasManualPort, portRetryAttempt, maxAutoKernelPortRetries)) {
+                    writeLog(`retry kernel startup with another port after conflict [${kernelPort}]`);
+                    bootWindow.destroy();
+                    resolve(await initKernel(workspace, "", lang, portRetryAttempt + 1));
+                    return;
+                }
+                if (shouldSuppressGenericPortFailure(kernelStartupExitCode)) {
+                    writeLog(`kernel exited during startup before version check [code=${kernelStartupExitCode}], suppress generic port error`);
+                    bootWindow.destroy();
+                    resolve(false);
+                    return;
+                }
                 if (14 < ++count) {
                     writeLog("get kernel ver failed");
                     showErrorWindow("获取内核服务端口失败", "Failed to Obtain Kernel Service Port", `<div>获取内核服务端口失败，请确保${appBrandNameCN}拥有网络权限并不受防火墙和杀毒软件阻止。</div><div>Failed to obtain kernel service port. Please ensure ${appBrandName} has network permissions and is not blocked by firewalls or antivirus software.</div>`);

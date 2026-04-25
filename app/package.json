@@ -1,6 +1,6 @@
 {
   "name": "SourceFlow",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "SourceFlow is a local-first personal knowledge workspace.",
   "homepage": "https://github.com/lonelyor/SourceFlow",
   "main": "./electron/main.js",
@@ -21,6 +21,7 @@
     "typecheck:desktop": "node ./scripts/typecheck.js desktop",
     "typecheck:mobile": "node ./scripts/typecheck.js mobile",
     "typecheck:export": "node ./scripts/typecheck.js export",
+    "test:startup": "node ./scripts/testElectronStartupFailure.js",
     "gen:types": "tsc -p tsconfig.types.json",
     "start": "NODE_ENV=development electron ./electron/main.js",
     "dist": "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --config electron-builder.yml --publish=never",
