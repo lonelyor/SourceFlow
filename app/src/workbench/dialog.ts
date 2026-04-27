@@ -278,7 +278,7 @@ const escapeHTML = (text: string) => (text || "").replace(/[&<>"']/g, (match) =>
 
 const escapeAttr = (text: string) => escapeHTML(text).replace(/"/g, "&quot;");
 
-const splitWorkbenchTags = (text: string) => (text || "").replace(/��/g, ",").split(",").map((item) => item.trim()).filter(Boolean);
+const splitWorkbenchTags = (text: string) => (text || "").replace(/，/g, ",").split(",").map((item) => item.trim()).filter(Boolean);
 
 const typeLabel = (type: IWorkbenchItem["type"]) => {
     switch (type) {
@@ -534,7 +534,7 @@ const getWorkbenchBuiltinViewNoteLabel = (key: TWorkbenchBuiltinViewNoteKey) => 
         case "timeline":
             return window.sourceflow.languages.workbenchViewTimeline;
         case "skill":
-            return window.sourceflow.config.lang === "zh_CN" ? "���ܱʼ�" : "Skill Note";
+            return window.sourceflow.config.lang === "zh_CN" ? "技能笔记" : "Skill Note";
         default:
             return window.sourceflow.languages.workbenchViewList;
     }
@@ -569,7 +569,7 @@ const getWorkbenchBuiltinViewNoteOptionsInternal = (): IWorkbenchBuiltinViewNote
 ]);
 
 const getBuiltinWorkbenchViewNoteTemplate = (key: TWorkbenchBuiltinViewNoteKey, pathPrefix = "Workbench/Views") => {
-    const name = `${getWorkbenchBuiltinViewNoteLabel(key)} �� ${window.sourceflow.languages.workbenchViewNoteTitle}`;
+    const name = `${getWorkbenchBuiltinViewNoteLabel(key)} · ${window.sourceflow.languages.workbenchViewNoteTitle}`;
     switch (key) {
         case "skill":
             return normalizeWorkbenchViewTemplates([{
@@ -872,7 +872,7 @@ const formatDateOffset = (offsetDays: number) => {
 
 const getWeekdayLabels = () => {
     if (window.sourceflow.config.lang === "zh_CN") {
-        return ["��һ", "�ܶ�", "����", "����", "����", "����", "����"];
+        return ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
     }
     return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 };
@@ -894,7 +894,7 @@ const renderListItem = (item: IWorkbenchItem, selectable = true) => {
         ${item.preview ? `<div class="ft__secondary" style="margin-top: 4px;">${escapeHTML(item.preview)}</div>` : ""}
         <div class="ft__secondary" style="margin-top: 8px;font-size: 12px;">
             ${escapeHTML(item.notebook)} / ${escapeHTML(item.hPath || item.path)}
-            ${item.project ? ` �� ${escapeHTML(window.sourceflow.languages.project)}: <button class="b3-button b3-button--outline" style="height:22px;padding:0 6px;min-height:auto;" data-action="append-query-token" data-token="${escapeAttr(`project:"${item.project}"`)}">${escapeHTML(item.project)}</button>` : ""}
+            ${item.project ? ` · ${escapeHTML(window.sourceflow.languages.project)}: <button class="b3-button b3-button--outline" style="height:22px;padding:0 6px;min-height:auto;" data-action="append-query-token" data-token="${escapeAttr(`project:"${item.project}"`)}">${escapeHTML(item.project)}</button>` : ""}
         </div>
         ${item.tags.length ? `<div class="ft__secondary" style="margin-top: 4px;font-size: 12px;">#${escapeHTML(item.tags.join(" #"))}</div>` : ""}
         <div class="fn__flex" style="gap: 8px;flex-wrap: wrap;margin-top: 8px;">
@@ -1367,20 +1367,20 @@ const buildResultsMarkdown = (items: IWorkbenchItem[]) => {
     return items.map((item) => {
         const parts = [
             `- [${item.title || window.sourceflow.languages.untitled}](sf://blocks/${item.id})`,
-            `���ͣ�${typeLabel(item.type)}`,
-            `״̬��${statusLabel(item.status)}`,
+            `类型：${typeLabel(item.type)}`,
+            `状态：${statusLabel(item.status)}`,
         ];
         if (item.project) {
-            parts.push(`��Ŀ��${item.project}`);
+            parts.push(`项目：${item.project}`);
         }
         if (item.dueDate) {
-            parts.push(`��ֹ��${item.dueDate}`);
+            parts.push(`截止：${item.dueDate}`);
         }
         if (item.eventTime) {
-            parts.push(`ʱ�䣺${item.eventTime}`);
+            parts.push(`时间：${item.eventTime}`);
         }
         if (item.sourceURL) {
-            parts.push(`��Դ��${item.sourceURL}`);
+            parts.push(`来源：${item.sourceURL}`);
         }
         return parts.join(" | ");
     }).join("\n");
@@ -1390,13 +1390,13 @@ const buildBlockResultsMarkdown = (blocks: IWorkbenchSearchBlock[]) => {
     return blocks.map((block) => {
         const parts = [
             `- [${block.hPath || block.id}](sf://blocks/${block.id})`,
-            `�ĵ���${getBlockNotebookName(block)}`,
+            `文档：${getBlockNotebookName(block)}`,
         ];
         if (block.content) {
-            parts.push(`���ݣ�${block.content.replace(/\r?\n/g, " ").trim()}`);
+            parts.push(`内容：${block.content.replace(/\r?\n/g, " ").trim()}`);
         }
         if (block.updated) {
-            parts.push(`���£�${formatWorkbenchBlockUpdated(block)}`);
+            parts.push(`更新：${formatWorkbenchBlockUpdated(block)}`);
         }
         return parts.join(" | ");
     }).join("\n");
@@ -1669,10 +1669,10 @@ const buildWorkbenchViewNoteMarkdown = (state: IWorkbenchState, summary: IWorkbe
 
 const buildWorkbenchSkillNoteMarkdown = (state: IWorkbenchState, summary: IWorkbenchSummary, blocks: IWorkbenchSearchBlock[] = [], blockScopeCount = 0) => {
     const sections = [
-        `# ${window.sourceflow.config.lang === "zh_CN" ? "���ܱʼ�" : "Skill Note"}`,
+        `# ${window.sourceflow.config.lang === "zh_CN" ? "技能笔记" : "Skill Note"}`,
         "",
         window.sourceflow.config.lang === "zh_CN"
-            ? "> ��ѧϰ·�߲���������񡢽׶���̱��Ϳ�ִ���嵥����ǰʵ�ֻ��� Workbench ��ͼ���������Լ����ݽ��ɸ�ǿ�ļ�������"
+            ? "> 把学习路线拆成主线任务、阶段里程碑和可执行清单。当前实现基于 Workbench 视图，后续可以演进成更强的技能树。"
             : "> Break a learning roadmap into main quests, milestones, and executable tasks. This first version is built on top of Workbench views and can evolve into a richer skill tree later.",
         "",
         `- ${window.sourceflow.languages.workbench}: ${getWorkbenchTabLabel(state.activeTab)}`,
@@ -1680,17 +1680,17 @@ const buildWorkbenchSkillNoteMarkdown = (state: IWorkbenchState, summary: IWorkb
         `- ${window.sourceflow.languages.workbenchQuery}: ${state.query || window.sourceflow.languages.workbenchGroupNone}`,
         buildWorkbenchResultLayerMarkdown(state, blocks.length, blockScopeCount),
         "",
-        `## ${window.sourceflow.config.lang === "zh_CN" ? "���߼���" : "Main Skillline"}`,
+        `## ${window.sourceflow.config.lang === "zh_CN" ? "主线技能" : "Main Skillline"}`,
         "",
         window.sourceflow.config.lang === "zh_CN"
-            ? "- ��ǰĿ�꣺\n- ����������\n- ��ɱ�׼��"
+            ? "- 当前目标：\n- 解锁条件：\n- 完成标准："
             : "- Current goal:\n- Unlock condition:\n- Definition of done:",
         "",
-        `## ${window.sourceflow.config.lang === "zh_CN" ? "�׶���̱�" : "Milestones"}`,
+        `## ${window.sourceflow.config.lang === "zh_CN" ? "阶段里程碑" : "Milestones"}`,
         "",
         buildSummaryMarkdown(summary),
         "",
-        `## ${window.sourceflow.config.lang === "zh_CN" ? "�������ز�" : "Quests & Materials"}`,
+        `## ${window.sourceflow.config.lang === "zh_CN" ? "任务与素材" : "Quests & Materials"}`,
         "",
         buildWorkbenchLiveEmbedMarkdown(state),
         state.resultLayer === "blocks" ? "" : "",
@@ -2344,7 +2344,7 @@ const openWorkbenchMetaDialog = (item: IWorkbenchItem, allItems: IWorkbenchItem[
         let resolved = false;
         const projectOptions = Array.from(new Set(allItems.filter((current) => current.type === "project" && current.title).map((current) => current.title))).sort((a, b) => a.localeCompare(b));
         const dialog = new Dialog({
-            title: `${window.sourceflow.languages.edit} �� ${window.sourceflow.languages.workbenchEditMeta}`,
+            title: `${window.sourceflow.languages.edit} · ${window.sourceflow.languages.workbenchEditMeta}`,
             width: "640px",
             destroyCallback() {
                 if (!resolved) {
@@ -2526,7 +2526,7 @@ const openWorkbenchBatchMetaDialog = (items: IWorkbenchItem[], state: IWorkbench
         let resolved = false;
         const statusOptions = getBatchStatusOptions(items);
         const dialog = new Dialog({
-            title: `${window.sourceflow.languages.workbench} �� ${window.sourceflow.languages.workbenchBatchEdit}`,
+            title: `${window.sourceflow.languages.workbench} · ${window.sourceflow.languages.workbenchBatchEdit}`,
             width: "640px",
             destroyCallback() {
                 if (!resolved) {
@@ -2866,8 +2866,8 @@ const buildWorkbenchAIPrompt = (state: IWorkbenchState, summary: IWorkbenchSumma
         ? window.sourceflow.languages.aiPlanWorkbench
         : window.sourceflow.languages.aiSummarizeWorkbench;
     const instruction = mode === "plan"
-        ? "�����������ݹ���̨��ͼ���գ�ʶ�����ȼ������ա�����������һ���ж��������һ��������ִ�еļƻ���"
-        : "�����������ݹ���̨��ͼ���գ������ṹ���ܽᡢ�ؼ����ơ����յ�ͽ��顣";
+        ? "请根据当前工作台视图快照，识别优先级、风险和阻塞项，并给出一份下一步可执行的行动计划。"
+        : "请根据当前工作台视图快照，给出结构化总结、关键趋势、风险点和建议。";
     const scopeLines = [
         `${window.sourceflow.languages.tab}: ${tabLabel(state.activeTab)}`,
         `${window.sourceflow.languages.workbenchResultLayer}: ${state.resultLayer === "blocks" ? window.sourceflow.languages.workbenchLayerBlocks : window.sourceflow.languages.workbenchLayerItems}`,
@@ -2881,7 +2881,7 @@ const buildWorkbenchAIPrompt = (state: IWorkbenchState, summary: IWorkbenchSumma
         "",
         instruction,
         "",
-        "## ��ǰ��ͼ����",
+        "## 当前视图快照",
         "",
         ...scopeLines.map((line) => `- ${line}`),
         "",

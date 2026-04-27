@@ -73,8 +73,8 @@ const resolveSkillContext = async (options: IRunAssistantSkillOptions): Promise<
 };
 
 const chooseTargetLanguage = () => {
-    const fallback = assistantText("����", "English");
-    return `${window.prompt(assistantText("������������ԣ�", "Translate into which language?"), fallback) || fallback}`.trim() || fallback;
+    const fallback = assistantText("中文", "English");
+    return `${window.prompt(assistantText("翻译成哪种语言？", "Translate into which language?"), fallback) || fallback}`.trim() || fallback;
 };
 
 const ensureSkillParams = (definition: IAssistantSkillDefinition): IAssistantSkillParams | null => {
@@ -231,30 +231,30 @@ const parseAssistantLinkSuggestionResult = (value: string, currentRootID: string
 
 const buildLinkSuggestionMarkdown = (data: IAssistantLinkSuggestionResult) => {
     const lines = [
-        `## ${assistantText("��������", "Link Suggestions")}`,
+        `## ${assistantText("关联建议", "Link Suggestions")}`,
         "",
-        data.summary || assistantText("������ AI ���ɵĹ������顣", "These are the AI generated relationship suggestions."),
+        data.summary || assistantText("这些是 AI 生成的关联建议。", "These are the AI generated relationship suggestions."),
         "",
     ];
     data.suggestions.forEach((item) => {
         const flags = [
-            item.applyCurrent ? assistantText("��ǰ�ʼǽ���", "Link from current note") : "",
-            item.applyBacklink ? assistantText("Ŀ��ʼǻ���", "Backlink from target note") : "",
+            item.applyCurrent ? assistantText("当前笔记建链", "Link from current note") : "",
+            item.applyBacklink ? assistantText("目标笔记回链", "Backlink from target note") : "",
         ].filter(Boolean).join(" / ");
-        const extras = [item.path, flags, item.reason].filter(Boolean).join(" �� ");
-        lines.push(`- [${escapeMarkdownLinkText(item.title)}](sf://blocks/${item.rootID})${extras ? ` �� ${extras}` : ""}`);
+        const extras = [item.path, flags, item.reason].filter(Boolean).join(" · ");
+        lines.push(`- [${escapeMarkdownLinkText(item.title)}](sf://blocks/${item.rootID})${extras ? ` · ${extras}` : ""}`);
     });
     return lines.join("\n").trim();
 };
 
 const renderLinkSuggestionPreview = (data: IAssistantLinkSuggestionResult) => {
-    const emptyText = assistantText("û�п�ִ�еĽ�������", "No actionable link suggestions");
+    const emptyText = assistantText("没有可执行的建链建议", "No actionable link suggestions");
     return `<div class="assistant-skill-dialog__structured">
     <div class="assistant-skill-dialog__structured-summary">${escapeHTML(data.summary || emptyText)}</div>
     <div class="assistant-skill-dialog__suggestions">${data.suggestions.length > 0 ? data.suggestions.map((item) => {
         const flags = [
-            item.applyCurrent ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("��ǰ�ʼǽ���", "Link current note"))}</span>` : "",
-            item.applyBacklink ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("Ŀ��ʼǻ���", "Backlink target note"))}</span>` : "",
+            item.applyCurrent ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("当前笔记建链", "Link current note"))}</span>` : "",
+            item.applyBacklink ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("目标笔记回链", "Backlink target note"))}</span>` : "",
         ].filter(Boolean).join("");
         return `<div class="assistant-skill-dialog__suggestion">
     <div class="assistant-skill-dialog__suggestion-head">
@@ -428,7 +428,7 @@ const noteContainsBlockLink = (markdown: string, rootID: string) => {
 const buildAssistantLinkBullet = (title: string, rootID: string, detail = "") => {
     const safeTitle = escapeMarkdownLinkText(title || rootID);
     const safeDetail = `${detail || ""}`.replace(/\r?\n+/g, " ").replace(/\s+/g, " ").trim();
-    return `- [${safeTitle}](sf://blocks/${rootID})${safeDetail ? ` �� ${safeDetail}` : ""}`;
+    return `- [${safeTitle}](sf://blocks/${rootID})${safeDetail ? ` · ${safeDetail}` : ""}`;
 };
 
 const buildAssistantLinkSection = (heading: string, lines: string[]) => {
@@ -442,7 +442,7 @@ const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, pa
     if (!context.note) {
         return {
             ok: false,
-            message: assistantText("��ǰû�п��õıʼ�������", "The current note context is unavailable"),
+            message: assistantText("当前没有可用的笔记上下文", "The current note context is unavailable"),
         };
     }
     const currentLines = parsed.suggestions
@@ -452,7 +452,7 @@ const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, pa
     let failedCurrent = 0;
     if (currentLines.length > 0) {
         const ok = await appendMarkdownToNoteByRootID(context.note.rootID, buildAssistantLinkSection(
-            assistantText("AI ��������ʼ�", "AI Suggested Related Notes"),
+            assistantText("AI 建议关联笔记", "AI Suggested Related Notes"),
             currentLines
         ));
         if (ok) {
@@ -479,12 +479,12 @@ const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, pa
             continue;
         }
         const backlinkLine = buildAssistantLinkBullet(
-            context.note.title || assistantText("��ǰ�ʼ�", "Current note"),
+            context.note.title || assistantText("当前笔记", "Current note"),
             context.note.rootID,
             item.backlinkText || item.reason
         );
         const ok = await appendMarkdownToNoteByRootID(targetNote.rootID, buildAssistantLinkSection(
-            assistantText("AI �������", "AI Suggested Backlink"),
+            assistantText("AI 建议回链", "AI Suggested Backlink"),
             [backlinkLine]
         ));
         if (ok) {
@@ -499,21 +499,21 @@ const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, pa
         return {
             ok: false,
             message: assistantText(
-                "û���µĽ��������ִ�У�������ӿ����Ѿ����ڡ�",
+                "没有新的建链建议可执行，相关链接可能已经存在。",
                 "There were no new link suggestions to apply. The related links may already exist."
             ),
         };
     }
     const messageParts = [
-        assistantText("��Ӧ�ý�������", "Applied link suggestions"),
-        `${assistantText("��ǰ�ʼ�", "Current note")} ${appliedCurrent}`,
-        `${assistantText("����", "Backlinks")} ${appliedBacklinks}`,
-        skippedBacklinks ? `${assistantText("������", "Skipped")} ${skippedBacklinks}` : "",
-        failedCurrent || failedBacklinks ? `${assistantText("ʧ��", "Failed")} ${failedCurrent + failedBacklinks}` : "",
+        assistantText("已应用建链建议", "Applied link suggestions"),
+        `${assistantText("当前笔记", "Current note")} ${appliedCurrent}`,
+        `${assistantText("回链", "Backlinks")} ${appliedBacklinks}`,
+        skippedBacklinks ? `${assistantText("已跳过", "Skipped")} ${skippedBacklinks}` : "",
+        failedCurrent || failedBacklinks ? `${assistantText("失败", "Failed")} ${failedCurrent + failedBacklinks}` : "",
     ].filter(Boolean);
     return {
         ok: true,
-        message: messageParts.join(" �� "),
+        message: messageParts.join(" · "),
     };
 };
 
@@ -530,7 +530,7 @@ const replaceCurrentSelection = (context: IAssistantSkillContext, text: string) 
 };
 
 const buildSkillInboxTitle = (definition: IAssistantSkillDefinition, context: IAssistantSkillContext) => {
-    return `${definition.shortLabel} �� ${context.note?.title || assistantText("δ�����ʼ�", "Untitled note")}`;
+    return `${definition.shortLabel} · ${context.note?.title || assistantText("未命名笔记", "Untitled note")}`;
 };
 
 const buildCaptureTitle = (sourceText: string, fallback: string) => {
@@ -538,7 +538,7 @@ const buildCaptureTitle = (sourceText: string, fallback: string) => {
     if (!normalized) {
         return fallback;
     }
-    return truncateText(normalized.split(/[.!?������\n]/)[0] || normalized, 40) || fallback;
+    return truncateText(normalized.split(/[.!?。！？\n]/)[0] || normalized, 40) || fallback;
 };
 
 const buildContextReference = (context: IAssistantSkillContext) => {
@@ -547,8 +547,8 @@ const buildContextReference = (context: IAssistantSkillContext) => {
     }
     const blockID = context.note.currentBlockID || context.note.rootID;
     const title = blockID === context.note.rootID
-        ? (context.note.title || assistantText("��ǰ�ʼ�", "Current note"))
-        : assistantText(`${context.note.title || assistantText("��ǰ�ʼ�", "Current note")} �� ��ǰ��`, `${context.note.title || assistantText("Current note", "Current note")} �� Current block`);
+        ? (context.note.title || assistantText("当前笔记", "Current note"))
+        : assistantText(`${context.note.title || assistantText("当前笔记", "Current note")} · 当前块`, `${context.note.title || assistantText("Current note", "Current note")} · Current block`);
     return `((${blockID} '${title.replace(/'/g, " ")}'))`;
 };
 
@@ -556,7 +556,7 @@ const buildContextNoteReference = (context: IAssistantSkillContext) => {
     if (!context.note) {
         return "";
     }
-    const title = context.note.title || assistantText("��ǰ�ʼ�", "Current note");
+    const title = context.note.title || assistantText("当前笔记", "Current note");
     return `((${context.note.rootID} '${title.replace(/'/g, " ")}'))`;
 };
 
@@ -565,13 +565,13 @@ const appendResultCitation = (result: string, context: IAssistantSkillContext) =
     if (!normalized || !context.note) {
         return normalized;
     }
-    if (normalized.includes("## " + assistantText("��Դ", "Source"))) {
+    if (normalized.includes("## " + assistantText("来源", "Source"))) {
         return normalized;
     }
-    const lines = [normalized, "", `## ${assistantText("��Դ", "Source")}`, "", `- ${assistantText("��Դ��", "Source block")}��${buildContextReference(context)}`];
+    const lines = [normalized, "", `## ${assistantText("来源", "Source")}`, "", `- ${assistantText("来源块", "Source block")}：${buildContextReference(context)}`];
     const noteRef = buildContextNoteReference(context);
     if (noteRef && context.note.currentBlockID && context.note.currentBlockID !== context.note.rootID) {
-        lines.push(`- ${assistantText("��Դ�ʼ�", "Source note")}��${noteRef}`);
+        lines.push(`- ${assistantText("来源笔记", "Source note")}：${noteRef}`);
     }
     return lines.join("\n").trim();
 };
@@ -580,10 +580,10 @@ const buildCaptureContent = (context: IAssistantSkillContext) => {
     const sections: string[] = [];
     const noteRef = buildContextReference(context);
     if (noteRef) {
-        sections.push(`${assistantText("��Դ�ʼ�", "Source note")}��${noteRef}`);
+        sections.push(`${assistantText("来源笔记", "Source note")}：${noteRef}`);
     }
     if (context.selectedText) {
-        sections.push(`${assistantText("ѡ������", "Selected content")}��`);
+        sections.push(`${assistantText("选中内容", "Selected content")}：`);
         sections.push(context.selectedText.trim());
     }
     return sections.join("\n\n").trim();
@@ -608,7 +608,7 @@ const formatDateTimeLocal = (date: Date) => {
 const openCaptureFromSkill = async (definition: IAssistantSkillDefinition, context: IAssistantSkillContext, app?: App) => {
     const targetApp = app || context.protyle?.app;
     if (!targetApp) {
-        showMessage(assistantText("��ǰ�޷�������/�����ռ�", "Task/reminder capture is not available right now"), 4000, "error");
+        showMessage(assistantText("当前无法打开任务/提醒收集", "Task/reminder capture is not available right now"), 4000, "error");
         return false;
     }
     const selectedTitle = buildCaptureTitle(context.selectedText, context.note?.title || definition.shortLabel);
@@ -663,17 +663,17 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
         content: `<div class="assistant-skill-dialog fn__flex-column">
     <div class="assistant-skill-dialog__meta">
         <div class="assistant-skill-dialog__title">${escapeHTML(definition.label)}</div>
-        <div class="assistant-skill-dialog__subtitle">${escapeHTML(context.note ? `${context.note.title} �� ${truncateText(context.note.path, 72)}` : definition.description)}</div>
+        <div class="assistant-skill-dialog__subtitle">${escapeHTML(context.note ? `${context.note.title} · ${truncateText(context.note.path, 72)}` : definition.description)}</div>
     </div>
     <div class="assistant-skill-dialog__preview assistant-skill-dialog__preview--${previewMode}">${previewHTML}</div>
     <div class="assistant-skill-dialog__actions">
-        <button type="button" class="b3-button b3-button--outline" data-action="copy-result">${assistantText("���ƽ��", "Copy result")}</button>
-        ${canReplaceSelection ? `<button type="button" class="b3-button b3-button--outline" data-action="replace-selection">${assistantText("�滻ѡ��", "Replace selection")}</button>` : ""}
-        ${canInsert ? `<button type="button" class="b3-button b3-button--text" data-action="insert-note">${assistantText("���뵱ǰ�ʼ�", "Insert into current note")}</button>` : ""}
-        ${parsedLinkSuggestions?.suggestions.length ? `<button type="button" class="b3-button b3-button--text" data-action="apply-links">${assistantText("һ��Ӧ�ý�������", "Apply link suggestions")}</button>` : ""}
-        <button type="button" class="b3-button b3-button--outline" data-action="save-inbox">${assistantText("���浽�ɹ�����", "Save to Results")}</button>
-        <button type="button" class="b3-button b3-button--outline" data-action="open-inbox">${assistantText("�򿪳ɹ�����", "Open Results")}</button>
-        ${sessionId ? `<button type="button" class="b3-button b3-button--outline" data-action="open-chat" data-session-id="${escapeAttr(sessionId)}">${assistantText("��������", "Continue in chat")}</button>` : ""}
+        <button type="button" class="b3-button b3-button--outline" data-action="copy-result">${assistantText("复制结果", "Copy result")}</button>
+        ${canReplaceSelection ? `<button type="button" class="b3-button b3-button--outline" data-action="replace-selection">${assistantText("替换选区", "Replace selection")}</button>` : ""}
+        ${canInsert ? `<button type="button" class="b3-button b3-button--text" data-action="insert-note">${assistantText("插入当前笔记", "Insert into current note")}</button>` : ""}
+        ${parsedLinkSuggestions?.suggestions.length ? `<button type="button" class="b3-button b3-button--text" data-action="apply-links">${assistantText("一键应用建链建议", "Apply link suggestions")}</button>` : ""}
+        <button type="button" class="b3-button b3-button--outline" data-action="save-inbox">${assistantText("保存到成果箱", "Save to Results")}</button>
+        <button type="button" class="b3-button b3-button--outline" data-action="open-inbox">${assistantText("打开成果箱", "Open Results")}</button>
+        ${sessionId ? `<button type="button" class="b3-button b3-button--outline" data-action="open-chat" data-session-id="${escapeAttr(sessionId)}">${assistantText("继续聊天", "Continue in chat")}</button>` : ""}
         <button type="button" class="b3-button b3-button--cancel" data-action="close">${window.sourceflow.languages.close}</button>
     </div>
 </div>`,
@@ -689,7 +689,7 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
             }
             if (action === "copy-result") {
                 writeText(displayResult);
-                showMessage(assistantText("����Ѹ���", "Result copied"));
+                showMessage(assistantText("结果已复制", "Result copied"));
                 event.preventDefault();
                 return;
             }
@@ -698,10 +698,10 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                 if (replaced) {
                     dialog.destroy();
                     presentSkillApplyFeedback(context, {
-                        fallbackMessage: assistantText("���滻ѡ������", "Selection replaced"),
+                        fallbackMessage: assistantText("已替换选区内容", "Selection replaced"),
                     });
                 } else {
-                    showMessage(assistantText("�滻ʧ�ܣ�����ò������", "Replace failed. Use insert or copy instead."), 4000, "error");
+                    showMessage(assistantText("替换失败，请改用插入或复制。", "Replace failed. Use insert or copy instead."), 4000, "error");
                 }
                 event.preventDefault();
                 return;
@@ -712,17 +712,17 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                     dialog.destroy();
                     presentSkillApplyFeedback(context, {
                         blockID: inserted.blockID,
-                        fallbackMessage: assistantText("�����д�뵱ǰ�ʼ�", "Result inserted into the current note"),
+                        fallbackMessage: assistantText("结果已写入当前笔记", "Result inserted into the current note"),
                     });
                 } else {
-                    showMessage(assistantText("д�뵱ǰ�ʼ�ʧ��", "Failed to insert into the current note"), 4000, "error");
+                    showMessage(assistantText("写入当前笔记失败", "Failed to insert into the current note"), 4000, "error");
                 }
                 event.preventDefault();
                 return;
             }
             if (action === "apply-links") {
                 if (!parsedLinkSuggestions) {
-                    showMessage(assistantText("��ǰ���û�п�ִ�еĽ�������", "This result does not contain actionable link suggestions"), 4000, "error");
+                    showMessage(assistantText("当前结果没有可执行的建链建议", "This result does not contain actionable link suggestions"), 4000, "error");
                     event.preventDefault();
                     return;
                 }
@@ -744,7 +744,7 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                     sourceTitle: context.note?.title,
                     sourcePath: context.note?.path,
                     goal: definition.label,
-                    nextStep: assistantText("�ص��ɹ�������������Ӧ�á���д���Ǽ��������", "Review it in the results sidebar and decide whether to apply, refine, or continue."),
+                    nextStep: assistantText("回到成果箱复核，再决定应用、改写或继续追问。", "Review it in the results sidebar and decide whether to apply, refine, or continue."),
                 });
                 if (saved) {
                     await openAssistantResultsPanel();
@@ -783,10 +783,10 @@ const createSkillLoadingDialog = (definition: IAssistantSkillDefinition, context
         content: `<div class="assistant-skill-dialog assistant-skill-dialog--compact fn__flex-column">
     <div class="assistant-skill-dialog__meta">
         <div class="assistant-skill-dialog__title">${escapeHTML(definition.label)}</div>
-        <div class="assistant-skill-dialog__subtitle">${escapeHTML(context.note ? `${context.note.title} �� ${truncateText(context.note.path, 72)}` : definition.description)}</div>
+        <div class="assistant-skill-dialog__subtitle">${escapeHTML(context.note ? `${context.note.title} · ${truncateText(context.note.path, 72)}` : definition.description)}</div>
     </div>
-    <div class="assistant-skill-dialog__loading-hint">${escapeHTML(assistantText("�������ɣ���ɺ��ֱ��Ӧ��Ĭ�϶�����", "Generating now. The default action will be applied automatically once it finishes..."))}</div>
-    <div class="assistant-skill-dialog__preview assistant-skill-dialog__preview--text" data-role="stream-preview">${escapeHTML(assistantText("׼����...", "Preparing..."))}</div>
+    <div class="assistant-skill-dialog__loading-hint">${escapeHTML(assistantText("正在生成，完成后会直接应用默认动作。", "Generating now. The default action will be applied automatically once it finishes..."))}</div>
+    <div class="assistant-skill-dialog__preview assistant-skill-dialog__preview--text" data-role="stream-preview">${escapeHTML(assistantText("准备中...", "Preparing..."))}</div>
 </div>`,
     });
     dialog.element.setAttribute("data-key", "assistant-skill-loading");
@@ -799,7 +799,7 @@ const updateSkillLoadingDialog = (dialog: Dialog, partial: string) => {
         return;
     }
     const text = `${partial || ""}`.trim();
-    preview.textContent = text || assistantText("׼����...", "Preparing...");
+    preview.textContent = text || assistantText("准备中...", "Preparing...");
 };
 
 const applySkillResultAutomatically = async (definition: IAssistantSkillDefinition, context: IAssistantSkillContext, reply: string) => {
@@ -807,7 +807,7 @@ const applySkillResultAutomatically = async (definition: IAssistantSkillDefiniti
         const replaced = replaceCurrentSelection(context, reply);
         if (replaced) {
             presentSkillApplyFeedback(context, {
-                fallbackMessage: assistantText("��Ӧ�õ���ǰѡ������", "Applied to the current selection"),
+                fallbackMessage: assistantText("已应用到当前选区内容", "Applied to the current selection"),
             });
             return true;
         }
@@ -818,7 +818,7 @@ const applySkillResultAutomatically = async (definition: IAssistantSkillDefiniti
         if (inserted.ok) {
             presentSkillApplyFeedback(context, {
                 blockID: inserted.blockID,
-                fallbackMessage: assistantText("�����д�뵱ǰ�ʼ�", "Inserted into the current note"),
+                fallbackMessage: assistantText("结果已写入当前笔记", "Inserted into the current note"),
             });
             return true;
         }
@@ -829,7 +829,7 @@ const applySkillResultAutomatically = async (definition: IAssistantSkillDefiniti
         if (insertedMindElixir.ok) {
             presentSkillApplyFeedback(context, {
                 blockID: insertedMindElixir.blockID,
-                fallbackMessage: assistantText("˼ά��ͼ�Ѳ��뵱ǰ�ʼ�", "Mind map inserted into the current note"),
+                fallbackMessage: assistantText("思维导图已插入当前笔记", "Mind map inserted into the current note"),
             });
             return true;
         }
@@ -845,11 +845,11 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
     }
     const context = await resolveSkillContext(options);
     if (definition.requiresNote && !context.note) {
-        showMessage(assistantText("���ȴ�һ���ʼ���ʹ���������", "Open a note before using this skill"), 4000, "error");
+        showMessage(assistantText("请先打开一个笔记再使用这个能力", "Open a note before using this skill"), 4000, "error");
         return false;
     }
     if (definition.requiresSelection && !context.hasSelection) {
-        showMessage(assistantText("����ѡ��Ҫ���������", "Select some content first"), 4000, "error");
+        showMessage(assistantText("请先选中要处理的内容", "Select some content first"), 4000, "error");
         return false;
     }
     const params = ensureSkillParams(definition);
@@ -867,7 +867,7 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
     }
     const profile = await ensureDefaultProfile();
     if (!profile) {
-        showMessage(assistantText("������������һ�� AI ģ��", "Configure at least one AI profile first"), 5000, "error");
+        showMessage(assistantText("请先配置至少一个 AI 模型", "Configure at least one AI profile first"), 5000, "error");
         return false;
     }
     const loadingDialog = createSkillLoadingDialog(definition, context);
@@ -902,7 +902,7 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         const reply = [...result.messages].reverse().find((item) => item.role === "assistant")?.content?.trim() || "";
         loadingDialog.destroy();
         if (!reply) {
-            showMessage(assistantText("AI û�з��ؿ��ý��", "The AI did not return a usable result"), 4000, "error");
+            showMessage(assistantText("AI 没有返回可用结果", "The AI did not return a usable result"), 4000, "error");
             return false;
         }
         if (definition.resultMode === "auto-apply") {
@@ -910,7 +910,7 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             if (applied) {
                 return true;
             }
-            showMessage(assistantText("�Զ�Ӧ��ʧ�ܣ��Ѵ򿪽��Ԥ��", "Automatic apply failed. Opened the result preview instead."), 5000, "error");
+            showMessage(assistantText("自动应用失败，已打开结果预览", "Automatic apply failed. Opened the result preview instead."), 5000, "error");
         }
         openSkillResultDialog(definition, context, reply, result.session.id);
         return true;

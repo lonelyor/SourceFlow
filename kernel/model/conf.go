@@ -1572,15 +1572,19 @@ func init() {
 
 func subscribeConfEvents() {
 	eventbus.Subscribe(util.EvtConfPandocInitialized, func() {
+		if nil == Conf || nil == Conf.Export || nil == Conf.System {
+			return
+		}
 		logging.LogInfof("pandoc initialized, set pandoc bin to [%s]", util.PandocBinPath)
 		Conf.Export.PandocBin = util.PandocBinPath
 
 		params := util.RemoveInvalid(Conf.Export.PandocParams)
-		if !strings.Contains(params, "--reference-doc") && "" != util.PandocTemplatePath && !Conf.System.IsMicrosoftStore {
-			params += " --reference-doc"
-			params += " \"" + util.PandocTemplatePath + "\""
-			Conf.Export.PandocParams = strings.TrimSpace(params)
+		if !Conf.System.IsMicrosoftStore {
+			if normalizedParams, changed := normalizePandocReferenceDocParams(params); changed {
+				params = normalizedParams
+			}
 		}
+		Conf.Export.PandocParams = strings.TrimSpace(params)
 
 		logging.LogInfof("pandoc params set to [%s]", Conf.Export.PandocParams)
 		logging.LogInfof("pandoc resources [%s, %s]", util.PandocTemplatePath, util.PandocColorFilterPath)

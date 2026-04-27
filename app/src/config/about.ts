@@ -21,8 +21,8 @@ export const about = {
         const portableRoot = window.sourceflow.config.system.isPortable ? originalPath().dirname(window.sourceflow.config.system.confDir) : "";
         const backupProfilePath = window.sourceflow.config.system.isPortable ? originalPath().join(window.sourceflow.config.system.confDir, "backup-profile.json") : "";
         const versionTip = window.sourceflow.config.system.isPortable ?
-            "便携版不会自动安装更新，请下载新的 portable 包后手动替换程序文件。 Portable edition does not auto-install updates; replace the program files manually." :
-            "当前版本信息仅用于确认版本号，不再提供官方更新检查入口。 Current version info is displayed for reference only; official update checks are disabled.";
+            "会通过 GitHub Release 提示新版本；便携版不会自动替换程序文件，请下载新的 portable 包后手动替换。 GitHub Releases are checked for updates; portable edition requires manually replacing program files." :
+            "会通过 GitHub Release 检查更新；安装版可下载并校验更新安装包，退出时再确认是否安装。 GitHub Releases are checked for updates; installer packages are verified before installation.";
         const protocolRegistered = !!window.sourceflow.config.system.protocolClientRegistered;
         const portableHTML = !isBrowser() && window.sourceflow.config.system.isPortable ? `<div class="b3-label">
     <div>

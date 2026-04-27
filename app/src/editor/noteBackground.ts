@@ -144,6 +144,8 @@ const syncEditorNoteBackgroundLayers = () => {
         const container = item as HTMLElement;
         const {layer, image} = ensureEditorNoteBackgroundLayer(container);
         layer.style.opacity = `${opacity / 100}`;
+        layer.style.setProperty("--editor-note-background-width", `${container.clientWidth}px`);
+        layer.style.setProperty("--editor-note-background-height", `${container.clientHeight}px`);
         image.style.filter = `blur(${blur}px)`;
         image.style.transform = `scale(${1 + blur / 60})`;
         if (image.dataset.sourceValue !== imageSource) {

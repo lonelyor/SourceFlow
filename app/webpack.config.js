@@ -11,6 +11,13 @@ module.exports = (env, argv) => {
         mode: argv.mode || "development",
         watch: argv.mode !== "production",
         devtool: argv.mode !== "production" ? "eval-source-map" : false,
+        cache: {
+            type: "filesystem",
+            name: `sourceflow-app-${argv.mode || "development"}`,
+            buildDependencies: {
+                config: [__filename],
+            },
+        },
         target: "electron-renderer",
         output: {
             publicPath: "auto",

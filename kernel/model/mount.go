@@ -34,6 +34,8 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
 )
 
+const defaultBoxIcon = "1f525"
+
 func GetBoxByName(name string) (ret *Box) {
 	for _, box := range Conf.GetOpenedBoxes() {
 		if box.Name == name {
@@ -77,6 +79,7 @@ func CreateBox(name string) (id string, err error) {
 	box := &Box{ID: id, Name: name}
 	boxConf := box.GetConf()
 	boxConf.Name = name
+	boxConf.Icon = defaultBoxIcon
 	box.SaveConf(boxConf)
 	IncSync()
 	logging.LogInfof("created box [%s]", id)

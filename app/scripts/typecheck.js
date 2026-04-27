@@ -127,6 +127,34 @@ const buildTsconfig = (tempDir, targetName) => {
     };
 };
 
+const runMojibakeCheck = () => {
+    const checkerPath = path.join(__dirname, "checkMojibake.js");
+    const result = spawnSync(process.execPath, [checkerPath], {
+        cwd: appRoot,
+        stdio: "inherit",
+    });
+
+    if (result.error) {
+        console.error(result.error);
+        return 1;
+    }
+    return result.status || 0;
+};
+
+const runExportGuardCheck = () => {
+    const checkerPath = path.join(__dirname, "checkExportGuards.js");
+    const result = spawnSync(process.execPath, [checkerPath], {
+        cwd: appRoot,
+        stdio: "inherit",
+    });
+
+    if (result.error) {
+        console.error(result.error);
+        return 1;
+    }
+    return result.status || 0;
+};
+
 const runTypecheck = (targetName) => {
     const tempDir = fs.mkdtempSync(path.join(appRoot, `.typecheck-${targetName}-`));
     const tempSrcDir = path.join(tempDir, "src");
@@ -156,7 +184,18 @@ const runTypecheck = (targetName) => {
     }
 };
 
-let exitCode = 0;
+console.log("\n[typecheck] mojibake");
+let exitCode = runMojibakeCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] export guards");
+exitCode = runExportGuardCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
 for (const targetName of targetNames) {
     console.log(`\n[typecheck] ${targetName}`);
     exitCode = runTypecheck(targetName);

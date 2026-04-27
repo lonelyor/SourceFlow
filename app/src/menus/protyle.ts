@@ -189,7 +189,7 @@ export const assetMenu = (protyle: IProtyle, position: IPosition, callback?: (ur
                         window.sourceflow.menus.menu.remove();
                         focusByRange(protyle.toolbar.range);
                     }
-                    // ���д����� mp3 ���һ���յ� mp3 ��
+                    // 避免 Enter 继续触发编辑器里的资源选择逻辑。
                     event.preventDefault();
                     event.stopPropagation();
                 } else if (event.key === "Escape") {
@@ -396,7 +396,7 @@ export const refMenu = (protyle: IProtyle, element: HTMLElement) => {
                 inputElement.value = element.getAttribute("data-subtype") === "d" ? "" : element.textContent;
                 inputElement.addEventListener("input", () => {
                     if (inputElement.value) {
-                        // ����ʹ�� textContent������ < ���Ϊ &lt;
+                        // 不能使用 textContent，否则 < 会变为 &lt;。
                         element.innerHTML = Lute.EscapeHTMLStr(inputElement.value).trim() || refBlockId;
                     } else {
                         fetchPost("/api/block/getRefText", {id: refBlockId}, (response) => {
@@ -760,7 +760,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
             accelerator: "?C",
             label: window.sourceflow.languages.copy,
             click() {
-                // range ��Ҫ���¼���
+                // range 需要重新获取。
                 focusByRange(getEditorRange(nodeElement));
                 document.execCommand("copy");
             }
@@ -778,7 +778,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
             window.sourceflow.menus.menu.append(new MenuItem({
                 id: "toggleInlineHidden",
                 icon: canRevealHiddenSelection ? "iconEye" : "iconEyeoff",
-                label: canRevealHiddenSelection ? hiddenInlineText("��ʾѡ����������", "Reveal selection") : hiddenInlineText("����ѡ������", "Hide selection"),
+                label: canRevealHiddenSelection ? hiddenInlineText("显示选区隐藏内容", "Reveal selection") : hiddenInlineText("隐藏选区内容", "Hide selection"),
                 click() {
                     if (canRevealHiddenSelection) {
                         revealHiddenInlineElement(protyle, nodeElement, hiddenStartElement, oldHTML);
@@ -824,7 +824,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
                 window.sourceflow.menus.menu.append(new MenuItem({
                     id: "revealHiddenInline",
                     icon: "iconEye",
-                    label: hiddenInlineText("��ʾ��������", "Reveal hidden content"),
+                    label: hiddenInlineText("显示隐藏内容", "Reveal hidden content"),
                     click() {
                         revealHiddenInlineElement(protyle, nodeElement, inlineElement, oldHTML);
                     }
@@ -1201,13 +1201,13 @@ export const zoomOut = (options: {
                 focusElement = options.protyle.wysiwyg.element.querySelector(`[data-node-id="${unfoldResponse.data.parentID}"]`);
             }
             if (focusElement) {
-                // �˳��۽�������۵��� https://github.com/lonelyor/SourceFlow/issues/10746
+                // 退出聚焦时可能遇到折叠块 https://github.com/lonelyor/SourceFlow/issues/10746
                 let showElement = focusElement;
                 while (showElement.getBoundingClientRect().height === 0) {
                     showElement = showElement.parentElement;
                 }
                 if (showElement.classList.contains("protyle-wysiwyg")) {
-                    // �����˳��۽�Ԫ�ر����� https://github.com/lonelyor/SourceFlow/issues/10058#issuecomment-2029524211
+                    // 需要排除聚焦元素本身 https://github.com/lonelyor/SourceFlow/issues/10058#issuecomment-2029524211
                     showElement = focusElement.previousElementSibling || focusElement.nextElementSibling;
                 } else {
                     showElement = getFirstBlock(showElement);
@@ -1232,7 +1232,7 @@ export const zoomOut = (options: {
                     });
                 });
                 return;
-            } else if (options.id === options.protyle.block.rootID) { // �۽����غ󣬸ÿ��Ƕ�̬���صģ�����û���س���
+            } else if (options.id === options.protyle.block.rootID) { // 聚焦渲染后，该块是动态加载的，可能还没有渲染完整。
                 fetchPost("/api/filetree/getDoc", {
                     id: options.focusId,
                     mode: 3,
@@ -2745,9 +2745,9 @@ export const setFoldById = (data: {
 export const setFold = (protyle: IProtyle, nodeElement: Element, isOpen?: boolean,
                         isRemove?: boolean, addLoading = true, getOperations = false) => {
     if (nodeElement.getAttribute("data-type") === "NodeListItem" && nodeElement.childElementCount < 4 &&
-        // �������Ҫǿ��չ�� https://github.com/lonelyor/SourceFlow/issues/12327
+        // 空列表项需要强制展开 https://github.com/lonelyor/SourceFlow/issues/12327
         !isOpen) {
-        // û�����б��������б�������۵�
+        // 没有子列表的列表项不能被折叠。
         return {fold: -1};
     }
     if (nodeElement.getAttribute("data-type") === "NodeThematicBreak") {
@@ -2768,7 +2768,7 @@ export const setFold = (protyle: IProtyle, nodeElement: Element, isOpen?: boolea
             return {fold: -1};
         }
         nodeElement.setAttribute("fold", "1");
-        // ��������б��У��ٴ� focus ��β��ʱ�򲻻��
+        // 在搜索结果列表中再次 focus 到尾部时，避免落到不可见块里。
         if (getSelection().rangeCount > 0) {
             const range = getSelection().getRangeAt(0);
             const blockElement = hasClosestBlock(range.startContainer);
@@ -2823,7 +2823,7 @@ export const setFold = (protyle: IProtyle, nodeElement: Element, isOpen?: boolea
     if (!getOperations) {
         transaction(protyle, doOperations, undoOperations);
     }
-    // �۵��󣬷�ֹ��������������� get ���� https://github.com/lonelyor/SourceFlow/issues/2248
+    // 折叠后，防止滚动时触发不必要的 get 请求 https://github.com/lonelyor/SourceFlow/issues/2248
     preventScroll(protyle);
     return {fold: !hasFold ? 1 : 0, undoOperations, doOperations};
 };

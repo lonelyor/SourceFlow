@@ -199,6 +199,30 @@ const renderPDF = async (id: string) => {
           position: inherit;
           max-width: none;
         }
+
+        body.export-pdf-printing #action {
+          display: none !important;
+        }
+
+        body.export-pdf-printing #preview {
+          position: inherit !important;
+          right: auto !important;
+          left: auto !important;
+          max-width: none !important;
+        }
+
+        @media print {
+          #action {
+            display: none !important;
+          }
+
+          #preview {
+            position: inherit !important;
+            right: auto !important;
+            left: auto !important;
+            max-width: none !important;
+          }
+        }
         
         .b3-switch {
             margin-left: 14px;
@@ -636,39 +660,79 @@ ${getIconScript(servePath)}
                 parentWindowId: ${currentWindowId},
             };
         };
-        actionElement.querySelector('.b3-button--text').addEventListener('click', () => {
-            const {ipcRenderer}  = require("electron");
-            const isPaged = actionElement.querySelector("#paged").checked;
-            if (!isPaged) {
-                const getPageSizeDimensions = () => {
-                    // https://github.com/electron/electron/blob/3df3a6a736b93e0d69fa3b0c403b33f201287780/lib/browser/api/web-contents.ts#L89-L101
-                    const pageSizes = {
-                        "A3": { width: 11.7, height: 16.54 },
-                        "A4": { width: 8.27, height: 11.7 },
-                        "A5": { width: 5.83, height: 8.27 },
-                        "Legal": { width: 8.5, height: 14 },
-                        "Letter": { width: 8.5, height: 11 },
-                        "Tabloid": { width: 11, height: 17 },
-                    };
-                    return pageSizes[actionElement.querySelector("#pageSize").value];
-                };
-                const previewHeight = Math.max(previewElement.scrollHeight / 96 - (parseFloat(document.querySelector("#marginsTop").value) || 0) - (parseFloat(document.querySelector("#marginsBottom").value) || 0), getPageSizeDimensions().height);
-                ipcRenderer.send("${Constants.SOURCEFLOW_EXPORT_PDF}", buildExportConfig(actionElement.querySelector("#landscape").checked ? {
-                    height: getPageSizeDimensions().height,
-                    width: previewHeight,
-                } : {
-                    width: getPageSizeDimensions().width,
-                    height: previewHeight,
-                }));
-            } else {
-                ipcRenderer.send("${Constants.SOURCEFLOW_EXPORT_PDF}", buildExportConfig());
-            }
+        const preparePDFPrintView = () => {
             previewElement.classList.add("exporting");
             previewElement.style.zoom = "";
             previewElement.style.paddingTop = "6px";
             previewElement.style.paddingBottom = "0";
+            document.body.classList.add("export-pdf-printing");
+            actionElement.setAttribute("aria-hidden", "true");
             fixBlockWidth();
-            actionElement.remove();
+            return new Promise((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            });
+        };
+        const restorePDFPreviewView = () => {
+            previewElement.classList.remove("exporting");
+            previewElement.style.zoom = actionElement.querySelector("#scale").value;
+            previewElement.style.paddingTop = "";
+            previewElement.style.paddingBottom = "";
+            document.body.classList.remove("export-pdf-printing");
+            actionElement.removeAttribute("aria-hidden");
+        };
+        const confirmButton = actionElement.querySelector('.b3-button--text');
+        confirmButton.addEventListener('click', async () => {
+            if (confirmButton.disabled) {
+                return;
+            }
+            confirmButton.disabled = true;
+            try {
+                const isPaged = actionElement.querySelector("#paged").checked;
+                let exportConfig;
+                if (!isPaged) {
+                    const getPageSizeDimensions = () => {
+                        // https://github.com/electron/electron/blob/3df3a6a736b93e0d69fa3b0c403b33f201287780/lib/browser/api/web-contents.ts#L89-L101
+                        const pageSizes = {
+                            "A3": { width: 11.7, height: 16.54 },
+                            "A4": { width: 8.27, height: 11.7 },
+                            "A5": { width: 5.83, height: 8.27 },
+                            "Legal": { width: 8.5, height: 14 },
+                            "Letter": { width: 8.5, height: 11 },
+                            "Tabloid": { width: 11, height: 17 },
+                        };
+                        return pageSizes[actionElement.querySelector("#pageSize").value];
+                    };
+                    const maxUnpagedPageHeight = 200;
+                    const previewHeight = Math.max(previewElement.scrollHeight / 96 - (parseFloat(document.querySelector("#marginsTop").value) || 0) - (parseFloat(document.querySelector("#marginsBottom").value) || 0), getPageSizeDimensions().height);
+                    if (previewHeight > maxUnpagedPageHeight) {
+                        exportConfig = buildExportConfig();
+                        exportConfig.autoPagedFallback = true;
+                    } else {
+                        exportConfig = buildExportConfig(actionElement.querySelector("#landscape").checked ? {
+                            height: getPageSizeDimensions().height,
+                            width: previewHeight,
+                        } : {
+                            width: getPageSizeDimensions().width,
+                            height: previewHeight,
+                        });
+                    }
+                } else {
+                    exportConfig = buildExportConfig();
+                }
+                await preparePDFPrintView();
+                const {ipcRenderer}  = require("electron");
+                ipcRenderer.send("${Constants.SOURCEFLOW_EXPORT_PDF}", exportConfig);
+            } catch (error) {
+                console.error(error);
+                restorePDFPreviewView();
+                confirmButton.disabled = false;
+                const detail = error && (error.message || error.msg) ? (error.message || error.msg) : String(error || "");
+                const exportFailedTemplate = ${JSON.stringify(window.sourceflow.languages._kernel?.[14] || "导出失败：%s")};
+                const message = /(out of memory|insufficient memory|memory.*(allocation|limit|pressure|exhaust)|allocation failed|heap out of memory|ERR_MEMORY|内存不足|可用内存不足)/i.test(detail)
+                    ? ${JSON.stringify(window.sourceflow.languages.exportPDFLowMemory)}
+                    : (exportFailedTemplate.indexOf("%s") > -1 ? exportFailedTemplate.replace("%s", detail || "Unknown error") : exportFailedTemplate + "：" + (detail || "Unknown error"));
+                alert(message);
+            }
         });
         setPadding();
         renderPreview(response.data);

@@ -191,6 +191,7 @@ async function validateCriticalRuntime(resourcesDir, platform, targetArch) {
     "appearance/langs/en_US.json",
     "appearance/langs/zh_CN.json",
     "pandoc-resources/pandoc-template.docx",
+    "pandoc-resources/pandoc_color_filter.lua",
   ];
 
   if (targetArch) {

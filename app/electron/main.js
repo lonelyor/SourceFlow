@@ -1712,7 +1712,11 @@ app.whenReady().then(() => {
         }
         if (data.cmd === "printToPDF") {
             try {
-                return getWindowByContentId(data.webContentsId).webContents.printToPDF(data.pdfOptions);
+                const printWindow = getWindowByContentId(data.webContentsId);
+                if (!printWindow || printWindow.isDestroyed()) {
+                    throw new Error(`PDF preview window is unavailable: ${data.webContentsId}`);
+                }
+                return printWindow.webContents.printToPDF(data.pdfOptions);
             } catch (e) {
                 writeLog("printToPDF: ", e);
                 throw e;

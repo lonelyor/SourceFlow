@@ -813,7 +813,7 @@ export const updateAVName = (protyle: IProtyle, blockElement: Element) => {
     blockElement.setAttribute("updated", newUpdated);
     nameElement.dataset.title = newData;
 
-    // ��ǰҳ�治�ܽ������ͣ������������
+    // 当前页面不能重新渲染，否则会闪烁。
     Array.from(protyle.wysiwyg.element.querySelectorAll(`.av[data-av-id="${avId}"]`)).forEach((item: HTMLElement) => {
         if (blockElement === item) {
             return;

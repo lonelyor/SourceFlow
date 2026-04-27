@@ -651,13 +651,19 @@ func ExportPreview(id string, fillCSSVar bool) (retStdHTML string) {
 
 func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string, err error) {
 	util.EnsurePandocInitialized()
-	if !util.IsValidPandocBin(Conf.Export.PandocBin) {
+	pandocBinPath := util.PandocBinPath
+	if !util.IsValidPandocBin(pandocBinPath) {
+		pandocBinPath = Conf.Export.PandocBin
+	}
+	if !util.IsValidPandocBin(pandocBinPath) {
 		Conf.Export.PandocBin = util.PandocBinPath
 		Conf.Save()
-		if !util.IsValidPandocBin(Conf.Export.PandocBin) {
-			err = errors.New(Conf.Language(115))
-			return
-		}
+		err = errors.New(Conf.Language(115))
+		return
+	}
+	if Conf.Export.PandocBin != pandocBinPath {
+		Conf.Export.PandocBin = pandocBinPath
+		Conf.Save()
 	}
 
 	tmpDir := filepath.Join(util.TempDir, "export", gulu.Rand.String(7))
@@ -685,29 +691,10 @@ func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string,
 		}
 	}
 
-	hasLuaFilter := false
-	for i := 0; i < len(args)-1; i++ {
-		if "--lua-filter" == args[i] {
-			hasLuaFilter = true
-			break
-		}
-	}
-	if !hasLuaFilter {
-		args = append(args, "--lua-filter", util.PandocColorFilterPath)
-	}
+	args = ensurePandocResourceArg(args, "--lua-filter", util.PandocColorFilterPath)
+	args = ensurePandocResourceArg(args, "--reference-doc", util.PandocTemplatePath)
 
-	hasReferenceDoc := false
-	for i := 0; i < len(args)-1; i++ {
-		if "--reference-doc" == args[i] {
-			hasReferenceDoc = true
-			break
-		}
-	}
-	if !hasReferenceDoc {
-		args = append(args, "--reference-doc", util.PandocTemplatePath)
-	}
-
-	pandoc := exec.Command(Conf.Export.PandocBin, args...)
+	pandoc := exec.Command(pandocBinPath, args...)
 	gulu.CmdAttr(pandoc)
 	pandoc.Stdin = bytes.NewBufferString(content)
 	output, err := pandoc.CombinedOutput()
@@ -735,6 +722,71 @@ func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string,
 		}
 	}
 	return
+}
+
+func ensurePandocResourceArg(args []string, flag, fallbackPath string) []string {
+	normalized := make([]string, 0, len(args)+2)
+	hasValid := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == flag {
+			if i+1 < len(args) {
+				candidate := args[i+1]
+				i++
+				if isValidPandocResourcePath(candidate) {
+					normalized = append(normalized, flag, candidate)
+					hasValid = true
+				} else {
+					logging.LogWarnf("ignore invalid pandoc resource arg [%s %s]", flag, candidate)
+				}
+			} else {
+				logging.LogWarnf("ignore pandoc resource arg [%s] without value", flag)
+			}
+			continue
+		}
+
+		prefix := flag + "="
+		if strings.HasPrefix(arg, prefix) {
+			candidate := strings.TrimPrefix(arg, prefix)
+			if isValidPandocResourcePath(candidate) {
+				normalized = append(normalized, flag, candidate)
+				hasValid = true
+			} else {
+				logging.LogWarnf("ignore invalid pandoc resource arg [%s]", arg)
+			}
+			continue
+		}
+
+		normalized = append(normalized, arg)
+	}
+
+	if !hasValid && isValidPandocResourcePath(fallbackPath) {
+		normalized = append(normalized, flag, fallbackPath)
+	}
+	return normalized
+}
+
+func isValidPandocResourcePath(resourcePath string) bool {
+	normalized := strings.Trim(strings.TrimSpace(resourcePath), "\"'")
+	return "" != normalized && gulu.File.IsExist(normalized)
+}
+
+func normalizePandocReferenceDocParams(params string) (normalized string, changed bool) {
+	params = strings.TrimSpace(util.ReplaceNewline(params, " "))
+	if "" == params && "" == util.PandocTemplatePath {
+		return "", false
+	}
+
+	args, err := shellquote.Split(params)
+	if nil != err {
+		logging.LogErrorf("parse pandoc params [%s] failed: %s", params, err)
+		return params, false
+	}
+	nextArgs := ensurePandocResourceArg(args, "--reference-doc", util.PandocTemplatePath)
+	if slices.Equal(args, nextArgs) {
+		return params, false
+	}
+	return shellquote.Join(nextArgs...), true
 }
 
 func ExportMarkdownHTML(id, savePath string, docx, merge bool) (name, dom string) {

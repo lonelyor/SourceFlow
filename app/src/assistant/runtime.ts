@@ -49,12 +49,12 @@ export const ensureAssistantFeatureAvailable = () => {
     return false;
 };
 
-export const runAssistantFeature = <T>(scope: string, loader: () => Promise<T>, runner: (module: T) => void) => {
+export const runAssistantFeature = <T>(scope: string, loader: () => Promise<T>, runner: (module: T) => void | Promise<unknown>) => {
     if (!ensureAssistantFeatureAvailable()) {
         return;
     }
     void loader().then((module) => {
-        runner(module);
+        return runner(module);
     }).catch((error) => {
         reportAssistantRuntimeError(scope, error);
     });

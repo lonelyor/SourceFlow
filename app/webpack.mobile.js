@@ -12,6 +12,13 @@ module.exports = (env, argv) => {
         mode: argv.mode || "development",
         watch: argv.mode !== "production",
         devtool: argv.mode !== "production" ? "eval-source-map" : false,
+        cache: {
+            type: "filesystem",
+            name: `sourceflow-mobile-${argv.mode || "development"}`,
+            buildDependencies: {
+                config: [__filename],
+            },
+        },
         output: {
             // 不能使用 auto，否则 ios 导出图片获取不到 css。 https://github.com/lonelyor/SourceFlow/issues/8532
             publicPath: "/stage/build/mobile/",

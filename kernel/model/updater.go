@@ -18,8 +18,10 @@ package model
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,6 +39,26 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"golang.org/x/mod/semver"
 )
+
+const githubLatestReleaseAPI = "https://api.github.com/repos/lonelyor/SourceFlow/releases/latest"
+
+type softwareUpdateInfo struct {
+	Version   string
+	URL       string
+	Assets    map[string]string
+	Checksums map[string]string
+}
+
+type githubReleaseInfo struct {
+	TagName    string `json:"tag_name"`
+	HTMLURL    string `json:"html_url"`
+	Draft      bool   `json:"draft"`
+	Prerelease bool   `json:"prerelease"`
+	Assets     []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
 
 func execNewVerInstallPkg(newVerInstallPkgPath string) {
 	logging.LogInfof("installing the new version [%s]", newVerInstallPkgPath)
@@ -79,6 +101,63 @@ func getNewVerInstallPkgPath() string {
 
 var checkDownloadInstallPkgLock = sync.Mutex{}
 
+var (
+	checkSoftwareUpdateLock       = sync.Mutex{}
+	lastSoftwareUpdateCheck       int64
+	lastSoftwareUpdatePromptedVer string
+)
+
+func CheckSoftwareUpdateJob() {
+	defer logging.Recover()
+
+	if util.ContainerStd != util.Container || util.ISMicrosoftStore {
+		return
+	}
+	if time.Now().Unix()-lastSoftwareUpdateCheck < int64(2*time.Hour/time.Second) {
+		return
+	}
+	if !checkSoftwareUpdateLock.TryLock() {
+		return
+	}
+	defer checkSoftwareUpdateLock.Unlock()
+	lastSoftwareUpdateCheck = time.Now().Unix()
+
+	updateInfo, err := getSoftwareUpdateInfo(context.TODO())
+	if nil != err {
+		if isSoftwareUpdateNetworkError(err) {
+			logging.LogInfof("check software update skipped: %s", err)
+		} else {
+			logging.LogWarnf("check software update failed: %s", err)
+		}
+		return
+	}
+	if nil == updateInfo || isVersionUpToDate(updateInfo.Version) {
+		return
+	}
+
+	if !skipNewVerInstallPkg() {
+		pushSoftwareUpdatePrompt(updateInfo)
+		checkDownloadInstallPkg()
+		return
+	}
+
+	pushSoftwareUpdatePrompt(updateInfo)
+}
+
+func pushSoftwareUpdatePrompt(updateInfo *softwareUpdateInfo) {
+	if nil == updateInfo || "" == updateInfo.Version || lastSoftwareUpdatePromptedVer == updateInfo.Version {
+		return
+	}
+	lastSoftwareUpdatePromptedVer = updateInfo.Version
+
+	releaseURL := strings.TrimSpace(updateInfo.URL)
+	if "" == releaseURL {
+		releaseURL = "https://github.com/lonelyor/SourceFlow/releases/latest"
+	}
+	link := fmt.Sprintf("<a target='_blank' href='%s'>v%s</a>", releaseURL, updateInfo.Version)
+	util.PushUpdateMsg("software-update-"+updateInfo.Version, fmt.Sprintf(Conf.Language(9), link), 30*1000)
+}
+
 func checkDownloadInstallPkg() {
 	defer logging.Recover()
 
@@ -116,22 +195,51 @@ func checkDownloadInstallPkg() {
 		util.PushUpdateMsg("update-pkg-ready", Conf.Language(62), 15*1000)
 	} else {
 		util.PushUpdateMsg("update-pkg-downloading", Conf.Language(104), 7000)
+		if updateInfo, infoErr := getSoftwareUpdateInfo(context.TODO()); nil == infoErr {
+			pushSoftwareUpdatePrompt(updateInfo)
+		}
 	}
 }
 
 func getUpdatePkg() (downloadPkgURLs []string, checksum string, err error) {
 	defer logging.Recover()
-	result, err := util.GetRhyResult(context.TODO(), false)
+	updateInfo, err := getSoftwareUpdateInfo(context.TODO())
 	if err != nil {
 		return
 	}
 
-	ver := result["ver"].(string)
+	ver := updateInfo.Version
 	if isVersionUpToDate(ver) {
 		err = fmt.Errorf("version is up to date")
 		return
 	}
 
+	pkg := updatePackageName(ver)
+	if "" == pkg {
+		err = fmt.Errorf("unsupported platform")
+		return
+	}
+	if updateInfo.Assets != nil {
+		if assetURL := updateInfo.Assets[pkg]; "" != assetURL {
+			downloadPkgURLs = append(downloadPkgURLs, assetURL)
+		}
+	}
+	if 1 > len(downloadPkgURLs) {
+		githubURL := "https://github.com/lonelyor/SourceFlow/releases/download/v" + ver + "/" + pkg
+		downloadPkgURLs = append(downloadPkgURLs, githubURL)
+	}
+
+	if updateInfo.Checksums != nil {
+		checksum = updateInfo.Checksums[pkg]
+	}
+	if "" == checksum {
+		err = fmt.Errorf("checksum is empty")
+		return
+	}
+	return
+}
+
+func updatePackageName(ver string) string {
 	var suffix string
 	if gulu.OS.IsWindows() {
 		if "arm64" == runtime.GOARCH {
@@ -146,18 +254,178 @@ func getUpdatePkg() (downloadPkgURLs []string, checksum string, err error) {
 			suffix = "mac.dmg"
 		}
 	}
-	pkg := "sourceflow-" + ver + "-" + suffix
-	githubURL := "https://github.com/lonelyor/SourceFlow/releases/download/v" + ver + "/" + pkg
-	downloadPkgURLs = append(downloadPkgURLs, githubURL)
-
-	checksums := result["checksums"].(map[string]interface{})
-	checksum = checksums[pkg].(string)
-
-	if "" == checksum {
-		err = fmt.Errorf("checksum is empty")
-		return
+	if "" == suffix {
+		return ""
 	}
-	return
+	return "sourceflow-" + ver + "-" + suffix
+}
+
+func getSoftwareUpdateInfo(ctx context.Context) (*softwareUpdateInfo, error) {
+	updateInfo, err := getGitHubReleaseUpdateInfo(ctx)
+	if nil == err && nil != updateInfo {
+		return updateInfo, nil
+	}
+	if nil != err {
+		logging.LogInfof("get github release update info failed, fallback to version info: %s", err)
+	}
+	return getRhySoftwareUpdateInfo(ctx)
+}
+
+func getGitHubReleaseUpdateInfo(ctx context.Context) (*softwareUpdateInfo, error) {
+	release := &githubReleaseInfo{}
+	client := req.C().SetTLSHandshakeTimeout(7 * time.Second).SetTimeout(30 * time.Second).DisableInsecureSkipVerify()
+	resp, err := client.R().
+		SetContext(ctx).
+		SetHeader("Accept", "application/vnd.github+json").
+		SetHeader("User-Agent", util.UserAgent).
+		SetSuccessResult(release).
+		Get(githubLatestReleaseAPI)
+	if nil != err {
+		return nil, err
+	}
+	if 200 != resp.StatusCode {
+		return nil, fmt.Errorf("github release check failed: %d", resp.StatusCode)
+	}
+	if release.Draft || release.Prerelease {
+		return nil, errors.New("latest github release is draft or prerelease")
+	}
+
+	version := strings.TrimPrefix(strings.TrimSpace(release.TagName), "v")
+	if "" == version {
+		return nil, errors.New("github release tag is empty")
+	}
+	updateInfo := &softwareUpdateInfo{
+		Version:   version,
+		URL:       release.HTMLURL,
+		Assets:    map[string]string{},
+		Checksums: map[string]string{},
+	}
+
+	var checksumURL string
+	for _, asset := range release.Assets {
+		name := strings.TrimSpace(asset.Name)
+		assetURL := strings.TrimSpace(asset.BrowserDownloadURL)
+		if "" == name || "" == assetURL {
+			continue
+		}
+		updateInfo.Assets[name] = assetURL
+		if "SHA256SUMS.txt" == name {
+			checksumURL = assetURL
+		}
+	}
+	if "" != checksumURL {
+		checksums, checksumErr := downloadReleaseChecksums(ctx, checksumURL)
+		if nil == checksumErr {
+			updateInfo.Checksums = checksums
+		} else {
+			logging.LogWarnf("download github release checksums failed: %s", checksumErr)
+		}
+	}
+	return updateInfo, nil
+}
+
+func getRhySoftwareUpdateInfo(ctx context.Context) (*softwareUpdateInfo, error) {
+	result, err := util.GetRhyResult(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+
+	ver, _ := result["ver"].(string)
+	ver = strings.TrimSpace(ver)
+	if "" == ver {
+		return nil, errors.New("version info has no version")
+	}
+
+	updateInfo := &softwareUpdateInfo{
+		Version:   ver,
+		URL:       "https://github.com/lonelyor/SourceFlow/releases/tag/v" + ver,
+		Assets:    map[string]string{},
+		Checksums: map[string]string{},
+	}
+	pkg := updatePackageName(ver)
+	if "" != pkg {
+		updateInfo.Assets[pkg] = "https://github.com/lonelyor/SourceFlow/releases/download/v" + ver + "/" + pkg
+	}
+
+	if checksums, ok := result["checksums"].(map[string]interface{}); ok {
+		for name, rawChecksum := range checksums {
+			checksum, _ := rawChecksum.(string)
+			if "" != strings.TrimSpace(name) && "" != strings.TrimSpace(checksum) {
+				updateInfo.Checksums[strings.TrimSpace(name)] = strings.TrimSpace(checksum)
+			}
+		}
+	}
+	return updateInfo, nil
+}
+
+func downloadReleaseChecksums(ctx context.Context, checksumURL string) (map[string]string, error) {
+	buf := bytes.NewBuffer(nil)
+	client := req.C().SetTLSHandshakeTimeout(7 * time.Second).SetTimeout(2 * time.Minute).DisableInsecureSkipVerify()
+	resp, err := client.R().
+		SetContext(ctx).
+		SetHeader("User-Agent", util.UserAgent).
+		SetOutput(buf).
+		Get(checksumURL)
+	if nil != err {
+		return nil, err
+	}
+	if 200 != resp.StatusCode {
+		return nil, fmt.Errorf("download checksums failed: %d", resp.StatusCode)
+	}
+	return parseSHA256SUMS(buf.String()), nil
+}
+
+func parseSHA256SUMS(content string) map[string]string {
+	ret := map[string]string{}
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if "" == line || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		checksum := strings.ToLower(strings.TrimSpace(fields[0]))
+		filename := strings.TrimLeft(strings.TrimSpace(fields[len(fields)-1]), "*")
+		filename = path.Base(filename)
+		if 64 == len(checksum) && "" != filename {
+			ret[filename] = checksum
+		}
+	}
+	return ret
+}
+
+func IsBenignSoftwareUpdateError(err error) bool {
+	if nil == err {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	lowerCase := strings.ToLower(err.Error())
+	for _, pattern := range []string{
+		"no such host",
+		"temporary failure in name resolution",
+		"server misbehaving",
+		"network is unreachable",
+		"connection refused",
+		"connection reset",
+		"connection aborted",
+		"tls handshake timeout",
+		"i/o timeout",
+		"timeout",
+	} {
+		if strings.Contains(lowerCase, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSoftwareUpdateNetworkError(err error) bool {
+	return IsBenignSoftwareUpdateError(err)
 }
 
 func downloadInstallPkg(pkgURL, checksum string) (err error) {
