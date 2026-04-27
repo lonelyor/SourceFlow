@@ -124,7 +124,10 @@ const getSnippetCSS = () => {
     return snippetCSS;
 };
 
-const getSnippetJS = () => {
+const getSnippetJS = (includeEditorRuntimeJS = false) => {
+    if (!includeEditorRuntimeJS) {
+        return "";
+    }
     let snippetScript = "";
     document.querySelectorAll("script").forEach((item) => {
         if (item.id.startsWith("snippetJS")) {
@@ -898,7 +901,7 @@ ${getIconScript(servePath)}
       })
     });
 </script>
-${getSnippetJS()}</body></html>`;
+${getSnippetJS(!["pdf", "word"].includes(exportOption.type))}</body></html>`;
     // 移动端导出 pdf、浏览器导出 HTML
     if (typeof filePath === "undefined") {
         return html;

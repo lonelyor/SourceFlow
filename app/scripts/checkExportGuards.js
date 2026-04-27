@@ -89,6 +89,7 @@ const checkPDFExportGuards = () => {
         ["restorePDFPreviewView", "PDF preview must restore the view on pre-print failure"],
         ["maxUnpagedPageHeight", "PDF preview must cap unsafe unpaged height"],
         ["buildExportConfig();", "PDF preview must fall back to paged export for unsafe unpaged documents"],
+        ["const getSnippetJS = (includeEditorRuntimeJS = false)", "PDF export must default to skipping editor runtime JS snippets"],
     ];
     for (const [fragment, message] of requiredPreviewFragments) {
         if (!exportText.includes(fragment)) {
@@ -100,6 +101,12 @@ const checkPDFExportGuards = () => {
     }
     if (/alert\(\s*(?:\$\{JSON\.stringify\()?window\.sourceflow\.languages\.exportPDFLowMemory/.test(exportText)) {
         addFinding(exportPath, "PDF preview must not alert exportPDFLowMemory as a generic catch-all");
+    }
+    const renderPDFMatch = exportText.match(/const renderPDF[\s\S]*?const getExportPath/);
+    if (!renderPDFMatch) {
+        addFinding(exportPath, "PDF preview renderer is missing");
+    } else if (/getSnippetJS\(\s*true\s*\)/.test(renderPDFMatch[0])) {
+        addFinding(exportPath, "PDF preview must not execute user JS snippets");
     }
 
     if (!mainText.includes("PDF preview window is unavailable")) {
