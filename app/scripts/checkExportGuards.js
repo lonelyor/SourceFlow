@@ -90,6 +90,8 @@ const checkPDFExportGuards = () => {
         ["maxUnpagedPageHeight", "PDF preview must cap unsafe unpaged height"],
         ["buildExportConfig();", "PDF preview must fall back to paged export for unsafe unpaged documents"],
         ["const getSnippetJS = (includeEditorRuntimeJS = false)", "PDF export must default to skipping editor runtime JS snippets"],
+        ["allowSVGScriptTip: false", "PDF/static export must not execute SVG scripts from note content"],
+        ["allowHTMLBLockScript: false", "PDF/static export must not execute HTML block scripts from note content"],
     ];
     for (const [fragment, message] of requiredPreviewFragments) {
         if (!exportText.includes(fragment)) {
@@ -107,6 +109,18 @@ const checkPDFExportGuards = () => {
         addFinding(exportPath, "PDF preview renderer is missing");
     } else if (/getSnippetJS\(\s*true\s*\)/.test(renderPDFMatch[0])) {
         addFinding(exportPath, "PDF preview must not execute user JS snippets");
+    } else if (!/allowSVGScriptTip:\s*false/.test(renderPDFMatch[0]) || !/allowHTMLBLockScript:\s*false/.test(renderPDFMatch[0])) {
+        addFinding(exportPath, "PDF preview must force note HTML/SVG scripts off");
+    } else if (/allowHTMLBLockScript:\s*\$\{window\.sourceflow\.config\.editor\.allowHTMLBLockScript\}/.test(renderPDFMatch[0])) {
+        addFinding(exportPath, "PDF preview must not inherit the editor HTML block script setting");
+    }
+    const staticExportMatch = exportText.match(/export const onExport[\s\S]*?\/\/ 移动端导出 pdf、浏览器导出 HTML/);
+    if (!staticExportMatch) {
+        addFinding(exportPath, "Static export renderer is missing");
+    } else if (!/allowSVGScriptTip:\s*false/.test(staticExportMatch[0]) || !/allowHTMLBLockScript:\s*false/.test(staticExportMatch[0])) {
+        addFinding(exportPath, "Static export must force note HTML/SVG scripts off");
+    } else if (/allowHTMLBLockScript:\s*\$\{window\.sourceflow\.config\.editor\.allowHTMLBLockScript\}/.test(staticExportMatch[0])) {
+        addFinding(exportPath, "Static export must not inherit the editor HTML block script setting");
     }
 
     if (!mainText.includes("PDF preview window is unavailable")) {

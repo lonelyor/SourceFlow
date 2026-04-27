@@ -536,8 +536,8 @@ ${getIconScript(servePath)}
           config: {
             appearance: { mode: 0, codeBlockThemeDark: "${window.sourceflow.config.appearance.codeBlockThemeDark}", codeBlockThemeLight: "${window.sourceflow.config.appearance.codeBlockThemeLight}", codeBlockSkinDark: "${window.sourceflow.config.appearance.codeBlockSkinDark}", codeBlockSkinLight: "${window.sourceflow.config.appearance.codeBlockSkinLight}" },
             editor: { 
-              allowSVGScriptTip: ${window.sourceflow.config.editor.allowSVGScript},
-              allowHTMLBLockScript: ${window.sourceflow.config.editor.allowHTMLBLockScript},
+              allowSVGScriptTip: false,
+              allowHTMLBLockScript: false,
               fontSize: ${window.sourceflow.config.editor.fontSize},
               codeLineWrap: true,
               codeLigatures: ${window.sourceflow.config.editor.codeLigatures},
@@ -871,6 +871,8 @@ ${getIconScript(servePath)}
       config: {
         appearance: { mode: ${mode}, codeBlockThemeDark: "${window.sourceflow.config.appearance.codeBlockThemeDark}", codeBlockThemeLight: "${window.sourceflow.config.appearance.codeBlockThemeLight}", codeBlockSkinDark: "${window.sourceflow.config.appearance.codeBlockSkinDark}", codeBlockSkinLight: "${window.sourceflow.config.appearance.codeBlockSkinLight}" },
         editor: { 
+          allowSVGScriptTip: false,
+          allowHTMLBLockScript: false,
           codeLineWrap: true,
           fontSize: ${window.sourceflow.config.editor.fontSize},
           codeLigatures: ${window.sourceflow.config.editor.codeLigatures},
