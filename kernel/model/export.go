@@ -1194,7 +1194,7 @@ func processIFrame(tree *parse.Tree) {
 func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	tree, _ := LoadTreeByBlockID(id)
 	if nil == tree {
-		return
+		return ErrBlockNotFound
 	}
 
 	if merge {
@@ -1202,6 +1202,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 		tree, mergeErr = mergeSubDocs(tree)
 		if nil != mergeErr {
 			logging.LogErrorf("merge sub docs failed: %s", mergeErr)
+			err = mergeErr
 			return
 		}
 	}
@@ -1224,6 +1225,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	font.UserFontDir = filepath.Join(util.GetUserConfDir(), "fonts")
 	if mkdirErr := os.MkdirAll(font.UserFontDir, 0755); nil != mkdirErr {
 		logging.LogErrorf("mkdir [%s] failed: %s", font.UserFontDir, mkdirErr)
+		err = mkdirErr
 		return
 	}
 	if loadErr := api.LoadUserFonts(); nil != loadErr {
@@ -1233,6 +1235,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	pdfCtx, ctxErr := api.ReadContextFile(p)
 	if nil != ctxErr {
 		logging.LogErrorf("read pdf context failed: %s", ctxErr)
+		err = ctxErr
 		return
 	}
 
@@ -1242,11 +1245,59 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 
 	pdfcpuVer := model.VersionStr
 	model.VersionStr = "SourceFlow v" + util.Ver + " (pdfcpu " + pdfcpuVer + ")"
-	if writeErr := api.WriteContextFile(pdfCtx, p); nil != writeErr {
-		logging.LogErrorf("write pdf context failed: %s", writeErr)
+	defer func() {
+		model.VersionStr = pdfcpuVer
+	}()
+
+	processedPath := filepath.Join(filepath.Dir(p), fmt.Sprintf(".%s.sourceflow-postprocess-%s.pdf", filepath.Base(p), gulu.Rand.String(7)))
+	if writeErr := api.WriteContextFile(pdfCtx, processedPath); nil != writeErr {
+		logging.LogErrorf("write pdf context [%s] failed: %s", processedPath, writeErr)
+		err = writeErr
+		return
+	}
+	defer os.Remove(processedPath)
+
+	if _, verifyErr := api.ReadContextFile(processedPath); nil != verifyErr {
+		logging.LogErrorf("verify processed pdf [%s] failed: %s", processedPath, verifyErr)
+		err = verifyErr
+		return
+	}
+
+	if replaceErr := replacePDFWithProcessedFile(p, processedPath); nil != replaceErr {
+		logging.LogErrorf("replace pdf [%s] with processed pdf [%s] failed: %s", p, processedPath, replaceErr)
+		err = replaceErr
 		return
 	}
 	return
+}
+
+func replacePDFWithProcessedFile(originalPath, processedPath string) (err error) {
+	backupPath := filepath.Join(filepath.Dir(originalPath), fmt.Sprintf(".%s.sourceflow-raw-%s.pdf", filepath.Base(originalPath), gulu.Rand.String(7)))
+	if err = os.Rename(originalPath, backupPath); nil != err {
+		return fmt.Errorf("backup original PDF failed: %w", err)
+	}
+
+	keepBackup := false
+	defer func() {
+		if keepBackup {
+			return
+		}
+		if removeErr := os.Remove(backupPath); nil != removeErr && !os.IsNotExist(removeErr) {
+			logging.LogWarnf("remove backup pdf [%s] failed: %s", backupPath, removeErr)
+		}
+	}()
+
+	if err = os.Rename(processedPath, originalPath); nil == err {
+		return nil
+	}
+
+	replaceErr := err
+	if restoreErr := os.Rename(backupPath, originalPath); nil != restoreErr {
+		keepBackup = true
+		return fmt.Errorf("replace processed PDF failed: %w; restore original PDF failed: %w", replaceErr, restoreErr)
+	}
+	keepBackup = true
+	return fmt.Errorf("replace processed PDF failed and original PDF was restored: %w", replaceErr)
 }
 
 func processPDFWatermark(pdfCtx *model.Context, watermark bool) {

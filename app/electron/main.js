@@ -58,6 +58,10 @@ const appBrandShort = "SF";
 const appProtocol = "sf";
 const appGithubURL = "https://github.com/lonelyor/SourceFlow";
 const appUserModelId = "io.github.lonelyor.sourceflow";
+const exportPDFChannel = "sourceflow-export-pdf";
+const exportNewWindowChannel = "sourceflow-export-newwindow";
+const exportPDFWorkerReadyChannel = "sourceflow-export-pdf-worker-ready";
+const exportPDFWorkerErrorChannel = "sourceflow-export-pdf-worker-error";
 const appConfigDirName = "sourceflow";
 const defaultBootStartupImage = () => pathToFileURL(resolveAppFile("electron", "startup-logo.png")).toString();
 const appUserDataDirName = `${appBrandName}-Electron`;
@@ -1595,6 +1599,76 @@ app.whenReady().then(() => {
     const getWindowByContentId = (id) => {
         return BrowserWindow.getAllWindows().find((win) => win.webContents.id === id);
     };
+    const pendingPDFExportWorkers = new Map();
+    const resolvePendingPDFExportWorker = (webContentsId, error) => {
+        const pending = pendingPDFExportWorkers.get(webContentsId);
+        if (!pending) {
+            return;
+        }
+        pendingPDFExportWorkers.delete(webContentsId);
+        clearTimeout(pending.timeout);
+        if (error) {
+            if (pending.window && !pending.window.isDestroyed()) {
+                pending.window.destroy();
+            }
+            pending.reject(error);
+            return;
+        }
+        pending.resolve(webContentsId);
+    };
+    const createPDFExportWorkerWindow = (parentWindow, url) => {
+        const parentBounds = parentWindow && !parentWindow.isDestroyed() ? parentWindow.getBounds() : screen.getPrimaryDisplay().bounds;
+        const parentScreen = screen.getDisplayNearestPoint({x: parentBounds.x, y: parentBounds.y});
+        const workerWindow = new BrowserWindow({
+            show: false,
+            width: Math.floor(parentScreen.size.width * 0.8),
+            height: Math.floor(parentScreen.size.height * 0.8),
+            resizable: false,
+            frame: "darwin" === process.platform,
+            skipTaskbar: true,
+            paintWhenInitiallyHidden: true,
+            icon: path.join(appDir, "stage", "icon-large.png"),
+            titleBarStyle: "hidden",
+            webPreferences: {
+                contextIsolation: false,
+                nodeIntegration: true,
+                preload: resolveAppFile("electron", "exportPreload.js"),
+                webviewTag: true,
+                webSecurity: false,
+                backgroundThrottling: false,
+                autoplayPolicy: "user-gesture-required"
+            },
+        });
+        workerWindow.webContents.userAgent = `${appBrandName}/${appVer} ${appGithubURL} Electron ${workerWindow.webContents.userAgent}`;
+        windowNavigate(workerWindow, "export");
+        return new Promise((resolve, reject) => {
+            const workerWebContentsId = workerWindow.webContents.id;
+            const timeout = setTimeout(() => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker did not become ready in time: ${workerWebContentsId}`));
+            }, 30000);
+            pendingPDFExportWorkers.set(workerWebContentsId, {
+                resolve,
+                reject,
+                timeout,
+                window: workerWindow,
+            });
+            workerWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+                if (!isMainFrame) {
+                    return;
+                }
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker load failed [${errorCode}] ${errorDescription} ${validatedURL}`));
+            });
+            workerWindow.webContents.on("render-process-gone", (_event, details) => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker render process gone: ${details.reason}`));
+            });
+            workerWindow.on("closed", () => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker closed before print: ${workerWebContentsId}`));
+            });
+            workerWindow.loadURL(url).catch((error) => {
+                resolvePendingPDFExportWorker(workerWebContentsId, error);
+            });
+        });
+    };
     onBrandedIPC("sourceflow-context-menu", (event, langs) => {
         const template = [new MenuItem({
             role: "undo", label: langs.undo
@@ -1625,6 +1699,12 @@ app.whenReady().then(() => {
     });
     onBrandedIPC("sourceflow-first-quit", () => {
         app.exit();
+    });
+    onBrandedIPC(exportPDFWorkerReadyChannel, (event) => {
+        resolvePendingPDFExportWorker(event.sender.id);
+    });
+    onBrandedIPC(exportPDFWorkerErrorChannel, (event, data) => {
+        resolvePendingPDFExportWorker(event.sender.id, new Error(data?.message || `PDF export worker failed: ${event.sender.id}`));
     });
     handleBrandedIPC("sourceflow-get", async (event, data) => {
         if (data.cmd === "getStartupGuard") {
@@ -1690,6 +1770,9 @@ app.whenReady().then(() => {
         if (data.cmd === "runWorkspaceMigration") {
             return runWorkspaceMigration(data.sourceWorkspace, data.targetWorkspace);
         }
+        if (data.cmd === "createPDFExportWorker") {
+            return createPDFExportWorkerWindow(getWindowByContentId(event.sender.id), data.url);
+        }
         if (data.cmd === "isFullScreen") {
             const wnd = getWindowByContentId(event.sender.id);
             if (!wnd) {
@@ -1714,7 +1797,7 @@ app.whenReady().then(() => {
             try {
                 const printWindow = getWindowByContentId(data.webContentsId);
                 if (!printWindow || printWindow.isDestroyed()) {
-                    throw new Error(`PDF preview window is unavailable: ${data.webContentsId}`);
+                    throw new Error(`PDF export worker window is unavailable: ${data.webContentsId}`);
                 }
                 return printWindow.webContents.printToPDF(data.pdfOptions);
             } catch (e) {
@@ -1930,7 +2013,18 @@ app.whenReady().then(() => {
             }
         });
     });
-    onBrandedIPC("sourceflow-export-pdf", (event, data) => {
+    onBrandedIPC(exportPDFChannel, (event, data) => {
+        if (data && data.error) {
+            data.webContentsId = event.sender.id;
+            const parentWindow = getWindowByContentId(data.parentWindowId);
+            if (parentWindow && !parentWindow.isDestroyed()) {
+                sendBrandedIPC(parentWindow, exportPDFChannel, data);
+            }
+            if (!event.sender.isDestroyed()) {
+                event.sender.destroy();
+            }
+            return;
+        }
         dialog.showOpenDialog({
             title: data.title, properties: ["createDirectory", "openDirectory"],
         }).then((result) => {
@@ -1939,11 +2033,13 @@ app.whenReady().then(() => {
                 return;
             }
             data.filePaths = result.filePaths;
-            data.webContentsId = event.sender.id;
-            sendBrandedIPC(getWindowByContentId(data.parentWindowId), "sourceflow-export-pdf", data);
+            sendBrandedIPC(getWindowByContentId(data.parentWindowId), exportPDFChannel, data);
+            if (!event.sender.isDestroyed()) {
+                event.sender.destroy();
+            }
         });
     });
-    onBrandedIPC("sourceflow-export-newwindow", (event, data) => {
+    onBrandedIPC(exportNewWindowChannel, (event, data) => {
         // The PDF/Word export preview window automatically adjusts according to the size of the main window https://github.com/lonelyor/SourceFlow/issues/10554
         const wndBounds = getWindowByContentId(event.sender.id).getBounds();
         const wndScreen = screen.getDisplayNearestPoint({x: wndBounds.x, y: wndBounds.y});
@@ -1958,6 +2054,7 @@ app.whenReady().then(() => {
             webPreferences: {
                 contextIsolation: false,
                 nodeIntegration: true,
+                preload: resolveAppFile("electron", "exportPreload.js"),
                 webviewTag: true,
                 webSecurity: false,
                 autoplayPolicy: "user-gesture-required" // 桌面端禁止自动播放多媒体 https://github.com/lonelyor/SourceFlow/issues/7587

@@ -1,0 +1,323 @@
+import {fetchPost} from "../../../util/fetch";
+import {addCol, getColIconByType} from "./col";
+import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
+import * as dayjs from "dayjs";
+import {popTextCell, updateCellsValue} from "./cell";
+import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
+import {openEmojiPanel, unicode2Emoji} from "../../../emoji";
+import {transaction} from "../../wysiwyg/transaction";
+import {openMenuPanel} from "./openMenuPanel";
+import {uploadFiles} from "../../upload";
+import {openLink} from "../../../editor/openLink";
+import {dragUpload, editAssetItem} from "./asset";
+import {previewImages} from "../../preview/image";
+/// #if !BROWSER
+import {webUtils} from "electron";
+/// #endif
+import {isBrowser} from "../../../util/functions";
+import {Constants} from "../../../constants";
+import {getCompressURL, removeCompressURL} from "../../../util/image";
+import {genAVValueHTML} from "./blockAttrValue";
+import {openEdit} from "./blockAttrEditor";
+
+export const renderAVAttribute = (element: HTMLElement, id: string, protyle: IProtyle, cb?: (element: HTMLElement) => void) => {
+    fetchPost("/api/av/getAttributeViewKeys", {id}, (response) => {
+        let html = "";
+        response.data.forEach((table: {
+            keyValues: {
+                key: {
+                    type: TAVCol,
+                    name: string,
+                    desc: string,
+                    icon: string,
+                    id: string,
+                    options?: {
+                        name: string,
+                        color: string
+                    }[]
+                },
+                values: {
+                    keyID: string,
+                    id: string,
+                    blockID: string,
+                    type: TAVCol & IAVCellValue
+                }  []
+            }[],
+            blockIDs: string[],
+            avID: string
+            avName: string
+        }) => {
+            let innerHTML = `<div class="custom-attr__avheader">
+    <div class="block__logo popover__block" style="max-width:calc(100% - 40px)" data-id='${JSON.stringify(table.blockIDs)}'>
+        <svg class="block__logoicon"><use xlink:href="#iconDatabase"></use></svg>
+        <span class="fn__ellipsis">${table.avName || window.sourceflow.languages.database}</span>
+    </div>
+    <div class="fn__flex-1"></div>
+    <span data-type="remove" data-row-id="${table.keyValues && table.keyValues[0].values[0].blockID}" class="block__icon block__icon--warning block__icon--show b3-tooltips__w b3-tooltips" aria-label="${window.sourceflow.languages.removeAV}"><svg><use xlink:href="#iconTrashcan"></use></svg></span>
+</div>`;
+            table.keyValues?.forEach(item => {
+                innerHTML += `<div class="block__icons av__row" data-id="${id}" data-col-id="${item.key.id}">
+    <div class="block__icon" draggable="true"><svg><use xlink:href="#iconDrag"></use></svg></div>
+    <div class="block__logo ariaLabel fn__pointer" data-type="editCol" data-position="parentW" aria-label="${escapeAriaLabel(item.key.name)}<div class='ft__on-surface'>${escapeAriaLabel(item.key.desc)}</div>">
+        ${item.key.icon ? unicode2Emoji(item.key.icon, "block__logoicon", true) : `<svg class="block__logoicon"><use xlink:href="#${getColIconByType(item.key.type)}"></use></svg>`}
+        <span>${escapeHtml(item.key.name)}</span>
+    </div>
+    <div data-av-id="${table.avID}" data-col-id="${item.values[0].keyID}" data-row-id="${item.values[0].blockID}" data-id="${item.values[0].id}" data-type="${item.values[0].type}" 
+data-options="${item.key?.options ? escapeAttr(JSON.stringify(item.key.options)) : "[]"}" 
+${["text", "number", "date", "url", "phone", "template", "email"].includes(item.values[0].type) ? "" : `placeholder="${window.sourceflow.languages.empty}"`}  
+class="fn__flex-1 fn__flex${["url", "text", "number", "email", "phone", "block"].includes(item.values[0].type) ? "" : " custom-attr__avvalue"}${["created", "updated"].includes(item.values[0].type) ? " custom-attr__avvalue--readonly" : ""}">${genAVValueHTML(item.values[0])}</div>
+</div>`;
+            });
+            innerHTML += `<div class="fn__hr"></div>
+<button data-type="addColumn" class="b3-button b3-button--cancel"><svg><use xlink:href="#iconAdd"></use></svg>${window.sourceflow.languages.newCol}</button>
+<div class="fn__hr--b"></div><div class="fn__hr--b"></div>`;
+            html += `<div data-av-id="${table.avID}" data-av-type="table" data-node-id="${id}" data-type="NodeAttributeView">${innerHTML}</div>`;
+
+            if (element.innerHTML) {
+                // 防止 blockElement 找不到
+                element.querySelector(`[data-node-id="${id}"][data-av-id="${table.avID}"]`).innerHTML = innerHTML;
+            }
+        });
+        if (element.innerHTML === "") {
+            let dragBlockElement: HTMLElement;
+            element.addEventListener("dragstart", (event: DragEvent) => {
+                const target = event.target as HTMLElement;
+                window.sourceflow.dragElement = target.parentElement;
+                window.sourceflow.dragElement.style.opacity = ".38";
+                dragBlockElement = hasClosestBlock(window.sourceflow.dragElement) as HTMLElement;
+
+                const ghostElement = document.createElement("div");
+                ghostElement.className = "block__icons";
+                ghostElement.innerHTML = target.nextElementSibling.outerHTML;
+                ghostElement.setAttribute("style", "width: 160px;position:fixed;opacity:.1;");
+                document.body.append(ghostElement);
+                event.dataTransfer.setDragImage(ghostElement, 0, 0);
+                setTimeout(() => {
+                    ghostElement.remove();
+                });
+            });
+            element.addEventListener("drop", (event) => {
+                counter = 0;
+                if (protyle.disabled) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
+                const targetElement = element.querySelector(".dragover__bottom, .dragover__top") as HTMLElement;
+                if (targetElement && dragBlockElement) {
+                    const isBottom = targetElement.classList.contains("dragover__bottom");
+                    const previousID = isBottom ? targetElement.dataset.colId : targetElement.previousElementSibling?.getAttribute("data-col-id");
+                    const undoPreviousID = window.sourceflow.dragElement.previousElementSibling?.getAttribute("data-col-id");
+                    if (previousID !== undoPreviousID && previousID !== window.sourceflow.dragElement.dataset.colId) {
+                        transaction(protyle, [{
+                            action: "sortAttrViewKey",
+                            avID: dragBlockElement.dataset.avId,
+                            previousID,
+                            id: window.sourceflow.dragElement.dataset.colId,
+                        }], [{
+                            action: "sortAttrViewKey",
+                            avID: dragBlockElement.dataset.avId,
+                            previousID: undoPreviousID,
+                            id,
+                        }]);
+                        if (isBottom) {
+                            targetElement.after(window.sourceflow.dragElement);
+                        } else {
+                            targetElement.before(window.sourceflow.dragElement);
+                        }
+                    }
+                    targetElement.classList.remove("dragover__bottom", "dragover__top");
+                } else if (!window.sourceflow.dragElement && event.dataTransfer.types[0] === "Files") {
+                    const cellElement = element.querySelector(".custom-attr__avvalue--active") as HTMLElement;
+                    if (cellElement) {
+                        if (event.dataTransfer.types[0] === "Files" && !isBrowser()) {
+                            /// #if !BROWSER
+                            const files: ILocalFiles[] = [];
+                            for (let i = 0; i < event.dataTransfer.files.length; i++) {
+                                files.push({
+                                    path: webUtils.getPathForFile(event.dataTransfer.files[i]),
+                                    size: event.dataTransfer.files[i].size
+                                });
+                            }
+                            dragUpload(files, protyle, cellElement);
+                            /// #endif
+                        }
+                    }
+                }
+                if (window.sourceflow.dragElement) {
+                    window.sourceflow.dragElement.style.opacity = "";
+                    window.sourceflow.dragElement = undefined;
+                }
+            });
+            element.addEventListener("dragover", (event: DragEvent) => {
+                const target = event.target as HTMLElement;
+                let targetElement: HTMLElement | false;
+                if (event.dataTransfer.types.includes("Files")) {
+                    element.querySelectorAll(".custom-attr__avvalue--active").forEach((item: HTMLElement) => {
+                        item.classList.remove("custom-attr__avvalue--active");
+                    });
+                    targetElement = hasClosestByClassName(target, "custom-attr__avvalue");
+                    if (targetElement && targetElement.getAttribute("data-type") === "mAsset") {
+                        targetElement.classList.add("custom-attr__avvalue--active");
+                        event.preventDefault();
+                    }
+                    return;
+                }
+                targetElement = hasClosestByClassName(target, "av__row");
+                if (!targetElement) {
+                    targetElement = hasClosestByClassName(document.elementFromPoint(event.clientX, event.clientY - 1), "av__row");
+                }
+                if (!targetElement || targetElement === window.sourceflow.dragElement || !dragBlockElement) {
+                    return;
+                }
+                const targetBlockElement = hasClosestBlock(targetElement);
+                if (!targetBlockElement || targetBlockElement !== dragBlockElement) {
+                    return;
+                }
+                event.preventDefault();
+                const nodeRect = targetElement.getBoundingClientRect();
+                element.querySelectorAll(".dragover__bottom, .dragover__top").forEach((item: HTMLElement) => {
+                    item.classList.remove("dragover__bottom", "dragover__top");
+                });
+                if (event.clientY > nodeRect.top + nodeRect.height / 2) {
+                    targetElement.classList.add("dragover__bottom");
+                } else {
+                    targetElement.classList.add("dragover__top");
+                }
+            });
+            let counter = 0;
+            element.addEventListener("dragleave", () => {
+                counter--;
+                if (counter === 0) {
+                    element.querySelectorAll(".dragover__bottom, .dragover__top").forEach((item: HTMLElement) => {
+                        item.classList.remove("dragover__bottom", "dragover__top");
+                    });
+                }
+            });
+            element.addEventListener("dragenter", (event) => {
+                event.preventDefault();
+                counter++;
+            });
+            element.addEventListener("dragend", () => {
+                if (window.sourceflow.dragElement) {
+                    window.sourceflow.dragElement.style.opacity = "";
+                    window.sourceflow.dragElement = undefined;
+                }
+            });
+            element.addEventListener("paste", (event) => {
+                const files = event.clipboardData.files;
+                if (document.querySelector(".av__panel .b3-form__upload")) {
+                    if (files && files.length > 0) {
+                        uploadFiles(protyle, files);
+                    } else {
+                        const textPlain = event.clipboardData.getData("text/plain");
+                        const target = event.target as HTMLElement;
+                        const blockElement = hasClosestBlock(target);
+                        const cellsElement = hasClosestByAttribute(target, "data-type", "mAsset");
+                        if (blockElement && cellsElement && textPlain) {
+                            updateCellsValue(protyle, blockElement as HTMLElement, textPlain, [cellsElement], undefined, protyle.lute.Md2BlockDOM(textPlain));
+                            document.querySelector(".av__panel")?.remove();
+                        }
+                    }
+                }
+            });
+            element.addEventListener("click", (event) => {
+                const removeElement = hasClosestByAttribute(event.target as HTMLElement, "data-type", "remove");
+                if (removeElement) {
+                    const blockElement = hasClosestBlock(removeElement);
+                    if (blockElement) {
+                        transaction(protyle, [{
+                            action: "removeAttrViewBlock",
+                            srcIDs: [removeElement.dataset.rowId],
+                            avID: blockElement.dataset.avId,
+                        }, {
+                            action: "doUpdateUpdated",
+                            id: removeElement.dataset.rowId,
+                            data: dayjs().format("YYYYMMDDHHmmss"),
+                        }]);
+                        blockElement.remove();
+                        if (!element.innerHTML) {
+                            window.sourceflow.dialogs.find(item => {
+                                if (item.element.getAttribute("data-key") === Constants.DIALOG_ATTR) {
+                                    item.destroy();
+                                    return true;
+                                }
+                            });
+                        }
+                    }
+                    event.stopPropagation();
+                    return;
+                }
+                openEdit(protyle, element, event);
+            });
+            element.addEventListener("contextmenu", (event) => {
+                openEdit(protyle, element, event);
+            });
+            element.innerHTML = html;
+        }
+        element.querySelectorAll(".b3-text-field--text").forEach((item: HTMLInputElement) => {
+            item.addEventListener("change", () => {
+                let value;
+                const type = item.parentElement.dataset.type;
+                if (["url", "text", "email", "phone"].includes(type)) {
+                    value = {
+                        [type]: {
+                            content: item.value
+                        }
+                    };
+                    if (type !== "text") {
+                        const linkElement = item.parentElement.querySelector("a");
+                        if (item.value) {
+                            linkElement.setAttribute("href", (type === "url" ? "" : (type === "email" ? "mailto:" : "tel:")) + item.value);
+                        } else {
+                            linkElement.removeAttribute("href");
+                        }
+                    }
+                } else if (type === "number") {
+                    if ("undefined" === item.value || !item.value) {
+                        value = {
+                            number: {
+                                content: null,
+                                isNotEmpty: false
+                            }
+                        };
+                    } else {
+                        value = {
+                            number: {
+                                content: parseFloat(item.value) || 0,
+                                isNotEmpty: true
+                            }
+                        };
+                    }
+                } else if (type === "block") {
+                    value = {
+                        block: {
+                            content: item.value,
+                            id: item.dataset.id,
+                        },
+                        isDetached: false
+                    };
+                }
+                fetchPost("/api/av/setAttributeViewBlockAttr", {
+                    avID: item.parentElement.dataset.avId,
+                    keyID: item.parentElement.dataset.colId,
+                    itemID: item.parentElement.dataset.rowId,
+                    value
+                }, (setResponse) => {
+                    if (type === "number") {
+                        item.parentElement.querySelector(".fn__flex-center").textContent = setResponse.data.value.number.formattedContent;
+                    } else if (type === "block" && !item.value) {
+                        item.value = setResponse.data.value.block.content;
+                    }
+                });
+            });
+        });
+        if (cb) {
+            cb(element);
+        }
+    });
+};
+
+export const isCustomAttr = (cellElement: Element) => {
+    return !!cellElement.getAttribute("data-av-id");
+};

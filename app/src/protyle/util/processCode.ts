@@ -1,13 +1,7 @@
-import {abcRender} from "../render/abcRender";
-import {chartRender} from "../render/chartRender";
-import {graphvizRender} from "../render/graphvizRender";
-import {mathRender} from "../render/mathRender";
-import {mermaidRender} from "../render/mermaidRender";
-import {flowchartRender} from "../render/flowchartRender";
-import {plantumlRender} from "../render/plantumlRender";
 import {htmlRender} from "../render/htmlRender";
 import {runMindmapRender} from "../render/mindmapEntry";
 import {isStartupFuseEnabled} from "../../stability/startupGuard";
+import {createBlockSubtypeRenderMap, createProtyleRenderMethods} from "../render/registry";
 
 export const processPasteCode = (html: string, text: string, originalTextHTML: string, protyle: IProtyle) => {
     const tempElement = document.createElement("div");
@@ -54,6 +48,12 @@ const lazyMindmapRender = (previewPanel: Element) => {
     runMindmapRender(previewPanel);
 };
 
+const renderMethods = createProtyleRenderMethods({
+    highlightRender: () => {
+    },
+    mindmapRender: lazyMindmapRender,
+});
+
 const runRenderSafely = (name: string, render: (previewPanel: Element) => void, previewPanel: Element) => {
     try {
         render(previewPanel);
@@ -62,17 +62,7 @@ const runRenderSafely = (name: string, render: (previewPanel: Element) => void, 
     }
 };
 
-const RENDER_MAP: Record<string, (previewPanel: Element) => void> = {
-    abc: abcRender,
-    plantuml: plantumlRender,
-    mermaid: mermaidRender,
-    flowchart: flowchartRender,
-    echarts: chartRender,
-    "mind-elixir": lazyMindmapRender,
-    mindmap: lazyMindmapRender,
-    graphviz: graphvizRender,
-    math: mathRender,
-};
+const RENDER_MAP = createBlockSubtypeRenderMap(renderMethods);
 
 export const processRender = (previewPanel: Element) => {
     if (isStartupFuseEnabled("richRender")) {

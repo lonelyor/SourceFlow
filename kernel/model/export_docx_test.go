@@ -58,6 +58,33 @@ func TestNormalizePandocReferenceDocParamsRewritesStaleBuiltInTemplate(t *testin
 	}
 }
 
+func TestReplacePDFWithProcessedFileKeepsProcessedOutput(t *testing.T) {
+	dir := t.TempDir()
+	originalPath := filepath.Join(dir, "export.pdf")
+	processedPath := filepath.Join(dir, ".export.pdf.sourceflow-postprocess-test.pdf")
+	if err := os.WriteFile(originalPath, []byte("raw pdf"), 0644); err != nil {
+		t.Fatalf("write original pdf: %v", err)
+	}
+	if err := os.WriteFile(processedPath, []byte("processed pdf"), 0644); err != nil {
+		t.Fatalf("write processed pdf: %v", err)
+	}
+
+	if err := replacePDFWithProcessedFile(originalPath, processedPath); err != nil {
+		t.Fatalf("replace pdf: %v", err)
+	}
+
+	got, err := os.ReadFile(originalPath)
+	if err != nil {
+		t.Fatalf("read original pdf: %v", err)
+	}
+	if string(got) != "processed pdf" {
+		t.Fatalf("original pdf was not replaced with processed output: %q", got)
+	}
+	if _, err = os.Stat(processedPath); !os.IsNotExist(err) {
+		t.Fatalf("processed temp file should have been moved, err=%v", err)
+	}
+}
+
 func containsPandocResourceArg(args []string, flag, value string) bool {
 	for i := 0; i < len(args)-1; i++ {
 		if args[i] == flag && args[i+1] == value {

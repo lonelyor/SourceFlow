@@ -2,21 +2,21 @@ import {addScript} from "../util/addScript";
 import {Constants} from "../../constants";
 import {genIconHTML} from "./util";
 import {hasClosestByClassName} from "../util/hasClosest";
-import {looseJsonParse} from "../../util/functions";
+import {parseStructuredDataObject} from "../../util/structuredData";
 
 const ABCJS_PARAMS_KEY = "%%params";
 
 // Read the abcjsParams from the content if it exists.
 // The params *must* be the first line of the content in the form:
-// %%params JSON
+// %%params JSON or a JSON-like object literal
 const getAbcParams = (abcString: string): any => {
-    let params = {
+    let params: Record<string, any> = {
         responsive: "resize",
     };
     const firstLine = abcString.substring(0, abcString.indexOf("\n"));
     if (firstLine.startsWith(ABCJS_PARAMS_KEY)) {
         try {
-            params = looseJsonParse(firstLine.substring(ABCJS_PARAMS_KEY.length));
+            params = parseStructuredDataObject(firstLine.substring(ABCJS_PARAMS_KEY.length), "ABCJS params");
         } catch (e) {
             console.error(`Failed to parse ABCJS params: ${e}`);
         }

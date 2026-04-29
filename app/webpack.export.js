@@ -30,7 +30,7 @@ module.exports = (env, argv) => {
             hints: false,
         },
         entry: {
-            "protyle-method": "./src/protyle/method.ts",
+            "protyle-method": "./src/protyle/export/runtime.ts",
         },
         optimization: {
             minimize: true,

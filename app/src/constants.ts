@@ -54,6 +54,8 @@ export abstract class Constants {
 
     public static readonly SOURCEFLOW_EXPORT_PDF: string = "sourceflow-export-pdf";
     public static readonly SOURCEFLOW_EXPORT_NEWWINDOW: string = "sourceflow-export-newwindow";
+    public static readonly SOURCEFLOW_EXPORT_PDF_WORKER_READY: string = "sourceflow-export-pdf-worker-ready";
+    public static readonly SOURCEFLOW_EXPORT_PDF_WORKER_ERROR: string = "sourceflow-export-pdf-worker-error";
     public static readonly SOURCEFLOW_HTML_CLIPBOARD_MIME: string = "text/sourceflow";
     public static readonly SOURCEFLOW_HTML_COMMENT_ATTR: string = "data-sourceflow";
 

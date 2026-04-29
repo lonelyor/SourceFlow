@@ -1,10 +1,28 @@
 import {hasClosestByAttribute} from "../util/hasClosest";
-import {fetchPost, fetchSyncPost} from "../../util/fetch";
+import {fetchPost} from "../../util/fetch";
 import {processRender} from "../util/processCode";
 import {highlightRender} from "./highlightRender";
 import {genBreadcrumb, improveBreadcrumbAppearance} from "../wysiwyg/renderBacklink";
 import {avRender} from "./av/render";
 import {genRenderFrame} from "./util";
+import {runEmbedQueryScript} from "./embedScriptRuntime";
+
+const getEmbedHeadingMode = (item: HTMLElement) => {
+    return ["0", "1", "2"].includes(item.getAttribute("custom-heading-mode")) ?
+        parseInt(item.getAttribute("custom-heading-mode")) :
+        window.sourceflow.config.editor.headingEmbedMode;
+};
+
+const fetchEmbedBlocksByIDs = (item: HTMLElement, protyle: IProtyle, top: number | undefined, breadcrumb: boolean | string, includeIDs: string[]) => {
+    fetchPost("/api/search/getEmbedBlock", {
+        embedBlockID: item.getAttribute("data-node-id"),
+        includeIDs,
+        headingMode: getEmbedHeadingMode(item),
+        breadcrumb
+    }, (response) => {
+        renderEmbed(response.data.blocks || [], protyle, item, top);
+    });
+};
 
 /**
  * 渲染嵌入块
@@ -41,50 +59,21 @@ export const blockRender = (protyle: IProtyle, element: Element, top?: number) =
         }
 
         if (content.startsWith("//!js")) {
-            try {
-                const includeIDs = new Function(
-                    "fetchSyncPost",
-                    "item",
-                    "protyle",
-                    "top",
-                    content)(fetchSyncPost, item, protyle, top);
-                if (includeIDs instanceof Promise) {
-                    includeIDs.then((promiseIds) => {
-                        if (Array.isArray(promiseIds)) {
-                            fetchPost("/api/search/getEmbedBlock", {
-                                embedBlockID: item.getAttribute("data-node-id"),
-                                includeIDs: promiseIds,
-                                headingMode: ["0", "1", "2"].includes(item.getAttribute("custom-heading-mode")) ? parseInt(item.getAttribute("custom-heading-mode")) : window.sourceflow.config.editor.headingEmbedMode,
-                                breadcrumb
-                            }, (response) => {
-                                renderEmbed(response.data.blocks || [], protyle, item, top);
-                            });
-                        } else {
-                            return;
-                        }
-                    }).catch((e) => {
-                        renderEmbed([], protyle, item, top, e);
-                    });
-                } else if (Array.isArray(includeIDs)) {
-                    fetchPost("/api/search/getEmbedBlock", {
-                        embedBlockID: item.getAttribute("data-node-id"),
-                        includeIDs,
-                        headingMode: ["0", "1", "2"].includes(item.getAttribute("custom-heading-mode")) ? parseInt(item.getAttribute("custom-heading-mode")) : window.sourceflow.config.editor.headingEmbedMode,
-                        breadcrumb
-                    }, (response) => {
-                        renderEmbed(response.data.blocks || [], protyle, item, top);
-                    });
-                } else {
-                    return;
-                }
-            } catch (e) {
-                renderEmbed([], protyle, item, top, e);
-            }
+            void runEmbedQueryScript({
+                code: content,
+                item,
+                protyle,
+                top,
+            }).then((includeIDs) => {
+                fetchEmbedBlocksByIDs(item, protyle, top, breadcrumb, includeIDs);
+            }).catch((error) => {
+                renderEmbed([], protyle, item, top, error instanceof Error ? error.message : `${error}`);
+            });
         } else {
             fetchPost("/api/search/searchEmbedBlock", {
                 embedBlockID: item.getAttribute("data-node-id"),
                 stmt: content,
-                headingMode: ["0", "1", "2"].includes(item.getAttribute("custom-heading-mode")) ? parseInt(item.getAttribute("custom-heading-mode")) : window.sourceflow.config.editor.headingEmbedMode,
+                headingMode: getEmbedHeadingMode(item),
                 excludeIDs: [item.getAttribute("data-node-id"), protyle.block.rootID],
                 breadcrumb
             }, (response) => {

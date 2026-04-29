@@ -127,9 +127,9 @@ const buildTsconfig = (tempDir, targetName) => {
     };
 };
 
-const runMojibakeCheck = () => {
-    const checkerPath = path.join(__dirname, "checkMojibake.js");
-    const result = spawnSync(process.execPath, [checkerPath], {
+const runNodeScript = (fileName) => {
+    const scriptPath = path.join(__dirname, fileName);
+    const result = spawnSync(process.execPath, [scriptPath], {
         cwd: appRoot,
         stdio: "inherit",
     });
@@ -141,18 +141,124 @@ const runMojibakeCheck = () => {
     return result.status || 0;
 };
 
-const runExportGuardCheck = () => {
-    const checkerPath = path.join(__dirname, "checkExportGuards.js");
-    const result = spawnSync(process.execPath, [checkerPath], {
-        cwd: appRoot,
-        stdio: "inherit",
-    });
+const runMojibakeCheck = () => {
+    return runNodeScript("checkMojibake.js");
+};
 
-    if (result.error) {
-        console.error(result.error);
-        return 1;
-    }
-    return result.status || 0;
+const runExportGuardCheck = () => {
+    return runNodeScript("checkExportGuards.js");
+};
+
+const runScriptRuntimeGuardCheck = () => {
+    return runNodeScript("checkScriptRuntimeGuards.js");
+};
+
+const runMenuModularityCheck = () => {
+    return runNodeScript("checkMenuModularity.js");
+};
+
+const runProtyleMenuModularityCheck = () => {
+    return runNodeScript("checkProtyleMenuModularity.js");
+};
+
+const runGutterModularityCheck = () => {
+    return runNodeScript("checkGutterModularity.js");
+};
+
+const runWysiwygModularityCheck = () => {
+    return runNodeScript("checkWysiwygModularity.js");
+};
+
+const runKeydownModularityCheck = () => {
+    return runNodeScript("checkKeydownModularity.js");
+};
+
+const runAVColModularityCheck = () => {
+    return runNodeScript("checkAVColModularity.js");
+};
+
+const runAVCellModularityCheck = () => {
+    return runNodeScript("checkAVCellModularity.js");
+};
+
+const runAVPanelModularityCheck = () => {
+    return runNodeScript("checkAVPanelModularity.js");
+};
+
+const runAVHeavyModularityCheck = () => {
+    return runNodeScript("checkAVHeavyModularity.js");
+};
+
+const runAVRuntimeModularityCheck = () => {
+    return runNodeScript("checkAVRuntimeModularity.js");
+};
+
+const runSystemRuntimeModularityCheck = () => {
+    return runNodeScript("checkSystemRuntimeModularity.js");
+};
+
+const runToolbarModularityCheck = () => {
+    return runNodeScript("checkToolbarModularity.js");
+};
+
+const runAVPanelModuleTest = () => {
+    return runNodeScript("testAVPanelModules.js");
+};
+
+const runAVPanelHandlerCoverageTest = () => {
+    return runNodeScript("testAVPanelHandlerCoverage.js");
+};
+
+const runAVHeavyModuleTest = () => {
+    return runNodeScript("testAVHeavyModules.js");
+};
+
+const runAVCellColModuleTest = () => {
+    return runNodeScript("testAVCellColModules.js");
+};
+
+const runAVCellCoverageTest = () => {
+    return runNodeScript("testAVCellCoverage.js");
+};
+
+const runAVRuntimeModuleTest = () => {
+    return runNodeScript("testAVRuntimeModules.js");
+};
+
+const runAVRuntimeCoverageTest = () => {
+    return runNodeScript("testAVRuntimeCoverage.js");
+};
+
+const runSystemRuntimeModuleTest = () => {
+    return runNodeScript("testSystemRuntimeModules.js");
+};
+
+const runAIDockRuntimeBehaviorTest = () => {
+    return runNodeScript("testAIDockRuntimeBehavior.js");
+};
+
+const runToolbarInlineMarkModuleTest = () => {
+    return runNodeScript("testToolbarInlineMarkModules.js");
+};
+
+const runTransactionModularityCheck = () => {
+    return runNodeScript("checkTransactionModularity.js");
+};
+
+const runSandboxRuntimeHelperTest = () => {
+    return runNodeScript("testSandboxRuntimeHelpers.js");
+};
+
+const runHomepageModuleTest = () => {
+    return runNodeScript("testHomepageModules.js");
+};
+
+const runPluginSandboxRuntimeTest = () => {
+    return runNodeScript("testPluginSandboxRuntime.js");
+};
+
+const runExportBuilderTest = () => {
+    return runNodeScript("testExportBuilders.js");
 };
 
 const runTypecheck = (targetName) => {
@@ -192,6 +298,174 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] export guards");
 exitCode = runExportGuardCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] script runtime guards");
+exitCode = runScriptRuntimeGuardCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] menu modularity");
+exitCode = runMenuModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] protyle menu modularity");
+exitCode = runProtyleMenuModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] gutter modularity");
+exitCode = runGutterModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] wysiwyg modularity");
+exitCode = runWysiwygModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] keydown modularity");
+exitCode = runKeydownModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av col modularity");
+exitCode = runAVColModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av cell modularity");
+exitCode = runAVCellModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av panel modularity");
+exitCode = runAVPanelModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av heavy modularity");
+exitCode = runAVHeavyModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av runtime modularity");
+exitCode = runAVRuntimeModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] system runtime modularity");
+exitCode = runSystemRuntimeModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av panel modules");
+exitCode = runAVPanelModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av heavy modules");
+exitCode = runAVHeavyModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av cell/col modules");
+exitCode = runAVCellColModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av cell coverage");
+exitCode = runAVCellCoverageTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av runtime modules");
+exitCode = runAVRuntimeModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av runtime coverage");
+exitCode = runAVRuntimeCoverageTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] system runtime modules");
+exitCode = runSystemRuntimeModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] ai dock runtime");
+exitCode = runAIDockRuntimeBehaviorTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] av panel handler coverage");
+exitCode = runAVPanelHandlerCoverageTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] toolbar modularity");
+exitCode = runToolbarModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] toolbar inline mark modules");
+exitCode = runToolbarInlineMarkModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] transaction modularity");
+exitCode = runTransactionModularityCheck();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] sandbox runtime helpers");
+exitCode = runSandboxRuntimeHelperTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] homepage modules");
+exitCode = runHomepageModuleTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] plugin sandbox runtime");
+exitCode = runPluginSandboxRuntimeTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] export builders");
+exitCode = runExportBuilderTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

@@ -1,7 +1,7 @@
 import {addScript} from "../util/addScript";
 import {Constants} from "../../constants";
 import {hasClosestByClassName} from "../util/hasClosest";
-import {looseJsonParse} from "../../util/functions";
+import {parseStructuredDataObject} from "../../util/structuredData";
 import {genIconHTML} from "./util";
 
 export const chartRender = (element: Element, cdn = Constants.PROTYLE_CDN) => {
@@ -38,9 +38,9 @@ export const chartRender = (element: Element, cdn = Constants.PROTYLE_CDN) => {
                         renderElement.lastElementChild.classList.remove("ft__error");
                     }
                     const chartInstance = window.echarts.getInstanceById(renderElement.lastElementChild?.getAttribute("_echarts_instance_"));
-                    const option = await looseJsonParse(Lute.UnEscapeHTMLStr(e.getAttribute("data-content")));
+                    const option = parseStructuredDataObject(Lute.UnEscapeHTMLStr(e.getAttribute("data-content")), "ECharts option") as Record<string, any>;
                     if (chartInstance) {
-                        if (chartInstance.getOption().series[0]?.type !== option.series[0]?.type) {
+                        if (chartInstance.getOption().series[0]?.type !== option.series?.[0]?.type) {
                             chartInstance.clear();
                         }
                         chartInstance?.resize();
