@@ -1,4 +1,4 @@
-﻿import {Divider} from "./Divider";
+import {Divider} from "./Divider";
 import {Font, hasSameTextStyle, setFontStyle} from "./Font";
 import {ToolbarItem} from "./ToolbarItem";
 import {
@@ -117,6 +117,7 @@ export class Toolbar {
 
     public render(protyle: IProtyle, range: Range, event?: KeyboardEvent) {
         this.range = range;
+        let typeRange = range;
         let nodeElement = hasClosestBlock(range.startContainer);
         if (isMobile() || !nodeElement || protyle.disabled || nodeElement.classList.contains("av") ||
             hasClosestByTag(range.startContainer, "CAPTION")) {
@@ -146,26 +147,26 @@ export class Toolbar {
         const startElement = hasClosestBlock(range.startContainer);
         const endElement = hasClosestBlock(range.endContainer);
         if (startElement && endElement && startElement !== endElement) {
+            const displayRange = range.cloneRange();
             if (event) { // 在 keyup 中使用 shift+方向键选中
                 if (event.key === "ArrowLeft") {
-                    this.range = setLastNodeRange(getContenteditableElement(startElement), range, false);
+                    typeRange = setLastNodeRange(getContenteditableElement(startElement), displayRange, false);
                 } else if (event.key === "ArrowRight") {
-                    this.range = setFirstNodeRange(getContenteditableElement(endElement), range);
-                    this.range.collapse(false);
+                    typeRange = setFirstNodeRange(getContenteditableElement(endElement), displayRange);
+                    typeRange.collapse(false);
                 } else if (event.key === "ArrowUp") {
-                    this.range = setFirstNodeRange(getContenteditableElement(endElement), range);
+                    typeRange = setFirstNodeRange(getContenteditableElement(endElement), displayRange);
                     nodeElement = hasClosestBlock(endElement);
                     if (!nodeElement) {
                         return;
                     }
                 } else if (event.key === "ArrowDown") {
-                    this.range = setLastNodeRange(getContenteditableElement(startElement), range, false);
+                    typeRange = setLastNodeRange(getContenteditableElement(startElement), displayRange, false);
                 }
             } else {
-                this.range = setLastNodeRange(getContenteditableElement(nodeElement), range, false);
+                typeRange = setLastNodeRange(getContenteditableElement(nodeElement), displayRange, false);
             }
-            focusByRange(this.range);
-            if (this.range.toString() === "") {
+            if (typeRange.toString() === "") {
                 this.element.classList.add("fn__none");
                 return;
             }
@@ -175,7 +176,7 @@ export class Toolbar {
             this.element.classList.add("fn__none");
             return;
         }
-        const rangePosition = getSelectionPosition(nodeElement, range, true);
+        const rangePosition = getSelectionPosition(nodeElement, typeRange, true);
         this.element.classList.remove("fn__none");
         this.toolbarHeight = this.element.clientHeight;
         const y = rangePosition.isBottom ?
@@ -187,7 +188,7 @@ export class Toolbar {
         this.element.querySelectorAll(".protyle-toolbar__item--current").forEach(item => {
             item.classList.remove("protyle-toolbar__item--current");
         });
-        const types = this.getCurrentType();
+        const types = this.getCurrentType(typeRange);
         types.forEach(item => {
             if (["search-mark", "a", "block-ref", "virtual-block-ref", "text", "file-annotation-ref", "inline-math",
                 "inline-memo", "", "backslash"].includes(item)) {
@@ -281,4 +282,3 @@ export class Toolbar {
         updateToolbarLanguage(this, languageElements, protyle, selectedLang);
     }
 }
-

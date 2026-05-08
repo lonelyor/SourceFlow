@@ -4,15 +4,150 @@ import {linkMenu} from "../../menus/protyle";
 import {isArrayEqual, isMobile} from "../../util/functions";
 import {mathRender} from "../render/mathRender";
 import {hasClosestBlock} from "../util/hasClosest";
-import {fixTableRange, focusByRange, setLastNodeRange} from "../util/selection";
+import {fixTableRange, focusByRange, setFirstNodeRange, setLastNodeRange} from "../util/selection";
 import {getContenteditableElement, hasNextSibling, hasPreviousSibling} from "../wysiwyg/getBlock";
-import {updateTransaction} from "../wysiwyg/transaction";
+import {transaction, updateTransaction} from "../wysiwyg/transaction";
 import {hasSameTextStyle, setFontStyle} from "./Font";
 import type {Toolbar} from "./index";
 import {mergeToolbarNodes} from "./shared";
 
+interface IInlineMarkApplyOptions {
+    skipTransaction?: boolean;
+    skipFocus?: boolean;
+    onHTMLChange?: (id: string, newHTML: string, oldHTML: string) => void;
+}
 
-export const setToolbarInlineMark = (toolbar: Toolbar, protyle: IProtyle, type: string, action: "range" | "toolbar", textObj?: ITextOption) => {
+const BATCH_INLINE_MARK_TYPES = new Set(["strong"]);
+const BATCH_INLINE_BLOCK_TYPES = new Set(["NodeParagraph", "NodeHeading"]);
+
+const isBatchInlineMarkType = (type: string, textObj?: ITextOption) => {
+    return !textObj && BATCH_INLINE_MARK_TYPES.has(type);
+};
+
+const isBatchInlineMarkBlock = (element: Element) => {
+    return BATCH_INLINE_BLOCK_TYPES.has(element.getAttribute("data-type") || "") &&
+        !!getContenteditableElement(element);
+};
+
+const collectBatchInlineMarkBlocks = (protyle: IProtyle, startElement: Element, endElement: Element) => {
+    if (!isBatchInlineMarkBlock(startElement) || !isBatchInlineMarkBlock(endElement)) {
+        return [];
+    }
+    const rootElement = protyle.wysiwyg.element;
+    const blocks = Array.from(rootElement.querySelectorAll("[data-node-id]")).filter(isBatchInlineMarkBlock);
+    const startIndex = blocks.indexOf(startElement);
+    const endIndex = blocks.indexOf(endElement);
+    if (startIndex < 0 || endIndex < 0 || startIndex > endIndex) {
+        return [];
+    }
+    return blocks.slice(startIndex, endIndex + 1);
+};
+
+const hasSelectedInlineContent = (range: Range) => {
+    if (range.collapsed) {
+        return false;
+    }
+    if (range.toString().split(Constants.ZWSP).join("").trim() !== "") {
+        return true;
+    }
+    const contents = range.cloneContents();
+    return !!contents.querySelector(".img, .render-node, img");
+};
+
+const getBatchInlineMarkRange = (sourceRange: Range, blockElement: Element, index: number, length: number) => {
+    const editElement = getContenteditableElement(blockElement);
+    if (!editElement) {
+        return undefined;
+    }
+    const range = document.createRange();
+    try {
+        if (index === 0) {
+            range.setStart(sourceRange.startContainer, sourceRange.startOffset);
+            setLastNodeRange(editElement, range, false);
+        } else if (index === length - 1) {
+            range.selectNodeContents(editElement);
+            setFirstNodeRange(editElement, range);
+            range.setEnd(sourceRange.endContainer, sourceRange.endOffset);
+        } else {
+            range.selectNodeContents(editElement);
+            setFirstNodeRange(editElement, range);
+            setLastNodeRange(editElement, range, false);
+        }
+    } catch {
+        return undefined;
+    }
+    if (!hasSelectedInlineContent(range)) {
+        return undefined;
+    }
+    return range;
+};
+
+const focusAfterBatchInlineMark = (toolbar: Toolbar, blockElement: Element) => {
+    const editElement = getContenteditableElement(blockElement);
+    if (!editElement) {
+        return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(editElement);
+    setLastNodeRange(editElement, range, false);
+    range.collapse(false);
+    toolbar.range = range;
+    focusByRange(range);
+};
+
+const applyBatchInlineMark = (toolbar: Toolbar, protyle: IProtyle, startElement: Element, endElement: Element, type: string, action: "range" | "toolbar", textObj?: ITextOption) => {
+    if (!isBatchInlineMarkType(type, textObj)) {
+        return false;
+    }
+    const blockElements = collectBatchInlineMarkBlocks(protyle, startElement, endElement);
+    if (blockElements.length < 2) {
+        return false;
+    }
+    const sourceRange = toolbar.range.cloneRange();
+    const operations: IOperation[] = [];
+    const undoOperations: IOperation[] = [];
+    let lastChangedElement: Element | undefined;
+    blockElements.forEach((blockElement, index) => {
+        const range = getBatchInlineMarkRange(sourceRange, blockElement, index, blockElements.length);
+        if (!range) {
+            return;
+        }
+        toolbar.range = range;
+        setToolbarInlineMark(toolbar, protyle, type, action, textObj, {
+            skipFocus: true,
+            skipTransaction: true,
+            onHTMLChange: (id, newHTML, oldHTML) => {
+                if (newHTML === oldHTML) {
+                    return;
+                }
+                operations.push({
+                    action: "update",
+                    id,
+                    data: newHTML
+                });
+                undoOperations.push({
+                    action: "update",
+                    id,
+                    data: oldHTML
+                });
+                lastChangedElement = blockElement;
+            }
+        });
+    });
+    if (operations.length > 0) {
+        transaction(protyle, operations, undoOperations);
+        if (lastChangedElement) {
+            focusAfterBatchInlineMark(toolbar, lastChangedElement);
+        }
+    } else {
+        toolbar.range = sourceRange;
+        focusByRange(sourceRange);
+    }
+    toolbar.element.classList.add("fn__none");
+    return true;
+};
+
+export const setToolbarInlineMark = (toolbar: Toolbar, protyle: IProtyle, type: string, action: "range" | "toolbar", textObj?: ITextOption, options?: IInlineMarkApplyOptions) => {
         const nodeElement = hasClosestBlock(toolbar.range.startContainer);
         if (!nodeElement || nodeElement.getAttribute("data-type") === "NodeCodeBlock") {
             return;
@@ -23,6 +158,9 @@ export const setToolbarInlineMark = (toolbar: Toolbar, protyle: IProtyle, type: 
         }
         // 三击后还没有重新纠正 range 时使用快捷键标记会导致异常 https://github.com/lonelyor/SourceFlow/issues/7068
         if (nodeElement !== endElement) {
+            if (!options?.skipTransaction && applyBatchInlineMark(toolbar, protyle, nodeElement, endElement, type, action, textObj)) {
+                return [];
+            }
             toolbar.range = setLastNodeRange(getContenteditableElement(nodeElement), toolbar.range, false);
         }
 
@@ -589,7 +727,14 @@ export const setToolbarInlineMark = (toolbar: Toolbar, protyle: IProtyle, type: 
             }
         }
         nodeElement.setAttribute("updated", dayjs().format("YYYYMMDDHHmmss"));
-        updateTransaction(protyle, nodeElement.getAttribute("data-node-id"), nodeElement.outerHTML, html);
+        const updateID = nodeElement.getAttribute("data-node-id");
+        const newHTML = nodeElement.outerHTML;
+        if (updateID) {
+            options?.onHTMLChange?.(updateID, newHTML, html);
+        }
+        if (updateID && !options?.skipTransaction) {
+            updateTransaction(protyle, updateID, newHTML, html);
+        }
         nodeElement.querySelectorAll("wbr").forEach(item => {
             item.remove();
         });
@@ -608,7 +753,9 @@ export const setToolbarInlineMark = (toolbar: Toolbar, protyle: IProtyle, type: 
                 toolbar.range.setEnd(endContainer.firstChild, endOffset);
             }
         }
-        focusByRange(toolbar.range);
+        if (!options?.skipFocus) {
+            focusByRange(toolbar.range);
+        }
 
         const showMenuElement = newNodes[0] as HTMLElement;
         if (showMenuElement.nodeType !== 3) {

@@ -47,8 +47,9 @@ type picGoUploadResponse struct {
 	Message string          `json:"message"`
 }
 
-func InsertLocalAssets(id string, assetAbsPaths []string, isUpload bool) (succMap map[string]interface{}, err error) {
+func InsertLocalAssets(id string, assetAbsPaths []string, isUpload bool, copyAsAssetArg ...bool) (succMap map[string]interface{}, err error) {
 	succMap = map[string]interface{}{}
+	copyAsAsset := 0 < len(copyAsAssetArg) && copyAsAssetArg[0]
 
 	bt := treenode.GetBlockTree(id)
 	if nil == bt {
@@ -68,11 +69,15 @@ func InsertLocalAssets(id string, assetAbsPaths []string, isUpload bool) (succMa
 		baseName := filepath.Base(assetAbsPath)
 		fName := baseName
 		fName = util.FilterUploadFileName(fName)
+		if "" == fName {
+			fName = "attachment"
+		}
 		ext := filepath.Ext(fName)
 		fName = strings.TrimSuffix(fName, ext)
 		ext = strings.ToLower(ext)
 		fName += ext
-		if gulu.File.IsDir(assetAbsPath) || !isUpload {
+		isDir := gulu.File.IsDir(assetAbsPath)
+		if (isDir || !isUpload) && !copyAsAsset {
 			if !strings.HasPrefix(assetAbsPath, "\\\\") {
 				assetAbsPath = "file://" + assetAbsPath
 			}
@@ -80,10 +85,34 @@ func InsertLocalAssets(id string, assetAbsPaths []string, isUpload bool) (succMa
 			continue
 		}
 
+		if strings.EqualFold(filepath.Clean(assetsDirPath), filepath.Clean(assetAbsPath)) {
+			succMap[baseName] = "assets/"
+			continue
+		}
+
 		if util.IsSubPath(assetsDirPath, assetAbsPath) {
 			// 已经位于 assets 目录下的资源文件不处理
 			// Dragging a file from the assets folder into the editor causes the kernel to exit https://github.com/lonelyor/SourceFlow/issues/15355
-			succMap[baseName] = "assets/" + fName
+			relPath, relErr := filepath.Rel(assetsDirPath, assetAbsPath)
+			if nil != relErr {
+				err = relErr
+				return
+			}
+			assetRelPath := "assets/" + filepath.ToSlash(relPath)
+			if isDir && !strings.HasSuffix(assetRelPath, "/") {
+				assetRelPath += "/"
+			}
+			succMap[baseName] = assetRelPath
+			continue
+		}
+
+		if isDir {
+			fName = util.AssetName(fName, ast.NewNodeID())
+			writePath := filepath.Join(assetsDirPath, fName)
+			if err = filelock.Copy(assetAbsPath, writePath); err != nil {
+				return
+			}
+			succMap[baseName] = "assets/" + fName + "/"
 			continue
 		}
 

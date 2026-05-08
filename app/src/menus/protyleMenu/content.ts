@@ -66,16 +66,33 @@ import {hideTooltip} from "../../dialog/tooltip";
 import {clearSelect} from "../../protyle/util/clear";
 import {scrollCenter} from "../../util/highlightById";
 import {base64ToURL} from "../../util/image";
-import {uploadFiles} from "../../protyle/upload";
+import {importLocalAttachments, uploadFiles} from "../../protyle/upload";
 import {reloadProtyle} from "../../protyle/util/reload";
 import {appendAssistantContextActions} from "../../assistant/skills/contextActions";
 import {net2LocalAssets} from "../../protyle/breadcrumb/action";
 import {tableMenu} from "./table";
+/// #if !BROWSER
+import {ipcRenderer} from "electron";
+/// #endif
 
 
 const loadWorkbenchDialogModule = () => import("../../workbench/dialog");
 const hiddenInlineText = (zh: string, en: string) => window.sourceflow.config.lang === "zh_CN" ? zh : en;
 const isHiddenInlineElement = (element?: HTMLElement | null) => element?.getAttribute("data-inline-hidden") === "true";
+/// #if !BROWSER
+const openImportAttachmentDialog = async (protyle: IProtyle, properties: string[], copyAsAsset: boolean) => {
+    const localPath = await ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+        cmd: "showOpenDialog",
+        defaultPath: window.sourceflow.config.system.homeDir,
+        properties,
+    });
+    if (localPath.filePaths.length === 0) {
+        return;
+    }
+    importLocalAttachments(protyle, localPath.filePaths, copyAsAsset);
+    window.sourceflow.menus.menu.remove();
+};
+/// #endif
 
 const revealHiddenInlineElement = (protyle: IProtyle, nodeElement: Element, inlineElement: HTMLElement, oldHTML: string) => {
     inlineElement.style.filter = "";
@@ -353,6 +370,45 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
                 window.sourceflow.menus.menu.remove();
             });
             window.sourceflow.menus.menu.append(uploadMenu);
+            /// #if !BROWSER
+            window.sourceflow.menus.menu.append(new MenuItem({
+                id: "importAttachment",
+                icon: "iconDownload",
+                label: hiddenInlineText("导入附件", "Import attachment"),
+                type: "submenu",
+                submenu: [{
+                    id: "importAttachmentFilesRelative",
+                    icon: "iconFile",
+                    label: hiddenInlineText("复制文件/压缩包到笔记", "Copy files or archives into note"),
+                    click: () => {
+                        openImportAttachmentDialog(protyle, ["openFile", "multiSelections"], true);
+                    }
+                }, {
+                    id: "importAttachmentFoldersRelative",
+                    icon: "iconFolder",
+                    label: hiddenInlineText("复制文件夹到笔记", "Copy folders into note"),
+                    click: () => {
+                        openImportAttachmentDialog(protyle, ["openDirectory", "multiSelections"], true);
+                    }
+                }, {
+                    type: "separator"
+                }, {
+                    id: "importAttachmentFilesAbsolute",
+                    icon: "iconFile",
+                    label: hiddenInlineText("引用文件/压缩包原位置", "Link files or archives by absolute path"),
+                    click: () => {
+                        openImportAttachmentDialog(protyle, ["openFile", "multiSelections"], false);
+                    }
+                }, {
+                    id: "importAttachmentFoldersAbsolute",
+                    icon: "iconFolder",
+                    label: hiddenInlineText("引用文件夹原位置", "Link folders by absolute path"),
+                    click: () => {
+                        openImportAttachmentDialog(protyle, ["openDirectory", "multiSelections"], false);
+                    }
+                }]
+            }).element);
+            /// #endif
         }
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "refresh",

@@ -415,8 +415,13 @@ func insertLocalAssets(c *gin.Context) {
 	if nil != isUploadArg {
 		isUpload = isUploadArg.(bool)
 	}
+	copyAsAsset := false
+	copyAsAssetArg := arg["copyAsAsset"]
+	if nil != copyAsAssetArg {
+		copyAsAsset = copyAsAssetArg.(bool)
+	}
 	id := arg["id"].(string)
-	succMap, err := model.InsertLocalAssets(id, assetPaths, isUpload)
+	succMap, err := model.InsertLocalAssets(id, assetPaths, isUpload, copyAsAsset)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
