@@ -2368,9 +2368,21 @@ func cloneAssistantAIMap(val map[string]interface{}) map[string]interface{} {
 	if nil == val {
 		return map[string]interface{}{}
 	}
-	ret := make(map[string]interface{}, len(val))
-	for k, v := range val {
-		ret[k] = v
+	buf, err := json.Marshal(val)
+	if nil != err {
+		ret := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			ret[k] = v
+		}
+		return ret
+	}
+	ret := map[string]interface{}{}
+	if err = json.Unmarshal(buf, &ret); nil != err {
+		ret := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			ret[k] = v
+		}
+		return ret
 	}
 	return ret
 }
