@@ -48,7 +48,7 @@ type anthropicToolCallAccumulator struct {
 	inputJSON strings.Builder
 }
 
-func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1") {
 		endpoint += "/messages"
@@ -65,6 +65,11 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 	}
 	if "" != strings.TrimSpace(systemPrompt) {
 		reqBody["system"] = systemPrompt
+	}
+	if nil != opts && opts.EnableTools {
+		if tools := buildAssistantAIAnthropicTools(profile); 0 < len(tools) {
+			reqBody["tools"] = tools
+		}
 	}
 
 	data, marshalErr := json.Marshal(reqBody)

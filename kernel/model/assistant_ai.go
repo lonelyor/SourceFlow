@@ -601,7 +601,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
 
-	useNativeTools := req.EnableTools && isAssistantAILegacyCompatibleProvider(profile.Provider)
+	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider)
 	if req.EnableTools && !useNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
@@ -1566,7 +1566,7 @@ func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt strin
 func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	switch profile.Provider {
 	case AssistantAIProviderAnthropic:
-		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta)
+		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta, opts)
 	case AssistantAIProviderGemini:
 		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta)
 	default:
@@ -1803,8 +1803,11 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 		ID      string `json:"id"`
 		Model   string `json:"model"`
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type  string          `json:"type"`
+			Text  string          `json:"text"`
+			ID    string          `json:"id"`
+			Name  string          `json:"name"`
+			Input json.RawMessage `json:"input"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		Usage      struct {
@@ -1828,12 +1831,23 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 	}
 
 	builder := &strings.Builder{}
+	var toolCalls []map[string]interface{}
 	for _, item := range resp.Content {
-		if "text" == item.Type {
+		switch item.Type {
+		case "text":
 			builder.WriteString(item.Text)
+		case "tool_use":
+			toolCalls = append(toolCalls, map[string]interface{}{
+				"id":   item.ID,
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":      item.Name,
+					"arguments": string(item.Input),
+				},
+			})
 		}
 	}
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:           strings.TrimSpace(builder.String()),
 		ProviderMessageID: resp.ID,
 		InputTokens:       resp.Usage.InputTokens,
@@ -1843,7 +1857,11 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 			"finishReason": resp.StopReason,
 			"model":        resp.Model,
 		},
-	}, nil
+	}
+	if 0 < len(toolCalls) {
+		ret.ToolCalls = toolCalls
+	}
+	return ret, nil
 }
 
 func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
