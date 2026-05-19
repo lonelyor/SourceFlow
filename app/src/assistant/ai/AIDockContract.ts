@@ -102,6 +102,7 @@ export interface IAssistantAIDockRuntime {
     clearAllSessions(): Promise<void>;
     sendMessage(): Promise<void>;
     confirmTool(messageId: string, toolIndex: number): Promise<void>;
+    rejectTool(messageId: string, toolIndex: number): Promise<void>;
     saveTranscript(): Promise<void>;
     saveAnalysis(): Promise<void>;
     insertLastReply(): Promise<void>;

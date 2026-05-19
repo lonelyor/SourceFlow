@@ -25,6 +25,13 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                 event.preventDefault();
                 return;
             }
+            if (target.getAttribute("data-action") === "reject-tool") {
+                const messageId = target.getAttribute("data-message-id") || "";
+                const toolIndex = parseInt(target.getAttribute("data-tool-index") || "-1", 10);
+                void ctx.rejectTool(messageId, toolIndex);
+                event.preventDefault();
+                return;
+            }
             const sessionId = target.getAttribute("data-session-id");
             if (sessionId) {
                 ctx.activePanel = "";

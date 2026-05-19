@@ -8,6 +8,7 @@ import {
     confirmAssistantAITool,
     editAssistantAIMessageStream,
     IAssistantAIInputAttachment,
+    rejectAssistantAITool,
     streamAssistantAI,
 } from "./api";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
@@ -450,6 +451,42 @@ export const confirmAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId:
             context: tool.context as never,
             toolId: `${tool.toolId || ""}`,
             args: (tool.args || {}) as Record<string, unknown>,
+        });
+        ctx.selectedSessionId = result.session.id;
+        ctx.selectedProfileId = result.profile.id;
+        ctx.messages = result.messages;
+        ctx.syncEditingMessageState();
+        await ctx.refreshAudits();
+    } catch (error) {
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+    } finally {
+        ctx.sending = false;
+        ctx.render();
+        ctx.scrollToBottom();
+    }
+};
+
+export const rejectAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number) => {
+    const session = ctx.getSelectedSession();
+    const profile = ctx.getSelectedProfile();
+    if (!session || !profile || !messageId || toolIndex < 0 || ctx.sending) {
+        return;
+    }
+    const message = ctx.messages.find((item) => item.id === messageId);
+    const toolResults = Array.isArray(message?.metadata?.toolResults) ? message.metadata.toolResults as Array<Record<string, unknown>> : [];
+    const tool = toolResults[toolIndex];
+    if (!tool || tool.executed || tool.decision !== "confirm") {
+        return;
+    }
+    ctx.sending = true;
+    ctx.render();
+    try {
+        const result = await rejectAssistantAITool({
+            profileId: profile.id,
+            sessionId: session.id,
+            messageId,
+            auditId: `${tool.auditId || ""}`,
+            toolId: `${tool.toolId || ""}`,
         });
         ctx.selectedSessionId = result.session.id;
         ctx.selectedProfileId = result.profile.id;

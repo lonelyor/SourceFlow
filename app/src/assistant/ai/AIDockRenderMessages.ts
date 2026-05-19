@@ -55,17 +55,18 @@ export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntim
     }
     return `<div class="assistant-ai__tool-results">${raw.map((tool, index) => {
         const name = `${tool?.name || tool?.toolId || assistantText("工具", "Tool")}`;
-        const status = tool?.executed ? assistantText("已执行", "Executed") : (tool?.decision === "confirm" ? assistantText("待确认", "Needs confirm") : assistantText("已拦截", "Blocked"));
+        const isRejected = !!tool?.rejected;
+        const status = tool?.executed ? assistantText("已执行", "Executed") : (isRejected ? assistantText("已拒绝", "Rejected") : (tool?.decision === "confirm" ? assistantText("待确认", "Needs confirm") : assistantText("已拦截", "Blocked")));
         const summary = `${tool?.summary || tool?.error || ""}`.trim();
-        const canConfirm = !tool?.executed && tool?.decision === "confirm" && !!tool?.toolId;
-        const statusClass = tool?.executed ? "success" : (tool?.decision === "confirm" ? "warning" : "secondary");
+        const canConfirm = !tool?.executed && !isRejected && tool?.decision === "confirm" && !!tool?.toolId;
+        const statusClass = tool?.executed ? "success" : (isRejected ? "error" : (tool?.decision === "confirm" ? "warning" : "secondary"));
         return `<div class="assistant-ai__tool-result assistant-ai__tool-result--${statusClass}">
     <div class="assistant-ai__tool-result-head">
         <div class="assistant-ai__tool-title-group">
             <span class="assistant-ai__tool-name">${escapeHTML(name)}</span>
             <span class="b3-chip b3-chip--small b3-chip--${statusClass}">${escapeHTML(status)}</span>
         </div>
-        ${canConfirm ? `<button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="confirm-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("确认执行", "Confirm"))}</button>` : ""}
+        ${canConfirm ? `<button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="confirm-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("确认执行", "Confirm"))}</button><button type="button" class="b3-button b3-button--outline b3-button--error assistant-ai__tool-action" data-action="reject-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("拒绝", "Reject"))}</button>` : ""}
     </div>
     ${summary ? `<div class="assistant-ai__tool-summary">${escapeHTML(summary)}</div>` : ""}
 </div>`;

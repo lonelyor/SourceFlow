@@ -457,6 +457,26 @@ func assistantAIToolConfirm(c *gin.Context) {
 	ret.Data = data
 }
 
+func assistantAIToolReject(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &model.AssistantAIToolRejectRequest{}
+	if err := c.ShouldBindJSON(req); nil != err {
+		ret.Code = -1
+		ret.Msg = "parses request failed"
+		return
+	}
+
+	data, err := model.RejectAssistantAITool(req)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = data
+}
+
 func assistantAISessionAnalyze(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

@@ -179,6 +179,14 @@ type AssistantAIToolConfirmRequest struct {
 	Args      map[string]interface{}  `json:"args"`
 }
 
+type AssistantAIToolRejectRequest struct {
+	ProfileID string `json:"profileId"`
+	SessionID string `json:"sessionId"`
+	MessageID string `json:"messageId"`
+	AuditID   string `json:"auditId"`
+	ToolID    string `json:"toolId"`
+}
+
 type assistantAIProviderReply struct {
 	Content           string
 	ProviderMessageID string
@@ -1028,6 +1036,59 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 		AssistantMessage: assistantMessage,
 		Messages:         allMessages,
 		ToolResults:      []*AssistantAIToolResult{toolResult},
+	}, nil
+}
+
+func RejectAssistantAITool(req *AssistantAIToolRejectRequest) (ret *AssistantAIChatResult, err error) {
+	if nil == req {
+		return nil, fmt.Errorf("assistant AI tool reject request is required")
+	}
+	sessionID := strings.TrimSpace(req.SessionID)
+	if "" == sessionID {
+		return nil, fmt.Errorf("assistant AI session ID is required")
+	}
+
+	db, err := getAssistantAIDB()
+	if err != nil {
+		return nil, err
+	}
+	session, err := getAssistantAISession0(db, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	profileID := strings.TrimSpace(req.ProfileID)
+	if "" == profileID {
+		profileID = session.ProfileID
+	}
+	profile, err := getAssistantAIProfile0(db, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	toolResult, err := rejectAssistantAITool(db, profile, session.ID, strings.TrimSpace(req.ToolID))
+	if err != nil {
+		return nil, err
+	}
+
+	if updateErr := updateAssistantAIMessageToolResult(db, strings.TrimSpace(req.MessageID), strings.TrimSpace(toolResult.AuditID), toolResult); nil != updateErr {
+		return nil, updateErr
+	}
+
+	session, err = getAssistantAISession0(db, session.ID)
+	if err != nil {
+		return nil, err
+	}
+	allMessages, err := listAssistantAISessionMessages(db, session.ID, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AssistantAIChatResult{
+		Session:     session,
+		Profile:     profile,
+		Messages:    allMessages,
+		ToolResults: []*AssistantAIToolResult{toolResult},
 	}, nil
 }
 
