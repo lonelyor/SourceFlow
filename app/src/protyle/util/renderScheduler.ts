@@ -90,3 +90,47 @@ export const cancelScheduledRenders = () => {
 };
 
 export { isInViewport, splitByViewport, BATCH_SIZE };
+
+const OBSERVER_MARGIN_RATIO = 3;
+let observer: IntersectionObserver | null = null;
+const pendingRenderCallbacks = new Map<Element, () => void>();
+
+const getOrCreateObserver = (container: HTMLElement): IntersectionObserver => {
+    if (observer) {
+        return observer;
+    }
+    const rootMargin = `${window.innerHeight * OBSERVER_MARGIN_RATIO}px 0px`;
+    observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting) {
+                continue;
+            }
+            const el = entry.target;
+            const cb = pendingRenderCallbacks.get(el);
+            if (cb) {
+                pendingRenderCallbacks.delete(el);
+                observer!.unobserve(el);
+                cb();
+            }
+        }
+    }, {
+        root: container,
+        rootMargin,
+        threshold: 0,
+    });
+    return observer;
+};
+
+export const observeLazyRender = (element: Element, container: HTMLElement, callback: () => void) => {
+    const io = getOrCreateObserver(container);
+    pendingRenderCallbacks.set(element, callback);
+    io.observe(element);
+};
+
+export const disconnectLazyObserver = () => {
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
+    pendingRenderCallbacks.clear();
+};

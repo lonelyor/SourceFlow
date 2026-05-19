@@ -5,7 +5,7 @@ import {processRender} from "./processCode";
 import {highlightRender} from "../render/highlightRender";
 import {blockRender} from "../render/blockRender";
 import {bgFade, scrollCenter} from "../../util/highlightById";
-import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE} from "./renderScheduler";
+import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE, observeLazyRender, disconnectLazyObserver} from "./renderScheduler";
 /// #if !MOBILE
 import {pushBack} from "../../util/backForward";
 /// #endif
@@ -261,54 +261,46 @@ const setHTML = (options: {
             }
         }
 
-        const deferredTasks: (() => void)[] = [];
-
-        for (let i = 0; i < hiddenRenderNodes.length; i += BATCH_SIZE) {
-            const batch = hiddenRenderNodes.slice(i, i + BATCH_SIZE);
-            deferredTasks.push(() => {
-                for (const node of batch) {
+        for (const node of hiddenRenderNodes) {
+            if (node.isConnected) {
+                observeLazyRender(node, contentContainer, () => {
                     if (node.isConnected) {
                         processRender(node);
                     }
-                }
-            });
+                });
+            }
         }
 
-        for (let i = 0; i < hiddenCodeBlocks.length; i += BATCH_SIZE) {
-            const batch = hiddenCodeBlocks.slice(i, i + BATCH_SIZE);
-            deferredTasks.push(() => {
-                for (const block of batch) {
+        for (const block of hiddenCodeBlocks) {
+            if (block.isConnected) {
+                observeLazyRender(block, contentContainer, () => {
                     if (block.isConnected) {
                         const codeBlock = block.closest(".code-block") || block;
                         highlightRender(codeBlock as Element);
                     }
-                }
-            });
+                });
+            }
         }
 
-        for (let i = 0; i < allAvBlocks.length; i += BATCH_SIZE) {
-            const batch = Array.from(allAvBlocks).slice(i, i + BATCH_SIZE);
-            deferredTasks.push(() => {
-                for (const av of batch) {
+        for (const av of Array.from(allAvBlocks)) {
+            if (av.isConnected) {
+                observeLazyRender(av, contentContainer, () => {
                     if (av.isConnected) {
                         avRender(av, protyle);
                     }
-                }
-            });
+                });
+            }
         }
 
-        for (let i = 0; i < allEmbedBlocks.length; i += BATCH_SIZE) {
-            const batch = Array.from(allEmbedBlocks).slice(i, i + BATCH_SIZE);
-            deferredTasks.push(() => {
-                for (const embed of batch) {
+        for (const embed of Array.from(allEmbedBlocks)) {
+            if (embed.isConnected) {
+                observeLazyRender(embed, contentContainer, () => {
                     if (embed.isConnected) {
                         blockRender(protyle, embed);
                     }
-                }
-            });
+                });
+            }
         }
-
-        scheduleRender("deferred-content", deferredTasks);
     }
     if (options.action.includes(Constants.CB_GET_HISTORY)) {
         return;
