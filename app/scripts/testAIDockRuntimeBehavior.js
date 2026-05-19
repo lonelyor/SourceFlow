@@ -7,6 +7,7 @@ const ts = require("typescript");
 class FakeInputElement {
     constructor(attrs = {}, extra = {}) {
         this.attrs = attrs;
+        this.parentElement = null;
         Object.assign(this, extra);
     }
 
@@ -16,6 +17,10 @@ class FakeInputElement {
 
     closest() {
         return null;
+    }
+
+    isEqualNode(other) {
+        return this === other;
     }
 
     blur() {
@@ -43,6 +48,10 @@ class FakeElement {
     dispatch(type, event) {
         const handlers = this.listeners.get(type) || [];
         handlers.forEach((handler) => handler(event));
+    }
+
+    isEqualNode(other) {
+        return this === other;
     }
 }
 
@@ -106,13 +115,26 @@ const createRuntime = () => {
         activePanel: "target",
         sessionsCollapsed: false,
         enableTools: false,
+        sending: false,
+        editingMessageId: "",
+        draftMessage: "",
+        draftBackup: "",
+        attachments: [],
+        attachmentsBackup: null,
         noteSearchKeyword: "",
         noteSearchResults: [],
         noteSearchLoading: false,
         selectedProfileId: "",
+        messages: [],
         renderCount: 0,
         switchProfileCalls: [],
         refreshToolCatalogCalls: [],
+        confirmToolCalls: [],
+        rejectToolCalls: [],
+        sendMessageCalls: [],
+        clearEditingMessageCalls: [],
+        startEditingMessageCalls: [],
+        addComposerAttachmentsCalls: [],
         render() {
             this.renderCount += 1;
         },
@@ -123,16 +145,30 @@ const createRuntime = () => {
             this.refreshToolCatalogCalls.push(profileId);
         },
         async searchTargetNotes() {},
-        async addComposerAttachments() {},
-        async confirmTool() {},
+        async addComposerAttachments(files) {
+            this.addComposerAttachmentsCalls.push(files);
+        },
+        async confirmTool(messageId, toolIndex) {
+            this.confirmToolCalls.push({messageId, toolIndex});
+        },
+        async rejectTool(messageId, toolIndex) {
+            this.rejectToolCalls.push({messageId, toolIndex});
+        },
         async selectSession() {},
         removeComposerAttachment() {},
         toggleFloatingPanel() {},
         async handleAction(action, target) {
             return handleAIDockAction(this, action, target);
         },
-        async sendMessage() {},
-        clearEditingMessage() {},
+        async sendMessage() {
+            this.sendMessageCalls.push(1);
+        },
+        clearEditingMessage(restore) {
+            this.clearEditingMessageCalls.push(restore);
+        },
+        startEditingMessage(messageId) {
+            this.startEditingMessageCalls.push(messageId);
+        },
         focusComposer() {},
         async selectTargetNote() {},
         async updateToolPolicyField() {},
@@ -152,10 +188,22 @@ const createRuntime = () => {
         async applyToolPolicyPreset() {},
         openComposerAttachmentPicker() {},
         copyMessage() {},
-        startEditingMessage() {},
         toggleMessageExpanded() {},
     };
 };
+
+const createFakeClickEvent = (target) => ({
+    target,
+    preventDefault() {},
+});
+
+const createFakeKeyboardEvent = (target, key) => ({
+    target,
+    key,
+    shiftKey: false,
+    isComposing: false,
+    preventDefault() {},
+});
 
 (async () => {
     const runtime = createRuntime();
@@ -185,6 +233,74 @@ const createRuntime = () => {
     assert.ok(runtime.renderCount >= 2);
     assert.strictEqual(openSettingCalls.length, 1);
     assert.strictEqual(openSettingCalls[0][1], "AI");
+
+    const rt2 = createRuntime();
+    bindAIDockEvents(rt2);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "confirm-tool", "data-message-id": "msg-1", "data-tool-index": "2"}),
+    ));
+    assert.deepStrictEqual(rt2.confirmToolCalls, [{messageId: "msg-1", toolIndex: 2}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "reject-tool", "data-message-id": "msg-1", "data-tool-index": "0"}),
+    ));
+    assert.deepStrictEqual(rt2.rejectToolCalls, [{messageId: "msg-1", toolIndex: 0}]);
+
+    const rt3 = createRuntime();
+    bindAIDockEvents(rt3);
+
+    rt3.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Enter",
+    ));
+    assert.strictEqual(rt3.sendMessageCalls.length, 1);
+
+    rt3.editingMessageId = "msg-1";
+    rt3.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Escape",
+    ));
+    assert.deepStrictEqual(rt3.clearEditingMessageCalls, [true]);
+
+    await handleAIDockAction(rt3, "edit-message", new FakeInputElement({"data-message-id": "msg-42"}));
+    assert.deepStrictEqual(rt3.startEditingMessageCalls, ["msg-42"]);
+
+    const rt4 = createRuntime();
+    bindAIDockEvents(rt4);
+
+    rt4.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "copy-message", "data-message-id": "msg-c1"}),
+    ));
+    rt4.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "edit-message", "data-message-id": "msg-e1"}),
+    ));
+    assert.deepStrictEqual(rt4.startEditingMessageCalls, ["msg-e1"]);
+
+    const rt5 = createRuntime();
+    bindAIDockEvents(rt5);
+
+    rt5.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Enter",
+    ));
+    assert.strictEqual(rt5.sendMessageCalls.length, 1);
+
+    rt5.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "a",
+    ));
+    assert.strictEqual(rt5.sendMessageCalls.length, 1);
+
+    const rt6 = createRuntime();
+    bindAIDockEvents(rt6);
+    rt6.editingMessageId = "";
+
+    rt6.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Escape",
+    ));
+    assert.deepStrictEqual(rt6.clearEditingMessageCalls, []);
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {
