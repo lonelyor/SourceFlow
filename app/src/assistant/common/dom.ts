@@ -52,11 +52,13 @@ export const providerDisplayName = (provider: string) => {
         case "gemini":
             return "Gemini";
         case "volcengine":
-            return assistantText("火山方舟", "Volcengine Ark");
+            return assistantText("豆包 (火山方舟)", "Volcengine Ark");
         case "kimi":
             return "Kimi";
         case "glm":
-            return "GLM";
+            return assistantText("智谱 GLM", "GLM");
+        case "qwen":
+            return assistantText("阿里百炼", "Qwen");
         case "openrouter":
             return "OpenRouter";
         case "deepseek":

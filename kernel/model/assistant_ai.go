@@ -29,6 +29,7 @@ const (
 	AssistantAIProviderVolcenginePlan   = "volcengine-plan"
 	AssistantAIProviderKimi             = "kimi"
 	AssistantAIProviderGLM              = "glm"
+	AssistantAIProviderQwen             = "qwen"
 	AssistantAIProviderOpenRouter       = "openrouter"
 	AssistantAIProviderDeepSeek         = "deepseek"
 	AssistantAIProviderOllama           = "ollama"
@@ -41,35 +42,39 @@ const (
 )
 
 var (
-	assistantAIDB     *dbsql.DB
-	assistantAIDBLock sync.Mutex
+	assistantAIDB            *dbsql.DB
+	assistantAIDBLock        sync.Mutex
+	assistantAIHTTPClients   map[string]*http.Client
+	assistantAIHTTPClientsMu sync.Mutex
+)
 
-	assistantAIProviderCatalog = []*AssistantAIProviderType{
-		{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
-		{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
-		{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
-		{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-		{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-		{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
-		{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
-		{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
-		{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
-		{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
-	}
+var assistantAIProviderCatalog = []*AssistantAIProviderType{
+	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
+	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
+	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
+	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
+	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
+	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
+	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"},
+	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
+	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
+	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
+}
 
-	assistantAIProviderBaseURLs = map[string]string{
+var assistantAIProviderBaseURLs = map[string]string{
 		AssistantAIProviderOpenAICompatible: "https://api.openai.com/v1",
 		AssistantAIProviderAnthropic:        "https://api.anthropic.com",
 		AssistantAIProviderGemini:           "https://generativelanguage.googleapis.com",
 		AssistantAIProviderVolcengine:       "https://ark.cn-beijing.volces.com/api/v3",
 		AssistantAIProviderVolcenginePlan:   "https://ark.cn-beijing.volces.com/api/v3",
 		AssistantAIProviderKimi:             "https://api.moonshot.cn/v1",
-		AssistantAIProviderGLM:              "https://open.bigmodel.cn/api/paas/v4",
-		AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
+	AssistantAIProviderGLM:              "https://open.bigmodel.cn/api/paas/v4",
+	AssistantAIProviderQwen:             "https://dashscope.aliyuncs.com/compatible-mode/v1",
+	AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
 		AssistantAIProviderDeepSeek:         "https://api.deepseek.com/v1",
 		AssistantAIProviderOllama:           "http://127.0.0.1:11434/v1",
-	}
-)
+}
 
 type AssistantAIProviderType struct {
 	ID      string `json:"id"`
@@ -180,6 +185,13 @@ type assistantAIProviderReply struct {
 	InputTokens       int
 	OutputTokens      int
 	Metadata          map[string]interface{}
+	ToolCalls         []map[string]interface{}
+}
+
+type assistantAIChatOptions struct {
+	EnableTools bool
+	Context     *AssistantAINoteContext
+	UserPrompt  string
 }
 
 func ListAssistantAIProviderTypes() []*AssistantAIProviderType {
@@ -588,25 +600,66 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 	if "" == systemPrompt {
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
-	toolPrompt := ""
-	if req.EnableTools {
-		toolPrompt = buildAssistantAIToolPrompt(profile, req.Context)
+
+	useNativeTools := req.EnableTools && isAssistantAILegacyCompatibleProvider(profile.Provider)
+	if req.EnableTools && !useNativeTools {
+		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
 			systemPrompt = strings.TrimSpace(firstAssistantAINonEmpty(systemPrompt, "") + "\n\n" + toolPrompt)
 		}
 	}
+	if useNativeTools {
+		ctxPart := buildAssistantAIToolContextSystemPart(req.Context)
+		if "" != ctxPart {
+			systemPrompt = strings.TrimSpace(systemPrompt + "\n\n" + ctxPart)
+		}
+	}
+
+	chatOpts := &assistantAIChatOptions{
+		EnableTools: useNativeTools,
+		Context:     req.Context,
+		UserPrompt:  strings.TrimSpace(req.Message),
+	}
 
 	var reply *assistantAIProviderReply
-	if nil != onDelta && !req.EnableTools && canStreamAssistantAIProvider(profile) {
-		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta)
+	if nil != onDelta && canStreamAssistantAIProvider(profile) {
+		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta, chatOpts)
 	} else {
-		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages)
+		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages, chatOpts)
 	}
 	if err != nil {
 		return nil, err
 	}
 	var toolResults []*AssistantAIToolResult
-	if req.EnableTools {
+	if req.EnableTools && useNativeTools && 0 < len(reply.ToolCalls) {
+		toolResults = executeAssistantAINativeToolCalls(db, profile, session.ID, req.Context, reply.ToolCalls)
+		followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
+		followupMessages = append(followupMessages, &AssistantAIMessage{
+			ID:        ast.NewNodeID(),
+			SessionID: session.ID,
+			Role:      "assistant",
+			Content:   strings.TrimSpace(reply.Content),
+			Metadata: map[string]interface{}{
+				"nativeToolCalls": reply.ToolCalls,
+			},
+			CreatedAt: time.Now().UnixMilli(),
+		})
+		followupMessages = append(followupMessages, &AssistantAIMessage{
+			ID:        ast.NewNodeID(),
+			SessionID: session.ID,
+			Role:      "user",
+			Content:   buildAssistantAIToolFollowupPrompt(toolResults),
+			CreatedAt: time.Now().UnixMilli(),
+		})
+		followupSystem := strings.TrimSpace(req.System)
+		if "" == followupSystem {
+			followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
+		}
+		reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
+		if err != nil {
+			return nil, err
+		}
+	} else if req.EnableTools && !useNativeTools {
 		if envelope, ok := parseAssistantAIToolEnvelope(reply.Content); ok {
 			if 0 < len(envelope.ToolCalls) {
 				fallbackReply := ""
@@ -633,7 +686,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 				if "" == followupSystem {
 					followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 				}
-				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages)
+				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
 				if err != nil {
 					return nil, err
 				}
@@ -790,26 +843,67 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 	if "" == systemPrompt {
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
-	toolPrompt := ""
-	if req.EnableTools {
-		toolPrompt = buildAssistantAIToolPrompt(profile, req.Context)
+
+	editUseNativeTools := req.EnableTools && isAssistantAILegacyCompatibleProvider(profile.Provider)
+	if req.EnableTools && !editUseNativeTools {
+		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
 			systemPrompt = strings.TrimSpace(firstAssistantAINonEmpty(systemPrompt, "") + "\n\n" + toolPrompt)
 		}
 	}
+	if editUseNativeTools {
+		ctxPart := buildAssistantAIToolContextSystemPart(req.Context)
+		if "" != ctxPart {
+			systemPrompt = strings.TrimSpace(systemPrompt + "\n\n" + ctxPart)
+		}
+	}
+
+	editChatOpts := &assistantAIChatOptions{
+		EnableTools: editUseNativeTools,
+		Context:     req.Context,
+		UserPrompt:  strings.TrimSpace(req.Message),
+	}
 
 	var reply *assistantAIProviderReply
-	if nil != onDelta && !req.EnableTools && canStreamAssistantAIProvider(profile) {
-		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta)
+	if nil != onDelta && canStreamAssistantAIProvider(profile) {
+		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta, editChatOpts)
 	} else {
-		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages)
+		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages, editChatOpts)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	var toolResults []*AssistantAIToolResult
-	if req.EnableTools {
+	if req.EnableTools && editUseNativeTools && 0 < len(reply.ToolCalls) {
+		toolResults = executeAssistantAINativeToolCalls(db, profile, session.ID, req.Context, reply.ToolCalls)
+		followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
+		followupMessages = append(followupMessages, &AssistantAIMessage{
+			ID:        ast.NewNodeID(),
+			SessionID: session.ID,
+			Role:      "assistant",
+			Content:   strings.TrimSpace(reply.Content),
+			Metadata: map[string]interface{}{
+				"nativeToolCalls": reply.ToolCalls,
+			},
+			CreatedAt: time.Now().UnixMilli(),
+		})
+		followupMessages = append(followupMessages, &AssistantAIMessage{
+			ID:        ast.NewNodeID(),
+			SessionID: session.ID,
+			Role:      "user",
+			Content:   buildAssistantAIToolFollowupPrompt(toolResults),
+			CreatedAt: time.Now().UnixMilli(),
+		})
+		followupSystem := strings.TrimSpace(req.System)
+		if "" == followupSystem {
+			followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
+		}
+		reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
+		if err != nil {
+			return nil, err
+		}
+	} else if req.EnableTools && !editUseNativeTools {
 		if envelope, ok := parseAssistantAIToolEnvelope(reply.Content); ok {
 			if 0 < len(envelope.ToolCalls) {
 				fallbackReply := ""
@@ -836,7 +930,7 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 				if "" == followupSystem {
 					followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 				}
-				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages)
+				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
 				if err != nil {
 					return nil, err
 				}
@@ -938,7 +1032,7 @@ func AnalyzeAssistantAISession(req *AssistantAIAnalyzeRequest) (ret string, err 
 		CreatedAt: time.Now().UnixMilli(),
 	})
 
-	reply, err := chatWithAssistantAIProvider(profile, getAssistantAIStringSetting(profile.Settings, "systemPrompt", ""), messages)
+	reply, err := chatWithAssistantAIProvider(profile, getAssistantAIStringSetting(profile.Settings, "systemPrompt", ""), messages, nil)
 	if err != nil {
 		return "", err
 	}
@@ -1003,7 +1097,7 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 		CreatedAt: time.Now().UnixMilli(),
 	})
 
-	reply, chatErr := chatWithAssistantAIProvider(profile, getAssistantAIStringSetting(profile.Settings, "systemPrompt", ""), messages)
+	reply, chatErr := chatWithAssistantAIProvider(profile, getAssistantAIStringSetting(profile.Settings, "systemPrompt", ""), messages, nil)
 	if nil != chatErr {
 		reply = &assistantAIProviderReply{
 			Content: assistantTextForToolConfirmFallback(toolResult),
@@ -1368,6 +1462,7 @@ func isAssistantAILegacyCompatibleProvider(provider string) bool {
 		AssistantAIProviderVolcenginePlan,
 		AssistantAIProviderKimi,
 		AssistantAIProviderGLM,
+		AssistantAIProviderQwen,
 		AssistantAIProviderOpenRouter,
 		AssistantAIProviderDeepSeek,
 		AssistantAIProviderOllama:
@@ -1584,23 +1679,25 @@ func listAssistantAISessionMessages(db *dbsql.DB, sessionID string, limit int) (
 	return ret, rows.Err()
 }
 
-func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
+func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	switch profile.Provider {
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropic(profile, systemPrompt, messages)
 	case AssistantAIProviderGemini:
 		return chatAssistantAIGemini(profile, systemPrompt, messages)
 	default:
-		return chatAssistantAIOpenAICompatible(profile, systemPrompt, messages)
+		return chatAssistantAIOpenAICompatible(profile, systemPrompt, messages, opts)
 	}
 }
 
-func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error) (ret *assistantAIProviderReply, err error) {
+func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	switch profile.Provider {
-	case AssistantAIProviderAnthropic, AssistantAIProviderGemini:
-		return chatWithAssistantAIProvider(profile, systemPrompt, messages)
+	case AssistantAIProviderAnthropic:
+		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta)
+	case AssistantAIProviderGemini:
+		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta)
 	default:
-		return chatAssistantAIOpenAICompatibleStream(profile, systemPrompt, messages, onDelta)
+		return chatAssistantAIOpenAICompatibleStream(profile, systemPrompt, messages, onDelta, opts)
 	}
 }
 
@@ -1608,15 +1705,10 @@ func canStreamAssistantAIProvider(profile *AssistantAIProfile) bool {
 	if nil == profile {
 		return false
 	}
-	switch normalizeAssistantAIProvider(profile.Provider) {
-	case AssistantAIProviderAnthropic, AssistantAIProviderGemini:
-		return false
-	default:
-		return true
-	}
+	return true
 }
 
-func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	client := util.NewOpenAIClient(resolveAssistantAIOpenAICompatibleAPIKey(profile), profile.Proxy, profile.BaseURL, profile.UserAgent, profile.Version, "OpenAI")
 
 	maxTokens := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
@@ -1626,6 +1718,11 @@ func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt s
 	req := openai.ChatCompletionRequest{
 		Model:    profile.Model,
 		Messages: buildAssistantAIOpenAICompatibleMessages(systemPrompt, messages),
+	}
+	if nil != opts && opts.EnableTools {
+		if tools := buildAssistantAIOpenAIToolDefinitions(profile); 0 < len(tools) {
+			req.Tools = tools
+		}
 	}
 	applyAssistantAIOpenAICompatibleRequestOptions(profile, &req, maxTokens, temperature)
 
@@ -1641,7 +1738,7 @@ func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt s
 	}
 
 	choice := resp.Choices[0]
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:      strings.TrimSpace(choice.Message.Content),
 		InputTokens:  resp.Usage.PromptTokens,
 		OutputTokens: resp.Usage.CompletionTokens,
@@ -1650,10 +1747,25 @@ func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt s
 			"finishReason": choice.FinishReason,
 			"model":        resp.Model,
 		},
-	}, nil
+	}
+	if 0 < len(choice.Message.ToolCalls) {
+		toolCalls := make([]map[string]interface{}, 0, len(choice.Message.ToolCalls))
+		for _, tc := range choice.Message.ToolCalls {
+			toolCalls = append(toolCalls, map[string]interface{}{
+				"id":   tc.ID,
+				"type": string(tc.Type),
+				"function": map[string]interface{}{
+					"name":      tc.Function.Name,
+					"arguments": tc.Function.Arguments,
+				},
+			})
+		}
+		ret.ToolCalls = toolCalls
+	}
+	return ret, nil
 }
 
-func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	client := util.NewOpenAIClient(resolveAssistantAIOpenAICompatibleAPIKey(profile), profile.Proxy, profile.BaseURL, profile.UserAgent, profile.Version, "OpenAI")
 
 	maxTokens := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
@@ -1664,6 +1776,11 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 		Model:         profile.Model,
 		Messages:      buildAssistantAIOpenAICompatibleMessages(systemPrompt, messages),
 		StreamOptions: &openai.StreamOptions{IncludeUsage: true},
+	}
+	if nil != opts && opts.EnableTools {
+		if tools := buildAssistantAIOpenAIToolDefinitions(profile); 0 < len(tools) {
+			req.Tools = tools
+		}
 	}
 	applyAssistantAIOpenAICompatibleRequestOptions(profile, &req, maxTokens, temperature)
 
@@ -1680,7 +1797,7 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 			return nil, fmt.Errorf("assistant AI provider returned empty choices")
 		}
 		choice := fallback.Choices[0]
-		return &assistantAIProviderReply{
+		ret = &assistantAIProviderReply{
 			Content:      strings.TrimSpace(choice.Message.Content),
 			InputTokens:  fallback.Usage.PromptTokens,
 			OutputTokens: fallback.Usage.CompletionTokens,
@@ -1689,7 +1806,22 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 				"finishReason": choice.FinishReason,
 				"model":        fallback.Model,
 			},
-		}, nil
+		}
+		if 0 < len(choice.Message.ToolCalls) {
+			toolCalls := make([]map[string]interface{}, 0, len(choice.Message.ToolCalls))
+			for _, tc := range choice.Message.ToolCalls {
+				toolCalls = append(toolCalls, map[string]interface{}{
+					"id":   tc.ID,
+					"type": string(tc.Type),
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": tc.Function.Arguments,
+					},
+				})
+			}
+			ret.ToolCalls = toolCalls
+		}
+		return ret, nil
 	}
 	defer stream.Close()
 
@@ -1699,6 +1831,7 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 	finishReason := ""
 	inputTokens := 0
 	outputTokens := 0
+	var aggregatedToolCalls []map[string]interface{}
 
 	for {
 		chunk, recvErr := stream.Recv()
@@ -1730,12 +1863,36 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 				}
 			}
 		}
+		for _, tc := range choice.Delta.ToolCalls {
+			idx := 0
+			if nil != tc.Index {
+				idx = *tc.Index
+			}
+			for len(aggregatedToolCalls) <= idx {
+				aggregatedToolCalls = append(aggregatedToolCalls, map[string]interface{}{
+					"id":       "",
+					"type":     "function",
+					"function": map[string]interface{}{"name": "", "arguments": ""},
+				})
+			}
+			entry := aggregatedToolCalls[idx]
+			if "" != tc.ID {
+				entry["id"] = tc.ID
+			}
+			fn := entry["function"].(map[string]interface{})
+			if "" != tc.Function.Name {
+				fn["name"] = tc.Function.Name
+			}
+			if "" != tc.Function.Arguments {
+				fn["arguments"] = fn["arguments"].(string) + tc.Function.Arguments
+			}
+		}
 		if choice.FinishReason != "" && choice.FinishReason != openai.FinishReasonNull {
 			finishReason = string(choice.FinishReason)
 		}
 	}
 
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:           strings.TrimSpace(builder.String()),
 		ProviderMessageID: providerMessageID,
 		InputTokens:       inputTokens,
@@ -1745,7 +1902,11 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 			"finishReason": finishReason,
 			"model":        modelName,
 		},
-	}, nil
+	}
+	if 0 < len(aggregatedToolCalls) {
+		ret.ToolCalls = aggregatedToolCalls
+	}
+	return ret, nil
 }
 func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
@@ -1815,9 +1976,9 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1beta") {
-		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent?key=" + url.QueryEscape(profile.APIKey)
+		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent"
 	} else {
-		endpoint += "/v1beta/models/" + url.PathEscape(profile.Model) + ":generateContent?key=" + url.QueryEscape(profile.APIKey)
+		endpoint += "/v1beta/models/" + url.PathEscape(profile.Model) + ":generateContent"
 	}
 
 	reqBody := map[string]interface{}{
@@ -1831,6 +1992,10 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		reqBody["system_instruction"] = map[string]interface{}{
 			"parts": []map[string]string{{"text": systemPrompt}},
 		}
+	}
+
+	headers := map[string]string{
+		"x-goog-api-key": profile.APIKey,
 	}
 
 	var resp struct {
@@ -1851,7 +2016,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		} `json:"error"`
 	}
 
-	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, nil, reqBody, &resp); err != nil {
+	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp); err != nil {
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
@@ -1922,8 +2087,24 @@ func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint stri
 	return json.NewDecoder(resp.Body).Decode(respBody)
 }
 
+func init() {
+	assistantAIHTTPClients = map[string]*http.Client{}
+}
+
 func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, err error) {
-	transport := &http.Transport{}
+	cacheKey := strings.TrimSpace(profile.Proxy)
+	assistantAIHTTPClientsMu.Lock()
+	defer assistantAIHTTPClientsMu.Unlock()
+
+	if cached, ok := assistantAIHTTPClients[cacheKey]; ok {
+		return cached, nil
+	}
+
+	transport := &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     90 * time.Second,
+	}
 	if proxyURL := strings.TrimSpace(profile.Proxy); "" != proxyURL {
 		parsed, parseErr := url.Parse(proxyURL)
 		if parseErr != nil {
@@ -1932,7 +2113,9 @@ func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, er
 		transport.Proxy = http.ProxyURL(parsed)
 	}
 	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	return &http.Client{Transport: transport, Timeout: time.Duration(timeout) * time.Second}, nil
+	ret = &http.Client{Transport: transport, Timeout: time.Duration(timeout) * time.Second}
+	assistantAIHTTPClients[cacheKey] = ret
+	return ret, nil
 }
 
 func buildAssistantAIOpenAICompatibleMessages(systemPrompt string, messages []*AssistantAIMessage) []openai.ChatCompletionMessage {
@@ -2079,6 +2262,8 @@ func normalizeAssistantAIProvider(provider string) string {
 		return AssistantAIProviderKimi
 	case "glm", "zhipu", "bigmodel":
 		return AssistantAIProviderGLM
+	case "qwen", "dashscope", "bailian", "alibaba":
+		return AssistantAIProviderQwen
 	case "openrouter":
 		return AssistantAIProviderOpenRouter
 	case "deepseek":
@@ -2189,9 +2374,21 @@ func cloneAssistantAIMap(val map[string]interface{}) map[string]interface{} {
 	if nil == val {
 		return map[string]interface{}{}
 	}
-	ret := make(map[string]interface{}, len(val))
-	for k, v := range val {
-		ret[k] = v
+	buf, err := json.Marshal(val)
+	if nil != err {
+		ret := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			ret[k] = v
+		}
+		return ret
+	}
+	ret := map[string]interface{}{}
+	if err = json.Unmarshal(buf, &ret); nil != err {
+		ret := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			ret[k] = v
+		}
+		return ret
 	}
 	return ret
 }

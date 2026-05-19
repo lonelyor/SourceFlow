@@ -905,6 +905,45 @@ func buildAssistantAIToolFollowupPrompt(results []*AssistantAIToolResult) string
 	return strings.Join(lines, "\n")
 }
 
+func executeAssistantAINativeToolCalls(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolCalls []map[string]interface{}) (ret []*AssistantAIToolResult) {
+	ret = []*AssistantAIToolResult{}
+	for i, tc := range toolCalls {
+		if nil == tc || 3 <= i {
+			continue
+		}
+		fn, _ := tc["function"].(map[string]interface{})
+		if nil == fn {
+			continue
+		}
+		toolID, _ := fn["name"].(string)
+		argsJSON, _ := fn["arguments"].(string)
+		args := extractAssistantAIToolCallArgs(argsJSON)
+		result, err := executeAssistantAITool(db, profile, sessionID, context, strings.TrimSpace(toolID), args)
+		if nil != err {
+			def := getAssistantAIToolDefinition(toolID)
+			name := toolID
+			risk := AssistantAIToolRiskRead
+			if nil != def {
+				name = def.Name
+				risk = def.Risk
+			}
+			result = &AssistantAIToolResult{
+				ToolID:          toolID,
+				Name:            name,
+				Risk:            risk,
+				Decision:        AssistantAIToolModeDeny,
+				Executed:        false,
+				RequiresConfirm: false,
+				Summary:         err.Error(),
+				Error:           err.Error(),
+				Data:            map[string]interface{}{},
+			}
+		}
+		ret = append(ret, result)
+	}
+	return ret
+}
+
 func cloneAssistantAIToolCatalog() (ret []*AssistantAIToolDefinition) {
 	ret = make([]*AssistantAIToolDefinition, 0, len(assistantAIToolCatalog))
 	for _, item := range assistantAIToolCatalog {
@@ -1620,12 +1659,19 @@ func readAssistantAINoteAssetFile(args map[string]interface{}, context *Assistan
 }
 
 func readAssistantAIAssetContent(assetID string) (ret map[string]interface{}, err error) {
-	stmt := "SELECT id, name, ext, path, size, updated, content FROM asset_contents_fts_case_insensitive WHERE id = '" + strings.TrimSpace(assetID) + "' LIMIT 1"
-	rows := sql.SelectAssetContentsRawStmt(stmt, 1, 1)
-	if 1 > len(rows) || nil == rows[0] {
+	stmt := "SELECT id, name, ext, path, size, updated, content FROM asset_contents_fts_case_insensitive WHERE id = ? LIMIT 1"
+	rows, queryErr := sql.QueryAssetContentRows(stmt, strings.TrimSpace(assetID))
+	if nil != queryErr {
+		return nil, queryErr
+	}
+	defer rows.Close()
+	if !rows.Next() {
 		return nil, fmt.Errorf("未找到附件内容索引")
 	}
-	item := rows[0]
+	var item sql.AssetContent
+	if scanErr := rows.Scan(&item.ID, &item.Name, &item.Ext, &item.Path, &item.Size, &item.Updated, &item.Content); nil != scanErr {
+		return nil, scanErr
+	}
 	ret = map[string]interface{}{
 		"id":      item.ID,
 		"name":    item.Name,
