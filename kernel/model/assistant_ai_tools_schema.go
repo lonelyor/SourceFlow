@@ -359,3 +359,20 @@ func extractAssistantAIToolCallArgs(argsJSON string) map[string]interface{} {
 	}
 	return args
 }
+
+func buildAssistantAIAnthropicTools(profile *AssistantAIProfile) []map[string]interface{} {
+	policy := getAssistantAIToolPolicy(profile)
+	tools := make([]map[string]interface{}, 0, len(assistantAIToolCatalog))
+	for _, def := range assistantAIToolCatalog {
+		mode := resolveAssistantAIToolDecision(policy, def)
+		if AssistantAIToolModeDeny == mode {
+			continue
+		}
+		tools = append(tools, map[string]interface{}{
+			"name":         def.ID,
+			"description":  def.Description,
+			"input_schema": buildAssistantAIToolParameterSchema(def),
+		})
+	}
+	return tools
+}
