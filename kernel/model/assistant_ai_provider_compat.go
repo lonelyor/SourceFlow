@@ -190,9 +190,25 @@ func getAssistantAIRecommendedSettings(profile *AssistantAIProfile) (ret assista
 		case strings.HasPrefix(model, "glm-4.5"):
 			ret.Temperature = 0.6
 			ret.MaxTokens = 4096
-		case strings.HasPrefix(model, "glm-4.6"), strings.HasPrefix(model, "glm-4.7"), strings.HasPrefix(model, "glm-5"):
+		case strings.HasPrefix(model, "glm-4.6"),
+			strings.HasPrefix(model, "glm-4.7"),
+			strings.HasPrefix(model, "glm-4.8"),
+			strings.HasPrefix(model, "glm-5"):
 			ret.Temperature = 1.0
 			ret.MaxTokens = 4096
+		}
+	case AssistantAIProviderQwen:
+		model := strings.ToLower(strings.TrimSpace(profile.Model))
+		switch {
+		case strings.HasPrefix(model, "qwq"):
+			ret.Temperature = 1.0
+			ret.MaxTokens = 8192
+		case strings.HasPrefix(model, "qwen-max"),
+			strings.HasPrefix(model, "qwen-plus"),
+			strings.HasPrefix(model, "qwen-turbo"),
+			strings.HasPrefix(model, "qwen-long"):
+			ret.Temperature = 0.7
+			ret.MaxTokens = 8192
 		}
 	case AssistantAIProviderOpenRouter:
 		ret.Temperature = 1.0

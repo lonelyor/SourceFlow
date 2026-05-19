@@ -30,8 +30,16 @@ export const getAssistantAIRecommendedSettings = (provider: string, model: strin
             if (normalizedModel.startsWith("glm-4.5")) {
                 return {temperature: 0.6, maxTokens: 4096};
             }
-            if (normalizedModel.startsWith("glm-4.6") || normalizedModel.startsWith("glm-4.7") || normalizedModel.startsWith("glm-5")) {
+            if (normalizedModel.startsWith("glm-4.6") || normalizedModel.startsWith("glm-4.7") || normalizedModel.startsWith("glm-4.8") || normalizedModel.startsWith("glm-5")) {
                 return {temperature: 1, maxTokens: 4096};
+            }
+            return {};
+        case "qwen":
+            if (normalizedModel.startsWith("qwq")) {
+                return {temperature: 1, maxTokens: 8192};
+            }
+            if (normalizedModel.startsWith("qwen-max") || normalizedModel.startsWith("qwen-plus") || normalizedModel.startsWith("qwen-turbo") || normalizedModel.startsWith("qwen-long")) {
+                return {temperature: 0.7, maxTokens: 8192};
             }
             return {};
         case "openrouter":

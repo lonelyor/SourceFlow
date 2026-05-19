@@ -29,6 +29,7 @@ const (
 	AssistantAIProviderVolcenginePlan   = "volcengine-plan"
 	AssistantAIProviderKimi             = "kimi"
 	AssistantAIProviderGLM              = "glm"
+	AssistantAIProviderQwen             = "qwen"
 	AssistantAIProviderOpenRouter       = "openrouter"
 	AssistantAIProviderDeepSeek         = "deepseek"
 	AssistantAIProviderOllama           = "ollama"
@@ -55,6 +56,7 @@ var assistantAIProviderCatalog = []*AssistantAIProviderType{
 	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
 	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
 	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"},
 	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
 	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
 	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
@@ -67,8 +69,9 @@ var assistantAIProviderBaseURLs = map[string]string{
 		AssistantAIProviderVolcengine:       "https://ark.cn-beijing.volces.com/api/v3",
 		AssistantAIProviderVolcenginePlan:   "https://ark.cn-beijing.volces.com/api/v3",
 		AssistantAIProviderKimi:             "https://api.moonshot.cn/v1",
-		AssistantAIProviderGLM:              "https://open.bigmodel.cn/api/paas/v4",
-		AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
+	AssistantAIProviderGLM:              "https://open.bigmodel.cn/api/paas/v4",
+	AssistantAIProviderQwen:             "https://dashscope.aliyuncs.com/compatible-mode/v1",
+	AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
 		AssistantAIProviderDeepSeek:         "https://api.deepseek.com/v1",
 		AssistantAIProviderOllama:           "http://127.0.0.1:11434/v1",
 }
@@ -1459,6 +1462,7 @@ func isAssistantAILegacyCompatibleProvider(provider string) bool {
 		AssistantAIProviderVolcenginePlan,
 		AssistantAIProviderKimi,
 		AssistantAIProviderGLM,
+		AssistantAIProviderQwen,
 		AssistantAIProviderOpenRouter,
 		AssistantAIProviderDeepSeek,
 		AssistantAIProviderOllama:
@@ -2258,6 +2262,8 @@ func normalizeAssistantAIProvider(provider string) string {
 		return AssistantAIProviderKimi
 	case "glm", "zhipu", "bigmodel":
 		return AssistantAIProviderGLM
+	case "qwen", "dashscope", "bailian", "alibaba":
+		return AssistantAIProviderQwen
 	case "openrouter":
 		return AssistantAIProviderOpenRouter
 	case "deepseek":
