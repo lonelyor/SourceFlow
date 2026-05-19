@@ -905,6 +905,45 @@ func buildAssistantAIToolFollowupPrompt(results []*AssistantAIToolResult) string
 	return strings.Join(lines, "\n")
 }
 
+func executeAssistantAINativeToolCalls(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolCalls []map[string]interface{}) (ret []*AssistantAIToolResult) {
+	ret = []*AssistantAIToolResult{}
+	for i, tc := range toolCalls {
+		if nil == tc || 3 <= i {
+			continue
+		}
+		fn, _ := tc["function"].(map[string]interface{})
+		if nil == fn {
+			continue
+		}
+		toolID, _ := fn["name"].(string)
+		argsJSON, _ := fn["arguments"].(string)
+		args := extractAssistantAIToolCallArgs(argsJSON)
+		result, err := executeAssistantAITool(db, profile, sessionID, context, strings.TrimSpace(toolID), args)
+		if nil != err {
+			def := getAssistantAIToolDefinition(toolID)
+			name := toolID
+			risk := AssistantAIToolRiskRead
+			if nil != def {
+				name = def.Name
+				risk = def.Risk
+			}
+			result = &AssistantAIToolResult{
+				ToolID:          toolID,
+				Name:            name,
+				Risk:            risk,
+				Decision:        AssistantAIToolModeDeny,
+				Executed:        false,
+				RequiresConfirm: false,
+				Summary:         err.Error(),
+				Error:           err.Error(),
+				Data:            map[string]interface{}{},
+			}
+		}
+		ret = append(ret, result)
+	}
+	return ret
+}
+
 func cloneAssistantAIToolCatalog() (ret []*AssistantAIToolDefinition) {
 	ret = make([]*AssistantAIToolDefinition, 0, len(assistantAIToolCatalog))
 	for _, item := range assistantAIToolCatalog {
