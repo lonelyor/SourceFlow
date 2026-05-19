@@ -1,111 +1,95 @@
-# SourceFlow Bazaar
+# SourceFlow Plugins
 
-这是 `SourceFlow` 独立集市的 GitHub 静态托管模板。
+这是 SourceFlow 的公开插件集市源，用于在 SourceFlow 笔记中浏览、安装和更新插件。
 
-目录约定：
+推荐集市源：
 
-- `submissions/<type>/*.json`
-  - 集市提交源文件，`type` 为 `plugins/themes/icons/templates/widgets`
-- `packages/`
-  - 发布后的静态资源目录
-  - 包压缩包路径：`package/<owner>/<repo>@<hash>.zip`
-  - 包静态资源路径：`package/<owner>/<repo>@<hash>/<asset>`
-- `stats/index.json`
-  - 下载统计输入文件
-- `dist/`
-  - 由 `node scripts/generate-bazaar.js` 生成的最终 GitHub Pages 内容
+`https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/`
 
-快速生成：
+备用地址：
 
-```powershell
-node .\scripts\validate-bazaar.js
-node .\scripts\generate-bazaar.js
+`https://lonelyor.github.io/SourceFlow-plugins/`
+
+这个仓库只提供插件清单、插件包和插件说明，不会存放你的笔记数据、工作区配置或任何个人密钥。
+
+## 在 SourceFlow 中使用
+
+如果 SourceFlow 已内置 `SourceFlow Plugins` 预设源，直接选择该预设并刷新插件列表即可。
+
+如果需要手动添加集市源，请在 SourceFlow 的插件/集市源设置中填写：
+
+```text
+Version Info URL: https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/version.json
+Stage Base URL:   https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main
+Package Base URL: https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main
+Stat Base URL:    https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/stat
+README CDN Base:  https://cdn.jsdelivr.net/gh
 ```
 
-从本地插件目录一键生成提交物：
+添加后回到插件商城刷新列表，选择需要的插件安装。
 
-```powershell
-node .\scripts\publish-plugin-to-bazaar.js .\examples\plugins\sourceflow-hello `
-  --owner lonelyor `
-  --repo sourceflow-hello `
-  --icon .\app\src\assets\icon.png `
-  --preview .\app\src\assets\icon.png
+## 备用源配置
+
+如果 CDN 暂时无法访问，可以改用 GitHub Pages 备用源：
+
+```text
+Version Info URL: https://lonelyor.github.io/SourceFlow-plugins/version.json
+Stage Base URL:   https://lonelyor.github.io/SourceFlow-plugins
+Package Base URL: https://lonelyor.github.io/SourceFlow-plugins
+Stat Base URL:    https://lonelyor.github.io/SourceFlow-plugins/stat
+README CDN Base:  https://cdn.jsdelivr.net/gh
 ```
 
-这条命令会自动完成：
+切换源后请重新刷新插件列表。
 
-- 校验 `plugin.json`
-- 打包 ZIP
-- 计算 ZIP 的 `SHA-1` 与 `SHA-256`
-- 生成 `submissions/plugins/*.json`
-- 复制 ZIP 到 `packages/package/<owner>/<repo>@<hash>.zip`
-- 复制 `README`、图标、预览图到对应静态目录
+## 当前插件
 
-导入兼容的 stage 索引：
+### sourceflow-paper-polish
 
-```powershell
-node .\scripts\import-bazaar-stage.js --type plugins --input .\plugins.json
-```
+轻量笔记美化插件，适合长文阅读和写作场景。
 
-默认发布链：
+- 优化正文排版和阅读密度。
+- 支持顶部栏一键开关。
+- 支持状态栏显示当前状态。
+- 支持默认启用、紧凑密度、柔和对比设置。
+- 不申请联网、工作区读写或宿主控制权限。
 
-- `scripts/validate-bazaar.js`
-  - 校验 submissions 结构
-  - 校验包名和 `owner/repo@hash` 不重复
-  - 校验 `package.archiveSHA256`
-  - 重新计算 ZIP 的 `SHA-256` 并比对 submission
-  - 默认要求对应的 `package/<owner>/<repo>@<hash>.zip` 存在
-- `scripts/publish-plugin-to-bazaar.js`
-  - 从插件目录一键生成 Bazaar 提交物
-  - 负责打包、算哈希、复制静态资源、写 submission JSON
-- `scripts/generate-bazaar.js`
-  - 生成 `version.json`
-  - 生成 `bazaar@<hash>/stage/*.json`
-  - 复制 `packages/` 到 `dist/package/`
-- `.github/workflows/sourceflow-bazaar.yml`
-  - 提交后自动校验并发布到 GitHub Pages
+插件异常时预期只影响视觉美化，不影响笔记编辑、保存和同步主流程。
 
-宿主侧插件系统生产自测：
+## 安全提示
 
-```powershell
-node .\scripts\test-plugin-system.js
-```
+- 安装前建议查看插件说明、版本、`SHA-256` 和权限声明。
+- 插件是可选能力，不应该承担笔记编辑、保存、同步、启动等主流程职责。
+- 如果插件申请 `network.http`、`workspace.write` 或 `host.control` 等高权限，请确认你理解它的用途后再启用。
+- 如果插件运行异常，可以先禁用插件；SourceFlow 的核心笔记和同步功能不应依赖插件运行。
 
-这条命令会把宿主插件系统与 Bazaar 主链一起串起来验证，包括：
+## 常见问题
 
-- 插件打包
-- Bazaar 提交生成
-- Bazaar 校验与静态生成
-- Bazaar 独立仓库导出
-- 运行时权限与危险全局守卫
-- Go 测试
-- 前端构建
+### 无法获取插件列表
 
-导出独立 GitHub 集市仓库：
+先确认下面地址可以在浏览器中打开：
 
-```powershell
-node .\scripts\export-bazaar-repo.js .\tmp\sourceflow-bazaar-repo --force
-```
+`https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main/version.json`
 
-导出结果会包含：
+如果打不开，请切换到上面的 GitHub Pages 备用源，然后刷新插件列表。
 
-- `README.md`
-- `submissions/`
-- `packages/`
-- `stats/`
-- `scripts/validate-bazaar.js`
-- `scripts/generate-bazaar.js`
-- `.github/workflows/sourceflow-bazaar.yml`
-- `package.json`
+如果地址能打开但 SourceFlow 仍无法读取，请检查：
 
-也就是说，导出后的目录可以直接作为 `lonelyor/sourceflow-bazaar` 仓库初始化内容。
+- 集市源配置是否有多余空格。
+- `Version Info URL` 是否完整包含 `version.json`。
+- 当前网络、防火墙或代理是否阻止 SourceFlow 访问 GitHub/CDN。
+- 切换源后是否重新刷新了插件列表。
 
-当前策略：
+### 安装后插件没有生效
 
-- 集市默认走 GitHub Pages 静态源
-- SourceFlow 宿主默认离线运行
-- 只有用户主动打开集市、获取清单、检查更新、安装时才联网
-- 在线安装或更新插件前，宿主会先展示来源、`SHA-256` 与权限声明，再由用户确认
-- 已安装插件从关闭切到开启前，宿主会再次展示权限声明并要求确认
-- 如果插件升级后权限声明发生变化，宿主会自动清除原启用状态，要求用户重新确认
-- 本地导入插件会记录安装来源和 `SHA-256`
+- 确认插件已经启用。
+- 查看插件是否要求重启 SourceFlow。
+- 如果仍然异常，先禁用该插件，再重新打开 SourceFlow。
+
+## 插件作者
+
+如果你要编写 SourceFlow 插件，请阅读：
+
+`PLUGIN_DEVELOPMENT.md`
+
+这份教程说明插件目录结构、`plugin.json` 字段、运行时 API、权限选择和本地测试方式。

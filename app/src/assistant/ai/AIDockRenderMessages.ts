@@ -1,0 +1,73 @@
+import {assistantText} from "../constants";
+import {escapeAttr, escapeHTML, formatDateTime, nl2br} from "../common/dom";
+import {IAssistantAIMessage} from "./api";
+import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
+
+export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
+    if (ctx.loading && !ctx.messages.length) {
+        return `<div class="assistant-ai__loading">${assistantText("加载消息中...", "Loading messages...")}</div>`;
+    }
+    if (!ctx.messages.length) {
+        return `<div class="assistant-ai__empty-state">
+    <div class="assistant-ai__empty-kicker">${assistantText("第二大脑", "Second Brain")}</div>
+    <div class="assistant-ai__empty-title">${assistantText("开始一次聚焦对话", "Start a focused chat")}</div>
+    <div class="assistant-ai__empty-detail">${assistantText("聊天保持主视图，目标笔记、上下文、审计和能力都压缩成按钮，需要时再展开。", "Keep chat as the main canvas while target notes, context, audits, and tools stay compressed into buttons until you need them.")}</div>
+</div>`;
+    }
+    return ctx.messages.map((item) => {
+        const attachments = ctx.getMessageAttachments(item);
+        const displayContent = ctx.getMessageDisplayContent(item, attachments);
+        const isExpandable = ctx.isMessageExpandable(item);
+        const isExpanded = ctx.isMessageExpanded(item.id);
+        const isEdited = item.role === "user" && !!item.metadata?.editedAt;
+        return `
+<div class="assistant-ai__message assistant-ai__message--${item.role === "assistant" ? "assistant" : "user"}${item.localPending ? " assistant-ai__message--pending" : ""}${item.localError ? " assistant-ai__message--error" : ""}" data-message-id="${escapeAttr(item.id)}">
+    <div class="assistant-ai__message-head">
+        <div class="assistant-ai__message-badges">
+            <span class="assistant-ai__message-role assistant-ai__message-role--${item.role === "assistant" ? "assistant" : "user"}">${item.role === "assistant" ? "AI" : assistantText("你", "You")}</span>
+            ${isEdited ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("已编辑", "Edited"))}</span>` : ""}
+            ${item.localPending ? `<span class="b3-chip b3-chip--small b3-chip--warning">${escapeHTML(assistantText("处理中", "Processing"))}</span>` : ""}
+            ${item.localError ? `<span class="b3-chip b3-chip--small b3-chip--error">${escapeHTML(assistantText("失败", "Failed"))}</span>` : ""}
+        </div>
+        <div class="assistant-ai__message-side">
+            <div class="assistant-ai__message-time">${item.localPending ? assistantText("处理中...", "Processing...") : formatDateTime(item.createdAt)}</div>
+            <div class="assistant-ai__message-actions">
+                <button type="button" class="assistant-ai__message-action" data-action="copy-message" data-message-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("复制", "Copy"))}</button>
+                ${item.role === "user" && !item.localPending ? `<button type="button" class="assistant-ai__message-action" data-action="edit-message" data-message-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("编辑", "Edit"))}</button>` : ""}
+                ${isExpandable ? `<button type="button" class="assistant-ai__message-action assistant-ai__message-action--expand" data-action="toggle-message-expand" data-message-id="${escapeAttr(item.id)}">${escapeHTML(isExpanded ? assistantText("收起", "Collapse") : assistantText("展开", "Expand"))}</button>` : ""}
+            </div>
+        </div>
+    </div>
+    ${displayContent ? `<div class="assistant-ai__message-content">${nl2br(displayContent)}</div>` : ""}
+    ${ctx.renderAttachmentList(attachments)}
+    ${ctx.renderMessageToolResults(item)}
+</div>`;
+    }).join("");
+};
+
+export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntime, item: IAssistantAIMessage) => {
+    if (item.role !== "assistant") {
+        return "";
+    }
+    const raw = item.metadata?.toolResults;
+    if (!Array.isArray(raw) || !raw.length) {
+        return "";
+    }
+    return `<div class="assistant-ai__tool-results">${raw.map((tool, index) => {
+        const name = `${tool?.name || tool?.toolId || assistantText("工具", "Tool")}`;
+        const status = tool?.executed ? assistantText("已执行", "Executed") : (tool?.decision === "confirm" ? assistantText("待确认", "Needs confirm") : assistantText("已拦截", "Blocked"));
+        const summary = `${tool?.summary || tool?.error || ""}`.trim();
+        const canConfirm = !tool?.executed && tool?.decision === "confirm" && !!tool?.toolId;
+        const statusClass = tool?.executed ? "success" : (tool?.decision === "confirm" ? "warning" : "secondary");
+        return `<div class="assistant-ai__tool-result assistant-ai__tool-result--${statusClass}">
+    <div class="assistant-ai__tool-result-head">
+        <div class="assistant-ai__tool-title-group">
+            <span class="assistant-ai__tool-name">${escapeHTML(name)}</span>
+            <span class="b3-chip b3-chip--small b3-chip--${statusClass}">${escapeHTML(status)}</span>
+        </div>
+        ${canConfirm ? `<button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="confirm-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("确认执行", "Confirm"))}</button>` : ""}
+    </div>
+    ${summary ? `<div class="assistant-ai__tool-summary">${escapeHTML(summary)}</div>` : ""}
+</div>`;
+    }).join("")}</div>`;
+};

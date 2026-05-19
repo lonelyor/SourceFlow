@@ -45,24 +45,30 @@ func downloadBazaarFile(repoURLHash string, pushProgress bool) (data []byte, err
 	v, err, _ := downloadPackageFlight.Do(repoURLHash, func() (interface{}, error) {
 		// repoURLHash: https://github.com/88250/Comfortably-Numb@6286912c381ef3f83e455d06ba4d369c498238dc 或带路径 /README.md
 		repoURL := repoURLHash[:strings.LastIndex(repoURLHash, "@")]
-		u := util.GetBazaarPackageURL(repoURLHashTrimmed)
-		buf := &bytes.Buffer{}
-		resp, err := httpclient.NewCloudFileRequest2m().SetOutput(buf).SetDownloadCallback(func(info req.DownloadInfo) {
-			if pushProgress {
-				progress := float32(info.DownloadedSize) / float32(info.Response.ContentLength)
-				util.PushDownloadProgress(repoURL, progress)
+		var lastStatus string
+		for _, u := range util.GetBazaarPackageURLs(repoURLHashTrimmed) {
+			buf := &bytes.Buffer{}
+			resp, reqErr := httpclient.NewCloudFileRequest2m().SetOutput(buf).SetDownloadCallback(func(info req.DownloadInfo) {
+				if pushProgress && info.Response != nil && 0 < info.Response.ContentLength {
+					progress := float32(info.DownloadedSize) / float32(info.Response.ContentLength)
+					util.PushDownloadProgress(repoURL, progress)
+				}
+			}).Get(u)
+			if reqErr != nil {
+				logging.LogWarnf("get bazaar package [%s] failed: %s", u, reqErr)
+				continue
 			}
-		}).Get(u)
-		if err != nil {
-			logging.LogErrorf("get bazaar package [%s] failed: %s", u, err)
-			return nil, errors.New("get bazaar package failed, please check your network")
+			if 200 != resp.StatusCode {
+				logging.LogWarnf("get bazaar package [%s] failed: %d", u, resp.StatusCode)
+				lastStatus = resp.Status
+				continue
+			}
+			return buf.Bytes(), nil
 		}
-		if 200 != resp.StatusCode {
-			logging.LogErrorf("get bazaar package [%s] failed: %d", u, resp.StatusCode)
-			return nil, errors.New("get bazaar package failed: " + resp.Status)
+		if "" != lastStatus {
+			return nil, errors.New("get bazaar package failed: " + lastStatus)
 		}
-		data := buf.Bytes()
-		return data, nil
+		return nil, errors.New("get bazaar package failed, please check your network")
 	})
 	if err != nil {
 		return nil, err

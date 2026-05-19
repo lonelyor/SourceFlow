@@ -54,7 +54,9 @@ var (
 )
 
 const (
-	defaultBazaarRootBaseURL      = "https://lonelyor.github.io/sourceflow-bazaar"
+	defaultBazaarRootBaseURL      = "https://cdn.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main"
+	defaultBazaarMirrorBaseURL    = "https://gcore.jsdelivr.net/gh/lonelyor/SourceFlow-plugins@main"
+	legacyBazaarRootBaseURL       = "https://lonelyor.github.io/SourceFlow-plugins"
 	defaultBazaarVersionInfoURL   = defaultBazaarRootBaseURL + "/version.json"
 	defaultBazaarStageBaseURL     = defaultBazaarRootBaseURL
 	defaultBazaarPackageBaseURL   = defaultBazaarRootBaseURL
@@ -85,36 +87,77 @@ func GetBazaarHashOverride() string {
 }
 
 func GetBazaarVersionInfoURL() string {
+	return firstNonEmpty(GetBazaarVersionInfoURLs()...)
+}
+
+func GetBazaarVersionInfoURLs() []string {
 	if "" != bazaarVersionInfoBaseURL {
-		return bazaarVersionInfoBaseURL
+		return bazaarVersionInfoURLFallbacks(bazaarVersionInfoBaseURL)
 	}
-	return defaultBazaarVersionInfoURL
+	return bazaarRootVersionInfoURLFallbacks(defaultBazaarRootBaseURL)
 }
 
 func GetBazaarOnlineCheckURL() string {
+	return firstNonEmpty(GetBazaarOnlineCheckURLs()...)
+}
+
+func GetBazaarOnlineCheckURLs() []string {
 	if "" != bazaarVersionInfoBaseURL {
-		return bazaarVersionInfoBaseURL
+		return bazaarVersionInfoURLFallbacks(bazaarVersionInfoBaseURL)
 	}
 	if looksLikeStaticBazaarBaseURL(bazaarStageBaseURL) {
-		return joinURL(bazaarStageBaseURL, "version.json")
+		return bazaarRootVersionInfoURLFallbacks(bazaarStageBaseURL)
 	}
-	return joinURL(bazaarStageBaseURL, "204")
+	return []string{joinURL(bazaarStageBaseURL, "204")}
 }
 
 func GetBazaarStageIndexURL(bazaarHash, pkgType string) string {
+	return firstNonEmpty(GetBazaarStageIndexURLs(bazaarHash, pkgType)...)
+}
+
+func GetBazaarStageIndexURLs(bazaarHash, pkgType string) []string {
+	ret := []string{}
+	for _, base := range bazaarRootBaseURLFallbacks(bazaarStageBaseURL) {
+		ret = append(ret, joinURL(base, "bazaar@"+bazaarHash, "stage", pkgType+".json"))
+	}
+	return ret
+}
+
+func getBazaarStageIndexURL(bazaarHash, pkgType string) string {
 	return joinURL(bazaarStageBaseURL, "bazaar@"+bazaarHash, "stage", pkgType+".json")
 }
 
 func GetBazaarStatsURL() string {
+	return firstNonEmpty(GetBazaarStatsURLs()...)
+}
+
+func GetBazaarStatsURLs() []string {
+	ret := []string{}
+	for _, base := range bazaarStatBaseURLFallbacks(bazaarStatBaseURL) {
+		ret = append(ret, joinURL(base, "bazaar", "index.json"))
+	}
+	return ret
+}
+
+func getBazaarStatsURL() string {
 	return joinURL(bazaarStatBaseURL, "bazaar", "index.json")
 }
 
 func GetBazaarPackageURL(repoURLHashTrimmed string) string {
+	return firstNonEmpty(GetBazaarPackageURLs(repoURLHashTrimmed)...)
+}
+
+func GetBazaarPackageURLs(repoURLHashTrimmed string) []string {
 	repoURLHashTrimmed = strings.TrimLeft(strings.TrimSpace(repoURLHashTrimmed), "/")
-	if shouldUseStaticBazaarPackageArchiveURL(bazaarPackageBaseURL, repoURLHashTrimmed) {
-		return joinURL(bazaarPackageBaseURL, "package", repoURLHashTrimmed) + ".zip"
+	ret := []string{}
+	for _, base := range bazaarRootBaseURLFallbacks(bazaarPackageBaseURL) {
+		if shouldUseStaticBazaarPackageArchiveURL(base, repoURLHashTrimmed) {
+			ret = append(ret, joinURL(base, "package", repoURLHashTrimmed)+".zip")
+		} else {
+			ret = append(ret, joinURL(base, "package", repoURLHashTrimmed))
+		}
 	}
-	return joinURL(bazaarPackageBaseURL, "package", repoURLHashTrimmed)
+	return dedupeNonEmpty(ret)
 }
 
 func GetBazaarPackageAssetURL(repoURLHash, assetName string) string {
@@ -152,6 +195,76 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func dedupeNonEmpty(values []string) []string {
+	ret := []string{}
+	seen := map[string]bool{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if "" == value || seen[value] {
+			continue
+		}
+		seen[value] = true
+		ret = append(ret, value)
+	}
+	return ret
+}
+
+func defaultBazaarRootBaseURLs() []string {
+	return []string{
+		defaultBazaarRootBaseURL,
+		defaultBazaarMirrorBaseURL,
+		legacyBazaarRootBaseURL,
+	}
+}
+
+func bazaarRootBaseURLFallbacks(baseURL string) []string {
+	baseURL = normalizeBazaarBaseURL(baseURL)
+	if "" == baseURL {
+		return defaultBazaarRootBaseURLs()
+	}
+	if baseURL == defaultBazaarRootBaseURL || baseURL == defaultBazaarMirrorBaseURL || baseURL == legacyBazaarRootBaseURL {
+		return dedupeNonEmpty(append([]string{baseURL}, defaultBazaarRootBaseURLs()...))
+	}
+	return []string{baseURL}
+}
+
+func bazaarRootVersionInfoURLFallbacks(baseURL string) []string {
+	ret := []string{}
+	for _, base := range bazaarRootBaseURLFallbacks(baseURL) {
+		ret = append(ret, joinURL(base, "version.json"))
+	}
+	return ret
+}
+
+func bazaarVersionInfoURLFallbacks(versionInfoURL string) []string {
+	versionInfoURL = normalizeBazaarBaseURL(versionInfoURL)
+	if "" == versionInfoURL {
+		return bazaarRootVersionInfoURLFallbacks(defaultBazaarRootBaseURL)
+	}
+	if versionInfoURL == joinURL(defaultBazaarRootBaseURL, "version.json") ||
+		versionInfoURL == joinURL(defaultBazaarMirrorBaseURL, "version.json") ||
+		versionInfoURL == joinURL(legacyBazaarRootBaseURL, "version.json") {
+		return dedupeNonEmpty(append([]string{versionInfoURL}, bazaarRootVersionInfoURLFallbacks(defaultBazaarRootBaseURL)...))
+	}
+	return []string{versionInfoURL}
+}
+
+func bazaarStatBaseURLFallbacks(statBaseURL string) []string {
+	statBaseURL = normalizeBazaarBaseURL(statBaseURL)
+	if "" == statBaseURL {
+		statBaseURL = defaultBazaarStatBaseURL
+	}
+	defaultStats := []string{
+		joinURL(defaultBazaarRootBaseURL, "stat"),
+		joinURL(defaultBazaarMirrorBaseURL, "stat"),
+		joinURL(legacyBazaarRootBaseURL, "stat"),
+	}
+	if statBaseURL == defaultStats[0] || statBaseURL == defaultStats[1] || statBaseURL == defaultStats[2] {
+		return dedupeNonEmpty(append([]string{statBaseURL}, defaultStats...))
+	}
+	return []string{statBaseURL}
 }
 
 func shouldUseStaticBazaarPackageArchiveURL(baseURL, repoURLHashTrimmed string) bool {

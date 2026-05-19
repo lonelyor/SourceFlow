@@ -1,0 +1,15 @@
+{
+  "toggleTitle": "切换纸面美化",
+  "togglePaperPolish": "切换纸面美化",
+  "settingsSaved": "纸面美化设置已保存",
+  "enabledTitle": "启用美化",
+  "enabledDesc": "自动应用阅读和写作排版美化。",
+  "compactTitle": "紧凑密度",
+  "compactDesc": "为密集笔记和看板使用更紧凑的间距。",
+  "contrastTitle": "柔和对比",
+  "contrastDesc": "让面板、引用、表格和代码块更柔和。",
+  "statusOn": "纸面美化",
+  "statusOff": "美化关闭",
+  "enabledMessage": "纸面美化已启用",
+  "disabledMessage": "纸面美化已关闭"
+}

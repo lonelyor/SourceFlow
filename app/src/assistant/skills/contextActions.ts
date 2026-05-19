@@ -70,7 +70,7 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
                     }
                     if (skillId) {
                         runAssistantFeature(`context-actions:${skillId}`, loadAssistantSkillModule, ({runAssistantSkill}) => {
-                            runAssistantSkill({
+                            return runAssistantSkill({
                                 skillId: skillId as never,
                                 protyle: options.protyle,
                                 range: options.range,

@@ -49,6 +49,7 @@ const resolveAppFile = (...segments) => {
     return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[candidates.length - 1];
 };
 const {migrateWorkspace} = require(resolveAppFile("electron", "workspaceMigration.js"));
+const {normalizeStartupExitCode, shouldRetryKernelPort, shouldSuppressGenericPortFailure} = require(resolveAppFile("electron", "kernelStartupFailure.js"));
 const isDevEnv = process.env.NODE_ENV === "development";
 const appVer = app.getVersion();
 const appBrandName = "SourceFlow";
@@ -57,6 +58,10 @@ const appBrandShort = "SF";
 const appProtocol = "sf";
 const appGithubURL = "https://github.com/lonelyor/SourceFlow";
 const appUserModelId = "io.github.lonelyor.sourceflow";
+const exportPDFChannel = "sourceflow-export-pdf";
+const exportNewWindowChannel = "sourceflow-export-newwindow";
+const exportPDFWorkerReadyChannel = "sourceflow-export-pdf-worker-ready";
+const exportPDFWorkerErrorChannel = "sourceflow-export-pdf-worker-error";
 const appConfigDirName = "sourceflow";
 const defaultBootStartupImage = () => pathToFileURL(resolveAppFile("electron", "startup-logo.png")).toString();
 const appUserDataDirName = `${appBrandName}-Electron`;
@@ -212,6 +217,7 @@ let latestActiveWindow;
 let firstOpen = false;
 let workspaces = []; // workspaceDir, id, browserWindow, tray, hideShortcut
 let kernelPort = 6806;
+const maxAutoKernelPortRetries = 5;
 let resetWindowStateOnRestart = false;
 let openAsHidden = false;
 let isQuittingApp = false;
@@ -1304,8 +1310,9 @@ const showWindow = (wnd) => {
     wnd.show();
 };
 
-const initKernel = (workspace, port, lang) => {
+const initKernel = (workspace, port, lang, portRetryAttempt = 0) => {
     return new Promise(async (resolve) => {
+        const hasManualPort = !!(port && "" !== port && "0" !== port);
         const startupWorkspaceDir = resolveBootWorkspaceDir(workspace);
         bootWindow = new BrowserWindow({
             show: false,
@@ -1352,43 +1359,44 @@ const initKernel = (workspace, port, lang) => {
             return;
         }
 
-        if (!isDevEnv || workspaces.length > 0) {
-            if (port && "" !== port) {
-                kernelPort = port;
-            } else {
-                const getAvailablePort = () => {
-                    // https://gist.github.com/mikeal/1840641
-                    return new Promise((portResolve, portReject) => {
-                        const server = gNet.createServer();
-                        server.on("error", error => {
-                            writeLog(error);
-                            kernelPort = "";
-                            portReject();
-                        });
-                        server.listen(0, () => {
-                            kernelPort = server.address().port;
-                            server.close(() => portResolve(kernelPort));
-                        });
+        if (hasManualPort) {
+            kernelPort = port;
+        } else if (!isDevEnv || workspaces.length > 0) {
+            const getAvailablePort = () => {
+                // https://gist.github.com/mikeal/1840641
+                return new Promise((portResolve, portReject) => {
+                    const server = gNet.createServer();
+                    server.on("error", error => {
+                        writeLog(error);
+                        kernelPort = "";
+                        portReject(error);
                     });
-                };
+                    server.listen(0, () => {
+                        kernelPort = server.address().port;
+                        server.close(() => portResolve(kernelPort));
+                    });
+                });
+            };
+            try {
                 await getAvailablePort();
+            } catch (e) {
+                writeLog(`get available kernel port failed: ${e.message || e}`);
+                kernelPort = "";
             }
         }
-        writeLog("got kernel port [" + kernelPort + "]");
+        writeLog("got kernel port [" + kernelPort + "]" + (portRetryAttempt > 0 ? ` after retry [${portRetryAttempt}]` : ""));
         if (!kernelPort) {
             bootWindow.destroy();
             resolve(false);
             return;
         }
+        let kernelStartupExitCode = null;
         const cmds = ["--port", kernelPort, "--wd", appDir];
         if (isDevEnv && workspaces.length === 0) {
             cmds.push("--mode", "dev");
         }
         if (workspace && "" !== workspace) {
             cmds.push("--workspace", workspace);
-        }
-        if (port && "" !== port) {
-            cmds.push("--port", port);
         }
         if (lang && "" !== lang) {
             cmds.push("--lang", lang);
@@ -1407,9 +1415,14 @@ const initKernel = (workspace, port, lang) => {
 
             const currentKernelPort = kernelPort;
             writeLog("booted kernel process [pid=" + kernelProcess.pid + ", port=" + kernelPort + "]");
-            kernelProcess.on("close", (code) => {
-                writeLog(`kernel [pid=${kernelProcess.pid}, port=${currentKernelPort}] exited with code [${code}]`);
+            kernelProcess.on("close", (code, signal) => {
+                kernelStartupExitCode = normalizeStartupExitCode(code, signal);
+                writeLog(`kernel [pid=${kernelProcess.pid}, port=${currentKernelPort}] exited with code [${code}] signal [${signal || ""}]`);
                 if (0 !== code) {
+                    if (shouldRetryKernelPort(kernelStartupExitCode, hasManualPort, portRetryAttempt, maxAutoKernelPortRetries)) {
+                        writeLog(`kernel port [${currentKernelPort}] became unavailable, will retry with another port`);
+                        return;
+                    }
                     let errorWindowId;
                     switch (code) {
                         case 20:
@@ -1455,6 +1468,18 @@ const initKernel = (workspace, port, lang) => {
                 break;
             } catch (e) {
                 writeLog("get kernel version failed: " + e.message);
+                if (shouldRetryKernelPort(kernelStartupExitCode, hasManualPort, portRetryAttempt, maxAutoKernelPortRetries)) {
+                    writeLog(`retry kernel startup with another port after conflict [${kernelPort}]`);
+                    bootWindow.destroy();
+                    resolve(await initKernel(workspace, "", lang, portRetryAttempt + 1));
+                    return;
+                }
+                if (shouldSuppressGenericPortFailure(kernelStartupExitCode)) {
+                    writeLog(`kernel exited during startup before version check [code=${kernelStartupExitCode}], suppress generic port error`);
+                    bootWindow.destroy();
+                    resolve(false);
+                    return;
+                }
                 if (14 < ++count) {
                     writeLog("get kernel ver failed");
                     showErrorWindow("获取内核服务端口失败", "Failed to Obtain Kernel Service Port", `<div>获取内核服务端口失败，请确保${appBrandNameCN}拥有网络权限并不受防火墙和杀毒软件阻止。</div><div>Failed to obtain kernel service port. Please ensure ${appBrandName} has network permissions and is not blocked by firewalls or antivirus software.</div>`);
@@ -1574,6 +1599,76 @@ app.whenReady().then(() => {
     const getWindowByContentId = (id) => {
         return BrowserWindow.getAllWindows().find((win) => win.webContents.id === id);
     };
+    const pendingPDFExportWorkers = new Map();
+    const resolvePendingPDFExportWorker = (webContentsId, error) => {
+        const pending = pendingPDFExportWorkers.get(webContentsId);
+        if (!pending) {
+            return;
+        }
+        pendingPDFExportWorkers.delete(webContentsId);
+        clearTimeout(pending.timeout);
+        if (error) {
+            if (pending.window && !pending.window.isDestroyed()) {
+                pending.window.destroy();
+            }
+            pending.reject(error);
+            return;
+        }
+        pending.resolve(webContentsId);
+    };
+    const createPDFExportWorkerWindow = (parentWindow, url) => {
+        const parentBounds = parentWindow && !parentWindow.isDestroyed() ? parentWindow.getBounds() : screen.getPrimaryDisplay().bounds;
+        const parentScreen = screen.getDisplayNearestPoint({x: parentBounds.x, y: parentBounds.y});
+        const workerWindow = new BrowserWindow({
+            show: false,
+            width: Math.floor(parentScreen.size.width * 0.8),
+            height: Math.floor(parentScreen.size.height * 0.8),
+            resizable: false,
+            frame: "darwin" === process.platform,
+            skipTaskbar: true,
+            paintWhenInitiallyHidden: true,
+            icon: path.join(appDir, "stage", "icon-large.png"),
+            titleBarStyle: "hidden",
+            webPreferences: {
+                contextIsolation: false,
+                nodeIntegration: true,
+                preload: resolveAppFile("electron", "exportPreload.js"),
+                webviewTag: true,
+                webSecurity: false,
+                backgroundThrottling: false,
+                autoplayPolicy: "user-gesture-required"
+            },
+        });
+        workerWindow.webContents.userAgent = `${appBrandName}/${appVer} ${appGithubURL} Electron ${workerWindow.webContents.userAgent}`;
+        windowNavigate(workerWindow, "export");
+        return new Promise((resolve, reject) => {
+            const workerWebContentsId = workerWindow.webContents.id;
+            const timeout = setTimeout(() => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker did not become ready in time: ${workerWebContentsId}`));
+            }, 30000);
+            pendingPDFExportWorkers.set(workerWebContentsId, {
+                resolve,
+                reject,
+                timeout,
+                window: workerWindow,
+            });
+            workerWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+                if (!isMainFrame) {
+                    return;
+                }
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker load failed [${errorCode}] ${errorDescription} ${validatedURL}`));
+            });
+            workerWindow.webContents.on("render-process-gone", (_event, details) => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker render process gone: ${details.reason}`));
+            });
+            workerWindow.on("closed", () => {
+                resolvePendingPDFExportWorker(workerWebContentsId, new Error(`PDF export worker closed before print: ${workerWebContentsId}`));
+            });
+            workerWindow.loadURL(url).catch((error) => {
+                resolvePendingPDFExportWorker(workerWebContentsId, error);
+            });
+        });
+    };
     onBrandedIPC("sourceflow-context-menu", (event, langs) => {
         const template = [new MenuItem({
             role: "undo", label: langs.undo
@@ -1604,6 +1699,12 @@ app.whenReady().then(() => {
     });
     onBrandedIPC("sourceflow-first-quit", () => {
         app.exit();
+    });
+    onBrandedIPC(exportPDFWorkerReadyChannel, (event) => {
+        resolvePendingPDFExportWorker(event.sender.id);
+    });
+    onBrandedIPC(exportPDFWorkerErrorChannel, (event, data) => {
+        resolvePendingPDFExportWorker(event.sender.id, new Error(data?.message || `PDF export worker failed: ${event.sender.id}`));
     });
     handleBrandedIPC("sourceflow-get", async (event, data) => {
         if (data.cmd === "getStartupGuard") {
@@ -1669,6 +1770,9 @@ app.whenReady().then(() => {
         if (data.cmd === "runWorkspaceMigration") {
             return runWorkspaceMigration(data.sourceWorkspace, data.targetWorkspace);
         }
+        if (data.cmd === "createPDFExportWorker") {
+            return createPDFExportWorkerWindow(getWindowByContentId(event.sender.id), data.url);
+        }
         if (data.cmd === "isFullScreen") {
             const wnd = getWindowByContentId(event.sender.id);
             if (!wnd) {
@@ -1691,7 +1795,11 @@ app.whenReady().then(() => {
         }
         if (data.cmd === "printToPDF") {
             try {
-                return getWindowByContentId(data.webContentsId).webContents.printToPDF(data.pdfOptions);
+                const printWindow = getWindowByContentId(data.webContentsId);
+                if (!printWindow || printWindow.isDestroyed()) {
+                    throw new Error(`PDF export worker window is unavailable: ${data.webContentsId}`);
+                }
+                return printWindow.webContents.printToPDF(data.pdfOptions);
             } catch (e) {
                 writeLog("printToPDF: ", e);
                 throw e;
@@ -1905,7 +2013,18 @@ app.whenReady().then(() => {
             }
         });
     });
-    onBrandedIPC("sourceflow-export-pdf", (event, data) => {
+    onBrandedIPC(exportPDFChannel, (event, data) => {
+        if (data && data.error) {
+            data.webContentsId = event.sender.id;
+            const parentWindow = getWindowByContentId(data.parentWindowId);
+            if (parentWindow && !parentWindow.isDestroyed()) {
+                sendBrandedIPC(parentWindow, exportPDFChannel, data);
+            }
+            if (!event.sender.isDestroyed()) {
+                event.sender.destroy();
+            }
+            return;
+        }
         dialog.showOpenDialog({
             title: data.title, properties: ["createDirectory", "openDirectory"],
         }).then((result) => {
@@ -1914,11 +2033,13 @@ app.whenReady().then(() => {
                 return;
             }
             data.filePaths = result.filePaths;
-            data.webContentsId = event.sender.id;
-            sendBrandedIPC(getWindowByContentId(data.parentWindowId), "sourceflow-export-pdf", data);
+            sendBrandedIPC(getWindowByContentId(data.parentWindowId), exportPDFChannel, data);
+            if (!event.sender.isDestroyed()) {
+                event.sender.destroy();
+            }
         });
     });
-    onBrandedIPC("sourceflow-export-newwindow", (event, data) => {
+    onBrandedIPC(exportNewWindowChannel, (event, data) => {
         // The PDF/Word export preview window automatically adjusts according to the size of the main window https://github.com/lonelyor/SourceFlow/issues/10554
         const wndBounds = getWindowByContentId(event.sender.id).getBounds();
         const wndScreen = screen.getDisplayNearestPoint({x: wndBounds.x, y: wndBounds.y});
@@ -1933,6 +2054,7 @@ app.whenReady().then(() => {
             webPreferences: {
                 contextIsolation: false,
                 nodeIntegration: true,
+                preload: resolveAppFile("electron", "exportPreload.js"),
                 webviewTag: true,
                 webSecurity: false,
                 autoplayPolicy: "user-gesture-required" // 桌面端禁止自动播放多媒体 https://github.com/lonelyor/SourceFlow/issues/7587

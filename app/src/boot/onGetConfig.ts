@@ -6,6 +6,7 @@ import {ipcRenderer, webFrame} from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import {afterExport} from "../protyle/export/util";
+import {buildPDFWorkerExportHTML} from "../protyle/export/pdfWorker";
 import {onWindowsMsg} from "../window/onWindowsMsg";
 import {initNativeDialogOverride} from "../protyle/util/compatibility";
 /// #endif
@@ -83,6 +84,87 @@ const runStartupStep = (label: string, fn: () => void) => {
         reportStartupError(label, error);
     }
 };
+
+const getReadableErrorMessage = (error: unknown) => {
+    if (error instanceof Error) {
+        return error.message || error.name;
+    }
+    if (typeof error === "string") {
+        return error;
+    }
+    if (error && typeof error === "object") {
+        const maybeError = error as {message?: unknown, msg?: unknown};
+        const message = maybeError.message || maybeError.msg;
+        if (typeof message === "string" && message.trim()) {
+            return message;
+        }
+        try {
+            return JSON.stringify(error);
+        } catch (e) {
+            return `${error}`;
+        }
+    }
+    return `${error || ""}`;
+};
+
+const isPDFMemoryError = (message: string) => {
+    return /(out of memory|insufficient memory|memory.*(allocation|limit|pressure|exhaust)|allocation failed|heap out of memory|ERR_MEMORY|内存不足|可用内存不足)/i.test(message);
+};
+
+const getExportFailedMessage = (detail: string) => {
+    const template = window.sourceflow.languages._kernel?.[14] || "导出失败：%s";
+    const safeDetail = (detail || "Unknown error").trim();
+    const templatePrefix = template.split("%s")[0]?.trim();
+    if ((templatePrefix && safeDetail.startsWith(templatePrefix)) ||
+        /^(导出失败|Export failed)\s*[:：]/i.test(safeDetail)) {
+        return safeDetail;
+    }
+    return template.includes("%s") ? template.replace("%s", safeDetail) : `${template}：${safeDetail}`;
+};
+
+const getPDFExportErrorMessage = (error: unknown) => {
+    const detail = getReadableErrorMessage(error);
+    return isPDFMemoryError(detail) ? window.sourceflow.languages.exportPDFLowMemory : getExportFailedMessage(detail);
+};
+
+const runPDFExportStep = async <T>(label: string, task: () => Promise<T>) => {
+    try {
+        return await task();
+    } catch (error) {
+        throw new Error(`${label}：${getReadableErrorMessage(error)}`);
+    }
+};
+
+const assertExportResponse = (response: IWebSocketData, action: string) => {
+    if (response && typeof response.code === "number" && response.code !== 0) {
+        throw new Error(response.msg || `${action} failed with code ${response.code}`);
+    }
+    return response;
+};
+
+const fetchPostForExport = (url: string, data?: any) => {
+    return new Promise<IWebSocketData>((resolve, reject) => {
+        fetchPost(url, data, (response) => {
+            try {
+                resolve(assertExportResponse(response, url));
+            } catch (error) {
+                reject(error);
+            }
+        }, undefined, (response) => {
+            reject(new Error(response?.msg || `${url} failed`));
+        });
+    });
+};
+
+/// #if !BROWSER
+const removeExportAssets = (dir: string) => {
+    return new Promise<void>((resolve) => {
+        fs.rm(dir, {recursive: true, force: true}, () => {
+            resolve();
+        });
+    });
+};
+/// #endif
 
 const consumePendingSyncRestore = () => {
     const restoreState = window.sourceflow.storage[Constants.LOCAL_SYNC_RESTORE];
@@ -310,7 +392,13 @@ export const initWindow = async (app: App) => {
         });
     });
     ipcRenderer.on(Constants.SOURCEFLOW_EXPORT_PDF, async (e, ipcData) => {
+        if (ipcData?.error) {
+            showMessage(getPDFExportErrorMessage(ipcData.message || ipcData.error), 0, "error");
+            return;
+        }
         const msgId = showMessage(window.sourceflow.languages.exporting, -1);
+        const savePath = ipcData.filePaths[0];
+        let workerWebContentsId = 0;
         window.sourceflow.storage[Constants.LOCAL_EXPORTPDF] = {
             removeAssets: ipcData.removeAssets,
             keepFold: ipcData.keepFold,
@@ -329,75 +417,102 @@ export const initWindow = async (app: App) => {
         setStorageVal(Constants.LOCAL_EXPORTPDF, window.sourceflow.storage[Constants.LOCAL_EXPORTPDF]);
         try {
             if (window.sourceflow.config.export.pdfFooter.trim()) {
-                const response = await fetchSyncPost("/api/template/renderSprig", {template: window.sourceflow.config.export.pdfFooter});
+                const response = await runPDFExportStep("渲染 PDF 页脚", async () => assertExportResponse(await fetchSyncPost("/api/template/renderSprig", {
+                    template: window.sourceflow.config.export.pdfFooter
+                }), "/api/template/renderSprig"));
                 ipcData.pdfOptions.displayHeaderFooter = true;
                 ipcData.pdfOptions.headerTemplate = "<span></span>";
                 ipcData.pdfOptions.footerTemplate = `<div style="text-align:center;width:100%;font-size:10px;line-height:12px;">
 ${response.data.replace("%pages", "<span class=totalPages></span>").replace("%page", "<span class=pageNumber></span>")}
 </div>`;
             }
-            const pdfData = await ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
-                cmd: "printToPDF",
-                pdfOptions: ipcData.pdfOptions,
-                webContentsId: ipcData.webContentsId
-            });
-            const savePath = ipcData.filePaths[0];
             let pdfFilePath = path.join(savePath, replaceLocalPath(ipcData.rootTitle) + ".pdf");
-            const responseUnique = await fetchSyncPost("/api/file/getUniqueFilename", {path: pdfFilePath});
+            const responseUnique = await runPDFExportStep("确认 PDF 文件名", async () => assertExportResponse(await fetchSyncPost("/api/file/getUniqueFilename", {path: pdfFilePath}), "/api/file/getUniqueFilename"));
+            if (!responseUnique.data?.path) {
+                throw new Error("PDF output path is empty");
+            }
             pdfFilePath = responseUnique.data.path;
-            fetchPost("/api/export/exportHTML", {
+            const exportHTMLResponse = await runPDFExportStep("导出 PDF 资源", async () => fetchPostForExport("/api/export/exportHTML", {
                 id: ipcData.rootId,
                 pdf: true,
                 removeAssets: ipcData.removeAssets,
+                keepFold: ipcData.keepFold,
                 merge: ipcData.mergeSubdocs,
                 savePath,
-            }, () => {
-                fs.writeFileSync(pdfFilePath, pdfData);
-                ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "destroy", webContentsId: ipcData.webContentsId});
-                fetchPost("/api/export/processPDF", {
+            }));
+            const createPDFWorker = async () => {
+                const workerHTML = await runPDFExportStep("构建 PDF 打印页", async () => buildPDFWorkerExportHTML({
+                    data: exportHTMLResponse,
+                    pdfConfig: {
+                        pageSize: ipcData.pageSize,
+                        pdfOptions: ipcData.pdfOptions,
+                    },
+                }));
+                const tempExportResponse = await runPDFExportStep("准备 PDF 打印页", async () => fetchPostForExport("/api/export/exportTempContent", {
+                    content: workerHTML,
+                }));
+                return runPDFExportStep("加载 PDF 打印页", async () => ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                    cmd: "createPDFExportWorker",
+                    url: tempExportResponse.data.url,
+                }));
+            };
+            const printToPDF = (pdfOptions: IObject, webContentsId: number) => ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                cmd: "printToPDF",
+                pdfOptions,
+                webContentsId,
+            });
+            workerWebContentsId = await createPDFWorker();
+            let pdfData;
+            try {
+                pdfData = await runPDFExportStep("生成 PDF 文件", async () => printToPDF(ipcData.pdfOptions, workerWebContentsId));
+            } catch (printError) {
+                if (ipcData.paged || !isPDFMemoryError(getReadableErrorMessage(printError))) {
+                    throw printError;
+                }
+                ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "destroy", webContentsId: workerWebContentsId});
+                workerWebContentsId = 0;
+                ipcData.paged = true;
+                ipcData.pdfOptions.pageSize = ipcData.pageSize;
+                window.sourceflow.storage[Constants.LOCAL_EXPORTPDF].paged = true;
+                setStorageVal(Constants.LOCAL_EXPORTPDF, window.sourceflow.storage[Constants.LOCAL_EXPORTPDF]);
+                workerWebContentsId = await createPDFWorker();
+                pdfData = await runPDFExportStep("分页重试生成 PDF 文件", async () => printToPDF(ipcData.pdfOptions, workerWebContentsId));
+            }
+            if (workerWebContentsId) {
+                ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "destroy", webContentsId: workerWebContentsId});
+                workerWebContentsId = 0;
+            }
+            fs.writeFileSync(pdfFilePath, pdfData);
+            let postProcessWarning = "";
+            try {
+                await runPDFExportStep("处理 PDF 后处理", async () => fetchPostForExport("/api/export/processPDF", {
                     id: ipcData.rootId,
                     merge: ipcData.mergeSubdocs,
                     path: pdfFilePath,
                     removeAssets: ipcData.removeAssets,
                     watermark: ipcData.watermark
-                }, async () => {
-                    afterExport(pdfFilePath, msgId);
-                    if (ipcData.removeAssets) {
-                        const removePromise = (dir: string) => {
-                            return new Promise(function (resolve) {
-                                fs.stat(dir, function (err, stat) {
-                                    if (!stat) {
-                                        return;
-                                    }
-
-                                    if (stat.isDirectory()) {
-                                        fs.readdir(dir, function (err, files) {
-                                            files = files.map(file => path.join(dir, file)); // a/b  a/m
-                                            Promise.all(files.map(file => removePromise(file))).then(function () {
-                                                fs.rm(dir, resolve);
-                                            });
-                                        });
-                                    } else {
-                                        fs.unlink(dir, resolve);
-                                    }
-                                });
-                            });
-                        };
-
-                        const assetsDir = path.join(savePath, "assets");
-                        await removePromise(assetsDir);
-                        if (1 > fs.readdirSync(assetsDir).length) {
-                            fs.rmdirSync(assetsDir);
-                        }
-                    }
-                });
-            });
-        } catch (e) {
-            console.error(e);
-            showMessage(window.sourceflow.languages.exportPDFLowMemory, 0, "error", msgId);
-            ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "destroy", webContentsId: ipcData.webContentsId});
+                }));
+            } catch (postProcessError) {
+                postProcessWarning = getReadableErrorMessage(postProcessError);
+                console.warn("[PDF export postprocess]", postProcessError);
+            }
+            afterExport(pdfFilePath, msgId);
+            if (postProcessWarning) {
+                showMessage(`PDF 已导出，但目录、水印或附件后处理失败：${postProcessWarning}`, 8000, "warning");
+            }
+            if (ipcData.removeAssets) {
+                await removeExportAssets(path.join(savePath, "assets"));
+            }
+        } catch (error) {
+            console.error("[PDF export]", error);
+            showMessage(getPDFExportErrorMessage(error), 0, "error", msgId);
+            if (workerWebContentsId) {
+                ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "destroy", webContentsId: workerWebContentsId});
+            }
+            if (ipcData.removeAssets) {
+                await removeExportAssets(path.join(savePath, "assets"));
+            }
         }
-        ipcRenderer.send(Constants.SOURCEFLOW_CMD, {cmd: "hide", webContentsId: ipcData.webContentsId});
     });
 
     if (isWindow()) {

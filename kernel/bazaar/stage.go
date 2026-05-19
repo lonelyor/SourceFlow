@@ -21,6 +21,7 @@ import (
 	"errors"
 	"maps"
 	"sync"
+	"time"
 
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/httpclient"
@@ -78,7 +79,7 @@ func getStageAndBazaar(pkgType string) (result StageBazaarResult) {
 
 // getStageAndBazaar0 执行一次 stage 和 bazaar 索引拉取
 func getStageAndBazaar0(pkgType string) (result StageBazaarResult) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 	stageIndex := getStageIndexFromCache(ctx, pkgType)
 	statsMap := getBazaarStatsFromCache(ctx)
@@ -91,14 +92,8 @@ func getStageAndBazaar0(pkgType string) (result StageBazaarResult) {
 			StageErr:    nil,
 		}
 	}
-	var onlineResult bool
-	onlineDone := make(chan bool, 1)
 	var stageErr error
 	wg := &sync.WaitGroup{}
-	wg.Go(func() {
-		onlineResult = isBazaarOnline()
-		onlineDone <- true
-	})
 	wg.Go(func() {
 		stageIndex, stageErr = getStageIndex(ctx, pkgType)
 	})
@@ -106,25 +101,15 @@ func getStageAndBazaar0(pkgType string) (result StageBazaarResult) {
 		statsMap = getBazaarStats(ctx)
 	})
 
-	<-onlineDone
-	if !onlineResult {
-		// 不在线时立即取消其他请求并返回结果，避免等待 HTTP 请求超时
-		cancel()
-		return StageBazaarResult{
-			StageIndex:  stageIndex,
-			BazaarStats: statsMap,
-			Online:      false,
-			StageErr:    stageErr,
-		}
-	}
-
-	// 在线时等待所有请求完成
 	wg.Wait()
+	if nil == statsMap {
+		statsMap = map[string]*bazaarStats{}
+	}
 
 	return StageBazaarResult{
 		StageIndex:  stageIndex,
 		BazaarStats: statsMap,
-		Online:      onlineResult,
+		Online:      nil != stageIndex && nil == stageErr,
 		StageErr:    stageErr,
 	}
 }
@@ -141,11 +126,13 @@ func isBazaarOnline() bool {
 
 func isBazaarOnline0() (ret bool) {
 	// Improve marketplace loading when offline https://github.com/lonelyor/SourceFlow/issues/12050
-	ret = util.IsOnline(util.GetBazaarOnlineCheckURL(), true, 3000)
-	if !ret {
-		logging.LogInfof("bazaar source offline, skip online package loading")
+	for _, u := range util.GetBazaarOnlineCheckURLs() {
+		if util.IsOnline(u, true, 3000) {
+			return true
+		}
 	}
-	return
+	logging.LogInfof("bazaar source offline")
+	return false
 }
 
 // getStageIndexFromCache 仅从缓存获取 stage 索引，无缓存时返回 nil（读前根据 util 已同步的 bazaar hash 视情况清理缓存）
@@ -170,23 +157,37 @@ func getStageIndex(ctx context.Context, pkgType string) (ret *StageIndex, err er
 		return
 	}
 	ret = &StageIndex{}
-	request := httpclient.NewBrowserRequest()
-	u := util.GetBazaarStageIndexURL(bazaarHash, pkgType)
-	resp, reqErr := request.SetContext(ctx).SetSuccessResult(ret).Get(u)
-	if nil != reqErr {
-		logging.LogErrorf("get community stage index [%s] failed: %s", u, reqErr)
-		err = reqErr
-		return
-	}
-	if 200 != resp.StatusCode {
-		logging.LogErrorf("get community stage index [%s] failed: %d", u, resp.StatusCode)
-		err = errors.New("get stage index failed")
+
+	var lastErr error
+	for _, u := range util.GetBazaarStageIndexURLs(bazaarHash, pkgType) {
+		ret = &StageIndex{}
+		resp, reqErr := httpclient.NewBrowserRequest().SetContext(ctx).SetSuccessResult(ret).Get(u)
+		if nil != reqErr {
+			logging.LogWarnf("get community stage index [%s] failed: %s", u, reqErr)
+			lastErr = reqErr
+			if ctx.Err() != nil {
+				err = ctx.Err()
+				return
+			}
+			continue
+		}
+		if 200 != resp.StatusCode {
+			logging.LogWarnf("get community stage index [%s] failed: %d", u, resp.StatusCode)
+			lastErr = errors.New("get stage index failed")
+			continue
+		}
+
+		bazaarMemMu.Lock()
+		stageIndexCache[pkgType] = ret
+		bazaarMemMu.Unlock()
 		return
 	}
 
-	bazaarMemMu.Lock()
-	stageIndexCache[pkgType] = ret
-	bazaarMemMu.Unlock()
+	if nil != lastErr {
+		err = lastErr
+	} else {
+		err = errors.New("get stage index failed")
+	}
 	return
 }
 
@@ -234,25 +235,30 @@ func getBazaarStats(ctx context.Context) map[string]*bazaarStats {
 }
 
 func getBazaarStats0(ctx context.Context) (result map[string]*bazaarStats) {
-	request := httpclient.NewBrowserRequest()
-	u := util.GetBazaarStatsURL()
-	resp, reqErr := request.SetContext(ctx).SetSuccessResult(&result).Get(u)
-	if nil != reqErr {
-		logging.LogErrorf("get bazaar stats [%s] failed: %s", u, reqErr)
+	for _, u := range util.GetBazaarStatsURLs() {
+		result = map[string]*bazaarStats{}
+		resp, reqErr := httpclient.NewBrowserRequest().SetContext(ctx).SetSuccessResult(&result).Get(u)
+		if nil != reqErr {
+			logging.LogWarnf("get bazaar stats [%s] failed: %s", u, reqErr)
+			if ctx.Err() != nil {
+				return map[string]*bazaarStats{}
+			}
+			continue
+		}
+		if 200 != resp.StatusCode {
+			logging.LogWarnf("get bazaar stats [%s] failed: %d", u, resp.StatusCode)
+			continue
+		}
+		if nil == result {
+			result = make(map[string]*bazaarStats)
+		}
+		bazaarMemMu.Lock()
+		clear(bazaarStatsCache)
+		maps.Copy(bazaarStatsCache, result)
+		bazaarMemMu.Unlock()
 		return
 	}
-	if 200 != resp.StatusCode {
-		logging.LogErrorf("get bazaar stats [%s] failed: %d", u, resp.StatusCode)
-		return
-	}
-	if nil == result {
-		result = make(map[string]*bazaarStats)
-	}
-	bazaarMemMu.Lock()
-	clear(bazaarStatsCache)
-	maps.Copy(bazaarStatsCache, result)
-	bazaarMemMu.Unlock()
-	return
+	return map[string]*bazaarStats{}
 }
 
 func ResetCache() {

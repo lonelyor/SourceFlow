@@ -97,8 +97,39 @@ export const processSYLink = (app: App, url: string) => {
     return false;
 };
 
+const stripAttachmentOpenParam = (linkAddress: string) => {
+    const queryIndex = linkAddress.indexOf("?");
+    if (queryIndex < 0) {
+        return {linkAddress, isAttachment: false};
+    }
+    const query = linkAddress.substring(queryIndex + 1);
+    const params = query.split("&");
+    if (!params.includes("attachment=1")) {
+        return {linkAddress, isAttachment: false};
+    }
+    const restParams = params.filter(item => item !== "attachment=1");
+    return {
+        linkAddress: restParams.length === 0 ? linkAddress.substring(0, queryIndex) : `${linkAddress.substring(0, queryIndex)}?${restParams.join("&")}`,
+        isAttachment: true
+    };
+};
+
 export const openLink = (protyle: IProtyle, aLink: string, event?: MouseEvent, ctrlIsPressed = false) => {
     let linkAddress = Lute.UnEscapeHTMLStr(aLink);
+    const attachmentLink = stripAttachmentOpenParam(linkAddress);
+    linkAddress = attachmentLink.linkAddress;
+    if (attachmentLink.isAttachment && isLocalPath(linkAddress)) {
+        /// #if MOBILE
+        openByMobile(linkAddress);
+        /// #else
+        /// #if !BROWSER
+        openBy(linkAddress, ctrlIsPressed ? "folder" : "app");
+        /// #else
+        openByMobile(linkAddress);
+        /// #endif
+        /// #endif
+        return;
+    }
     let pdfParams;
     if (isLocalPath(linkAddress) && !linkAddress.startsWith("file://") && linkAddress.indexOf(".pdf") > -1) {
         const pdfAddress = linkAddress.split("/");

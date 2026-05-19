@@ -12,6 +12,13 @@ module.exports = (env, argv) => {
         mode: argv.mode || "development",
         watch: argv.mode !== "production",
         devtool: argv.mode !== "production" ? "eval-source-map" : false,
+        cache: {
+            type: "filesystem",
+            name: `sourceflow-desktop-${argv.mode || "development"}`,
+            buildDependencies: {
+                config: [__filename],
+            },
+        },
         output: {
             publicPath: "/stage/build/desktop/",
             filename: "[name].[chunkhash].js",

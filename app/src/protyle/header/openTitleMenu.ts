@@ -52,7 +52,7 @@ const runTitleMenuAssistantAI = (options: {
 
 const runTitleMenuAssistantSkill = (skillId: string, protyle: IProtyle) => {
     runAssistantFeature(`title-menu:${skillId}`, loadAssistantSkillModule, ({runAssistantSkill}) => {
-        runAssistantSkill({
+        return runAssistantSkill({
             skillId: skillId as never,
             protyle,
         });

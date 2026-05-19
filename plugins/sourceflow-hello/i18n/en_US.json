@@ -1,0 +1,9 @@
+{
+  "topBarTitle": "SourceFlow Hello",
+  "sayHelloCommand": "SourceFlow Hello: Say hello",
+  "statusLabel": "Hello Count",
+  "settingsTitle": "Greeting text",
+  "settingsDesc": "This text is shown when the example plugin runs.",
+  "settingsSaved": "Plugin settings saved",
+  "greetingPlaceholder": "Hello from SourceFlow"
+}

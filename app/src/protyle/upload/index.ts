@@ -14,6 +14,7 @@ import {confirmDialog} from "../../dialog/confirmDialog";
 import {filesize} from "filesize";
 import {transaction} from "../wysiwyg/transaction";
 import * as dayjs from "dayjs";
+import {escapeHtml} from "../../util/escape";
 
 interface FileWithPath extends File {
     path: string;
@@ -255,7 +256,7 @@ const genUploadedLabel = async (responseText: string, protyle: IProtyle) => {
     }, hasImage ? 0 : Constants.TIMEOUT_LOAD);
 };
 
-export const uploadLocalFiles = (files: ILocalFiles[], protyle: IProtyle, isUpload: boolean) => {
+export const uploadLocalFiles = (files: ILocalFiles[], protyle: IProtyle, isUpload: boolean, copyAsAsset = isUpload) => {
     let msg = "";
     const assetPaths: string[] = [];
     files.forEach(item => {
@@ -269,6 +270,7 @@ export const uploadLocalFiles = (files: ILocalFiles[], protyle: IProtyle, isUplo
         const msgId = showMessage(window.sourceflow.languages.uploading, 0);
         fetchPost("/api/asset/insertLocalAssets", {
             assetPaths,
+            copyAsAsset,
             isUpload,
             id: protyle.block.rootID
         }, (response) => {
@@ -287,6 +289,81 @@ export const uploadLocalFiles = (files: ILocalFiles[], protyle: IProtyle, isUplo
     });
 };
 
+const getAttachmentHref = (pathString: string) => {
+    if (!pathString.startsWith("assets/") && !pathString.startsWith("file://") && !pathString.startsWith("\\\\")) {
+        return pathString;
+    }
+    return `${pathString}${pathString.includes("?") ? "&" : "?"}attachment=1`;
+};
+
+const genImportedAttachmentLabel = (responseText: string, protyle: IProtyle) => {
+    const response = JSON.parse(responseText);
+    if (response.code === -1 || response.code === 1) {
+        showMessage(response.msg);
+        return;
+    }
+
+    let insertBlock = true;
+    const range = getEditorRange(protyle.wysiwyg.element);
+    if (range.toString() === "" && range.startContainer.nodeType === 3 && protyle.toolbar.getCurrentType(range).length > 0) {
+        range.setEndAfter(range.startContainer.parentElement);
+        range.collapse(false);
+    }
+    const keys = Object.keys(response.data.succMap);
+    const nodeElement = hasClosestBlock(range.startContainer);
+    if (nodeElement) {
+        if (nodeElement.classList.contains("table")) {
+            insertBlock = false;
+        } else {
+            const editableElement = getContenteditableElement(nodeElement);
+            if (editableElement && nodeElement.classList.contains("p") &&
+                (editableElement.textContent !== "" || keys.length < 2)) {
+                insertBlock = false;
+            }
+        }
+    }
+
+    let successFileText = "";
+    keys.sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+    keys.forEach((key, index) => {
+        const pathString = response.data.succMap[key].toString();
+        const filename = protyle.options.upload.filename(key);
+        successFileText += `<span data-type="a" data-href="${Lute.EscapeHTMLStr(getAttachmentHref(pathString))}">${escapeHtml(filename)}</span>`;
+        if (keys.length - 1 !== index) {
+            if (nodeElement && nodeElement.classList.contains("table")) {
+                successFileText += "<br>";
+            } else if (insertBlock) {
+                successFileText += "\n\n";
+            } else {
+                successFileText += "\n";
+            }
+        }
+    });
+
+    insertHTML(successFileText, protyle, insertBlock);
+    setTimeout(() => {
+        scrollCenter(protyle, undefined, "nearest", "smooth");
+    }, Constants.TIMEOUT_LOAD);
+};
+
+export const importLocalAttachments = (protyle: IProtyle, assetPaths: string[], copyAsAsset = true) => {
+    if (assetPaths.length === 0) {
+        return;
+    }
+    confirmDialog(window.sourceflow.languages.upload, "", () => {
+        const msgId = showMessage(window.sourceflow.languages.uploading, 0);
+        fetchPost("/api/asset/insertLocalAssets", {
+            assetPaths,
+            copyAsAsset,
+            id: protyle.block.rootID,
+            isUpload: copyAsAsset,
+        }, (response) => {
+            hideMessage(msgId);
+            genImportedAttachmentLabel(JSON.stringify(response), protyle);
+        });
+    });
+};
+
 export const uploadFiles = (protyle: IProtyle, files: FileList | DataTransferItemList | File[], element?: HTMLInputElement, successCB?: (res: string) => void) => {
     // FileList | DataTransferItemList | File[] => File[]
     let fileList = [];
@@ -297,7 +374,7 @@ export const uploadFiles = (protyle: IProtyle, files: FileList | DataTransferIte
         }
         if (0 === fileItem.size && "" === fileItem.type && -1 === fileItem.name.indexOf(".")) {
             // 文件夹
-            uploadLocalFiles([{path: (fileItem as FileWithPath).path, size: null}], protyle, false);
+            uploadLocalFiles([{path: (fileItem as FileWithPath).path, size: null}], protyle, true);
         } else {
             fileList.push(fileItem);
         }

@@ -1,0 +1,9 @@
+{
+  "topBarTitle": "源流示例插件",
+  "sayHelloCommand": "源流示例插件：显示问候",
+  "statusLabel": "问候次数",
+  "settingsTitle": "问候文本",
+  "settingsDesc": "插件运行时会显示这段文本。",
+  "settingsSaved": "插件设置已保存",
+  "greetingPlaceholder": "你好，SourceFlow"
+}

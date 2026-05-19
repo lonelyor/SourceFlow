@@ -794,8 +794,9 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 	} else {
 		block := treenode.GetBlockTreeRootByPath(boxID, toPath)
 		if nil == block {
-			logging.LogErrorf("not found block by path [%s]", toPath)
-			return nil
+			err = fmt.Errorf("not found block by path [%s]", toPath)
+			logging.LogErrorf(err.Error())
+			return err
 		}
 		baseHPath = block.HPath
 		baseTargetPath = strings.TrimSuffix(block.Path, ".sf")
@@ -806,6 +807,11 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 	idPaths := map[string]string{}
 	moveIDs := map[string]string{}
 	assetsDone := map[string]string{}
+	assetIndexRoot := localPath
+	if !gulu.File.IsDir(localPath) {
+		assetIndexRoot = filepath.Dir(localPath)
+	}
+	assetIndex := newImportAssetIndex(assetIndexRoot)
 	if gulu.File.IsDir(localPath) { // 导入文件夹
 		targetPaths := map[string]string{}
 		count := 0
@@ -1012,6 +1018,7 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 				}
 				return ast.WalkContinue
 			})
+			convertObsidianAssetEmbeds(tree, currentDir, assetIndex, assetDirPath, assetsDone)
 
 			reassignIDUpdated(tree, id, updated)
 			importTrees = append(importTrees, tree)
@@ -1135,6 +1142,7 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 			}
 			return ast.WalkContinue
 		})
+		convertObsidianAssetEmbeds(tree, filepath.Dir(localPath), assetIndex, assetDirPath, assetsDone)
 
 		reassignIDUpdated(tree, id, updated)
 		importTrees = append(importTrees, tree)
@@ -1220,6 +1228,232 @@ func parseStdMd(markdown []byte) (ret *parse.Tree, yfmRootID, yfmTitle, yfmUpdat
 	parse.TextMarks2Inlines(ret) // 先将 TextMark 转换为 Inlines https://github.com/lonelyor/SourceFlow/issues/13056
 	parse.NestedInlines2FlattedSpansHybrid(ret, false)
 	return
+}
+
+var (
+	obsidianEmbedAssetRegexp = regexp.MustCompile(`!\[\[([^\]\r\n]+)\]\]`)
+	obsidianEmbedSizeRegexp  = regexp.MustCompile(`^\d+(x\d+)?$`)
+)
+
+type importAssetIndex struct {
+	root   string
+	byRel  map[string]string
+	byName map[string][]string
+}
+
+func newImportAssetIndex(root string) *importAssetIndex {
+	ret := &importAssetIndex{
+		root:   filepath.Clean(root),
+		byRel:  map[string]string{},
+		byName: map[string][]string{},
+	}
+	if "" == root || !gulu.File.IsDir(root) {
+		return ret
+	}
+
+	filelock.Walk(root, func(p string, d fs.DirEntry, err error) error {
+		if nil != err || nil == d {
+			return err
+		}
+		if d.IsDir() {
+			if shouldSkipImportAssetIndexDir(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isImportMarkdownFile(p) {
+			return nil
+		}
+
+		absPath := filepath.Clean(p)
+		if rel, relErr := filepath.Rel(ret.root, absPath); nil == relErr {
+			ret.byRel[normalizeImportAssetLookupPath(rel)] = absPath
+		}
+		nameKey := strings.ToLower(d.Name())
+		ret.byName[nameKey] = append(ret.byName[nameKey], absPath)
+		return nil
+	})
+	return ret
+}
+
+func shouldSkipImportAssetIndexDir(name string) bool {
+	return ".git" == name || ".obsidian" == name || "node_modules" == name
+}
+
+func isImportMarkdownFile(p string) bool {
+	ext := strings.ToLower(filepath.Ext(p))
+	return ".md" == ext || ".markdown" == ext
+}
+
+func normalizeImportAssetLookupPath(p string) string {
+	p = strings.TrimSpace(p)
+	if "" == p {
+		return ""
+	}
+	p = filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))
+	p = strings.TrimPrefix(p, "./")
+	return strings.ToLower(p)
+}
+
+func (index *importAssetIndex) resolve(currentDir, target string) string {
+	target = decodeObsidianEmbedTarget(target)
+	if "" == target || !util.IsRelativePath(target) {
+		return ""
+	}
+
+	targetPath := filepath.FromSlash(target)
+	for _, candidate := range []string{
+		filepath.Join(currentDir, targetPath),
+		filepath.Join(index.root, targetPath),
+	} {
+		candidate = filepath.Clean(candidate)
+		if isImportAssetFile(candidate) {
+			return candidate
+		}
+	}
+
+	if indexed := index.byRel[normalizeImportAssetLookupPath(target)]; "" != indexed {
+		return indexed
+	}
+
+	nameMatches := index.byName[strings.ToLower(filepath.Base(targetPath))]
+	if 1 == len(nameMatches) {
+		return nameMatches[0]
+	}
+	if 1 < len(nameMatches) {
+		logging.LogWarnf("ambiguous Obsidian asset embed [%s], matched [%d] files", target, len(nameMatches))
+	}
+	return ""
+}
+
+func isImportAssetFile(p string) bool {
+	info, err := os.Stat(p)
+	if nil != err || info.IsDir() {
+		return false
+	}
+	return !isImportMarkdownFile(p)
+}
+
+func decodeObsidianEmbedTarget(target string) string {
+	target = strings.TrimSpace(target)
+	if "" == target {
+		return ""
+	}
+	decoded := string(html.DecodeDestination([]byte(target)))
+	if "" != decoded {
+		target = decoded
+	}
+	return target
+}
+
+func convertObsidianAssetEmbeds(tree *parse.Tree, currentDir string, assetIndex *importAssetIndex, assetDirPath string, assetsDone map[string]string) {
+	if nil == tree || nil == tree.Root {
+		return
+	}
+
+	ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
+		if !entering || ast.NodeText != n.Type {
+			return ast.WalkContinue
+		}
+		text := n.TokensStr()
+		converted := replaceObsidianAssetEmbeds(text, currentDir, assetIndex, assetDirPath, assetsDone)
+		if converted != text {
+			n.Tokens = gulu.Str.ToBytes(converted)
+		}
+		return ast.WalkContinue
+	})
+}
+
+func replaceObsidianAssetEmbeds(text, currentDir string, assetIndex *importAssetIndex, assetDirPath string, assetsDone map[string]string) string {
+	if "" == text || nil == assetIndex || !strings.Contains(text, "![[") {
+		return text
+	}
+
+	return obsidianEmbedAssetRegexp.ReplaceAllStringFunc(text, func(embed string) string {
+		matches := obsidianEmbedAssetRegexp.FindStringSubmatch(embed)
+		if 2 > len(matches) {
+			return embed
+		}
+
+		target, label := parseObsidianEmbedSpec(matches[1])
+		if "" == target {
+			return embed
+		}
+
+		absolutePath := assetIndex.resolve(currentDir, target)
+		if "" == absolutePath {
+			if cleanTarget := stripObsidianTargetFragment(target); cleanTarget != target {
+				absolutePath = assetIndex.resolve(currentDir, cleanTarget)
+				target = cleanTarget
+			}
+		}
+		if "" == absolutePath {
+			return embed
+		}
+
+		name, ok := copyImportAsset(absolutePath, assetDirPath, assetsDone)
+		if !ok {
+			return embed
+		}
+		assetPath := "assets/" + name
+		if "" == label || isObsidianSizeAlias(label) {
+			label = filepath.Base(filepath.FromSlash(target))
+		}
+		label = escapeMarkdownLinkText(label)
+		if util.IsPossiblyImage(absolutePath) {
+			return "![" + label + "](" + assetPath + ")"
+		}
+		return "[" + label + "](" + assetPath + ")"
+	})
+}
+
+func parseObsidianEmbedSpec(spec string) (target, label string) {
+	parts := strings.SplitN(spec, "|", 2)
+	target = strings.TrimSpace(parts[0])
+	if 1 < len(parts) {
+		label = strings.TrimSpace(parts[1])
+	}
+	return
+}
+
+func stripObsidianTargetFragment(target string) string {
+	if idx := strings.Index(target, "#"); 0 < idx {
+		return strings.TrimSpace(target[:idx])
+	}
+	return target
+}
+
+func isObsidianSizeAlias(label string) bool {
+	if "" == label {
+		return false
+	}
+	return obsidianEmbedSizeRegexp.MatchString(label)
+}
+
+func escapeMarkdownLinkText(text string) string {
+	text = strings.ReplaceAll(text, "\r", " ")
+	text = strings.ReplaceAll(text, "\n", " ")
+	text = strings.ReplaceAll(text, "[", `\[`)
+	text = strings.ReplaceAll(text, "]", `\]`)
+	return strings.TrimSpace(text)
+}
+
+func copyImportAsset(absolutePath, assetDirPath string, assetsDone map[string]string) (name string, ok bool) {
+	absolutePath = filepath.Clean(absolutePath)
+	if existName := assetsDone[absolutePath]; "" != existName {
+		return existName, true
+	}
+
+	name = filepath.Base(absolutePath)
+	name = util.FilterUploadFileName(name)
+	name = util.AssetName(name, ast.NewNodeID())
+	assetTargetPath := filepath.Join(assetDirPath, name)
+	if err := filelock.Copy(absolutePath, assetTargetPath); nil != err {
+		logging.LogErrorf("copy asset from [%s] to [%s] failed: %s", absolutePath, assetTargetPath, err)
+		return "", false
+	}
+	assetsDone[absolutePath] = name
+	return name, true
 }
 
 func processHTMLBlockSvgImg(n *ast.Node, assetDirPath string) {

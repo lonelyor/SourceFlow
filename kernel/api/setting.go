@@ -1001,17 +1001,21 @@ func setExport(c *gin.Context) {
 		return
 	}
 
+	pandocBinChanged := nil != model.Conf.Export && export.PandocBin != model.Conf.Export.PandocBin
 	if "" != export.PandocBin {
 		if !util.IsValidPandocBin(export.PandocBin) {
 			util.PushErrMsg(fmt.Sprintf(model.Conf.Language(117), export.PandocBin), 5000)
 			export.PandocBin = util.PandocBinPath
-		} else {
-			util.PandocBinPath = export.PandocBin
 		}
 	}
 
 	model.Conf.Export = export
 	model.Conf.Save()
+	if pandocBinChanged || !util.IsValidPandocBin(util.PandocBinPath) {
+		util.PandocBinPath = ""
+		util.PandocBinManaged = false
+		util.InitPandoc()
+	}
 
 	ret.Data = model.Conf.Export
 }

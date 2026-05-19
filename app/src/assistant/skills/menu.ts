@@ -74,7 +74,7 @@ export const openAssistantSkillMenu = (options: IOpenAssistantSkillMenuOptions) 
                     }
                     if (skillId) {
                         void loadAssistantSkillExecuteModule().then(({runAssistantSkill}) => {
-                            runAssistantSkill({
+                            return runAssistantSkill({
                                 skillId: skillId as never,
                                 protyle: options.protyle,
                                 range: options.range,

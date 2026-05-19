@@ -116,6 +116,8 @@ More screenshots will continue to be added over time.
 
 - You can run summary, outline, polish, continuation, Q&A, and review-card actions directly after selecting text, without copying content into another tool.
 - The AI assistant supports image upload, drag and drop, and pasted screenshots, which works well when reading source materials while asking questions.
+- The assistant can pin a target note, edit a sent prompt and regenerate the reply, collapse long prompts, copy messages with image summaries, and insert the latest reply back into the current note.
+- Tool use can be enabled per profile with read-only, confirm-write, or recommended policies, while tool calls stay visible in the audit panel.
 - AI output flows into the results sidebar, making it easy to keep, compare, refine, and insert it back into formal notes.
 - The goal is “select and use, generate and keep moving”, not introducing another heavy interface to learn.
 

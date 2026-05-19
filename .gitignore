@@ -60,6 +60,7 @@ yarn.lock
 app/.tmp-tscheck/
 .opensource-release/
 examples/**/dist/
+plugins/**/dist/
 marketplace/sourceflow-bazaar/dist/
 browser-extension/sourceflow-web-clipper/dist/
 marketplace/sourceflow-bazaar/tmp-import-test/

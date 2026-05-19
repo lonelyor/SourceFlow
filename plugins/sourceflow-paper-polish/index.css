@@ -1,0 +1,10 @@
+.sourceflow-paper-polish-status {
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+html.sourceflow-paper-polish--on .sourceflow-paper-polish-status {
+  color: var(--b3-theme-primary);
+}

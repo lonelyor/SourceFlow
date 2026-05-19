@@ -217,7 +217,7 @@ class AssistantResultsDock {
                 return;
             }
             runAssistantFeature(`results:${skillId}`, loadAssistantSkillModule, ({runAssistantSkill}) => {
-                runAssistantSkill({
+                return runAssistantSkill({
                     skillId: skillId as never,
                 });
             });

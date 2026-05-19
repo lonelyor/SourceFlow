@@ -1,0 +1,15 @@
+{
+  "toggleTitle": "Toggle Paper Polish",
+  "togglePaperPolish": "Toggle Paper Polish",
+  "settingsSaved": "Paper Polish settings saved",
+  "enabledTitle": "Enable polish",
+  "enabledDesc": "Apply the reading and writing polish layer automatically.",
+  "compactTitle": "Compact density",
+  "compactDesc": "Use tighter spacing for dense notebooks and dashboards.",
+  "contrastTitle": "Soft contrast",
+  "contrastDesc": "Use softer panels, quotes, tables, and code blocks.",
+  "statusOn": "Paper Polish",
+  "statusOff": "Polish off",
+  "enabledMessage": "Paper Polish enabled",
+  "disabledMessage": "Paper Polish disabled"
+}

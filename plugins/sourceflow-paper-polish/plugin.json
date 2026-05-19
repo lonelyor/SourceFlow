@@ -1,0 +1,35 @@
+{
+  "manifestVersion": 1,
+  "name": "sourceflow-paper-polish",
+  "displayName": {
+    "default": "Paper Polish",
+    "zh_CN": "纸面美化",
+    "en_US": "Paper Polish"
+  },
+  "description": {
+    "default": "A focused reading and writing polish layer for SourceFlow notes.",
+    "zh_CN": "为 SourceFlow 笔记提供专注阅读和写作排版美化。",
+    "en_US": "A focused reading and writing polish layer for SourceFlow notes."
+  },
+  "version": "1.0.0",
+  "minAppVersion": "0.1.0",
+  "author": "By lonelyor",
+  "url": "https://github.com/lonelyor/SourceFlow-plugins",
+  "frontends": [
+    "desktop"
+  ],
+  "backends": [
+    "all"
+  ],
+  "entry": "index.js",
+  "style": "index.css",
+  "permissions": [
+    "storage",
+    "ui.topbar",
+    "ui.statusbar",
+    "ui.command",
+    "ui.setting",
+    "ui.notification"
+  ],
+  "allowedRequireModules": []
+}

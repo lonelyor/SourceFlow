@@ -60,7 +60,7 @@ const removeRedundantFullscreenBlankItem = () => {
 
 const runBreadcrumbAssistantSkill = (skillId: string, protyle: IProtyle) => {
     runAssistantFeature(`breadcrumb:${skillId}`, loadAssistantSkillModule, ({runAssistantSkill}) => {
-        runAssistantSkill({
+        return runAssistantSkill({
             skillId: skillId as never,
             protyle,
         });

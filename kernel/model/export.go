@@ -651,13 +651,19 @@ func ExportPreview(id string, fillCSSVar bool) (retStdHTML string) {
 
 func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string, err error) {
 	util.EnsurePandocInitialized()
-	if !util.IsValidPandocBin(Conf.Export.PandocBin) {
+	pandocBinPath := util.PandocBinPath
+	if !util.IsValidPandocBin(pandocBinPath) {
+		pandocBinPath = Conf.Export.PandocBin
+	}
+	if !util.IsValidPandocBin(pandocBinPath) {
 		Conf.Export.PandocBin = util.PandocBinPath
 		Conf.Save()
-		if !util.IsValidPandocBin(Conf.Export.PandocBin) {
-			err = errors.New(Conf.Language(115))
-			return
-		}
+		err = errors.New(Conf.Language(115))
+		return
+	}
+	if Conf.Export.PandocBin != pandocBinPath {
+		Conf.Export.PandocBin = pandocBinPath
+		Conf.Save()
 	}
 
 	tmpDir := filepath.Join(util.TempDir, "export", gulu.Rand.String(7))
@@ -685,29 +691,10 @@ func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string,
 		}
 	}
 
-	hasLuaFilter := false
-	for i := 0; i < len(args)-1; i++ {
-		if "--lua-filter" == args[i] {
-			hasLuaFilter = true
-			break
-		}
-	}
-	if !hasLuaFilter {
-		args = append(args, "--lua-filter", util.PandocColorFilterPath)
-	}
+	args = ensurePandocResourceArg(args, "--lua-filter", util.PandocColorFilterPath)
+	args = ensurePandocResourceArg(args, "--reference-doc", util.PandocTemplatePath)
 
-	hasReferenceDoc := false
-	for i := 0; i < len(args)-1; i++ {
-		if "--reference-doc" == args[i] {
-			hasReferenceDoc = true
-			break
-		}
-	}
-	if !hasReferenceDoc {
-		args = append(args, "--reference-doc", util.PandocTemplatePath)
-	}
-
-	pandoc := exec.Command(Conf.Export.PandocBin, args...)
+	pandoc := exec.Command(pandocBinPath, args...)
 	gulu.CmdAttr(pandoc)
 	pandoc.Stdin = bytes.NewBufferString(content)
 	output, err := pandoc.CombinedOutput()
@@ -735,6 +722,71 @@ func ExportDocx(id, savePath string, removeAssets, merge bool) (fullPath string,
 		}
 	}
 	return
+}
+
+func ensurePandocResourceArg(args []string, flag, fallbackPath string) []string {
+	normalized := make([]string, 0, len(args)+2)
+	hasValid := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == flag {
+			if i+1 < len(args) {
+				candidate := args[i+1]
+				i++
+				if isValidPandocResourcePath(candidate) {
+					normalized = append(normalized, flag, candidate)
+					hasValid = true
+				} else {
+					logging.LogWarnf("ignore invalid pandoc resource arg [%s %s]", flag, candidate)
+				}
+			} else {
+				logging.LogWarnf("ignore pandoc resource arg [%s] without value", flag)
+			}
+			continue
+		}
+
+		prefix := flag + "="
+		if strings.HasPrefix(arg, prefix) {
+			candidate := strings.TrimPrefix(arg, prefix)
+			if isValidPandocResourcePath(candidate) {
+				normalized = append(normalized, flag, candidate)
+				hasValid = true
+			} else {
+				logging.LogWarnf("ignore invalid pandoc resource arg [%s]", arg)
+			}
+			continue
+		}
+
+		normalized = append(normalized, arg)
+	}
+
+	if !hasValid && isValidPandocResourcePath(fallbackPath) {
+		normalized = append(normalized, flag, fallbackPath)
+	}
+	return normalized
+}
+
+func isValidPandocResourcePath(resourcePath string) bool {
+	normalized := strings.Trim(strings.TrimSpace(resourcePath), "\"'")
+	return "" != normalized && gulu.File.IsExist(normalized)
+}
+
+func normalizePandocReferenceDocParams(params string) (normalized string, changed bool) {
+	params = strings.TrimSpace(util.ReplaceNewline(params, " "))
+	if "" == params && "" == util.PandocTemplatePath {
+		return "", false
+	}
+
+	args, err := shellquote.Split(params)
+	if nil != err {
+		logging.LogErrorf("parse pandoc params [%s] failed: %s", params, err)
+		return params, false
+	}
+	nextArgs := ensurePandocResourceArg(args, "--reference-doc", util.PandocTemplatePath)
+	if slices.Equal(args, nextArgs) {
+		return params, false
+	}
+	return shellquote.Join(nextArgs...), true
 }
 
 func ExportMarkdownHTML(id, savePath string, docx, merge bool) (name, dom string) {
@@ -1142,7 +1194,7 @@ func processIFrame(tree *parse.Tree) {
 func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	tree, _ := LoadTreeByBlockID(id)
 	if nil == tree {
-		return
+		return ErrBlockNotFound
 	}
 
 	if merge {
@@ -1150,6 +1202,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 		tree, mergeErr = mergeSubDocs(tree)
 		if nil != mergeErr {
 			logging.LogErrorf("merge sub docs failed: %s", mergeErr)
+			err = mergeErr
 			return
 		}
 	}
@@ -1172,6 +1225,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	font.UserFontDir = filepath.Join(util.GetUserConfDir(), "fonts")
 	if mkdirErr := os.MkdirAll(font.UserFontDir, 0755); nil != mkdirErr {
 		logging.LogErrorf("mkdir [%s] failed: %s", font.UserFontDir, mkdirErr)
+		err = mkdirErr
 		return
 	}
 	if loadErr := api.LoadUserFonts(); nil != loadErr {
@@ -1181,6 +1235,7 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 	pdfCtx, ctxErr := api.ReadContextFile(p)
 	if nil != ctxErr {
 		logging.LogErrorf("read pdf context failed: %s", ctxErr)
+		err = ctxErr
 		return
 	}
 
@@ -1190,11 +1245,59 @@ func ProcessPDF(id, p string, merge, removeAssets, watermark bool) (err error) {
 
 	pdfcpuVer := model.VersionStr
 	model.VersionStr = "SourceFlow v" + util.Ver + " (pdfcpu " + pdfcpuVer + ")"
-	if writeErr := api.WriteContextFile(pdfCtx, p); nil != writeErr {
-		logging.LogErrorf("write pdf context failed: %s", writeErr)
+	defer func() {
+		model.VersionStr = pdfcpuVer
+	}()
+
+	processedPath := filepath.Join(filepath.Dir(p), fmt.Sprintf(".%s.sourceflow-postprocess-%s.pdf", filepath.Base(p), gulu.Rand.String(7)))
+	if writeErr := api.WriteContextFile(pdfCtx, processedPath); nil != writeErr {
+		logging.LogErrorf("write pdf context [%s] failed: %s", processedPath, writeErr)
+		err = writeErr
+		return
+	}
+	defer os.Remove(processedPath)
+
+	if _, verifyErr := api.ReadContextFile(processedPath); nil != verifyErr {
+		logging.LogErrorf("verify processed pdf [%s] failed: %s", processedPath, verifyErr)
+		err = verifyErr
+		return
+	}
+
+	if replaceErr := replacePDFWithProcessedFile(p, processedPath); nil != replaceErr {
+		logging.LogErrorf("replace pdf [%s] with processed pdf [%s] failed: %s", p, processedPath, replaceErr)
+		err = replaceErr
 		return
 	}
 	return
+}
+
+func replacePDFWithProcessedFile(originalPath, processedPath string) (err error) {
+	backupPath := filepath.Join(filepath.Dir(originalPath), fmt.Sprintf(".%s.sourceflow-raw-%s.pdf", filepath.Base(originalPath), gulu.Rand.String(7)))
+	if err = os.Rename(originalPath, backupPath); nil != err {
+		return fmt.Errorf("backup original PDF failed: %w", err)
+	}
+
+	keepBackup := false
+	defer func() {
+		if keepBackup {
+			return
+		}
+		if removeErr := os.Remove(backupPath); nil != removeErr && !os.IsNotExist(removeErr) {
+			logging.LogWarnf("remove backup pdf [%s] failed: %s", backupPath, removeErr)
+		}
+	}()
+
+	if err = os.Rename(processedPath, originalPath); nil == err {
+		return nil
+	}
+
+	replaceErr := err
+	if restoreErr := os.Rename(backupPath, originalPath); nil != restoreErr {
+		keepBackup = true
+		return fmt.Errorf("replace processed PDF failed: %w; restore original PDF failed: %w", replaceErr, restoreErr)
+	}
+	keepBackup = true
+	return fmt.Errorf("replace processed PDF failed and original PDF was restored: %w", replaceErr)
 }
 
 func processPDFWatermark(pdfCtx *model.Context, watermark bool) {

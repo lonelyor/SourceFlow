@@ -1,11 +1,14 @@
 {
 	"scripts": {
 		"audit:brand-cleanup": "node ./scripts/audit-brand-cleanup.js",
+		"test:stability": "node -e \"const cp=require('child_process');const list=process.platform==='win32'?[['py',['-3']],['python',[]],['python3',[]]]:[['python3',[]],['python',[]]];for(const [cmd,prefix] of list){const r=cp.spawnSync(cmd,[...prefix,'./编译.py','--stability-gate-only'],{stdio:'inherit'});if(!r.error)process.exit(r.status??0);if(r.error.code!=='ENOENT')throw r.error;}console.error('Python 3 not found');process.exit(1);\"",
 		"test:plugin-system": "node ./scripts/test-plugin-system.js",
 		"smoke:desktop-startup": "node ./scripts/smoke-desktop-startup.js",
 		"smoke:portable-kernel": "node ./scripts/smoke-portable-kernel.js",
 		"validate:portable-release": "node ./scripts/validate-portable-release.js",
 		"validate:docker-release": "node ./scripts/validate-docker-release.js",
+		"diagnostics": "python ./诊断包.py",
+		"plugin:bazaar": "python ./插件商城.py",
 		"release": "python ./发布.py",
 		"release:preview": "python ./发布.py --preview"
 	},

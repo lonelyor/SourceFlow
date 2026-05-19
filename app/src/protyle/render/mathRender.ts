@@ -3,7 +3,7 @@ import {addStyle} from "../util/addStyle";
 import {Constants} from "../../constants";
 import {hasNextSibling, hasPreviousSibling} from "../wysiwyg/getBlock";
 import {hasClosestBlock} from "../util/hasClosest";
-import {looseJsonParse} from "../../util/functions";
+import {parseStructuredDataObject} from "../../util/structuredData";
 import {genRenderFrame} from "./util";
 
 export const mathRender = (element: Element, cdn = Constants.PROTYLE_CDN, maxWidth = false) => {
@@ -21,11 +21,11 @@ export const mathRender = (element: Element, cdn = Constants.PROTYLE_CDN, maxWid
         addScript(`${cdn}/js/katex/mhchem.min.js?v=0.16.9`, "protyleKatexMhchemScript").then(() => {
             mathElements.forEach((mathElement: HTMLElement) => {
                 mathElement.setAttribute("data-render", "true");
-                let macros = {};
+                let macros: Record<string, any> = {};
                 try {
-                    macros = looseJsonParse(window.sourceflow.config.editor.katexMacros || "{}");
+                    macros = parseStructuredDataObject(window.sourceflow.config.editor.katexMacros || "{}", "KaTeX macros");
                 } catch (e) {
-                    console.warn("KaTex macros is not JSON", e);
+                    console.warn("KaTeX macros is not a valid object", e);
                 }
                 const isBlock = mathElement.tagName === "DIV";
                 try {

@@ -1,16 +1,16 @@
 {
-  "url": "lonelyor/sourceflow-hello@24019cc1db296abc82ca95ad979b87f27364c25f",
-  "updated": "2026-04-20T06:41:32.198Z",
+  "url": "lonelyor/sourceflow-hello@ee6dcfa25bb99e4f9415e60fb298beaab1295f93",
+  "updated": "2026-04-25T18:54:41Z",
   "stars": 0,
   "openIssues": 0,
-  "size": 3247,
-  "installSize": 4653,
+  "size": 3008,
+  "installSize": 4641,
   "package": {
     "author": "By lonelyor",
     "url": "https://github.com/lonelyor/sourceflow-hello",
     "version": "1.0.0",
     "minAppVersion": "0.1.0",
-    "archiveSHA256": "934510f92479ddc7bb8c8e3774c1dff7f40c8f69a9ecb8a6f98be5f625a40017",
+    "archiveSHA256": "200d9e041ede17389e3143e21bbf4078ce4526031f2e2dde2ad6fed866098563",
     "permissions": [
       "storage",
       "ui.topbar",
@@ -42,12 +42,10 @@
       "github": "lonelyor"
     },
     "keywords": [
-      "sourceflow",
       "plugin",
+      "sourceflow",
       "sourceflow-hello"
     ],
-    "name": "sourceflow-hello",
-    "iconURL": "icon.png",
-    "previewURL": "icon.png"
+    "name": "sourceflow-hello"
   }
 }
