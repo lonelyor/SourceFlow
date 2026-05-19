@@ -1691,7 +1691,7 @@ func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta)
 	case AssistantAIProviderGemini:
-		return chatWithAssistantAIProvider(profile, systemPrompt, messages, opts)
+		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta)
 	default:
 		return chatAssistantAIOpenAICompatibleStream(profile, systemPrompt, messages, onDelta, opts)
 	}
@@ -1701,12 +1701,7 @@ func canStreamAssistantAIProvider(profile *AssistantAIProfile) bool {
 	if nil == profile {
 		return false
 	}
-	switch normalizeAssistantAIProvider(profile.Provider) {
-	case AssistantAIProviderGemini:
-		return false
-	default:
-		return true
-	}
+	return true
 }
 
 func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
