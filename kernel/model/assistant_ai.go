@@ -615,86 +615,23 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		}
 	}
 
-	chatOpts := &assistantAIChatOptions{
-		EnableTools: useNativeTools,
-		Context:     req.Context,
-		UserPrompt:  strings.TrimSpace(req.Message),
+	loopResult, loopErr := runAssistantAIToolLoop(&assistantAIToolLoopParams{
+		DB:              db,
+		Profile:         profile,
+		SessionID:       session.ID,
+		Context:         req.Context,
+		UserPrompt:      strings.TrimSpace(req.Message),
+		SystemPrompt:    systemPrompt,
+		ContextMessages: contextMessages,
+		EnableTools:     req.EnableTools,
+		UseNativeTools:  useNativeTools,
+		OnDelta:         onDelta,
+	})
+	if nil != loopErr {
+		return nil, loopErr
 	}
-
-	var reply *assistantAIProviderReply
-	if nil != onDelta && canStreamAssistantAIProvider(profile) {
-		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta, chatOpts)
-	} else {
-		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages, chatOpts)
-	}
-	if err != nil {
-		return nil, err
-	}
-	var toolResults []*AssistantAIToolResult
-	if req.EnableTools && useNativeTools && 0 < len(reply.ToolCalls) {
-		toolResults = executeAssistantAINativeToolCalls(db, profile, session.ID, req.Context, reply.ToolCalls)
-		followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
-		followupMessages = append(followupMessages, &AssistantAIMessage{
-			ID:        ast.NewNodeID(),
-			SessionID: session.ID,
-			Role:      "assistant",
-			Content:   strings.TrimSpace(reply.Content),
-			Metadata: map[string]interface{}{
-				"nativeToolCalls": reply.ToolCalls,
-			},
-			CreatedAt: time.Now().UnixMilli(),
-		})
-		followupMessages = append(followupMessages, &AssistantAIMessage{
-			ID:        ast.NewNodeID(),
-			SessionID: session.ID,
-			Role:      "user",
-			Content:   buildAssistantAIToolFollowupPrompt(toolResults),
-			CreatedAt: time.Now().UnixMilli(),
-		})
-		followupSystem := strings.TrimSpace(req.System)
-		if "" == followupSystem {
-			followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
-		}
-		reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
-		if err != nil {
-			return nil, err
-		}
-	} else if req.EnableTools && !useNativeTools {
-		if envelope, ok := parseAssistantAIToolEnvelope(reply.Content); ok {
-			if 0 < len(envelope.ToolCalls) {
-				fallbackReply := ""
-				if 1 == len(envelope.ToolCalls) {
-					fallbackReply = strings.TrimSpace(envelope.Reply)
-				}
-				toolResults = executeAssistantAIRequestedTools(db, profile, session.ID, req.Context, envelope.ToolCalls, fallbackReply, strings.TrimSpace(req.Message))
-				followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
-				followupMessages = append(followupMessages, &AssistantAIMessage{
-					ID:        ast.NewNodeID(),
-					SessionID: session.ID,
-					Role:      "assistant",
-					Content:   strings.TrimSpace(reply.Content),
-					CreatedAt: time.Now().UnixMilli(),
-				})
-				followupMessages = append(followupMessages, &AssistantAIMessage{
-					ID:        ast.NewNodeID(),
-					SessionID: session.ID,
-					Role:      "user",
-					Content:   buildAssistantAIToolFollowupPrompt(toolResults),
-					CreatedAt: time.Now().UnixMilli(),
-				})
-				followupSystem := strings.TrimSpace(req.System)
-				if "" == followupSystem {
-					followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
-				}
-				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
-				if err != nil {
-					return nil, err
-				}
-			} else if "" != strings.TrimSpace(envelope.Reply) {
-				reply.Content = strings.TrimSpace(envelope.Reply)
-			}
-		}
-	}
+	reply := loopResult.Reply
+	toolResults := loopResult.ToolResults
 
 	assistantMessage := &AssistantAIMessage{
 		ID:                ast.NewNodeID(),
@@ -858,87 +795,23 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 		}
 	}
 
-	editChatOpts := &assistantAIChatOptions{
-		EnableTools: editUseNativeTools,
-		Context:     req.Context,
-		UserPrompt:  strings.TrimSpace(req.Message),
+	editLoopResult, editLoopErr := runAssistantAIToolLoop(&assistantAIToolLoopParams{
+		DB:              db,
+		Profile:         profile,
+		SessionID:       session.ID,
+		Context:         req.Context,
+		UserPrompt:      strings.TrimSpace(req.Message),
+		SystemPrompt:    systemPrompt,
+		ContextMessages: contextMessages,
+		EnableTools:     req.EnableTools,
+		UseNativeTools:  editUseNativeTools,
+		OnDelta:         onDelta,
+	})
+	if nil != editLoopErr {
+		return nil, editLoopErr
 	}
-
-	var reply *assistantAIProviderReply
-	if nil != onDelta && canStreamAssistantAIProvider(profile) {
-		reply, err = chatWithAssistantAIProviderStream(profile, systemPrompt, contextMessages, onDelta, editChatOpts)
-	} else {
-		reply, err = chatWithAssistantAIProvider(profile, systemPrompt, contextMessages, editChatOpts)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var toolResults []*AssistantAIToolResult
-	if req.EnableTools && editUseNativeTools && 0 < len(reply.ToolCalls) {
-		toolResults = executeAssistantAINativeToolCalls(db, profile, session.ID, req.Context, reply.ToolCalls)
-		followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
-		followupMessages = append(followupMessages, &AssistantAIMessage{
-			ID:        ast.NewNodeID(),
-			SessionID: session.ID,
-			Role:      "assistant",
-			Content:   strings.TrimSpace(reply.Content),
-			Metadata: map[string]interface{}{
-				"nativeToolCalls": reply.ToolCalls,
-			},
-			CreatedAt: time.Now().UnixMilli(),
-		})
-		followupMessages = append(followupMessages, &AssistantAIMessage{
-			ID:        ast.NewNodeID(),
-			SessionID: session.ID,
-			Role:      "user",
-			Content:   buildAssistantAIToolFollowupPrompt(toolResults),
-			CreatedAt: time.Now().UnixMilli(),
-		})
-		followupSystem := strings.TrimSpace(req.System)
-		if "" == followupSystem {
-			followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
-		}
-		reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
-		if err != nil {
-			return nil, err
-		}
-	} else if req.EnableTools && !editUseNativeTools {
-		if envelope, ok := parseAssistantAIToolEnvelope(reply.Content); ok {
-			if 0 < len(envelope.ToolCalls) {
-				fallbackReply := ""
-				if 1 == len(envelope.ToolCalls) {
-					fallbackReply = strings.TrimSpace(envelope.Reply)
-				}
-				toolResults = executeAssistantAIRequestedTools(db, profile, session.ID, req.Context, envelope.ToolCalls, fallbackReply, strings.TrimSpace(req.Message))
-				followupMessages := append([]*AssistantAIMessage{}, contextMessages...)
-				followupMessages = append(followupMessages, &AssistantAIMessage{
-					ID:        ast.NewNodeID(),
-					SessionID: session.ID,
-					Role:      "assistant",
-					Content:   strings.TrimSpace(reply.Content),
-					CreatedAt: time.Now().UnixMilli(),
-				})
-				followupMessages = append(followupMessages, &AssistantAIMessage{
-					ID:        ast.NewNodeID(),
-					SessionID: session.ID,
-					Role:      "user",
-					Content:   buildAssistantAIToolFollowupPrompt(toolResults),
-					CreatedAt: time.Now().UnixMilli(),
-				})
-				followupSystem := strings.TrimSpace(req.System)
-				if "" == followupSystem {
-					followupSystem = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
-				}
-				reply, err = chatWithAssistantAIProvider(profile, followupSystem, followupMessages, &assistantAIChatOptions{})
-				if err != nil {
-					return nil, err
-				}
-			} else if "" != strings.TrimSpace(envelope.Reply) {
-				reply.Content = strings.TrimSpace(envelope.Reply)
-			}
-		}
-	}
+	reply := editLoopResult.Reply
+	toolResults := editLoopResult.ToolResults
 
 	assistantMessage := &AssistantAIMessage{
 		ID:                ast.NewNodeID(),
