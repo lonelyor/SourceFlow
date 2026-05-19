@@ -1620,12 +1620,19 @@ func readAssistantAINoteAssetFile(args map[string]interface{}, context *Assistan
 }
 
 func readAssistantAIAssetContent(assetID string) (ret map[string]interface{}, err error) {
-	stmt := "SELECT id, name, ext, path, size, updated, content FROM asset_contents_fts_case_insensitive WHERE id = '" + strings.TrimSpace(assetID) + "' LIMIT 1"
-	rows := sql.SelectAssetContentsRawStmt(stmt, 1, 1)
-	if 1 > len(rows) || nil == rows[0] {
+	stmt := "SELECT id, name, ext, path, size, updated, content FROM asset_contents_fts_case_insensitive WHERE id = ? LIMIT 1"
+	rows, queryErr := sql.QueryAssetContentRows(stmt, strings.TrimSpace(assetID))
+	if nil != queryErr {
+		return nil, queryErr
+	}
+	defer rows.Close()
+	if !rows.Next() {
 		return nil, fmt.Errorf("未找到附件内容索引")
 	}
-	item := rows[0]
+	var item sql.AssetContent
+	if scanErr := rows.Scan(&item.ID, &item.Name, &item.Ext, &item.Path, &item.Size, &item.Updated, &item.Content); nil != scanErr {
+		return nil, scanErr
+	}
 	ret = map[string]interface{}{
 		"id":      item.ID,
 		"name":    item.Name,

@@ -41,23 +41,26 @@ const (
 )
 
 var (
-	assistantAIDB     *dbsql.DB
-	assistantAIDBLock sync.Mutex
+	assistantAIDB            *dbsql.DB
+	assistantAIDBLock        sync.Mutex
+	assistantAIHTTPClients   map[string]*http.Client
+	assistantAIHTTPClientsMu sync.Mutex
+)
 
-	assistantAIProviderCatalog = []*AssistantAIProviderType{
-		{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
-		{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
-		{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
-		{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-		{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-		{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
-		{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
-		{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
-		{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
-		{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
-	}
+var assistantAIProviderCatalog = []*AssistantAIProviderType{
+	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
+	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
+	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
+	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
+	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
+	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
+	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
+	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
+	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
+}
 
-	assistantAIProviderBaseURLs = map[string]string{
+var assistantAIProviderBaseURLs = map[string]string{
 		AssistantAIProviderOpenAICompatible: "https://api.openai.com/v1",
 		AssistantAIProviderAnthropic:        "https://api.anthropic.com",
 		AssistantAIProviderGemini:           "https://generativelanguage.googleapis.com",
@@ -68,8 +71,7 @@ var (
 		AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
 		AssistantAIProviderDeepSeek:         "https://api.deepseek.com/v1",
 		AssistantAIProviderOllama:           "http://127.0.0.1:11434/v1",
-	}
-)
+}
 
 type AssistantAIProviderType struct {
 	ID      string `json:"id"`
@@ -1815,9 +1817,9 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1beta") {
-		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent?key=" + url.QueryEscape(profile.APIKey)
+		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent"
 	} else {
-		endpoint += "/v1beta/models/" + url.PathEscape(profile.Model) + ":generateContent?key=" + url.QueryEscape(profile.APIKey)
+		endpoint += "/v1beta/models/" + url.PathEscape(profile.Model) + ":generateContent"
 	}
 
 	reqBody := map[string]interface{}{
@@ -1831,6 +1833,10 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		reqBody["system_instruction"] = map[string]interface{}{
 			"parts": []map[string]string{{"text": systemPrompt}},
 		}
+	}
+
+	headers := map[string]string{
+		"x-goog-api-key": profile.APIKey,
 	}
 
 	var resp struct {
@@ -1851,7 +1857,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		} `json:"error"`
 	}
 
-	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, nil, reqBody, &resp); err != nil {
+	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp); err != nil {
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
@@ -1922,8 +1928,24 @@ func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint stri
 	return json.NewDecoder(resp.Body).Decode(respBody)
 }
 
+func init() {
+	assistantAIHTTPClients = map[string]*http.Client{}
+}
+
 func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, err error) {
-	transport := &http.Transport{}
+	cacheKey := strings.TrimSpace(profile.Proxy)
+	assistantAIHTTPClientsMu.Lock()
+	defer assistantAIHTTPClientsMu.Unlock()
+
+	if cached, ok := assistantAIHTTPClients[cacheKey]; ok {
+		return cached, nil
+	}
+
+	transport := &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     90 * time.Second,
+	}
 	if proxyURL := strings.TrimSpace(profile.Proxy); "" != proxyURL {
 		parsed, parseErr := url.Parse(proxyURL)
 		if parseErr != nil {
@@ -1932,7 +1954,9 @@ func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, er
 		transport.Proxy = http.ProxyURL(parsed)
 	}
 	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	return &http.Client{Transport: transport, Timeout: time.Duration(timeout) * time.Second}, nil
+	ret = &http.Client{Transport: transport, Timeout: time.Duration(timeout) * time.Second}
+	assistantAIHTTPClients[cacheKey] = ret
+	return ret, nil
 }
 
 func buildAssistantAIOpenAICompatibleMessages(systemPrompt string, messages []*AssistantAIMessage) []openai.ChatCompletionMessage {

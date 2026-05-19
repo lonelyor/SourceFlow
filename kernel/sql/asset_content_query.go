@@ -180,6 +180,10 @@ func scanAssetContentRows(rows *sql.Rows) (ret *AssetContent) {
 	return
 }
 
+func QueryAssetContentRows(query string, args ...interface{}) (*sql.Rows, error) {
+	return queryAssetContent(query, args...)
+}
+
 func queryAssetContent(query string, args ...interface{}) (*sql.Rows, error) {
 	query = strings.TrimSpace(query)
 	if "" == query {
