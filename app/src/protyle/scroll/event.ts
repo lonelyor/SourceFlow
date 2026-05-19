@@ -7,6 +7,8 @@ import {hasClosestBlock, hasClosestByClassName} from "../util/hasClosest";
 import {stickyRow} from "../render/av/row";
 
 let getIndexTimeout: number;
+let stickyRowRaf: number;
+
 export const scrollEvent = (protyle: IProtyle, element: HTMLElement) => {
     element.addEventListener("scroll", () => {
         const elementRect = element.getBoundingClientRect();
@@ -21,11 +23,20 @@ export const scrollEvent = (protyle: IProtyle, element: HTMLElement) => {
             }
         }
 
-        protyle.wysiwyg.element.querySelectorAll(".av").forEach((item: HTMLElement) => {
-            if (item.dataset.render !== "true") {
-                return;
-            }
-            stickyRow(item, elementRect, "all");
+        if (stickyRowRaf) {
+            cancelAnimationFrame(stickyRowRaf);
+        }
+        stickyRowRaf = requestAnimationFrame(() => {
+            stickyRowRaf = 0;
+            protyle.wysiwyg.element.querySelectorAll(".av").forEach((item: HTMLElement) => {
+                if (item.dataset.render !== "true") {
+                    return;
+                }
+                const rect = item.getBoundingClientRect();
+                if (rect.bottom >= elementRect.top - elementRect.height && rect.top <= elementRect.bottom + elementRect.height) {
+                    stickyRow(item, elementRect, "all");
+                }
+            });
         });
 
         if (!protyle.element.classList.contains("block__edit") && !isMobile()) {

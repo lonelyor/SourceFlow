@@ -5,6 +5,7 @@ import {processRender} from "./processCode";
 import {highlightRender} from "../render/highlightRender";
 import {blockRender} from "../render/blockRender";
 import {bgFade, scrollCenter} from "../../util/highlightById";
+import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE} from "./renderScheduler";
 /// #if !MOBILE
 import {pushBack} from "../../util/backForward";
 /// #endif
@@ -230,10 +231,85 @@ const setHTML = (options: {
     if (options.action.includes(Constants.CB_GET_BACKLINK)) {
         foldPassiveType(options.expand, protyle.wysiwyg.element);
     }
-    processRender(protyle.wysiwyg.element);
-    highlightRender(protyle.wysiwyg.element);
-    avRender(protyle.wysiwyg.element, protyle);
-    blockRender(protyle, protyle.wysiwyg.element);
+
+    const contentContainer = protyle.contentElement;
+    const isDynamicLoad = options.action.includes(Constants.CB_GET_APPEND) || options.action.includes(Constants.CB_GET_BEFORE);
+
+    if (isDynamicLoad) {
+        processRender(protyle.wysiwyg.element);
+        highlightRender(protyle.wysiwyg.element);
+        avRender(protyle.wysiwyg.element, protyle);
+        blockRender(protyle, protyle.wysiwyg.element);
+    } else {
+        cancelScheduledRenders();
+
+        const allRenderNodes = protyle.wysiwyg.element.querySelectorAll(".render-node:not([data-render='true'])");
+        const allCodeBlocks = protyle.wysiwyg.element.querySelectorAll(".code-block .hljs:not([data-render='true'])");
+        const allAvBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeAttributeView"]:not([data-render="true"])');
+        const allEmbedBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeBlockQueryEmbed"]:not([data-render="true"])');
+
+        const { visible: visibleRenderNodes, hidden: hiddenRenderNodes } = splitByViewport(Array.from(allRenderNodes), contentContainer);
+        const { visible: visibleCodeBlocks, hidden: hiddenCodeBlocks } = splitByViewport(Array.from(allCodeBlocks), contentContainer);
+
+        for (const node of visibleRenderNodes) {
+            processRender(node);
+        }
+        if (0 < visibleCodeBlocks.length) {
+            for (const block of visibleCodeBlocks) {
+                const codeBlock = block.closest(".code-block") || block;
+                highlightRender(codeBlock as Element);
+            }
+        }
+
+        const deferredTasks: (() => void)[] = [];
+
+        for (let i = 0; i < hiddenRenderNodes.length; i += BATCH_SIZE) {
+            const batch = hiddenRenderNodes.slice(i, i + BATCH_SIZE);
+            deferredTasks.push(() => {
+                for (const node of batch) {
+                    if (node.isConnected) {
+                        processRender(node);
+                    }
+                }
+            });
+        }
+
+        for (let i = 0; i < hiddenCodeBlocks.length; i += BATCH_SIZE) {
+            const batch = hiddenCodeBlocks.slice(i, i + BATCH_SIZE);
+            deferredTasks.push(() => {
+                for (const block of batch) {
+                    if (block.isConnected) {
+                        const codeBlock = block.closest(".code-block") || block;
+                        highlightRender(codeBlock as Element);
+                    }
+                }
+            });
+        }
+
+        for (let i = 0; i < allAvBlocks.length; i += BATCH_SIZE) {
+            const batch = Array.from(allAvBlocks).slice(i, i + BATCH_SIZE);
+            deferredTasks.push(() => {
+                for (const av of batch) {
+                    if (av.isConnected) {
+                        avRender(av, protyle);
+                    }
+                }
+            });
+        }
+
+        for (let i = 0; i < allEmbedBlocks.length; i += BATCH_SIZE) {
+            const batch = Array.from(allEmbedBlocks).slice(i, i + BATCH_SIZE);
+            deferredTasks.push(() => {
+                for (const embed of batch) {
+                    if (embed.isConnected) {
+                        blockRender(protyle, embed);
+                    }
+                }
+            });
+        }
+
+        scheduleRender("deferred-content", deferredTasks);
+    }
     if (options.action.includes(Constants.CB_GET_HISTORY)) {
         return;
     }
