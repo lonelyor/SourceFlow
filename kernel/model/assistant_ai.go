@@ -609,7 +609,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
 
-	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider)
+	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider || AssistantAIProviderGemini == profile.Provider)
 	if req.EnableTools && !useNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
@@ -1618,7 +1618,7 @@ func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt strin
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropic(profile, systemPrompt, messages)
 	case AssistantAIProviderGemini:
-		return chatAssistantAIGemini(profile, systemPrompt, messages)
+		return chatAssistantAIGemini(profile, systemPrompt, messages, opts)
 	default:
 		return chatAssistantAIOpenAICompatible(profile, systemPrompt, messages, opts)
 	}
@@ -1629,7 +1629,7 @@ func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta, opts)
 	case AssistantAIProviderGemini:
-		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta)
+		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta, opts)
 	default:
 		return chatAssistantAIOpenAICompatibleStream(profile, systemPrompt, messages, onDelta, opts)
 	}
@@ -1925,7 +1925,7 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 	return ret, nil
 }
 
-func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1beta") {
 		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent"
@@ -1945,6 +1945,13 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			"parts": []map[string]string{{"text": systemPrompt}},
 		}
 	}
+	if nil != opts && opts.EnableTools {
+		if declarations := buildAssistantAIGeminiTools(profile); 0 < len(declarations) {
+			reqBody["tools"] = []map[string]interface{}{
+				{"function_declarations": declarations},
+			}
+		}
+	}
 
 	headers := map[string]string{
 		"x-goog-api-key": profile.APIKey,
@@ -1955,7 +1962,11 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			FinishReason string `json:"finishReason"`
 			Content      struct {
 				Parts []struct {
-					Text string `json:"text"`
+					Text         string          `json:"text"`
+					FunctionCall *struct {
+						Name string          `json:"name"`
+						Args json.RawMessage `json:"args"`
+					} `json:"functionCall"`
 				} `json:"parts"`
 			} `json:"content"`
 		} `json:"candidates"`
@@ -1979,10 +1990,23 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 	}
 
 	builder := &strings.Builder{}
+	var toolCalls []map[string]interface{}
 	for _, part := range resp.Candidates[0].Content.Parts {
-		builder.WriteString(part.Text)
+		if "" != strings.TrimSpace(part.Text) {
+			builder.WriteString(part.Text)
+		}
+		if nil != part.FunctionCall {
+			toolCalls = append(toolCalls, map[string]interface{}{
+				"id":   fmt.Sprintf("gemini_%s", part.FunctionCall.Name),
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":      part.FunctionCall.Name,
+					"arguments": string(part.FunctionCall.Args),
+				},
+			})
+		}
 	}
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:      strings.TrimSpace(builder.String()),
 		InputTokens:  resp.UsageMetadata.PromptTokenCount,
 		OutputTokens: resp.UsageMetadata.CandidatesTokenCount,
@@ -1991,7 +2015,11 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			"finishReason": resp.Candidates[0].FinishReason,
 			"model":        profile.Model,
 		},
-	}, nil
+	}
+	if 0 < len(toolCalls) {
+		ret.ToolCalls = toolCalls
+	}
+	return ret, nil
 }
 
 func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint string, headers map[string]string, reqBody interface{}, respBody interface{}) (err error) {

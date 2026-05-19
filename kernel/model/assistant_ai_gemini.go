@@ -17,7 +17,11 @@ type geminiStreamChunk struct {
 	Candidates []struct {
 		Content struct {
 			Parts []struct {
-				Text string `json:"text"`
+				Text         string `json:"text"`
+				FunctionCall *struct {
+					Name string          `json:"name"`
+					Args json.RawMessage `json:"args"`
+				} `json:"functionCall"`
 			} `json:"parts"`
 		} `json:"content"`
 		FinishReason string `json:"finishReason"`
@@ -31,7 +35,7 @@ type geminiStreamChunk struct {
 	} `json:"error"`
 }
 
-func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1beta") {
 		endpoint += "/models/" + url.PathEscape(profile.Model) + ":streamGenerateContent?alt=sse"
@@ -49,6 +53,13 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 	if "" != strings.TrimSpace(systemPrompt) {
 		reqBody["system_instruction"] = map[string]interface{}{
 			"parts": []map[string]string{{"text": systemPrompt}},
+		}
+	}
+	if nil != opts && opts.EnableTools {
+		if declarations := buildAssistantAIGeminiTools(profile); 0 < len(declarations) {
+			reqBody["tools"] = []map[string]interface{}{
+				{"function_declarations": declarations},
+			}
 		}
 	}
 
@@ -90,6 +101,7 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 	finishReason := ""
 	inputTokens := 0
 	outputTokens := 0
+	var toolCalls []map[string]interface{}
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -134,10 +146,20 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 					}
 				}
 			}
+			if nil != part.FunctionCall {
+				toolCalls = append(toolCalls, map[string]interface{}{
+					"id":   fmt.Sprintf("gemini_%s", part.FunctionCall.Name),
+					"type": "function",
+					"function": map[string]interface{}{
+						"name":      part.FunctionCall.Name,
+						"arguments": string(part.FunctionCall.Args),
+					},
+				})
+			}
 		}
 	}
 
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:      strings.TrimSpace(builder.String()),
 		InputTokens:  inputTokens,
 		OutputTokens: outputTokens,
@@ -146,5 +168,9 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 			"finishReason": finishReason,
 			"model":        profile.Model,
 		},
-	}, nil
+	}
+	if 0 < len(toolCalls) {
+		ret.ToolCalls = toolCalls
+	}
+	return ret, nil
 }
