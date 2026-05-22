@@ -5,6 +5,7 @@ import {onGet} from "../util/onGet";
 import {isMobile} from "../../util/functions";
 import {hasClosestBlock, hasClosestByClassName} from "../util/hasClosest";
 import {stickyRow} from "../render/av/row";
+import {scheduleHeadingContextSync} from "./headingContext";
 
 let getIndexTimeout: number;
 let stickyRowRaf: number;
@@ -42,6 +43,8 @@ export const scrollEvent = (protyle: IProtyle, element: HTMLElement) => {
         if (!protyle.element.classList.contains("block__edit") && !isMobile()) {
             protyle.contentElement.setAttribute("data-scrolltop", element.scrollTop.toString());
         }
+
+        scheduleHeadingContextSync(protyle, elementRect);
 
         if (!window.sourceflow.dragElement) { //
             hideElements(["gutterOnly"], protyle);
