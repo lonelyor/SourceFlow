@@ -32,9 +32,11 @@
 - 拖拽落点提示、当前路径/选中项/拖拽目标状态区分、可展开目标等待反馈默认启用。
 - 文档树层级引导线作为外观配置提供，默认关闭。
 - 文档树密度作为外观配置提供，取值为紧凑、默认、宽松；默认保持当前行距。
+- 文档树子文档数量作为外观配置提供，默认关闭；开启后仅在有子文档的条目右侧显示弱化数字，`0` 不显示。
+- 文档树全部笔记总数作为外观配置提供，默认开启；顶部标题栏右侧以轻量胶囊显示已打开笔记本下的文档总数。
 - 设置入口放在“设置 > 外观 > 文档树”，配置写入外观配置，不引入独立配置文件。
-- 外观配置字段为 `appearance.fileTreeGuides` 与 `appearance.fileTreeDensity`，后端对密度做 `compact/default/loose` 归一化。
-- 文档树面板通过 `file-tree--guides`、`file-tree--density-*` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
+- 外观配置字段为 `appearance.fileTreeGuides`、`appearance.fileTreeDensity`、`appearance.fileTreeDocCount` 与 `appearance.fileTreeTotalCount`，后端对密度做 `compact/default/loose` 归一化。
+- 文档树面板通过 `file-tree--guides`、`file-tree--density-*`、`file-tree--doc-count`、`file-tree--total-count` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
 
 ## 编辑器结构提示
 

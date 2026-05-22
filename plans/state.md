@@ -18,6 +18,8 @@
 - 编辑器结构提示设计为显示增强：`displayHeadingLevel` 默认开启，`displayBlockLineNumber` 默认关闭，提示不写入文档内容。
 - 编辑器结构提示已实现：设置页新增标题层级标识和块编号开关，Protyle 编辑区按配置挂载显示类，标题标识覆盖编辑区内可见标题，块编号仅编号顶层块。
 - 编辑器结构提示已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`go test ./conf` 和 `go test ./api`。
+- 用户确认继续增强文档树外观：新增子文档数量开关和全部笔记总数开关。
+- 本轮文档数量显示设计为外观增强，不改变文档移动、排序或数据语义；子文档数量默认关闭，顶部全部笔记总数默认开启。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。
