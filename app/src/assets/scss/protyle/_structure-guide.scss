@@ -1,0 +1,79 @@
+.protyle-wysiwyg {
+  &--block-lines {
+    counter-reset: sf-block-line;
+  }
+
+  &--block-lines > [data-node-id] > [spellcheck]::before,
+  &--heading-levels [data-type="NodeHeading"] > [spellcheck]::before {
+    align-items: center;
+    background-color: var(--b3-theme-surface-lighter);
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+    box-sizing: border-box;
+    color: var(--b3-theme-on-surface);
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 500;
+    height: 16px;
+    justify-content: center;
+    line-height: 16px;
+    margin-right: 8px;
+    min-width: 22px;
+    padding: 0 5px;
+    user-select: none;
+    vertical-align: middle;
+  }
+
+  &--block-lines > [data-node-id] > [spellcheck]::before {
+    content: counter(sf-block-line);
+    counter-increment: sf-block-line;
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h1"] > [spellcheck]::before {
+    content: "H1";
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h2"] > [spellcheck]::before {
+    content: "H2";
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h3"] > [spellcheck]::before {
+    content: "H3";
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h4"] > [spellcheck]::before {
+    content: "H4";
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h5"] > [spellcheck]::before {
+    content: "H5";
+  }
+
+  &--heading-levels [data-type="NodeHeading"][data-subtype="h6"] > [spellcheck]::before {
+    content: "H6";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h1"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H1";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h2"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H2";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h3"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H3";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h4"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H4";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h5"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H5";
+  }
+
+  &--block-lines.protyle-wysiwyg--heading-levels > [data-type="NodeHeading"][data-subtype="h6"] > [spellcheck]::before {
+    content: counter(sf-block-line) " H6";
+  }
+}

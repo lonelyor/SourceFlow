@@ -69,6 +69,22 @@ export const editor = {
 </label>
 <label class="fn__flex b3-label">
     <div class="fn__flex-1">
+        ${editorText("displayHeadingLevel", "Show heading level markers")}
+        <div class="b3-label__text">${editorText("displayHeadingLevelTip", "Always show H1-H6 before headings so the level is not inferred only from font size.")}</div>
+    </div>
+    <span class="fn__space"></span>
+    <input class="b3-switch fn__flex-center" id="displayHeadingLevel" type="checkbox"${window.sourceflow.config.editor.displayHeadingLevel !== false ? " checked" : ""}/>
+</label>
+<label class="fn__flex b3-label">
+    <div class="fn__flex-1">
+        ${editorText("displayBlockLineNumber", "Show block numbers")}
+        <div class="b3-label__text">${editorText("displayBlockLineNumberTip", "Show stable numbers before top-level blocks for paragraph location; automatic wrapped lines are not renumbered.")}</div>
+    </div>
+    <span class="fn__space"></span>
+    <input class="b3-switch fn__flex-center" id="displayBlockLineNumber" type="checkbox"${window.sourceflow.config.editor.displayBlockLineNumber ? " checked" : ""}/>
+</label>
+<label class="fn__flex b3-label">
+    <div class="fn__flex-1">
         ${window.sourceflow.languages.md7}
         <div class="b3-label__text">${window.sourceflow.languages.md8}</div>
     </div>
@@ -556,6 +572,8 @@ export const editor = {
                 rtl: (editor.element.querySelector("#rtl") as HTMLInputElement).checked,
                 readOnly: (editor.element.querySelector("#readOnly") as HTMLInputElement).checked,
                 displayBookmarkIcon: (editor.element.querySelector("#displayBookmarkIcon") as HTMLInputElement).checked,
+                displayBlockLineNumber: (editor.element.querySelector("#displayBlockLineNumber") as HTMLInputElement).checked,
+                displayHeadingLevel: (editor.element.querySelector("#displayHeadingLevel") as HTMLInputElement).checked,
                 displayNetImgMark: (editor.element.querySelector("#displayNetImgMark") as HTMLInputElement).checked,
                 assetUploadProvider,
                 picgoServerURL: (editor.element.querySelector("#picgoServerURL") as HTMLInputElement).value.trim(),

@@ -16,7 +16,8 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
     const configIndex = [
         // 编辑器
         getLang(["config", "fullWidth", "md7", "md8", "md37", "md38",
-            "editor", "md2", "md3", "md12", "md16", "md27", "md28", "md29", "md30", "md31", "md32", "md33", "md34",
+            "editor", "md2", "md3", "md12", "md16", "displayHeadingLevel", "displayHeadingLevelTip",
+            "displayBlockLineNumber", "displayBlockLineNumberTip", "md27", "md28", "md29", "md30", "md31", "md32", "md33", "md34",
             "md39", "md40", "fontSizeTip", "fontSize", "font", "font1", "generateHistory", "generateHistoryInterval",
             "historyRetentionDays", "historyRetentionDaysTip", "clearHistory", "katexMacros", "katexMacrosTip",
             "editReadonly", "editReadonlyTip", "embedBlockBreadcrumb", "embedBlockBreadcrumbTip", "outlineOutdentTip",

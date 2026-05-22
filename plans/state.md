@@ -16,6 +16,8 @@
 - 为满足全量测试通过要求，已修复 `kernel/api/file.go` 与 `kernel/api/import.go` 中阻断 `go test ./api` 的既有日志格式串 vet 问题；修复仅调整日志调用格式，不改变业务语义。
 - 用户提出笔记编辑页缺少行号和明确标题层级提示；本轮已确认按“顶层块编号 + 标题 H1-H6 常驻标识”实现，不做真实视觉换行号。
 - 编辑器结构提示设计为显示增强：`displayHeadingLevel` 默认开启，`displayBlockLineNumber` 默认关闭，提示不写入文档内容。
+- 编辑器结构提示已实现：设置页新增标题层级标识和块编号开关，Protyle 编辑区按配置挂载显示类，标题标识覆盖编辑区内可见标题，块编号仅编号顶层块。
+- 编辑器结构提示已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`go test ./conf` 和 `go test ./api`。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。

@@ -106,6 +106,7 @@ import {reloadProtyle} from "../util/reload";
 import {updateCalloutType} from "./callout";
 import {nbsp2space, removeZWJ} from "../util/normalizeText";
 import {getAVViewAttr, getFullWidthAttr} from "../../util/attrCompat";
+import {applyEditorStructureGuideClasses} from "../util/structureGuide";
 
 import {bindCommonEvent as bindCommonEventImpl} from "./commonEvents";
 import {bindEvent as bindEditorEventImpl} from "./editorEvents";
@@ -133,6 +134,7 @@ export class WYSIWYG {
         if (window.sourceflow.config.editor.displayBookmarkIcon) {
             this.element.classList.add("protyle-wysiwyg--attr");
         }
+        applyEditorStructureGuideClasses(this.element);
         this.bindCommonEvent(protyle);
         this.bindEvent(protyle);
         if (protyle.options.action.includes(Constants.CB_GET_HISTORY)) {

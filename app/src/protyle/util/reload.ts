@@ -9,6 +9,7 @@ import {isSupportCSSHL, searchMarkRender} from "../render/searchMarkRender";
 import {hideKeyboardToolbar} from "../../mobile/util/keyboardToolbar";
 /// #endif
 import {restoreLuteMarkdownSyntax} from "./paste";
+import {applyEditorStructureGuideClasses} from "./structureGuide";
 
 export const reloadProtyle = (protyle: IProtyle, focus: boolean, updateReadonly?: boolean) => {
     /// #if MOBILE
@@ -24,6 +25,7 @@ export const reloadProtyle = (protyle: IProtyle, focus: boolean, updateReadonly?
     } else {
         protyle.wysiwyg.element.classList.remove("protyle-wysiwyg--attr");
     }
+    applyEditorStructureGuideClasses(protyle.wysiwyg.element);
     if (protyle.title) {
         protyle.title.element.removeAttribute("data-render");
         protyle.title.element.setAttribute("spellcheck", window.sourceflow.config.editor.spellcheck.toString());
