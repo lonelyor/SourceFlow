@@ -35,6 +35,42 @@ import {runFolderAIReview} from "../assistant/folderReview";
 
 const loadHomepageModule = () => import("../homepage");
 
+const getSiblingFileItems = (liElement: HTMLElement) => {
+    return Array.from(liElement.parentElement.children).filter((item): item is HTMLElement => {
+        return item instanceof HTMLElement && item.tagName === "LI" && item.hasAttribute("data-path");
+    });
+};
+
+const moveFileTreeSort = (liElement: HTMLElement, notebookId: string, direction: "up" | "down") => {
+    const siblingItems = getSiblingFileItems(liElement);
+    const currentIndex = siblingItems.indexOf(liElement);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= siblingItems.length) {
+        return;
+    }
+    const orderedItems = [...siblingItems];
+    orderedItems[currentIndex] = siblingItems[targetIndex];
+    orderedItems[targetIndex] = liElement;
+    const paths = orderedItems.map((item) => item.getAttribute("data-path"));
+    fetchPost("/api/filetree/changeSort", {
+        paths,
+        notebook: notebookId
+    }, () => {
+        const targetElement = siblingItems[targetIndex];
+        const nextULElement = liElement.nextElementSibling?.tagName === "UL" ? liElement.nextElementSibling : undefined;
+        if (direction === "up") {
+            targetElement.before(liElement);
+        } else if (targetElement.nextElementSibling?.tagName === "UL") {
+            targetElement.nextElementSibling.after(liElement);
+        } else {
+            targetElement.after(liElement);
+        }
+        if (nextULElement) {
+            liElement.after(nextULElement);
+        }
+    });
+};
+
 const initMultiMenu = (selectItemElements: NodeListOf<Element>, app: App) => {
     window.sourceflow.menus.menu.element.setAttribute("data-from", Constants.MENU_FROM_DOC_TREE_MORE_ITEMS);
     const fileItemElement = Array.from(selectItemElements).find(item => {
@@ -474,9 +510,31 @@ export const initFileMenu = (app: App, notebookId: string, pathString: string, l
     const id = liElement.getAttribute("data-node-id");
     let name = liElement.getAttribute("data-name");
     name = getDisplayName(name, false, true);
+    const fileLiElement = liElement as HTMLElement;
     if (!window.sourceflow.config.readonly) {
         const topElement = hasTopClosestByTag(liElement, "UL");
         if (window.sourceflow.config.fileTree.sort === 6 || (topElement && topElement.dataset.sortmode === "6")) {
+            const siblingItems = getSiblingFileItems(fileLiElement);
+            const currentSortIndex = siblingItems.indexOf(fileLiElement);
+            window.sourceflow.menus.menu.append(new MenuItem({
+                id: "moveToUp",
+                icon: "iconUp",
+                label: window.sourceflow.languages.moveToUp,
+                disabled: currentSortIndex <= 0,
+                click: () => {
+                    moveFileTreeSort(fileLiElement, notebookId, "up");
+                }
+            }).element);
+            window.sourceflow.menus.menu.append(new MenuItem({
+                id: "moveToDown",
+                icon: "iconDown",
+                label: window.sourceflow.languages.moveToDown,
+                disabled: currentSortIndex < 0 || currentSortIndex >= siblingItems.length - 1,
+                click: () => {
+                    moveFileTreeSort(fileLiElement, notebookId, "down");
+                }
+            }).element);
+            window.sourceflow.menus.menu.append(new MenuItem({id: "separator_sort_move", type: "separator"}).element);
             window.sourceflow.menus.menu.append(new MenuItem({
                 id: "newDocAbove",
                 icon: "iconBefore",
