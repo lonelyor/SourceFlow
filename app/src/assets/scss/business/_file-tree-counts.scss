@@ -1,0 +1,68 @@
+.file-tree.sf__file {
+  .file-tree__total-count {
+    align-items: center;
+    box-sizing: border-box;
+    color: var(--b3-theme-on-surface);
+    display: none;
+    flex-shrink: 0;
+    font-size: 12px;
+    height: 22px;
+    line-height: 20px;
+    max-width: 120px;
+    overflow: hidden;
+    padding: 0 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background-color: var(--b3-theme-surface);
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+  }
+
+  &.file-tree--total-count .file-tree__total-count {
+    display: inline-flex;
+  }
+
+  .file-tree__total-count-label {
+    color: var(--b3-theme-on-surface-light);
+    margin-right: 4px;
+  }
+
+  .file-tree__doc-count {
+    align-self: center;
+    box-sizing: border-box;
+    color: var(--b3-theme-on-surface-light);
+    display: none;
+    flex-shrink: 0;
+    font-size: 12px;
+    height: 18px;
+    line-height: 18px;
+    margin-left: 4px;
+    min-width: 18px;
+    padding: 0 6px;
+    text-align: center;
+    user-select: none;
+    border-radius: 999px;
+  }
+
+  &.file-tree--doc-count .file-tree__doc-count {
+    display: inline-block;
+  }
+
+  &.file-tree--doc-count .b3-list-item:hover .file-tree__doc-count,
+  &.file-tree--doc-count .b3-list-item--focus .file-tree__doc-count,
+  &.file-tree--doc-count .file-tree__item--current .file-tree__doc-count {
+    color: var(--b3-theme-on-surface);
+    background-color: var(--b3-list-hover);
+  }
+
+  &.file-tree--density-compact .file-tree__doc-count {
+    height: 16px;
+    line-height: 16px;
+    padding: 0 5px;
+  }
+
+  &.file-tree--density-loose .file-tree__doc-count {
+    height: 20px;
+    line-height: 20px;
+  }
+}

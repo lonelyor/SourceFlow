@@ -292,6 +292,14 @@ declare namespace Config {
          * Doc tree row density
          */
         fileTreeDensity: "compact" | "default" | "loose";
+        /**
+         * Whether to show child doc counts in the doc tree
+         */
+        fileTreeDocCount: boolean;
+        /**
+         * Whether to show the total doc count in the doc tree header
+         */
+        fileTreeTotalCount: boolean;
         statusBar: IAppearanceStatusBar;
     }
 

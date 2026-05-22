@@ -55,4 +55,10 @@ func TestNewAppearanceUsesDefaultStartupLogo(t *testing.T) {
 	if appearance.FileTreeGuides {
 		t.Fatalf("conf.NewAppearance().FileTreeGuides = true, want false")
 	}
+	if appearance.FileTreeDocCount {
+		t.Fatalf("conf.NewAppearance().FileTreeDocCount = true, want false")
+	}
+	if nil == appearance.FileTreeTotalCount || !*appearance.FileTreeTotalCount {
+		t.Fatalf("conf.NewAppearance().FileTreeTotalCount = false, want true")
+	}
 }

@@ -94,6 +94,7 @@ import {
     getFileTreeDensityOptions,
     normalizeFileTreeDensity
 } from "../appearance/fileTreeAppearance";
+import {refreshAllFileTreeTotalCounts} from "../layout/dock/fileTreeCounts";
 import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
 import {escapeAttr, escapeHtml} from "../util/escape";
 
@@ -264,6 +265,20 @@ export const appearance = {
             <input class="b3-switch fn__flex-center" id="fileTreeGuides" type="checkbox"${window.sourceflow.config.appearance.fileTreeGuides ? " checked" : ""}>
         </label>
         <div class="b3-label__text">${fileTreeAppearanceTexts.guidesTip}</div>
+        <div class="fn__hr"></div>
+        <label class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.docCount}</div>
+            <span class="fn__space"></span>
+            <input class="b3-switch fn__flex-center" id="fileTreeDocCount" type="checkbox"${window.sourceflow.config.appearance.fileTreeDocCount ? " checked" : ""}>
+        </label>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.docCountTip}</div>
+        <div class="fn__hr"></div>
+        <label class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.totalCount}</div>
+            <span class="fn__space"></span>
+            <input class="b3-switch fn__flex-center" id="fileTreeTotalCount" type="checkbox"${window.sourceflow.config.appearance.fileTreeTotalCount !== false ? " checked" : ""}>
+        </label>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.totalCountTip}</div>
         <div class="fn__hr"></div>
         <div class="fn__flex config__item">
             <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.density}</div>
@@ -695,6 +710,8 @@ export const appearance = {
         const modeElementValue = parseInt((appearance.element.querySelector("#mode") as HTMLSelectElement).value);
         const OSTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
+        const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
+        const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
         const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
         fetchPost("/api/setting/setAppearance", Object.assign({}, window.sourceflow.config.appearance, {
             icon: (appearance.element.querySelector("#icon") as HTMLSelectElement).value,
@@ -722,6 +739,8 @@ export const appearance = {
             mascotOpacity: getMascotOpacityValue(appearance.element),
             mascotScale: getMascotScaleValue(appearance.element),
             fileTreeGuides: fileTreeGuidesElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeGuides,
+            fileTreeDocCount: fileTreeDocCountElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeDocCount,
+            fileTreeTotalCount: fileTreeTotalCountElement?.checked ?? (window.sourceflow.config.appearance.fileTreeTotalCount !== false),
             fileTreeDensity: normalizeFileTreeDensity(fileTreeDensityElement?.value || window.sourceflow.config.appearance.fileTreeDensity),
             statusBar: {
                 msgTaskDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskDatabaseIndexCommitDisabled,
@@ -1211,9 +1230,17 @@ export const appearance = {
                 hideStatusBarElement.checked = !!data.hideStatusBar;
             }
             const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
+            const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
+            const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
             const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
             if (fileTreeGuidesElement) {
                 fileTreeGuidesElement.checked = !!data.fileTreeGuides;
+            }
+            if (fileTreeDocCountElement) {
+                fileTreeDocCountElement.checked = !!data.fileTreeDocCount;
+            }
+            if (fileTreeTotalCountElement) {
+                fileTreeTotalCountElement.checked = data.fileTreeTotalCount !== false;
             }
             if (fileTreeDensityElement) {
                 fileTreeDensityElement.value = normalizeFileTreeDensity(data.fileTreeDensity);
@@ -1254,6 +1281,7 @@ export const appearance = {
             syncMascotControls(appearance.element);
         }
         applyFileTreeAppearance(data);
+        refreshAllFileTreeTotalCounts();
         loadAssets(data);
         document.querySelector("#barMode use")?.setAttribute("xlink:href", `#icon${window.sourceflow.config.appearance.modeOS ? "Mode" : (window.sourceflow.config.appearance.mode === 0 ? "Light" : "Dark")}`);
     }

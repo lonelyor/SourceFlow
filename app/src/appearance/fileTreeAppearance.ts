@@ -24,6 +24,10 @@ export const getFileTreeAppearanceTexts = () => ({
     detail: window.sourceflow.languages.fileTreeAppearanceTip || "",
     guides: window.sourceflow.languages.fileTreeGuides || "Show hierarchy guides",
     guidesTip: window.sourceflow.languages.fileTreeGuidesTip || "",
+    docCount: window.sourceflow.languages.fileTreeDocCount || "Show child doc counts",
+    docCountTip: window.sourceflow.languages.fileTreeDocCountTip || "",
+    totalCount: window.sourceflow.languages.fileTreeTotalCount || "Show total doc count",
+    totalCountTip: window.sourceflow.languages.fileTreeTotalCountTip || "",
     density: window.sourceflow.languages.fileTreeDensity || "Row density",
     densityTip: window.sourceflow.languages.fileTreeDensityTip || "",
 });
@@ -37,6 +41,8 @@ export const applyFileTreeAppearanceToPanel = (
     }
     const density = normalizeFileTreeDensity(appearanceData.fileTreeDensity);
     panelElement.classList.toggle("file-tree--guides", !!appearanceData.fileTreeGuides);
+    panelElement.classList.toggle("file-tree--doc-count", !!appearanceData.fileTreeDocCount);
+    panelElement.classList.toggle("file-tree--total-count", appearanceData.fileTreeTotalCount !== false);
     panelElement.classList.remove(...fileTreeDensityClasses);
     panelElement.classList.add(`file-tree--density-${density}`);
 };

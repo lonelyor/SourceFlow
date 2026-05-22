@@ -200,6 +200,10 @@ func InitConf() {
 	if nil == Conf.Appearance.StatusBar {
 		Conf.Appearance.StatusBar = &util.StatusBar{}
 	}
+	if nil == Conf.Appearance.FileTreeTotalCount {
+		fileTreeTotalCount := true
+		Conf.Appearance.FileTreeTotalCount = &fileTreeTotalCount
+	}
 	util.StatusBarCfg = Conf.Appearance.StatusBar
 	if nil == Conf.FileTree {
 		Conf.FileTree = conf.NewFileTree()

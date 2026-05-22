@@ -1190,6 +1190,10 @@ func setAppearance(c *gin.Context) {
 	if nil == appearance.StatusBar {
 		appearance.StatusBar = &util.StatusBar{}
 	}
+	if nil == appearance.FileTreeTotalCount {
+		fileTreeTotalCount := true
+		appearance.FileTreeTotalCount = &fileTreeTotalCount
+	}
 	appearance.CodeBlockSkinLight = normalizeAppearanceCodeBlockSkin(appearance.CodeBlockSkinLight)
 	appearance.CodeBlockSkinDark = normalizeAppearanceCodeBlockSkin(appearance.CodeBlockSkinDark)
 	appearance.StartupPageImage = normalizeAppearanceStartupPageImage(appearance.StartupPageImage)

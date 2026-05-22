@@ -72,6 +72,7 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
             "appearance5", "appearance6", "appearance8", "appearance9", "appearance10", "appearance11", "appearance16",
             "appearance17", "appearance18", "resetLayout", "reset", "icon", "themeLight", "themeDark", "close", "themeOS", "theme",
             "theme2", "theme11", "theme12", "fileTreeAppearance", "fileTreeAppearanceTip", "fileTreeGuides", "fileTreeGuidesTip",
+            "fileTreeDocCount", "fileTreeDocCountTip", "fileTreeTotalCount", "fileTreeTotalCountTip",
             "fileTreeDensity", "fileTreeDensityTip", "fileTreeDensityCompact", "fileTreeDensityDefault", "fileTreeDensityLoose",
             "customEmoji", "customEmojiTip", "refresh"]),
 

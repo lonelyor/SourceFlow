@@ -42,6 +42,12 @@ import {
     setFileTreeDragExpandState,
     setFileTreeDropLabel
 } from "./fileTreeDrag";
+import {
+    genFileTreeDocCountHTML,
+    genFileTreeTotalCountHTML,
+    refreshFileTreeTotalCount,
+    syncFileTreeDocCountElement
+} from "./fileTreeCounts";
 
 export class Files extends Model {
     public element: HTMLElement;
@@ -91,6 +97,7 @@ export class Files extends Model {
                                         previousId = item.id;
                                     }
                                 });
+                                this.refreshTotalCount();
                             });
                             break;
                         case "closeBox":
@@ -106,6 +113,7 @@ export class Files extends Model {
                         case "create":
                             if (data.data.listDocTree) {
                                 this.selectItem(data.data.box.id, data.data.path);
+                                this.refreshTotalCount();
                             } else {
                                 this.updateItemArrow(data.data.box.id, data.data.path);
                             }
@@ -114,6 +122,7 @@ export class Files extends Model {
                         case "heading2doc":
                         case "li2doc":
                             this.selectItem(data.data.box.id, data.data.path);
+                            this.refreshTotalCount();
                             break;
                         case "renamenotebook":
                             this.element.querySelector(`[data-url="${data.data.box}"] .b3-list-item__text`).innerHTML = escapeHtml(data.data.name);
@@ -132,6 +141,8 @@ export class Files extends Model {
         <svg class="block__logoicon"><use xlink:href="#iconFiles"></use></svg>${window.sourceflow.languages.fileTree}
     </div>
     <span class="fn__flex-1 fn__space"></span>
+    ${genFileTreeTotalCountHTML()}
+    <span class="fn__space"></span>
     <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.selectOpen1}${updateHotkeyAfterTip(window.sourceflow.config.keymap.general.selectOpen1.custom)}"><svg><use xlink:href='#iconFocus'></use></svg></span>
     <span class="fn__space"></span>
     <span data-type="collapse" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.collapse}${updateHotkeyAfterTip(window.sourceflow.config.keymap.editor.general.collapse.custom)}">
@@ -795,6 +806,7 @@ export class Files extends Model {
         const liElement = this.element.querySelector(`li[data-node-id="${data.data.rootID}"]`);
         if (liElement) {
             liElement.setAttribute("data-count", data.data.subFileCount);
+            syncFileTreeDocCountElement(liElement, data.data.subFileCount);
             liElement.querySelector(".ariaLabel")?.setAttribute("aria-label", this.genDocAriaLabel(data.data, escapeGreat));
             if (data.data.subFileCount === 0) {
                 liElement.querySelector(".b3-list-item__toggle")?.classList.add("fn__hidden");
@@ -807,6 +819,7 @@ export class Files extends Model {
     private updateItemArrow(notebookId: string, filePath: string) {
         const treeElement = this.element.querySelector(`[data-url="${notebookId}"]`);
         if (!treeElement) {
+            this.refreshTotalCount();
             return;
         }
         let currentPath = filePath;
@@ -833,6 +846,7 @@ export class Files extends Model {
                 break;
             }
         }
+        this.refreshTotalCount();
     }
 
     private genNotebook(item: INotebook) {
@@ -901,6 +915,7 @@ data-type="navigation-root" data-path="/">
             this.element.scrollTop = scrollTop;
         });
         this.refreshPublishAccessSwitch();
+        this.refreshTotalCount();
         if (!init) {
             return;
         }
@@ -914,6 +929,10 @@ data-type="navigation-root" data-path="/">
             svgElement.classList.add("b3-list-item__arrow--open");
             this.closeElement.lastElementChild.classList.remove("fn__none");
         }
+    }
+
+    private refreshTotalCount() {
+        refreshFileTreeTotalCount(this.actionsElement);
     }
 
     private onRemove(data: IWebSocketData) {
@@ -936,6 +955,7 @@ data-type="navigation-root" data-path="/">
                         this.closeElement.classList.remove("fn__none");
                     }
                 }
+                this.refreshTotalCount();
             });
             if (data.cmd === "removeBox") {
                 const removeElement = this.closeElement.querySelector(`li[data-url="${data.data.box}"]`);
@@ -977,6 +997,7 @@ data-type="navigation-root" data-path="/">
                 }
             }
         });
+        this.refreshTotalCount();
     }
 
     private onMount(data: { data: { box: INotebook, existed?: boolean }, callback?: string }) {
@@ -1017,6 +1038,7 @@ data-type="navigation-root" data-path="/">
                     this.element.insertAdjacentHTML("afterbegin", html);
                 }
             }
+            this.refreshTotalCount();
         });
     }
 
@@ -1314,6 +1336,7 @@ data-type="navigation-root" data-path="/">
         const ariaLabel = this.genDocAriaLabel(item, escapeAriaLabel);
         const paddingLeft = (item.path.split("/").length - 1) * 18;
         const editingPublishAccess = this.element.classList.contains("file-tree__publish-access--active");
+        const docCountHTML = genFileTreeDocCountHTML(item.subFileCount);
         return `<li data-node-id="${item.id}" data-name="${Lute.EscapeHTMLStr(item.name)}" draggable="true" data-count="${item.subFileCount}"
 data-type="navigation-file"
 style="--file-toggle-width:${paddingLeft + 18}px"
@@ -1331,6 +1354,7 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
     <span data-type="new" class="b3-list-item__action b3-tooltips b3-tooltips__nw${window.sourceflow.config.readonly ? " fn__none" : ""}" aria-label="${window.sourceflow.languages.newSubDoc}">
         <svg><use xlink:href="#iconAdd"></use></svg>
     </span>
+    ${docCountHTML}
     ${countHTML}
 </li>`;
     }
