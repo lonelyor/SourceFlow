@@ -14,6 +14,8 @@
 - 文档树外观增强已实现：设置页新增文档树外观配置，层级引导线默认关，密度默认 `default`，拖拽落点显示右侧提示，延迟展开显示“将展开”，当前打开项、选中项和拖拽目标使用不同视觉状态。
 - 文档树外观增强已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、SCSS 编译、语言 JSON 校验，以及 Go 归一化/默认值目标测试。
 - 为满足全量测试通过要求，已修复 `kernel/api/file.go` 与 `kernel/api/import.go` 中阻断 `go test ./api` 的既有日志格式串 vet 问题；修复仅调整日志调用格式，不改变业务语义。
+- 用户提出笔记编辑页缺少行号和明确标题层级提示；本轮已确认按“顶层块编号 + 标题 H1-H6 常驻标识”实现，不做真实视觉换行号。
+- 编辑器结构提示设计为显示增强：`displayHeadingLevel` 默认开启，`displayBlockLineNumber` 默认关闭，提示不写入文档内容。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。

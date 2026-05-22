@@ -35,3 +35,12 @@
 - 设置入口放在“设置 > 外观 > 文档树”，配置写入外观配置，不引入独立配置文件。
 - 外观配置字段为 `appearance.fileTreeGuides` 与 `appearance.fileTreeDensity`，后端对密度做 `compact/default/loose` 归一化。
 - 文档树面板通过 `file-tree--guides`、`file-tree--density-*` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
+
+## 编辑器结构提示
+
+- 笔记编辑页结构提示只改善阅读与定位，不写入文档内容，不改变块数据、Markdown 导入导出或编辑事务语义。
+- 本轮不实现真实视觉换行号；编辑区提供顶层块编号，用于段落/块定位，自动换行不重新编号。
+- 标题层级通过标题文字左侧常驻 `H1` - `H6` 标识表达，避免只依赖字号判断标题层级。
+- 配置字段为 `editor.displayBlockLineNumber` 与 `editor.displayHeadingLevel`。
+- `displayBlockLineNumber` 默认关闭，避免突然提高所有文档视觉密度；`displayHeadingLevel` 默认开启，满足标题层级默认可见。
+- 前端通过 Protyle WYSIWYG 容器类控制显示，样式使用伪元素渲染结构提示，不参与编辑内容保存。
