@@ -48,6 +48,11 @@ import {
     refreshFileTreeTotalCount,
     syncFileTreeDocCountElement
 } from "./fileTreeCounts";
+import {
+    FileTreeNavigation,
+    genFileTreeStatusMarksHTML,
+    syncFileTreeStatusMarksElement
+} from "./fileTreeNavigation";
 
 export class Files extends Model {
     public element: HTMLElement;
@@ -55,6 +60,8 @@ export class Files extends Model {
     public closeElement: HTMLElement;
     public lastSelectedElement: Element = null;
     private actionsElement: HTMLElement;
+    private navigationElement: HTMLElement;
+    private navigation: FileTreeNavigation;
 
     constructor(options: { tab: Tab, app: App }) {
         super({
@@ -155,6 +162,7 @@ export class Files extends Model {
     <span class="fn__space"></span>
     <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.min}${updateHotkeyAfterTip(window.sourceflow.config.keymap.general.closeTab.custom)}"><svg><use xlink:href='#iconMin'></use></svg></span>
 </div>
+<div class="file-tree__navigation"></div>
 <div class="fn__flex-1" style="padding-top: 2px;"></div>
 <ul class="b3-list fn__flex-column" style="min-height: auto;height:30px;transition: height  .2s cubic-bezier(0, 0, .2, 1) 0ms">
     <li class="b3-list-item" data-type="toggle">
@@ -167,8 +175,10 @@ export class Files extends Model {
     <ul class="fn__none fn__flex-1"></ul>
 </ul>`;
         this.actionsElement = options.tab.panelElement.firstElementChild as HTMLElement;
-        this.element = this.actionsElement.nextElementSibling as HTMLElement;
+        this.navigationElement = this.actionsElement.nextElementSibling as HTMLElement;
+        this.element = this.navigationElement.nextElementSibling as HTMLElement;
         this.closeElement = options.tab.panelElement.lastElementChild as HTMLElement;
+        this.navigation = new FileTreeNavigation(this.navigationElement, this);
         this.closeElement.addEventListener("click", (event) => {
             setPanelFocus(this.element.parentElement);
             let target = event.target as HTMLElement;
@@ -807,6 +817,10 @@ export class Files extends Model {
         if (liElement) {
             liElement.setAttribute("data-count", data.data.subFileCount);
             syncFileTreeDocCountElement(liElement, data.data.subFileCount);
+            syncFileTreeStatusMarksElement(liElement, {
+                bookmark: data.data.bookmark || "",
+                subFileCount: Number(data.data.subFileCount || 0),
+            });
             liElement.querySelector(".ariaLabel")?.setAttribute("aria-label", this.genDocAriaLabel(data.data, escapeGreat));
             if (data.data.subFileCount === 0) {
                 liElement.querySelector(".b3-list-item__toggle")?.classList.add("fn__hidden");
@@ -916,6 +930,7 @@ data-type="navigation-root" data-path="/">
         });
         this.refreshPublishAccessSwitch();
         this.refreshTotalCount();
+        this.navigation.refreshShortcuts();
         if (!init) {
             return;
         }
@@ -1049,6 +1064,9 @@ data-type="navigation-root" data-path="/">
         }
         fileItemElement.setAttribute("data-name", Lute.EscapeHTMLStr(data.title));
         fileItemElement.querySelector(".b3-list-item__text").innerHTML = escapeHtml(data.title);
+        if (fileItemElement.classList.contains("file-tree__item--current")) {
+            this.navigation.updateCurrentPath(fileItemElement as HTMLElement);
+        }
     }
 
     private onMove(response: IWebSocketData) {
@@ -1206,11 +1224,20 @@ data-type="navigation-root" data-path="/">
         });
         target.classList.add("b3-list-item--focus");
         target.classList.add("file-tree__item--current");
+        this.navigation.updateCurrentPath(target);
 
         if (isScroll) {
             const elementRect = this.element.getBoundingClientRect();
             this.element.scrollTop = this.element.scrollTop + (target.getBoundingClientRect().top - (elementRect.top + elementRect.height / 2));
         }
+    }
+
+    public openDoc(rootID: string) {
+        void openFileById({
+            app: this.app,
+            id: rootID,
+            action: [Constants.CB_GET_FOCUS, Constants.CB_GET_SCROLL],
+        });
     }
 
     public getLeaf(liElement: Element, notebookId: string, focusUpdate = false) {
@@ -1337,6 +1364,7 @@ data-type="navigation-root" data-path="/">
         const paddingLeft = (item.path.split("/").length - 1) * 18;
         const editingPublishAccess = this.element.classList.contains("file-tree__publish-access--active");
         const docCountHTML = genFileTreeDocCountHTML(item.subFileCount);
+        const statusMarksHTML = genFileTreeStatusMarksHTML(item);
         return `<li data-node-id="${item.id}" data-name="${Lute.EscapeHTMLStr(item.name)}" draggable="true" data-count="${item.subFileCount}"
 data-type="navigation-file"
 style="--file-toggle-width:${paddingLeft + 18}px"
@@ -1348,6 +1376,7 @@ class="b3-list-item b3-list-item--hide-action" data-path="${item.path}">
     <span class="b3-list-item__switch b3-tooltips b3-tooltips__n${editingPublishAccess ? "" : " fn__none"}" aria-label="${window.sourceflow.languages.publishAccess}">${getPublishAccessOptionByLevel("public").iconHTML}</span>
     <span class="b3-list-item__text ariaLabel" data-position="parentE"
 aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
+    ${statusMarksHTML}
     <span data-type="more-file" class="b3-list-item__action b3-tooltips b3-tooltips__nw" aria-label="${window.sourceflow.languages.more}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </span>

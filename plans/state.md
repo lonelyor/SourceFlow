@@ -24,6 +24,8 @@
 - 文档树数量显示已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`go test ./conf` 和 `go test ./api`。
 - 用户确认按三阶段做易用性增强：阶段一文档树导航，阶段二正文定位，阶段三整理提示和块级链接；孤立文档暂不处理。
 - 阶段一只使用已有低成本数据做文档树状态标识，先覆盖书签、子文档和引用数，不在本阶段扫描附件或任务。
+- 易用性增强阶段一已实现：文档树新增快速过滤、当前路径条、最近编辑入口、常用文档轻量入口和行内状态标识；常用文档基于最近浏览记录，不新增频次统计数据结构。
+- 阶段一已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`git diff --check`、`kernel/api` 与 `kernel/conf` Go 测试；从仓库根目录执行 Go 测试会失败，因为 Go module 位于 `kernel/`。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。
