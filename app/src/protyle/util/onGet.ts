@@ -22,6 +22,7 @@ import {stickyRow} from "../render/av/row";
 import {getContenteditableElement} from "../wysiwyg/getBlock";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {getReadonlyAttr} from "../../util/attrCompat";
+import {scheduleNoteHints} from "../noteHints";
 
 export const onGet = (options: {
     data: IWebSocketData,
@@ -361,6 +362,7 @@ const setHTML = (options: {
         protyle.breadcrumb.toggleExit(!options.action.includes(Constants.CB_GET_ALL));
         protyle.breadcrumb.render(protyle);
     }
+    scheduleNoteHints(protyle);
     if (options.afterCB) {
         options.afterCB();
     }

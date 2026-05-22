@@ -48,6 +48,16 @@ export const copySubMenu = (ids: string[], accelerator = true, focusElement?: El
                 focusBlock(focusElement);
             }
         }
+    }, {
+        id: "copyBlockLocationLink",
+        iconHTML: "",
+        label: window.sourceflow.languages.copyBlockLocationLink,
+        click: () => {
+            copyTextByType(ids, "locationProtocolMd");
+            if (focusElement) {
+                focusBlock(focusElement);
+            }
+        }
     },
         /// #if BROWSER
         {

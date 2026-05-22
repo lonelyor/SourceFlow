@@ -30,6 +30,8 @@
 - 易用性增强阶段二已实现：编辑器滚动时同步当前标题到大纲，正文显示 Sticky 当前标题条并高亮当前标题；大纲点击会触发正文定位高亮；折叠标题增加省略提示和弱边线，不改变折叠数据。
 - 阶段二已通过 TypeScript 编译、SCSS 编译、`git diff --check`、`kernel/api` 与 `kernel/conf` Go 测试。
 - 易用性增强阶段三设计边界：整理提示仅覆盖当前编辑器的空文档和同名文档；块级定位链接作为复制菜单增强；孤立文档不处理。
+- 易用性增强阶段三已实现：当前编辑器显示空正文提示和同笔记本同名文档提示，复制菜单新增“复制块定位链接”，输出带可读路径/块文本的 Markdown `sf://blocks/` 链接。
+- 阶段三已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`git diff --check`、`kernel/api` 与 `kernel/conf` Go 测试。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。
