@@ -8,7 +8,6 @@ import {getDisplayName, pathPosix, setNoteBook} from "../../util/pathName";
 import {getNewFilePath, newFile} from "../../util/newFile";
 import {initFileMenu, initNavigationMenu, sortMenu} from "../../menus/navigation";
 import {MenuItem} from "../../menus/Menu";
-import {showMessage} from "../../dialog/message";
 import {
     getPublishAccessLevel,
     getPublishAccessOptionByLevel,
@@ -20,7 +19,6 @@ import {mountHelp, newNotebook} from "../../util/mount";
 import {isNotCtrl, isOnlyMeta, setStorageVal, updateHotkeyAfterTip} from "../../protyle/util/compatibility";
 import {openFileById} from "../../editor/util";
 import {
-    hasClosestByAttribute,
     hasClosestByClassName,
     hasClosestByTag,
     hasTopClosestByTag
@@ -34,6 +32,12 @@ import {ipcRenderer} from "electron";
 import {hideTooltip, showTooltip} from "../../dialog/tooltip";
 import {selectOpenTab} from "./util";
 import {buildWorkbenchViewNoteMenu} from "../../workbench/viewNoteMenu";
+import {
+    clearFileTreeDropClasses,
+    getFileTreeNotebookElement,
+    isFileTreePathInside,
+    resolveFileTreeMoveDropElement
+} from "./fileTreeDrag";
 
 export class Files extends Model {
     public element: HTMLElement;
@@ -445,6 +449,15 @@ export class Files extends Model {
                 setPanelFocus(this.element.parentElement);
             }
         });
+        let dragExpandTimer = 0;
+        let dragExpandElement: HTMLElement;
+        const clearDragExpandTimer = () => {
+            if (dragExpandTimer) {
+                window.clearTimeout(dragExpandTimer);
+                dragExpandTimer = 0;
+            }
+            dragExpandElement = undefined;
+        };
         this.element.addEventListener("dragstart", (event: DragEvent & { target: HTMLElement }) => {
             if (isTouchDevice()) {
                 event.stopPropagation();
@@ -504,6 +517,8 @@ export class Files extends Model {
                 }
             });
             window.sourceflow.dragElement = undefined;
+            clearFileTreeDropClasses(this.element);
+            clearDragExpandTimer();
             /// #if !BROWSER
             ipcRenderer.send(Constants.SOURCEFLOW_SEND_WINDOWS, {cmd: "resetTabsStyle", data: "rmDragStyle"});
             /// #else
@@ -516,12 +531,41 @@ export class Files extends Model {
             element: HTMLElement,
             positionY: number,
             rafId: number,
-            sourceOnlyRoot: boolean,
         } = {
             element: null,
             positionY: null,
             rafId: null,
-            sourceOnlyRoot: null
+        };
+        const queueDragExpand = (liElement: HTMLElement) => {
+            const targetType = liElement.getAttribute("data-type");
+            if (!["navigation-root", "navigation-file"].includes(targetType)) {
+                clearDragExpandTimer();
+                return;
+            }
+            const toggleElement = liElement.querySelector(".b3-list-item__toggle");
+            const arrowElement = liElement.querySelector(".b3-list-item__arrow");
+            if (!toggleElement || !arrowElement || toggleElement.classList.contains("fn__hidden") ||
+                arrowElement.classList.contains("b3-list-item__arrow--open")) {
+                clearDragExpandTimer();
+                return;
+            }
+            if (dragExpandElement === liElement && dragExpandTimer) {
+                return;
+            }
+            clearDragExpandTimer();
+            dragExpandElement = liElement;
+            dragExpandTimer = window.setTimeout(() => {
+                const notebookElement = getFileTreeNotebookElement(liElement);
+                if (notebookElement && document.contains(liElement) && liElement.classList.contains("dragover")) {
+                    this.getLeaf(liElement, notebookElement.getAttribute("data-url"), true);
+                }
+                clearDragExpandTimer();
+            }, 650);
+        };
+        const hasMovableFileSelection = () => {
+            return Array.from(this.element.querySelectorAll(".b3-list-item--focus")).some((item: HTMLElement) => {
+                return item.getAttribute("data-type") === "navigation-file";
+            });
         };
         this.element.addEventListener("dragover", (event: DragEvent & { target: HTMLElement }) => {
             if (window.sourceflow.config.readonly || !window.sourceflow.dragElement || event.dataTransfer.types.includes(Constants.SOURCEFLOW_DROP_TAB)) {
@@ -540,88 +584,89 @@ export class Files extends Model {
             }
             dragOverLastObj.rafId = requestAnimationFrame(() => {
                 dragOverLastObj.rafId = null;
-                let liElement = event.target.closest("li");
+                let liElement = event.target.closest("li") as HTMLElement;
                 if (!liElement) {
-                    liElement = document.elementFromPoint(event.clientX, event.clientY - 1).closest("li");
+                    liElement = document.elementFromPoint(event.clientX, event.clientY - 1)?.closest("li");
                 }
-                if (!liElement) {
-                    dragOverLastObj.element = null;
-                    event.preventDefault();
-                    return;
-                }
-                const targetType = liElement.getAttribute("data-type");
-                if (dragOverLastObj.element !== liElement) {
-                    dragOverLastObj.element?.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                    if (gutterType) {
-                        // 块标拖拽
+                if (gutterType) {
+                    if (!liElement) {
+                        dragOverLastObj.element = null;
+                        event.preventDefault();
+                        return;
+                    }
+                    const targetType = liElement.getAttribute("data-type");
+                    if (dragOverLastObj.element !== liElement) {
+                        dragOverLastObj.element?.classList.remove("dragover", "dragover__bottom", "dragover__top");
                         const gutterTypes = gutterType.replace(Constants.SOURCEFLOW_DROP_GUTTER, "").split(Constants.ZWSP);
                         if (!["nodelistitem", "nodeheading"].includes(gutterTypes[0])) {
                             event.preventDefault();
                             return;
                         }
-                    } else if (liElement.classList.contains("b3-list-item--focus")) {
-                        // 选中的文档不能拖拽到自己上，但允许标题拖拽到文档树的选中文档上 https://github.com/lonelyor/SourceFlow/issues/6552
-                        event.preventDefault();
-                        return;
                     }
-
-                    dragOverLastObj.sourceOnlyRoot = gutterType ? false : true;
-                    if (dragOverLastObj.sourceOnlyRoot) {
-                        const focusItems = this.element.querySelectorAll(".b3-list-item--focus");
-                        for (let i = 0; i < focusItems.length; i++) {
-                            if (focusItems[i].getAttribute("data-type") === "navigation-file") {
-                                dragOverLastObj.sourceOnlyRoot = false;
-                                break;
-                            }
+                    if (dragOverLastObj.element && dragOverLastObj.element === liElement && dragOverLastObj.positionY !== event.clientY) {
+                        const notebookElement = getFileTreeNotebookElement(liElement);
+                        if (!notebookElement) {
+                            event.preventDefault();
+                            return;
                         }
-                    }
-                    if (dragOverLastObj.sourceOnlyRoot && targetType !== "navigation-root") {
-                        event.preventDefault();
-                        return;
-                    }
-                }
-                if (dragOverLastObj.element && dragOverLastObj.element === liElement && dragOverLastObj.positionY !== event.clientY) {
-                    const notebookElement = hasClosestByAttribute(liElement, "data-sortmode", null);
-                    if (!notebookElement) {
-                        event.preventDefault();
-                        return;
-                    }
-                    const notebookSort = notebookElement.getAttribute("data-sortmode");
-                    if ((dragOverLastObj.sourceOnlyRoot && targetType === "navigation-root" && window.sourceflow.config.fileTree.sort === 6) ||
-                        (!dragOverLastObj.sourceOnlyRoot && targetType !== "navigation-root" &&
-                            (notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15")))
-                    ) {
-                        const nodeRect = liElement.getBoundingClientRect();
-                        const dragHeight = nodeRect.height * .2;
-                        if (targetType === "navigation-root" && dragOverLastObj.sourceOnlyRoot) {
-                            if (event.clientY > nodeRect.top + nodeRect.height / 2) {
+                        const notebookSort = notebookElement.getAttribute("data-sortmode");
+                        if (targetType !== "navigation-root" &&
+                            (notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15"))) {
+                            const nodeRect = liElement.getBoundingClientRect();
+                            const dragHeight = nodeRect.height * .2;
+                            if (event.clientY > nodeRect.bottom - dragHeight) {
                                 liElement.classList.remove("dragover");
                                 liElement.classList.add("dragover__bottom");
-                            } else {
+                            } else if (event.clientY < nodeRect.top + dragHeight) {
                                 liElement.classList.remove("dragover");
                                 liElement.classList.add("dragover__top");
+                            } else {
+                                liElement.classList.remove("dragover__top", "dragover__bottom");
                             }
-                        } else if (event.clientY > nodeRect.bottom - dragHeight) {
-                            liElement.classList.remove("dragover");
-                            liElement.classList.add("dragover__bottom");
-                        } else if (event.clientY < nodeRect.top + dragHeight) {
-                            liElement.classList.remove("dragover");
-                            liElement.classList.add("dragover__top");
-                        } else {
-                            liElement.classList.remove("dragover__top", "dragover__bottom");
+                        }
+                        if (!liElement.classList.contains("dragover__top") && !liElement.classList.contains("dragover__bottom")) {
+                            liElement.classList.add("dragover");
                         }
                     }
-                    if (liElement.classList.contains("dragover__top") || liElement.classList.contains("dragover__bottom") ||
-                        (targetType === "navigation-root" && dragOverLastObj.sourceOnlyRoot)) {
-                        // do nothing
-                    } else {
-                        liElement.classList.add("dragover");
+                    if (dragOverLastObj.element !== liElement) {
+                        dragOverLastObj.element = liElement;
                     }
+                    dragOverLastObj.positionY = event.clientY;
+                    event.preventDefault();
+                    return;
+                }
+
+                liElement = resolveFileTreeMoveDropElement(this.element, event);
+                if (!liElement || !["navigation-root", "navigation-file"].includes(liElement.getAttribute("data-type")) ||
+                    liElement.classList.contains("b3-list-item--focus") || !hasMovableFileSelection()) {
+                    clearFileTreeDropClasses(this.element);
+                    clearDragExpandTimer();
+                    dragOverLastObj.element = null;
+                    event.dataTransfer.dropEffect = "none";
+                    event.preventDefault();
+                    return;
+                }
+                const toPath = liElement.getAttribute("data-path");
+                const isInvalidTarget = Array.from(this.element.querySelectorAll(".b3-list-item--focus")).some((item: HTMLElement) => {
+                    return item.getAttribute("data-type") === "navigation-file" &&
+                        isFileTreePathInside(toPath, item.getAttribute("data-path"));
+                });
+                if (isInvalidTarget) {
+                    clearFileTreeDropClasses(this.element);
+                    clearDragExpandTimer();
+                    dragOverLastObj.element = null;
+                    event.dataTransfer.dropEffect = "none";
+                    event.preventDefault();
+                    return;
                 }
                 if (dragOverLastObj.element !== liElement) {
+                    clearFileTreeDropClasses(this.element);
+                    liElement.classList.add("dragover");
                     dragOverLastObj.element = liElement;
                 }
+                queueDragExpand(liElement);
                 dragOverLastObj.positionY = event.clientY;
+                event.dataTransfer.dropEffect = "move";
                 event.preventDefault();
             });
             event.preventDefault();
@@ -630,27 +675,26 @@ export class Files extends Model {
         this.element.addEventListener("dragleave", () => {
             counter--;
             if (counter === 0) {
-                this.element.querySelectorAll(".dragover, .dragover__bottom, .dragover__top").forEach((item: HTMLElement) => {
-                    item.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                });
+                clearFileTreeDropClasses(this.element);
+                clearDragExpandTimer();
             }
         });
         this.element.addEventListener("dragenter", (event) => {
             event.preventDefault();
             counter++;
         });
-        this.element.addEventListener("drop", async (event: DragEvent & { target: HTMLElement }) => {
+        this.element.addEventListener("drop", (event: DragEvent & { target: HTMLElement }) => {
             counter = 0;
-            const newElement = this.element.querySelector(".dragover, .dragover__bottom, .dragover__top");
+            clearDragExpandTimer();
+            const newElement = this.element.querySelector(".dragover, .dragover__bottom, .dragover__top") as HTMLElement;
             if (!newElement) {
                 return;
             }
-            const newUlElement = hasTopClosestByTag(newElement, "UL");
-            if (!newUlElement) {
+            const notebookElement = getFileTreeNotebookElement(newElement);
+            if (!notebookElement) {
                 return;
             }
-            const oldScrollTop = this.element.scrollTop;
-            const toURL = newUlElement.getAttribute("data-url");
+            const toURL = notebookElement.getAttribute("data-url");
             const toPath = newElement.getAttribute("data-path");
             let gutterType = "";
             for (const item of event.dataTransfer.items) {
@@ -692,136 +736,43 @@ export class Files extends Model {
                         fetchPost("/api/filetree/li2Doc", toDocOptions);
                     }
                 }
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+                clearFileTreeDropClasses(this.element);
                 window.sourceflow.dragElement = undefined;
                 return;
             }
             window.sourceflow.dragElement = undefined;
             if (!event.dataTransfer.getData(Constants.SOURCEFLOW_DROP_FILE)) {
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+                clearFileTreeDropClasses(this.element);
                 return;
             }
-            const selectRootElements: HTMLElement[] = [];
-            const selectFileElements: HTMLElement[] = [];
             const fromPaths: string[] = [];
             this.element.querySelectorAll(".b3-list-item--focus").forEach((item: HTMLElement) => {
-                if (item.getAttribute("data-type") === "navigation-root") {
-                    selectRootElements.push(item);
-                } else {
-                    const dataPath = item.getAttribute("data-path");
-                    const isChild = fromPaths.find(itemPath => {
-                        if (dataPath.startsWith(itemPath.replace(".sf", ""))) {
-                            return true;
-                        }
-                    });
-                    if (!isChild) {
-                        // 禁止父节点移动到子节点 https://github.com/lonelyor/SourceFlow/issues/12539
-                        if (newElement.getAttribute("data-path").startsWith(item.dataset.path.replace(".sf", ""))) {
-                            return;
-                        }
-                        selectFileElements.push(item);
-                        fromPaths.push(dataPath);
+                if (item.getAttribute("data-type") !== "navigation-file") {
+                    return;
+                }
+                const dataPath = item.getAttribute("data-path");
+                const parentDir = pathPosix().dirname(dataPath);
+                const parentPath = parentDir === "/" ? "/" : parentDir + ".sf";
+                if (toPath === parentPath) {
+                    return;
+                }
+                const isChild = fromPaths.find(itemPath => {
+                    if (dataPath.startsWith(itemPath.replace(".sf", ""))) {
+                        return true;
                     }
+                });
+                if (!isChild && !isFileTreePathInside(toPath, dataPath)) {
+                    fromPaths.push(dataPath);
                 }
             });
-            if (newElement.classList.contains("dragover")) {
+            if (fromPaths.length > 0) {
                 fetchPost("/api/filetree/moveDocs", {
                     toNotebook: toURL,
                     fromPaths,
                     toPath,
                 });
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                return;
             }
-            if (newElement.classList.contains("dragover__bottom") || newElement.classList.contains("dragover__top")) {
-                const ulSort = newUlElement.getAttribute("data-sortmode");
-                if (window.sourceflow.config.fileTree.sort === 6 && selectRootElements.length > 0 &&
-                    newElement.getAttribute("data-path") === "/") {
-                    if (newElement.classList.contains("dragover__top")) {
-                        selectRootElements.forEach(item => {
-                            newElement.parentElement.before(item.parentElement);
-                        });
-                    } else {
-                        selectRootElements.reverse().forEach(item => {
-                            newElement.parentElement.after(item.parentElement);
-                        });
-                    }
-                    const notebooks: string[] = [];
-                    Array.from(this.element.children).forEach(item => {
-                        notebooks.push(item.getAttribute("data-url"));
-                    });
-                    fetchPost("/api/notebook/changeSortNotebook", {
-                        notebooks,
-                    });
-                } else if ((ulSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && ulSort === "15")) && selectFileElements.length > 0) {
-                    let hasMove = false;
-                    const toDir = pathPosix().dirname(toPath);
-                    if (fromPaths.length > 0) {
-                        await fetchSyncPost("/api/filetree/moveDocs", {
-                            toNotebook: toURL,
-                            fromPaths,
-                            toPath: toDir === "/" ? "/" : toDir + ".sf",
-                            callback: Constants.CB_MOVE_NOLIST,
-                        });
-                        selectFileElements.forEach(item => {
-                            item.setAttribute("data-path", pathPosix().join(toDir, item.getAttribute("data-node-id") + ".sf"));
-                        });
-                        hasMove = true;
-                    }
-                    if (newElement.classList.contains("dragover__top")) {
-                        selectFileElements.forEach(item => {
-                            let nextULElement;
-                            if (item.nextElementSibling && item.nextElementSibling.tagName === "UL") {
-                                nextULElement = item.nextElementSibling;
-                            }
-                            newElement.before(item);
-                            if (nextULElement) {
-                                item.after(nextULElement);
-                            }
-                        });
-                    } else if (newElement.classList.contains("dragover__bottom")) {
-                        selectFileElements.reverse().forEach(item => {
-                            let nextULElement;
-                            if (item.nextElementSibling && item.nextElementSibling.tagName === "UL") {
-                                nextULElement = item.nextElementSibling;
-                            }
-                            if (newElement.nextElementSibling && newElement.nextElementSibling.tagName === "UL") {
-                                newElement.nextElementSibling.after(item);
-                            } else {
-                                newElement.after(item);
-                            }
-                            if (nextULElement) {
-                                item.after(nextULElement);
-                            }
-                        });
-                    }
-                    const paths: string[] = [];
-                    Array.from(newElement.parentElement.children).forEach(item => {
-                        if (item.tagName === "LI") {
-                            paths.push(item.getAttribute("data-path"));
-                        }
-                    });
-                    fetchPost("/api/filetree/changeSort", {
-                        paths,
-                        notebook: toURL
-                    }, () => {
-                        if (hasMove) {
-                            fetchPost("/api/filetree/listDocsByPath", {
-                                notebook: toURL,
-                                path: toDir === "/" ? "/" : toDir + ".sf",
-                                app: Constants.SOURCEFLOW_APPID,
-                            }, response => {
-                                if (response.data.path === "/" && response.data.files.length === 0) {
-                                    showMessage(window.sourceflow.languages.emptyContent);
-                                    return;
-                                }
-                                this.onLsHTML(response.data, oldScrollTop);
-                            });
-                        }
-                    });
-                }
-            }
-            newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+            clearFileTreeDropClasses(this.element);
         });
         this.init();
         if (window.sourceflow.config.openHelp) {
