@@ -11,6 +11,8 @@
 - 阶段一普通文档拖拽已停止触发 `changeSort` / `changeSortNotebook`，排序能力保留为后续独立设计项。
 - 阶段二已为自定义排序模式新增右键菜单“向上移 / 向下移”，排序通过菜单触发，不再依赖普通拖拽。
 - 用户确认继续做文档树外观增强：拖拽落点提示更明确、层级引导线开关默认关、当前路径/选中/拖拽目标状态区分、可展开目标等待反馈、密度紧凑/默认/宽松且默认保持现状。
+- 文档树外观增强已实现：设置页新增文档树外观配置，层级引导线默认关，密度默认 `default`，拖拽落点显示右侧提示，延迟展开显示“将展开”，当前打开项、选中项和拖拽目标使用不同视觉状态。
+- 文档树外观增强已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、SCSS 编译、语言 JSON 校验，以及 Go 归一化/默认值目标测试。
 - v0.1.3 已成功发布到 GitHub Release（4 资产：win 安装包、便携包、page-saver 插件、SHA256SUMS）。
 - 源码已推送至 lonelyor/SourceFlow main 分支（commit 04c87cd）。
 - AI 助手 provider 改造已完成到 OpenAI Compatible 原生 function calling、Anthropic streaming/tool_use、Gemini streaming/functionDeclarations，并新增阿里百炼 / Qwen provider 预设。
@@ -27,6 +29,6 @@
 
 - 阶段一需要修改文件树拖拽交互，必须保持现有 `/api/filetree/moveDocs` 安全边界，不自动改变用户排序配置。
 - `pnpm --dir app run typecheck:app` 当前会被既有 `app/src/protyle/wysiwyg/editorEvents.ts` 模块守卫拦截；本轮使用直接 `tsc --noEmit` 验证文件树改动。
-- 文档树外观增强会新增外观配置字段，需要保持默认值兼容旧配置。
-- 当前工作区存在大量非 AI 助手改动和未跟踪文件；发布脚本会从当前工作区导出公开仓库快照，正式发布前必须确认导出范围不包含未授权内容。
+- `go test ./api` 当前会被既有 `api/file.go`、`api/import.go` 非常量格式串 vet 问题阻断；本轮使用 `go test -vet=off ./api -run ...` 验证新增目标测试。
+- 当前工作区仍有未跟踪 `.kilo/`，本轮不纳入提交；正式发布前仍需确认导出范围不包含未授权内容。
 - GitHub Release 发布需要有效 token，默认从 `.release.local.env` 或环境变量读取；不得在日志或文档中输出 token 内容。

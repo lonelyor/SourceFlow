@@ -1,5 +1,6 @@
 const fileTreeDropClasses = ["dragover", "dragover__bottom", "dragover__top"];
 const fileTreeDropSelector = fileTreeDropClasses.map((item) => `.${item}`).join(", ");
+const fileTreeDropStateSelector = `${fileTreeDropSelector}, [data-drop-label], [data-drag-expand]`;
 
 const toElement = (target: EventTarget | Element | null) => {
     return target instanceof Element ? target : null;
@@ -58,9 +59,36 @@ const findPointList = (treeElement: HTMLElement, event: DragEvent) => {
 };
 
 export const clearFileTreeDropClasses = (treeElement: HTMLElement) => {
-    treeElement.querySelectorAll(fileTreeDropSelector).forEach((item: HTMLElement) => {
+    treeElement.querySelectorAll(fileTreeDropStateSelector).forEach((item: HTMLElement) => {
         item.classList.remove(...fileTreeDropClasses);
+        item.removeAttribute("data-drop-label");
+        item.removeAttribute("data-drag-expand");
     });
+};
+
+export const getFileTreeMoveDropLabel = (itemElement: HTMLElement) => {
+    if (itemElement.getAttribute("data-type") === "navigation-root" || itemElement.getAttribute("data-path") === "/") {
+        return window.sourceflow.languages.fileTreeDropToRoot || "Move to root";
+    }
+    return window.sourceflow.languages.fileTreeDropIntoDoc || "Move under this doc";
+};
+
+export const setFileTreeDropLabel = (itemElement: HTMLElement, label: string) => {
+    itemElement.setAttribute("data-drop-label", label);
+};
+
+export const setFileTreeDragExpandState = (itemElement: HTMLElement, enabled: boolean) => {
+    if (enabled) {
+        itemElement.setAttribute("data-drag-expand", "true");
+        itemElement.setAttribute("data-drop-label", window.sourceflow.languages.fileTreeWillExpand || "Will expand");
+        return;
+    }
+    itemElement.removeAttribute("data-drag-expand");
+    if (itemElement.classList.contains("dragover")) {
+        itemElement.setAttribute("data-drop-label", getFileTreeMoveDropLabel(itemElement));
+        return;
+    }
+    itemElement.removeAttribute("data-drop-label");
 };
 
 export const resolveFileTreeMoveDropElement = (treeElement: HTMLElement, event: DragEvent) => {

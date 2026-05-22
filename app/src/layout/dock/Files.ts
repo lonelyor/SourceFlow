@@ -32,11 +32,15 @@ import {ipcRenderer} from "electron";
 import {hideTooltip, showTooltip} from "../../dialog/tooltip";
 import {selectOpenTab} from "./util";
 import {buildWorkbenchViewNoteMenu} from "../../workbench/viewNoteMenu";
+import {applyFileTreeAppearanceToPanel} from "../../appearance/fileTreeAppearance";
 import {
     clearFileTreeDropClasses,
     getFileTreeNotebookElement,
+    getFileTreeMoveDropLabel,
     isFileTreePathInside,
-    resolveFileTreeMoveDropElement
+    resolveFileTreeMoveDropElement,
+    setFileTreeDragExpandState,
+    setFileTreeDropLabel
 } from "./fileTreeDrag";
 
 export class Files extends Model {
@@ -122,6 +126,7 @@ export class Files extends Model {
             },
         });
         options.tab.panelElement.classList.add("fn__flex-column", "file-tree", "sf__file", "dockPanel");
+        applyFileTreeAppearanceToPanel(options.tab.panelElement);
         options.tab.panelElement.innerHTML = `<div class="block__icons">
     <div class="block__logo">
         <svg class="block__logoicon"><use xlink:href="#iconFiles"></use></svg>${window.sourceflow.languages.fileTree}
@@ -456,6 +461,9 @@ export class Files extends Model {
                 window.clearTimeout(dragExpandTimer);
                 dragExpandTimer = 0;
             }
+            if (dragExpandElement) {
+                setFileTreeDragExpandState(dragExpandElement, false);
+            }
             dragExpandElement = undefined;
         };
         this.element.addEventListener("dragstart", (event: DragEvent & { target: HTMLElement }) => {
@@ -554,6 +562,7 @@ export class Files extends Model {
             }
             clearDragExpandTimer();
             dragExpandElement = liElement;
+            setFileTreeDragExpandState(liElement, true);
             dragExpandTimer = window.setTimeout(() => {
                 const notebookElement = getFileTreeNotebookElement(liElement);
                 if (notebookElement && document.contains(liElement) && liElement.classList.contains("dragover")) {
@@ -662,6 +671,7 @@ export class Files extends Model {
                 if (dragOverLastObj.element !== liElement) {
                     clearFileTreeDropClasses(this.element);
                     liElement.classList.add("dragover");
+                    setFileTreeDropLabel(liElement, getFileTreeMoveDropLabel(liElement));
                     dragOverLastObj.element = liElement;
                 }
                 queueDragExpand(liElement);
@@ -1169,7 +1179,11 @@ data-type="navigation-root" data-path="/">
         this.element.querySelectorAll("li.b3-list-item--focus").forEach((liItem) => {
             liItem.classList.remove("b3-list-item--focus");
         });
+        this.element.querySelectorAll("li.file-tree__item--current").forEach((liItem) => {
+            liItem.classList.remove("file-tree__item--current");
+        });
         target.classList.add("b3-list-item--focus");
+        target.classList.add("file-tree__item--current");
 
         if (isScroll) {
             const elementRect = this.element.getBoundingClientRect();

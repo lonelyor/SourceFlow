@@ -33,3 +33,5 @@
 - 文档树层级引导线作为外观配置提供，默认关闭。
 - 文档树密度作为外观配置提供，取值为紧凑、默认、宽松；默认保持当前行距。
 - 设置入口放在“设置 > 外观 > 文档树”，配置写入外观配置，不引入独立配置文件。
+- 外观配置字段为 `appearance.fileTreeGuides` 与 `appearance.fileTreeDensity`，后端对密度做 `compact/default/loose` 归一化。
+- 文档树面板通过 `file-tree--guides`、`file-tree--density-*` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。

@@ -284,6 +284,14 @@ declare namespace Config {
          * Floating mascot scale percentage
          */
         mascotScale: number;
+        /**
+         * Whether to show hierarchy guides in the doc tree
+         */
+        fileTreeGuides: boolean;
+        /**
+         * Doc tree row density
+         */
+        fileTreeDensity: "compact" | "default" | "loose";
         statusBar: IAppearanceStatusBar;
     }
 
