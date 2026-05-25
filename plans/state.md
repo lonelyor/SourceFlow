@@ -49,6 +49,8 @@
 - 阶段 1 已通过 `pnpm --dir app run test:assistant-skill-context`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - AI 助手体验优化阶段 2 已实现：新增 patch/diff 协议模块，写入型 skill 默认生成可审阅 patch，支持接受全部、接受单项、拒绝单项、复制补丁和继续调整；工具确认卡可展示 patch 预览、目标和参数。
 - 阶段 2 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 助手体验优化阶段 3 已实现：写入型 skill 流式输出时在编辑器外围显示 ghost draft，Esc 取消只清理临时 DOM；完成后进入 patch 审阅，真实写入仍需接受补丁。
+- 阶段 3 已将 AI 替换选区路径从 `document.execCommand("insertText")` 改为 `/api/block/updateBlock` 正式块事务，并通过 ghost draft 脚本、patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险
