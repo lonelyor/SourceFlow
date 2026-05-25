@@ -49,17 +49,17 @@ var (
 )
 
 var assistantAIProviderCatalog = []*AssistantAIProviderType{
-	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
-	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
-	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
-	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
-	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
-	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
-	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
-	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
+	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1", DefaultModel: "gpt-4.1", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 1048576, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com", DefaultModel: "claude-sonnet-4-20250514", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 200000, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com", DefaultModel: "gemini-2.5-flash", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 1048576, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.1, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.1, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1", DefaultModel: "moonshot-v1-auto", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4", DefaultModel: "glm-4-flash", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", DefaultModel: "qwen-plus", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 4096, "maxContextTokens": 200000, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1", DefaultModel: "deepseek-chat", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 32768, "maxContextMessages": 16}},
 }
 
 var assistantAIProviderBaseURLs = map[string]string{
@@ -77,9 +77,11 @@ var assistantAIProviderBaseURLs = map[string]string{
 }
 
 type AssistantAIProviderType struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	BaseURL string `json:"baseURL"`
+	ID                   string                 `json:"id"`
+	Name                 string                 `json:"name"`
+	BaseURL              string                 `json:"baseURL"`
+	DefaultModel         string                 `json:"defaultModel"`
+	RecommendedSettings  map[string]interface{} `json:"recommendedSettings"`
 }
 
 type AssistantAIProfile struct {

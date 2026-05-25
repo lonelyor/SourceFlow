@@ -500,6 +500,8 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/ai/profile/list", model.CheckAuth, model.CheckAdminRole, assistantAIProfileList)
 	ginServer.Handle("POST", "/api/assistant/ai/profile/save", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIProfileSave)
 	ginServer.Handle("POST", "/api/assistant/ai/profile/delete", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIProfileDelete)
+	ginServer.Handle("POST", "/api/assistant/ai/profile/test", model.CheckAuth, model.CheckAdminRole, assistantAIProfileTest)
+	ginServer.Handle("POST", "/api/assistant/ai/profile/models", model.CheckAuth, model.CheckAdminRole, assistantAIProfileModels)
 	ginServer.Handle("POST", "/api/assistant/ai/session/list", model.CheckAuth, model.CheckAdminRole, assistantAISessionList)
 	ginServer.Handle("POST", "/api/assistant/ai/session/create", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionCreate)
 	ginServer.Handle("POST", "/api/assistant/ai/session/rename", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionRename)
