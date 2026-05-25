@@ -17,6 +17,8 @@ import {
 } from "../common/note";
 import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
 import {reportAssistantRuntimeError} from "../runtime";
+import {buildAssistantPatchFromSkillResult} from "../patch/build";
+import {openAssistantPatchReviewDialog} from "../patch/dialog";
 import {getAssistantSkillDefinition} from "./registry";
 import {IAssistantSkillContext, IAssistantSkillDefinition, IAssistantSkillParams, TAssistantSkillId} from "./types";
 
@@ -904,6 +906,28 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         if (!reply) {
             showMessage(assistantText("AI 没有返回可用结果", "The AI did not return a usable result"), 4000, "error");
             return false;
+        }
+        const patchResult = buildAssistantPatchFromSkillResult(
+            definition,
+            context,
+            definition.action === "replace-selection" ? reply : appendResultCitation(reply, context)
+        );
+        if (patchResult) {
+            openAssistantPatchReviewDialog({
+                patch: patchResult,
+                context,
+                title: definition.label,
+                sessionId: result.session.id,
+                onContinue: () => openAssistantChatDock({
+                    sessionId: result.session.id,
+                    append: true,
+                    message: assistantText(
+                        `请基于刚才的「${definition.shortLabel}」结果继续调整，目标是得到更合适的可接受补丁。`,
+                        `Continue refining the previous ${definition.shortLabel} result into a better acceptable patch.`
+                    ),
+                }),
+            });
+            return true;
         }
         if (definition.resultMode === "auto-apply") {
             const applied = await applySkillResultAutomatically(definition, context, reply);

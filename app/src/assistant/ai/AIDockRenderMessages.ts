@@ -2,6 +2,8 @@ import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, formatDateTime, nl2br} from "../common/dom";
 import {IAssistantAIMessage} from "./api";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
+import {renderAssistantPatchHTML} from "../patch/format";
+import type {IAssistantEditPatch} from "../patch/types";
 
 export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
     if (ctx.loading && !ctx.messages.length) {
@@ -53,6 +55,23 @@ export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntim
     if (!Array.isArray(raw) || !raw.length) {
         return "";
     }
+    const renderToolDetails = (tool: Record<string, unknown>) => {
+        const data = tool?.data && typeof tool.data === "object" ? tool.data as Record<string, unknown> : {};
+        const patch = (data.patch || data.previewPatch) as IAssistantEditPatch | undefined;
+        const args = tool?.args && typeof tool.args === "object" ? tool.args as Record<string, unknown> : null;
+        const context = tool?.context && typeof tool.context === "object" ? tool.context as Record<string, unknown> : null;
+        const details: string[] = [];
+        if (patch?.operations?.length) {
+            details.push(`<div class="assistant-ai__tool-patch">${renderAssistantPatchHTML(patch, true)}</div>`);
+        }
+        if (context?.currentBlockID || context?.rootID) {
+            details.push(`<div class="assistant-ai__tool-summary">${escapeHTML(`${assistantText("目标", "Target")}: ${context.currentBlockID || context.rootID}`)}</div>`);
+        }
+        if (args && Object.keys(args).length) {
+            details.push(`<pre class="assistant-ai__tool-args">${escapeHTML(JSON.stringify(args, null, 2))}</pre>`);
+        }
+        return details.join("");
+    };
     return `<div class="assistant-ai__tool-results">${raw.map((tool, index) => {
         const name = `${tool?.name || tool?.toolId || assistantText("工具", "Tool")}`;
         const isRejected = !!tool?.rejected;
@@ -69,6 +88,7 @@ export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntim
         ${canConfirm ? `<button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="confirm-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("确认执行", "Confirm"))}</button><button type="button" class="b3-button b3-button--outline b3-button--error assistant-ai__tool-action" data-action="reject-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("拒绝", "Reject"))}</button>` : ""}
     </div>
     ${summary ? `<div class="assistant-ai__tool-summary">${escapeHTML(summary)}</div>` : ""}
+    ${renderToolDetails(tool as Record<string, unknown>)}
 </div>`;
     }).join("")}</div>`;
 };

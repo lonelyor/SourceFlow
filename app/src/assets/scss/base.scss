@@ -26,6 +26,7 @@
 @use "business/config" as *;
 @use "business/search" as *;
 @use "business/assistant" as *;
+@use "business/assistant-agent" as *;
 @use "pickr/pcr" as *;
 @use "viewerjs/viewer" as *;
 @use "business/export" as *;

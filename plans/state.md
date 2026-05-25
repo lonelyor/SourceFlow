@@ -47,6 +47,8 @@
 - 后续开发分 6 阶段推进：上下文引擎与 Prompt 修复 → Patch/Diff 审阅模型 → Ghost Draft 编辑器内体验 → 内联指令与连续编辑 → 工具事务化与 AI 审笔记 → 批量 Agent、审计与自动化。
 - AI 助手体验优化阶段 1 已实现：skill-aware 上下文、选区任务不发送全文、续写任务使用光标邻近块窗口、笔记风格摘要和核心 skill Prompt 收敛。
 - 阶段 1 已通过 `pnpm --dir app run test:assistant-skill-context`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 助手体验优化阶段 2 已实现：新增 patch/diff 协议模块，写入型 skill 默认生成可审阅 patch，支持接受全部、接受单项、拒绝单项、复制补丁和继续调整；工具确认卡可展示 patch 预览、目标和参数。
+- 阶段 2 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险
