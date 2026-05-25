@@ -503,6 +503,15 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		}
 	}()
 
+	if assistantAIToolDryRunRequested(args) {
+		if preview := buildAssistantAIToolPreviewPatch(def, context, args); nil != preview {
+			ret.Data["previewPatch"] = preview
+		}
+		ret.Summary = "已生成工具预览，未执行真实写入"
+		audit.Status = "preview"
+		return ret, nil
+	}
+
 	switch decision {
 	case AssistantAIToolModeDeny:
 		ret.Error = "该工具已被当前配置禁止"
@@ -510,8 +519,11 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		return ret, nil
 	case AssistantAIToolModeConfirm:
 		if !allowConfirm {
-			ret.Error = "该工具需要确认后才能执行"
-			ret.Summary = ret.Error
+			if preview := buildAssistantAIToolPreviewPatch(def, context, args); nil != preview {
+				ret.Data["previewPatch"] = preview
+			}
+			ret.Summary = "该工具需要确认后才能执行，已生成修改预览"
+			audit.Status = "preview"
 			return ret, nil
 		}
 		ret.RequiresConfirm = false
@@ -531,6 +543,127 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 	audit.Status = "executed"
 	audit.TargetID = targetID
 	return ret, nil
+}
+
+func assistantAIToolDryRunRequested(args map[string]interface{}) bool {
+	if nil == args {
+		return false
+	}
+	raw, ok := args["dryRun"]
+	if !ok || nil == raw {
+		raw, ok = args["preview"]
+	}
+	if !ok || nil == raw {
+		return false
+	}
+	switch value := raw.(type) {
+	case bool:
+		return value
+	case string:
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		return "true" == normalized || "1" == normalized || "yes" == normalized
+	default:
+		return false
+	}
+}
+
+func buildAssistantAIToolPreviewPatch(def *AssistantAIToolDefinition, context *AssistantAINoteContext, args map[string]interface{}) map[string]interface{} {
+	if nil == def || "write" != strings.TrimSpace(def.Category) {
+		return nil
+	}
+	operation := buildAssistantAIToolPreviewOperation(def, context, args)
+	if nil == operation {
+		return nil
+	}
+	return map[string]interface{}{
+		"id":         ast.NewNodeID(),
+		"toolId":     def.ID,
+		"source":     "tool",
+		"target":     assistantAIToolPatchTarget(def),
+		"risk":       def.Risk,
+		"summary":    def.Name + " · 预览",
+		"operations": []map[string]interface{}{operation},
+		"createdAt":  time.Now().UnixMilli(),
+	}
+}
+
+func buildAssistantAIToolPreviewOperation(def *AssistantAIToolDefinition, context *AssistantAINoteContext, args map[string]interface{}) map[string]interface{} {
+	markdown := strings.TrimSpace(getAssistantAIContentValue(args))
+	targetID := strings.TrimSpace(firstAssistantAINonEmpty(getAssistantAIStringValue(args, "id", ""), contextCurrentBlockID(context), contextID(context)))
+	operation := map[string]interface{}{
+		"id":     ast.NewNodeID(),
+		"reason": def.Description,
+		"status": "pending",
+	}
+	switch def.ID {
+	case AssistantAIToolAppendCurrentNote:
+		if "" == markdown || "" == contextID(context) {
+			return nil
+		}
+		operation["type"] = "append-note"
+		operation["targetId"] = contextID(context)
+		operation["targetLabel"] = firstAssistantAINonEmpty(contextTitle(context), "当前笔记")
+		operation["after"] = markdown
+	case AssistantAIToolCreateNote, AssistantAIToolCreateWorkbench:
+		if "" == markdown {
+			return nil
+		}
+		operation["type"] = "create-note"
+		operation["targetLabel"] = firstAssistantAINonEmpty(getAssistantAIStringValue(args, "title", ""), "AI 笔记")
+		operation["after"] = markdown
+	case AssistantAIToolCreateChildNote:
+		if "" == markdown || "" == contextID(context) {
+			return nil
+		}
+		operation["type"] = "create-child-note"
+		operation["targetId"] = contextID(context)
+		operation["targetLabel"] = firstAssistantAINonEmpty(getAssistantAIStringValue(args, "title", ""), "AI 子文档")
+		operation["after"] = markdown
+	case AssistantAIToolInsertAfterBlock:
+		if "" == markdown || "" == targetID {
+			return nil
+		}
+		operation["type"] = "insert-after-block"
+		operation["targetId"] = targetID
+		operation["targetLabel"] = "目标块"
+		operation["after"] = markdown
+	case AssistantAIToolReplaceBlock:
+		if "" == markdown || "" == targetID {
+			return nil
+		}
+		operation["type"] = "replace-block"
+		operation["targetId"] = targetID
+		operation["targetLabel"] = "目标块"
+		operation["before"] = truncateAssistantAIToolText(strings.TrimSpace(GetBlockKramdown(targetID, "")), 4000)
+		operation["after"] = markdown
+	case AssistantAIToolDeleteBlock:
+		if "" == targetID {
+			return nil
+		}
+		operation["type"] = "delete-block"
+		operation["targetId"] = targetID
+		operation["targetLabel"] = "目标块"
+		operation["before"] = truncateAssistantAIToolText(strings.TrimSpace(GetBlockKramdown(targetID, "")), 4000)
+	default:
+		return nil
+	}
+	return operation
+}
+
+func assistantAIToolPatchTarget(def *AssistantAIToolDefinition) string {
+	if nil == def {
+		return "workspace"
+	}
+	switch def.ID {
+	case AssistantAIToolAppendCurrentNote:
+		return "note"
+	case AssistantAIToolInsertAfterBlock, AssistantAIToolReplaceBlock, AssistantAIToolDeleteBlock:
+		return "block"
+	case AssistantAIToolCreateNote, AssistantAIToolCreateChildNote, AssistantAIToolCreateWorkbench:
+		return "notebook"
+	default:
+		return "workspace"
+	}
 }
 
 func runAssistantAITool(def *AssistantAIToolDefinition, policy *AssistantAIToolPolicy, context *AssistantAINoteContext, args map[string]interface{}) (ret map[string]interface{}, summary, targetID string, err error) {
@@ -795,6 +928,7 @@ func buildAssistantAIToolPrompt(profile *AssistantAIProfile, context *AssistantA
 		"- Use create-workbench-item when the user asks to extract or create tasks, events, projects, or structured notes.",
 		"- Use replace-block only when the user clearly wants an existing block to be rewritten, corrected, or normalized; never use it to delete a block.",
 		"- For insert-after-block and replace-block, always provide non-empty content in args.markdown, args.content, or args.text.",
+		"- For write tools, set args.dryRun=true when the user asks to preview, review, or inspect the impact before applying.",
 		"- Use list-note-assets and read-note-asset-file first when the user asks about files attached to the current or specified note.",
 		"- Use search-assets or read-asset-content when the user asks about workspace-wide attachments, indexed attachment text, or archived source material.",
 		"- If no tool is needed, reply normally.",
@@ -2299,6 +2433,13 @@ func contextPath(context *AssistantAINoteContext) string {
 		return ""
 	}
 	return strings.TrimSpace(context.Path)
+}
+
+func contextTitle(context *AssistantAINoteContext) string {
+	if nil == context {
+		return ""
+	}
+	return strings.TrimSpace(context.Title)
 }
 
 func contextCurrentBlockID(context *AssistantAINoteContext) string {

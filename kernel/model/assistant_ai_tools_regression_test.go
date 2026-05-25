@@ -179,6 +179,7 @@ func TestBuildAssistantAIToolPromptContainsDeleteAndContentGuards(t *testing.T) 
 		"Use delete-block when the user clearly wants a non-root block removed or deleted.",
 		"Use replace-block only when the user clearly wants an existing block to be rewritten, corrected, or normalized; never use it to delete a block.",
 		"For insert-after-block and replace-block, always provide non-empty content in args.markdown, args.content, or args.text.",
+		"For write tools, set args.dryRun=true when the user asks to preview, review, or inspect the impact before applying.",
 	}
 	for _, item := range required {
 		if !strings.Contains(prompt, item) {
@@ -204,5 +205,41 @@ func TestNormalizeAssistantAIToolInvocationPromotesDeleteFallback(t *testing.T) 
 	}
 	if got := getAssistantAIStringValue(args, "id", ""); got != "20260407-test" {
 		t.Fatalf("target id = %q, want %q", got, "20260407-test")
+	}
+}
+
+func TestAssistantAIToolPreviewPatchForAppend(t *testing.T) {
+	def := getAssistantAIToolDefinition(AssistantAIToolAppendCurrentNote)
+	context := &AssistantAINoteContext{RootID: "20260525000000-test", Title: "测试笔记"}
+	preview := buildAssistantAIToolPreviewPatch(def, context, map[string]interface{}{"markdown": "补充内容", "dryRun": true})
+	if nil == preview {
+		t.Fatal("preview patch is nil")
+	}
+	if got := getAssistantAIStringValue(preview, "source", ""); got != "tool" {
+		t.Fatalf("preview source = %q, want tool", got)
+	}
+	ops, ok := preview["operations"].([]map[string]interface{})
+	if !ok || len(ops) != 1 {
+		t.Fatalf("preview operations = %#v, want one operation", preview["operations"])
+	}
+	if got := getAssistantAIStringValue(ops[0], "type", ""); got != "append-note" {
+		t.Fatalf("operation type = %q, want append-note", got)
+	}
+	if got := getAssistantAIStringValue(ops[0], "after", ""); got != "补充内容" {
+		t.Fatalf("operation after = %q, want 补充内容", got)
+	}
+}
+
+func TestAssistantAIToolDryRunSchemaForWriteTool(t *testing.T) {
+	schema, ok := buildAssistantAIToolParameterSchema(getAssistantAIToolDefinition(AssistantAIToolInsertAfterBlock)).(map[string]interface{})
+	if !ok {
+		t.Fatal("schema should be an object map")
+	}
+	properties, ok := schema["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatal("schema properties should be a map")
+	}
+	if nil == properties["dryRun"] {
+		t.Fatal("dryRun property is missing from write tool schema")
 	}
 }

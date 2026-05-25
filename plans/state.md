@@ -53,6 +53,8 @@
 - 阶段 3 已将 AI 替换选区路径从 `document.execCommand("insertText")` 改为 `/api/block/updateBlock` 正式块事务，并通过 ghost draft 脚本、patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - AI 助手体验优化阶段 4 已实现：Protyle 编辑器支持 `Ctrl+I` 打开内联指令面板、`Ctrl+J` 触发当前位置续写；内联指令支持最近 5 条、同一选区最多 3 轮连续调整，并复用 ghost draft + patch 审阅链路。
 - 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、ghost/patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
+- AI 助手体验优化阶段 5 已实现：写工具支持 `dryRun` 预览语义，未确认写入默认返回 `previewPatch`；工具卡可展示 patch 预览，`note-health` 改为输出可审阅修复 patch。
+- 阶段 5 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`；普通 `go test ./model` 仍被既有 vet 格式串问题阻断。
 - 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险
@@ -62,3 +64,4 @@
 - `go test ./api -count=1` 已通过。
 - 当前工作区仍有未跟踪 `.kilo/`，本轮不纳入提交；正式发布前仍需确认导出范围不包含未授权内容。
 - GitHub Release 发布需要有效 token，默认从 `.release.local.env` 或环境变量读取；不得在日志或文档中输出 token 内容。
+- `go test ./model` 当前会被既有非本轮格式串 vet 问题拦截；AI 工具策略目标测试使用 `go test -vet=off ./model -run TestAssistantAITool -count=1` 验证。

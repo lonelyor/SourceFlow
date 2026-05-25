@@ -313,8 +313,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         allowTools: true,
         buildMessage: () => assistantText(
-            "请为当前笔记做一次体检。必要时调用工具检查附件、链接、资源和引用情况。输出 Markdown 报告，至少包含：结构问题、图片/附件风险、语法与表达问题、链接或引用异常、建议修复动作。",
-            "Run a health check on the current note. Use tools when needed to inspect assets, links, resources, and references. Return a Markdown report covering at least: structure issues, image/asset risks, grammar/style problems, link/reference anomalies, and suggested fixes."
+            "请为当前笔记做一次体检，并输出可审阅的修复补丁。必要时调用工具检查附件、链接、资源和引用情况。只输出一个 JSON 对象，不要 Markdown，不要解释。结构：{\"summary\":\"一句话体检结论\",\"target\":\"note\",\"operations\":[{\"type\":\"append-note\",\"targetId\":\"当前笔记 rootID\",\"after\":\"## AI 体检建议\\n...\",\"reason\":\"结构/重复/引用/附件/行动项/表达质量问题\"}]}。要求：1. operations 最多 6 条；2. 只能使用 append-note、insert-after-block、replace-block；3. 没有安全把握替换原文时使用 append-note 给出修复建议；4. replace-block 必须提供 targetId、before、after 和 reason；5. 不要编造不存在的块 ID。",
+            "Run a health check on the current note and return a reviewable fix patch. Use tools when needed to inspect assets, links, resources, and references. Return exactly one JSON object with no Markdown and no explanation. Shape: {\"summary\":\"one-sentence health conclusion\",\"target\":\"note\",\"operations\":[{\"type\":\"append-note\",\"targetId\":\"current note rootID\",\"after\":\"## AI Health Suggestions\\n...\",\"reason\":\"structure/repetition/references/assets/action items/writing quality issue\"}]}. Requirements: 1. at most 6 operations 2. only use append-note, insert-after-block, or replace-block 3. use append-note when replacing original content is not clearly safe 4. replace-block must include targetId, before, after, and reason 5. do not invent block IDs."
         ),
     },
     "note-extract-tasks": {

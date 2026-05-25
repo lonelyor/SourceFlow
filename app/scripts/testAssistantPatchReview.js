@@ -103,4 +103,24 @@ const patchHTML = formatModule.renderAssistantPatchHTML(replacePatch);
 assert(patchHTML.includes("assistant-patch__operation"));
 assert(patchHTML.includes("替换选区"));
 
+const healthPatch = buildModule.buildAssistantPatchFromSkillResult({
+    id: "note-health",
+    shortLabel: "体检",
+    description: "检查当前笔记异常",
+    action: "insert-below",
+}, baseContext, JSON.stringify({
+    summary: "发现结构问题",
+    target: "note",
+    operations: [{
+        type: "append-note",
+        targetId: "root-1",
+        after: "## AI 体检建议\n- 补充来源。",
+        reason: "缺少引用信息",
+    }],
+}));
+assert(healthPatch, "structured health result should create a patch");
+assert.strictEqual(healthPatch.summary, "发现结构问题");
+assert.strictEqual(healthPatch.operations[0].type, "append-note");
+assert.strictEqual(healthPatch.operations[0].after, "## AI 体检建议\n- 补充来源。");
+
 console.log("[assistant-patch-review] ok");
