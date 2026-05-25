@@ -4,6 +4,7 @@ import {writeText} from "../../protyle/util/compatibility";
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import type {IAssistantSkillContext} from "../skills/types";
+import {recordAssistantPatchHistory} from "../history/operations";
 import {applyAssistantPatch, applyAssistantPatchOperation} from "./apply";
 import {formatAssistantPatchMarkdown, renderAssistantPatchHTML} from "./format";
 import type {IAssistantEditPatch} from "./types";
@@ -71,6 +72,7 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                 const opID = target.getAttribute("data-op-id") || "";
                 const operation = patch.operations.find((item) => item.id === opID);
                 if (operation && await applyAssistantPatchOperation(patch, operation, context)) {
+                    recordAssistantPatchHistory(patch);
                     refresh();
                 }
                 event.preventDefault();
@@ -88,6 +90,7 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
             }
             if (action === "accept-all") {
                 if (await applyAssistantPatch(patch, context)) {
+                    recordAssistantPatchHistory(patch);
                     dialog.destroy();
                 } else {
                     refresh();

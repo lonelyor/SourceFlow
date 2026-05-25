@@ -55,6 +55,8 @@
 - 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、ghost/patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - AI 助手体验优化阶段 5 已实现：写工具支持 `dryRun` 预览语义，未确认写入默认返回 `previewPatch`；工具卡可展示 patch 预览，`note-health` 改为输出可审阅修复 patch。
 - 阶段 5 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`；普通 `go test ./model` 仍被既有 vet 格式串问题阻断。
+- AI 助手体验优化阶段 6 已实现：Dock 新增 Agent 与历史面板，前端提供批量 Agent 队列基础状态、暂停/恢复/取消、本地 AI 操作历史记录，以及低风险追加/插入写入的历史回滚入口。
+- 阶段 6 已通过 `pnpm --dir app run test:assistant-agent-history`、patch/inline 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险

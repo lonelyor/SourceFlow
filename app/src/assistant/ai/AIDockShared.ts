@@ -48,7 +48,7 @@ export type TAssistantAIMessageItem = IAssistantAIMessage & {
     localError?: boolean;
 };
 
-export type TAssistantAIFloatingPanel = "" | "target" | "context" | "audit" | "profiles" | "tools" | "session";
+export type TAssistantAIFloatingPanel = "" | "target" | "context" | "audit" | "profiles" | "tools" | "session" | "agent";
 
 export const assistantAIToolReadScopeOptions = [
     {value: "current-note", label: assistantText("当前笔记", "Current note")},

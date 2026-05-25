@@ -133,6 +133,7 @@ export const applyAssistantPatchOperation = async (
         return false;
     }
     operation.status = "accepted";
+    operation.appliedTargetId = result.blockID || operation.targetId;
     highlightPatchTarget(context, result.blockID || operation.targetId);
     showMessage(patch.operations.length > 1
         ? assistantText("已应用该项修改", "Applied this edit")

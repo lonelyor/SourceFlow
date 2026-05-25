@@ -1,6 +1,8 @@
 import {openSettingTab} from "../../config";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
+import {updateAssistantAgentTaskStatus} from "../agent/queue";
+import {rollbackAssistantOperationHistoryItem} from "../history/operations";
 
 export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
     ctx.element.addEventListener("click", (event: MouseEvent) => {
@@ -262,6 +264,22 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "refresh-audits":
             await ctx.refreshAudits();
+            return;
+        case "pause-agent-task":
+            updateAssistantAgentTaskStatus(target?.getAttribute("data-task-id") || "", "paused");
+            ctx.render();
+            return;
+        case "resume-agent-task":
+            updateAssistantAgentTaskStatus(target?.getAttribute("data-task-id") || "", "running");
+            ctx.render();
+            return;
+        case "cancel-agent-task":
+            updateAssistantAgentTaskStatus(target?.getAttribute("data-task-id") || "", "canceled");
+            ctx.render();
+            return;
+        case "rollback-history":
+            await rollbackAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
+            ctx.render();
             return;
         case "pin-current-note":
             await ctx.pinCurrentNoteAsTarget();

@@ -27,6 +27,7 @@ export interface IAssistantPatchOperation {
     after?: string;
     reason?: string;
     status?: TAssistantPatchOperationStatus;
+    appliedTargetId?: string;
 }
 
 export interface IAssistantEditPatch {

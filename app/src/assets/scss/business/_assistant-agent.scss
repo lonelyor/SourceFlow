@@ -195,3 +195,43 @@
     gap: 8px;
   }
 }
+
+.assistant-ai__panel-heading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--b3-theme-on-background);
+  margin-top: 2px;
+}
+
+.assistant-ai__agent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: .5px solid color-mix(in srgb, var(--b3-border-color) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--b3-theme-surface) 96%, var(--b3-theme-background));
+}
+
+.assistant-ai__agent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.assistant-ai__agent-title {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--b3-theme-on-background);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-ai__agent-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--b3-theme-on-surface-light);
+}

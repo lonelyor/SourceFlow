@@ -11,6 +11,9 @@ import {
     TAssistantAIFloatingPanel,
 } from "./AIDockShared";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
+import {getAssistantAgentTaskProgress, readAssistantAgentTasks} from "../agent/queue";
+import {canRollbackAssistantPatchOperation} from "../history/operations";
+import {readAssistantOperationHistory} from "../history/store";
 
 export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) => {
     if (!ctx.activePanel) {
@@ -25,6 +28,7 @@ export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) =>
         profiles: assistantText("模型选择", "Model Switcher"),
         tools: assistantText("能力与权限", "Tools & Permissions"),
         session: assistantText("会话操作", "Session Actions"),
+        agent: assistantText("Agent 与历史", "Agent & History"),
     };
     const subtitleMap: Record<TAssistantAIFloatingPanel, string> = {
         "": "",
@@ -34,6 +38,7 @@ export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) =>
         profiles: assistantText("切换模型会从空白对话开始，左侧历史会话会保留。", "Switching models starts a fresh chat while keeping the history on the left."),
         tools: assistantText("默认把复杂能力收起来，需要时再展开调整。", "Keep advanced tool controls collapsed until you need them."),
         session: assistantText("把次级会话操作收进浮层，顶部只保留核心入口。", "Move secondary chat actions into a floating panel and keep only the primary controls on top."),
+        agent: assistantText("批量任务、逐项审阅和 AI 写入历史。", "Batch tasks, item review, and AI write history."),
     };
     let content = "";
     if (ctx.activePanel === "target") {
@@ -48,6 +53,8 @@ export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) =>
         content = ctx.renderToolsPanel();
     } else if (ctx.activePanel === "session") {
         content = ctx.renderSessionPanel();
+    } else if (ctx.activePanel === "agent") {
+        content = renderAIDockAgentPanel();
     }
     return `<div class="assistant-ai__floating-panel assistant-ai__floating-panel--${isBottomPanel ? "bottom" : "top"}">
     <div class="assistant-ai__floating-head">
@@ -58,6 +65,48 @@ export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) =>
         <button type="button" class="b3-button b3-button--text" data-action="toggle-panel" data-panel="${ctx.activePanel}">${assistantText("关闭", "Close")}</button>
     </div>
     <div class="assistant-ai__floating-body">${content}</div>
+</div>`;
+};
+
+export const renderAIDockAgentPanel = () => {
+    const tasks = readAssistantAgentTasks();
+    const history = readAssistantOperationHistory();
+    const taskHTML = tasks.length ? tasks.map((task) => {
+        const progress = getAssistantAgentTaskProgress(task);
+        const canPause = task.status === "running";
+        const canResume = task.status === "paused";
+        const canCancel = task.status === "running" || task.status === "paused";
+        return `<div class="assistant-ai__agent-item">
+    <div class="assistant-ai__agent-head">
+        <span class="assistant-ai__agent-title">${escapeHTML(task.title)}</span>
+        <span class="b3-chip b3-chip--small">${escapeHTML(task.status)}</span>
+    </div>
+    <div class="assistant-ai__agent-meta">${escapeHTML(`${assistantText("总数", "Total")} ${progress.total} · ${assistantText("完成", "Done")} ${progress.done} · ${assistantText("待审阅", "Review")} ${progress.review} · ${assistantText("失败", "Failed")} ${progress.failed}`)}</div>
+    <div class="assistant-ai__panel-actions">
+        ${canPause ? `<button type="button" class="b3-button b3-button--outline" data-action="pause-agent-task" data-task-id="${escapeAttr(task.id)}">${escapeHTML(assistantText("暂停", "Pause"))}</button>` : ""}
+        ${canResume ? `<button type="button" class="b3-button b3-button--outline" data-action="resume-agent-task" data-task-id="${escapeAttr(task.id)}">${escapeHTML(assistantText("恢复", "Resume"))}</button>` : ""}
+        ${canCancel ? `<button type="button" class="b3-button b3-button--outline b3-button--error" data-action="cancel-agent-task" data-task-id="${escapeAttr(task.id)}">${escapeHTML(assistantText("取消", "Cancel"))}</button>` : ""}
+    </div>
+</div>`;
+    }).join("") : `<div class="assistant-ai__context-line ft__secondary">${escapeHTML(assistantText("当前没有批量 Agent 任务", "No batch Agent tasks yet"))}</div>`;
+    const historyHTML = history.length ? history.slice(0, 20).map((item) => {
+        const canRollback = item.status === "applied" && item.patch.operations.some(canRollbackAssistantPatchOperation);
+        return `<div class="assistant-ai__agent-item">
+    <div class="assistant-ai__agent-head">
+        <span class="assistant-ai__agent-title">${escapeHTML(item.patch.summary || assistantText("AI 修改", "AI edit"))}</span>
+        <span class="b3-chip b3-chip--small">${escapeHTML(item.status)}</span>
+    </div>
+    <div class="assistant-ai__agent-meta">${escapeHTML(`${item.patch.source} · ${item.patch.risk} · ${new Date(item.createdAt).toLocaleString()}`)}</div>
+    <div class="assistant-ai__panel-actions">
+        ${canRollback ? `<button type="button" class="b3-button b3-button--outline b3-button--error" data-action="rollback-history" data-history-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("回滚", "Rollback"))}</button>` : ""}
+    </div>
+</div>`;
+    }).join("") : `<div class="assistant-ai__context-line ft__secondary">${escapeHTML(assistantText("当前还没有 AI 写入历史", "No AI write history yet"))}</div>`;
+    return `<div class="assistant-ai__panel-stack">
+    <div class="assistant-ai__panel-heading">${escapeHTML(assistantText("Agent 队列", "Agent Queue"))}</div>
+    ${taskHTML}
+    <div class="assistant-ai__panel-heading">${escapeHTML(assistantText("AI 操作历史", "AI Operation History"))}</div>
+    ${historyHTML}
 </div>`;
 };
 
