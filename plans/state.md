@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-22
+更新日期：2026-05-25
 
 ## 已确认
 
@@ -43,6 +43,9 @@
 - `pnpm --dir app run test:ai-dock-runtime` 已通过。
 - `python 编译.py` 已通过，生成并校验 Windows x64 安装包 `sourceflow-0.1.3-win.exe` 和便携包目录 `app/build/sourceflow-portable`。
 - 用户已确认继续发布当前整个工作区快照，不再只限制在 AI 助手相关改动。
+- AI 助手体验优化总方案已按用户确认方向更新：从“聊天助手”升级为 AI 原生笔记代理层，核心链路为精准上下文 → 计划/读工具 → patch/diff → ghost draft/审阅 → 正式事务提交 → 审计回滚。
+- 后续开发分 6 阶段推进：上下文引擎与 Prompt 修复 → Patch/Diff 审阅模型 → Ghost Draft 编辑器内体验 → 内联指令与连续编辑 → 工具事务化与 AI 审笔记 → 批量 Agent、审计与自动化。
+- 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险
 
