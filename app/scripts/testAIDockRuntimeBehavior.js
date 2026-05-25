@@ -93,6 +93,8 @@ const compileModule = (entryPath, requireMap = {}, globals = {}) => {
 const appRoot = path.join(__dirname, "..");
 const aiRoot = path.join(appRoot, "src", "assistant", "ai");
 const openSettingCalls = [];
+const capturedPasteFiles = [];
+const fakeImageFiles = [{name: "test.png", type: "image/png", size: 1024}];
 
 const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
     "../../config": {
@@ -101,7 +103,13 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
         },
     },
     "./AIDockShared": {
-        getImageFilesFromDataTransfer: () => [],
+        getImageFilesFromDataTransfer: (dt) => {
+            if (dt && dt._hasImages) {
+                capturedPasteFiles.push(true);
+                return fakeImageFiles;
+            }
+            return [];
+        },
     },
 });
 
@@ -135,6 +143,11 @@ const createRuntime = () => {
         clearEditingMessageCalls: [],
         startEditingMessageCalls: [],
         addComposerAttachmentsCalls: [],
+        removeComposerAttachmentCalls: [],
+        setComposerDropActiveCalls: [],
+        copyMessageCalls: [],
+        toggleMessageExpandedCalls: [],
+        openComposerAttachmentPickerCalls: [],
         render() {
             this.renderCount += 1;
         },
@@ -155,7 +168,9 @@ const createRuntime = () => {
             this.rejectToolCalls.push({messageId, toolIndex});
         },
         async selectSession() {},
-        removeComposerAttachment() {},
+        removeComposerAttachment(id) {
+            this.removeComposerAttachmentCalls.push(id);
+        },
         toggleFloatingPanel() {},
         async handleAction(action, target) {
             return handleAIDockAction(this, action, target);
@@ -186,9 +201,18 @@ const createRuntime = () => {
         async refreshAudits() {},
         async pinCurrentNoteAsTarget() {},
         async applyToolPolicyPreset() {},
-        openComposerAttachmentPicker() {},
-        copyMessage() {},
-        toggleMessageExpanded() {},
+        openComposerAttachmentPicker() {
+            this.openComposerAttachmentPickerCalls.push(1);
+        },
+        copyMessage(id) {
+            this.copyMessageCalls.push(id);
+        },
+        toggleMessageExpanded(id) {
+            this.toggleMessageExpandedCalls.push(id);
+        },
+        setComposerDropActive(active) {
+            this.setComposerDropActiveCalls.push(active);
+        },
     };
 };
 
@@ -301,6 +325,70 @@ const createFakeKeyboardEvent = (target, key) => ({
         "Escape",
     ));
     assert.deepStrictEqual(rt6.clearEditingMessageCalls, []);
+
+    // --- 图片附件测试 ---
+
+    const rt7 = createRuntime();
+    bindAIDockEvents(rt7);
+
+    await handleAIDockAction(rt7, "pick-attachments");
+    assert.strictEqual(rt7.openComposerAttachmentPickerCalls.length, 1);
+
+    rt7.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "remove-attachment", "data-attachment-id": "att-1"}),
+    ));
+    assert.deepStrictEqual(rt7.removeComposerAttachmentCalls, ["att-1"]);
+
+    const fakeFileInput = new FakeInputElement({"data-role": "message-attachments"}, {
+        files: [fakeImageFiles[0]],
+    });
+    fakeFileInput.value = "fake-path";
+    rt7.element.dispatch("input", {target: fakeFileInput});
+    assert.strictEqual(rt7.addComposerAttachmentsCalls.length, 1);
+    assert.strictEqual(rt7.addComposerAttachmentsCalls[0].length, 1);
+    assert.strictEqual(rt7.addComposerAttachmentsCalls[0][0].name, "test.png");
+    assert.strictEqual(fakeFileInput.value, "");
+
+    rt7.element.dispatch("paste", {
+        target: new FakeTextAreaElement({"data-role": "message"}),
+        clipboardData: {_hasImages: true, getData: () => ""},
+        preventDefault() {},
+    });
+    assert.strictEqual(rt7.addComposerAttachmentsCalls.length, 2);
+
+    const rt8 = createRuntime();
+    bindAIDockEvents(rt8);
+
+    rt8.element.dispatch("paste", {
+        target: new FakeTextAreaElement({"data-role": "message"}),
+        clipboardData: {_hasImages: false, getData: () => "some text"},
+        preventDefault() {},
+    });
+    assert.strictEqual(rt8.addComposerAttachmentsCalls.length, 0);
+
+    // --- 编辑重发测试 ---
+
+    const rt9 = createRuntime();
+    bindAIDockEvents(rt9);
+
+    await handleAIDockAction(rt9, "edit-message", new FakeInputElement({"data-message-id": "msg-edit-1"}));
+    assert.deepStrictEqual(rt9.startEditingMessageCalls, ["msg-edit-1"]);
+
+    await handleAIDockAction(rt9, "cancel-edit-message");
+    assert.deepStrictEqual(rt9.clearEditingMessageCalls, [true]);
+
+    await handleAIDockAction(rt9, "copy-message", new FakeInputElement({"data-message-id": "msg-copy-1"}));
+    assert.deepStrictEqual(rt9.copyMessageCalls, ["msg-copy-1"]);
+
+    await handleAIDockAction(rt9, "toggle-message-expand", new FakeInputElement({"data-message-id": "msg-expand-1"}));
+    assert.deepStrictEqual(rt9.toggleMessageExpandedCalls, ["msg-expand-1"]);
+
+    const rt10 = createRuntime();
+    bindAIDockEvents(rt10);
+    rt10.editingMessageId = "msg-active-edit";
+
+    await handleAIDockAction(rt10, "send-message");
+    assert.strictEqual(rt10.sendMessageCalls.length, 1);
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {
