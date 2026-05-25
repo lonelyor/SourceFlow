@@ -105,8 +105,25 @@ func listDocTree(c *gin.Context) {
 
 	p := arg["path"].(string)
 	p = strings.TrimSuffix(p, ".sf")
-	var doctree []*DocFile
 	root := filepath.Join(util.WorkspaceDir, "data", notebook, p)
+	countOnly := false
+	if countOnlyArg := arg["countOnly"]; nil != countOnlyArg {
+		countOnly = countOnlyArg.(bool)
+	}
+	if countOnly {
+		count, countErr := countDocTree(root)
+		if countErr != nil {
+			ret.Code = -1
+			ret.Msg = countErr.Error()
+			return
+		}
+		ret.Data = map[string]interface{}{
+			"count": count,
+		}
+		return
+	}
+
+	var doctree []*DocFile
 	dir, err := os.ReadDir(root)
 	if err != nil {
 		ret.Code = -1
@@ -152,6 +169,53 @@ func listDocTree(c *gin.Context) {
 	ret.Data = map[string]interface{}{
 		"tree": doctree,
 	}
+}
+
+func countDocTree(p string) (ret int, err error) {
+	ids := map[string]bool{}
+	return countDocTree0(p, ids)
+}
+
+func countDocTree0(p string, ids map[string]bool) (ret int, err error) {
+	dir, err := os.ReadDir(p)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range dir {
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		if entry.IsDir() {
+			if !ast.IsNodeIDPattern(entry.Name()) {
+				continue
+			}
+			if !ids[entry.Name()] {
+				ids[entry.Name()] = true
+				ret++
+			}
+
+			subPath := filepath.Join(p, entry.Name())
+			subCount, subErr := countDocTree0(subPath, ids)
+			if subErr != nil {
+				err = subErr
+				return
+			}
+			ret += subCount
+			continue
+		}
+
+		id := strings.TrimSuffix(entry.Name(), ".sf")
+		if !ast.IsNodeIDPattern(id) {
+			continue
+		}
+		if !ids[id] {
+			ids[id] = true
+			ret++
+		}
+	}
+	return
 }
 
 type DocFile struct {

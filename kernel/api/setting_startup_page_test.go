@@ -49,4 +49,16 @@ func TestNewAppearanceUsesDefaultStartupLogo(t *testing.T) {
 	if appearance.StartupPageImage != conf.DefaultStartupPageImage {
 		t.Fatalf("conf.NewAppearance().StartupPageImage = %q, want %q", appearance.StartupPageImage, conf.DefaultStartupPageImage)
 	}
+	if appearance.FileTreeDensity != conf.DefaultFileTreeDensity {
+		t.Fatalf("conf.NewAppearance().FileTreeDensity = %q, want %q", appearance.FileTreeDensity, conf.DefaultFileTreeDensity)
+	}
+	if appearance.FileTreeGuides {
+		t.Fatalf("conf.NewAppearance().FileTreeGuides = true, want false")
+	}
+	if appearance.FileTreeDocCount {
+		t.Fatalf("conf.NewAppearance().FileTreeDocCount = true, want false")
+	}
+	if nil == appearance.FileTreeTotalCount || !*appearance.FileTreeTotalCount {
+		t.Fatalf("conf.NewAppearance().FileTreeTotalCount = false, want true")
+	}
 }

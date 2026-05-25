@@ -837,6 +837,15 @@ func normalizeAppearanceCodeBlockSkin(value string) string {
 	}
 }
 
+func normalizeAppearanceFileTreeDensity(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "compact", conf.DefaultFileTreeDensity, "loose":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return conf.DefaultFileTreeDensity
+	}
+}
+
 func downloadEditorCursorImage0(rawURL string, client *http.Client) (ret *downloadEditorCursorImageResult, err error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if "" == rawURL {
@@ -1181,6 +1190,10 @@ func setAppearance(c *gin.Context) {
 	if nil == appearance.StatusBar {
 		appearance.StatusBar = &util.StatusBar{}
 	}
+	if nil == appearance.FileTreeTotalCount {
+		fileTreeTotalCount := true
+		appearance.FileTreeTotalCount = &fileTreeTotalCount
+	}
 	appearance.CodeBlockSkinLight = normalizeAppearanceCodeBlockSkin(appearance.CodeBlockSkinLight)
 	appearance.CodeBlockSkinDark = normalizeAppearanceCodeBlockSkin(appearance.CodeBlockSkinDark)
 	appearance.StartupPageImage = normalizeAppearanceStartupPageImage(appearance.StartupPageImage)
@@ -1194,6 +1207,7 @@ func setAppearance(c *gin.Context) {
 	appearance.MascotEffect = normalizeAppearanceMascotEffect(appearance.MascotEffect)
 	appearance.MascotOpacity = normalizeAppearanceMascotOpacity(appearance.MascotOpacity)
 	appearance.MascotScale = normalizeAppearanceMascotScale(appearance.MascotScale)
+	appearance.FileTreeDensity = normalizeAppearanceFileTreeDensity(appearance.FileTreeDensity)
 	if "" == appearance.MascotImage {
 		appearance.MascotEnabled = false
 	}

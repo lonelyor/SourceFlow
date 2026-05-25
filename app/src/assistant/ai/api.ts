@@ -460,6 +460,20 @@ export const confirmAssistantAITool = async (payload: {
     };
 };
 
+export const rejectAssistantAITool = async (payload: {
+    profileId: string;
+    sessionId: string;
+    messageId: string;
+    auditId?: string;
+    toolId: string;
+}) => {
+    const data = ensureOK(await fetchSyncPost("/api/assistant/ai/tool/reject", payload)) as IAssistantAIChatResult;
+    return {
+        ...data,
+        messages: ensureArray(data?.messages),
+    };
+};
+
 export const analyzeAssistantAISession = async (sessionId: string, profileId: string, prompt: string) => {
     const data = ensureOK(await fetchSyncPost("/api/assistant/ai/session/analyze", {sessionId, profileId, prompt})) as { markdown: string };
     return data.markdown;

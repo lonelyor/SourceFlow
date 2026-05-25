@@ -5,6 +5,7 @@ import {processRender} from "./processCode";
 import {highlightRender} from "../render/highlightRender";
 import {blockRender} from "../render/blockRender";
 import {bgFade, scrollCenter} from "../../util/highlightById";
+import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE, observeLazyRender, disconnectLazyObserver} from "./renderScheduler";
 /// #if !MOBILE
 import {pushBack} from "../../util/backForward";
 /// #endif
@@ -21,6 +22,7 @@ import {stickyRow} from "../render/av/row";
 import {getContenteditableElement} from "../wysiwyg/getBlock";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {getReadonlyAttr} from "../../util/attrCompat";
+import {scheduleNoteHints} from "../noteHints";
 
 export const onGet = (options: {
     data: IWebSocketData,
@@ -230,10 +232,77 @@ const setHTML = (options: {
     if (options.action.includes(Constants.CB_GET_BACKLINK)) {
         foldPassiveType(options.expand, protyle.wysiwyg.element);
     }
-    processRender(protyle.wysiwyg.element);
-    highlightRender(protyle.wysiwyg.element);
-    avRender(protyle.wysiwyg.element, protyle);
-    blockRender(protyle, protyle.wysiwyg.element);
+
+    const contentContainer = protyle.contentElement;
+    const isDynamicLoad = options.action.includes(Constants.CB_GET_APPEND) || options.action.includes(Constants.CB_GET_BEFORE);
+
+    if (isDynamicLoad) {
+        processRender(protyle.wysiwyg.element);
+        highlightRender(protyle.wysiwyg.element);
+        avRender(protyle.wysiwyg.element, protyle);
+        blockRender(protyle, protyle.wysiwyg.element);
+    } else {
+        cancelScheduledRenders();
+
+        const allRenderNodes = protyle.wysiwyg.element.querySelectorAll(".render-node:not([data-render='true'])");
+        const allCodeBlocks = protyle.wysiwyg.element.querySelectorAll(".code-block .hljs:not([data-render='true'])");
+        const allAvBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeAttributeView"]:not([data-render="true"])');
+        const allEmbedBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeBlockQueryEmbed"]:not([data-render="true"])');
+
+        const { visible: visibleRenderNodes, hidden: hiddenRenderNodes } = splitByViewport(Array.from(allRenderNodes), contentContainer);
+        const { visible: visibleCodeBlocks, hidden: hiddenCodeBlocks } = splitByViewport(Array.from(allCodeBlocks), contentContainer);
+
+        for (const node of visibleRenderNodes) {
+            processRender(node);
+        }
+        if (0 < visibleCodeBlocks.length) {
+            for (const block of visibleCodeBlocks) {
+                const codeBlock = block.closest(".code-block") || block;
+                highlightRender(codeBlock as Element);
+            }
+        }
+
+        for (const node of hiddenRenderNodes) {
+            if (node.isConnected) {
+                observeLazyRender(node, contentContainer, () => {
+                    if (node.isConnected) {
+                        processRender(node);
+                    }
+                });
+            }
+        }
+
+        for (const block of hiddenCodeBlocks) {
+            if (block.isConnected) {
+                observeLazyRender(block, contentContainer, () => {
+                    if (block.isConnected) {
+                        const codeBlock = block.closest(".code-block") || block;
+                        highlightRender(codeBlock as Element);
+                    }
+                });
+            }
+        }
+
+        for (const av of Array.from(allAvBlocks)) {
+            if (av.isConnected) {
+                observeLazyRender(av, contentContainer, () => {
+                    if (av.isConnected) {
+                        avRender(av, protyle);
+                    }
+                });
+            }
+        }
+
+        for (const embed of Array.from(allEmbedBlocks)) {
+            if (embed.isConnected) {
+                observeLazyRender(embed, contentContainer, () => {
+                    if (embed.isConnected) {
+                        blockRender(protyle, embed);
+                    }
+                });
+            }
+        }
+    }
     if (options.action.includes(Constants.CB_GET_HISTORY)) {
         return;
     }
@@ -293,6 +362,7 @@ const setHTML = (options: {
         protyle.breadcrumb.toggleExit(!options.action.includes(Constants.CB_GET_ALL));
         protyle.breadcrumb.render(protyle);
     }
+    scheduleNoteHints(protyle);
     if (options.afterCB) {
         options.afterCB();
     }

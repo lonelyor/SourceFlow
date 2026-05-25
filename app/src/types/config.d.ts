@@ -284,6 +284,22 @@ declare namespace Config {
          * Floating mascot scale percentage
          */
         mascotScale: number;
+        /**
+         * Whether to show hierarchy guides in the doc tree
+         */
+        fileTreeGuides: boolean;
+        /**
+         * Doc tree row density
+         */
+        fileTreeDensity: "compact" | "default" | "loose";
+        /**
+         * Whether to show child doc counts in the doc tree
+         */
+        fileTreeDocCount: boolean;
+        /**
+         * Whether to show the total doc count in the doc tree header
+         */
+        fileTreeTotalCount: boolean;
         statusBar: IAppearanceStatusBar;
     }
 
@@ -453,6 +469,14 @@ declare namespace Config {
          * Whether to display the bookmark icon
          */
         displayBookmarkIcon: boolean;
+        /**
+         * Whether to display top-level block numbers in the editor
+         */
+        displayBlockLineNumber: boolean;
+        /**
+         * Whether to display heading level markers in the editor
+         */
+        displayHeadingLevel: boolean;
         /**
          * Whether to display the network image mark
          */

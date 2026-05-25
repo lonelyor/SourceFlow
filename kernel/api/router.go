@@ -512,6 +512,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/ai/tool/audits", model.CheckAuth, model.CheckAdminRole, assistantAIToolAudits)
 	ginServer.Handle("POST", "/api/assistant/ai/tool/execute", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIToolExecute)
 	ginServer.Handle("POST", "/api/assistant/ai/tool/confirm", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIToolConfirm)
+	ginServer.Handle("POST", "/api/assistant/ai/tool/reject", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIToolReject)
 	ginServer.Handle("POST", "/api/assistant/ai/chat", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIChat)
 	ginServer.Handle("POST", "/api/assistant/ai/chat/stream", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIChatStream)
 	ginServer.Handle("POST", "/api/assistant/ai/message/edit/stream", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAIMessageEditStream)

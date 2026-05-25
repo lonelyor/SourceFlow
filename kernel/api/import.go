@@ -238,7 +238,7 @@ func importStdMd(c *gin.Context) {
 
 	if util.IsSubPath(util.WorkingDir, localPath) {
 		msg := fmt.Sprintf("import from local path [%s] failed: local path is sub path of working dir", localPath)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		ret.Code = -1
 		ret.Msg = msg
 		return
@@ -246,7 +246,7 @@ func importStdMd(c *gin.Context) {
 
 	if util.IsSensitivePath(localPath) {
 		msg := fmt.Sprintf("import from local path [%s] failed: local path is sensitive path", localPath)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		ret.Code = -1
 		ret.Msg = msg
 		return

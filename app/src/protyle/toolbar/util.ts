@@ -243,8 +243,12 @@ export const genLinkText = (href: string, stripScheme: boolean = true, decodeURI
     }
 };
 
+const escapeMarkdownLinkText = (text: string) => {
+    return text.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+};
+
 export const copyTextByType = async (ids: string[],
-                                     type: "ref" | "blockEmbed" | "protocol" | "protocolMd" | "hPath" | "id" | "webURL") => {
+                                     type: "ref" | "blockEmbed" | "protocol" | "protocolMd" | "locationProtocolMd" | "hPath" | "id" | "webURL") => {
     let text = "";
     for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
@@ -261,6 +265,13 @@ export const copyTextByType = async (ids: string[],
         } else if (type === "protocolMd") {
             const response = await fetchSyncPost("/api/block/getRefText", {id});
             text += `[${response.data}](sf://blocks/${id})`;
+        } else if (type === "locationProtocolMd") {
+            const refResponse = await fetchSyncPost("/api/block/getRefText", {id});
+            const pathResponse = await fetchSyncPost("/api/filetree/getHPathByID", {id});
+            const parts = [pathResponse.data, refResponse.data].filter((item, index, array) => {
+                return item && array.indexOf(item) === index;
+            });
+            text += `[${escapeMarkdownLinkText(parts.join(" - ") || id)}](sf://blocks/${id})`;
         } else if (type === "hPath") {
             const response = await fetchSyncPost("/api/filetree/getHPathByID", {id});
             text += response.data;

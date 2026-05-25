@@ -7,17 +7,10 @@ import {registerMouseWheelEvent} from "./editorEvents/mousewheel";
 import {registerPasteEvent} from "./editorEvents/paste";
 import {registerPointerDownEvent} from "./editorEvents/pointer";
 import type {WYSIWYGEditorEventState, WYSIWYGEventContext} from "./shared";
-import {stickyRow} from "../render/av/row";
+import {bindResizeObserver} from "./editorEvents/resizeObserver";
 
 export const bindEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle) => {
-    protyle.observer = new ResizeObserver(() => {
-        const contentRect = protyle.contentElement.getBoundingClientRect();
-        protyle.wysiwyg.element.querySelectorAll(".av").forEach((item: HTMLElement) => {
-            if (item.querySelector(".av__scroll")) {
-                stickyRow(item, contentRect, "all");
-            }
-        });
-    });
+    bindResizeObserver(protyle);
 
     const state: WYSIWYGEditorEventState = {
         beforeContextmenuRange: undefined,

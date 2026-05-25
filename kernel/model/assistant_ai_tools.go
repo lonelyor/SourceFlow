@@ -109,6 +109,7 @@ type AssistantAIToolResult struct {
 	Risk            string                  `json:"risk"`
 	Decision        string                  `json:"decision"`
 	Executed        bool                    `json:"executed"`
+	Rejected        bool                    `json:"rejected"`
 	TargetScope     string                  `json:"targetScope"`
 	RequiresConfirm bool                    `json:"requiresConfirm"`
 	Summary         string                  `json:"summary"`
@@ -410,6 +411,40 @@ func executeAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID
 
 func confirmAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, userPrompt string) (ret *AssistantAIToolResult, err error) {
 	return executeAssistantAITool0(db, profile, sessionID, context, toolID, normalizeAssistantAIToolArgs(toolID, args, "", userPrompt), true)
+}
+
+func rejectAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, toolID string) (*AssistantAIToolResult, error) {
+	def := getAssistantAIToolDefinition(toolID)
+	if nil == def {
+		return nil, fmt.Errorf("unsupported assistant AI tool [%s]", toolID)
+	}
+	ret := &AssistantAIToolResult{
+		ToolID:   def.ID,
+		Name:     def.Name,
+		Risk:     def.Risk,
+		Decision: AssistantAIToolModeConfirm,
+		Executed: false,
+		Rejected: true,
+		Error:    "用户已拒绝执行该工具",
+		Summary:  "用户已拒绝执行该工具",
+		Data:     map[string]interface{}{},
+	}
+	audit := &assistantAIToolAuditRecord{
+		ID:        ast.NewNodeID(),
+		SessionID: strings.TrimSpace(sessionID),
+		ProfileID: firstAssistantAINonEmpty(profile.ID),
+		ToolID:    def.ID,
+		Risk:      def.Risk,
+		Decision:  AssistantAIToolModeConfirm,
+		Executed:  false,
+		Status:    "rejected",
+		Result:    map[string]interface{}{"error": ret.Error},
+		CreatedAt: time.Now().UnixMilli(),
+	}
+	if persistErr := insertAssistantAIToolAudit(db, audit); nil == persistErr {
+		ret.AuditID = audit.ID
+	}
+	return ret, nil
 }
 
 func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, allowConfirm bool) (ret *AssistantAIToolResult, err error) {

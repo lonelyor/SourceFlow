@@ -16,7 +16,8 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
     const configIndex = [
         // 编辑器
         getLang(["config", "fullWidth", "md7", "md8", "md37", "md38",
-            "editor", "md2", "md3", "md12", "md16", "md27", "md28", "md29", "md30", "md31", "md32", "md33", "md34",
+            "editor", "md2", "md3", "md12", "md16", "displayHeadingLevel", "displayHeadingLevelTip",
+            "displayBlockLineNumber", "displayBlockLineNumberTip", "md27", "md28", "md29", "md30", "md31", "md32", "md33", "md34",
             "md39", "md40", "fontSizeTip", "fontSize", "font", "font1", "generateHistory", "generateHistoryInterval",
             "historyRetentionDays", "historyRetentionDaysTip", "clearHistory", "katexMacros", "katexMacrosTip",
             "editReadonly", "editReadonlyTip", "embedBlockBreadcrumb", "embedBlockBreadcrumbTip", "outlineOutdentTip",
@@ -70,7 +71,10 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
         getLang(["language", "language1", "appearance", "appearance1", "appearance2", "appearance3", "appearance4",
             "appearance5", "appearance6", "appearance8", "appearance9", "appearance10", "appearance11", "appearance16",
             "appearance17", "appearance18", "resetLayout", "reset", "icon", "themeLight", "themeDark", "close", "themeOS", "theme",
-            "theme2", "theme11", "theme12", "customEmoji", "customEmojiTip", "refresh"]),
+            "theme2", "theme11", "theme12", "fileTreeAppearance", "fileTreeAppearanceTip", "fileTreeGuides", "fileTreeGuidesTip",
+            "fileTreeDocCount", "fileTreeDocCountTip", "fileTreeTotalCount", "fileTreeTotalCountTip",
+            "fileTreeDensity", "fileTreeDensityTip", "fileTreeDensityCompact", "fileTreeDensityDefault", "fileTreeDensityLoose",
+            "customEmoji", "customEmojiTip", "refresh"]),
 
         // 集市
         getLang(["bazaar", "theme", "template", "icon", "widget"]),

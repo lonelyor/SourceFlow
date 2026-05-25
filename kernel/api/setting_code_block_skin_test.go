@@ -19,3 +19,18 @@ func TestNormalizeAppearanceCodeBlockSkin(t *testing.T) {
 		t.Fatalf("normalizeAppearanceCodeBlockSkin() = %q, want %q", got, defaultAppearanceCodeBlockSkin)
 	}
 }
+
+func TestNormalizeAppearanceFileTreeDensity(t *testing.T) {
+	if got := normalizeAppearanceFileTreeDensity("compact"); "compact" != got {
+		t.Fatalf("normalizeAppearanceFileTreeDensity() = %q, want compact", got)
+	}
+	if got := normalizeAppearanceFileTreeDensity(" Loose "); "loose" != got {
+		t.Fatalf("normalizeAppearanceFileTreeDensity() = %q, want loose", got)
+	}
+	if got := normalizeAppearanceFileTreeDensity("bad"); "default" != got {
+		t.Fatalf("normalizeAppearanceFileTreeDensity() = %q, want default", got)
+	}
+	if got := normalizeAppearanceFileTreeDensity(""); "default" != got {
+		t.Fatalf("normalizeAppearanceFileTreeDensity() = %q, want default", got)
+	}
+}

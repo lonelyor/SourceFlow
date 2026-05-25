@@ -8,7 +8,6 @@ import {getDisplayName, pathPosix, setNoteBook} from "../../util/pathName";
 import {getNewFilePath, newFile} from "../../util/newFile";
 import {initFileMenu, initNavigationMenu, sortMenu} from "../../menus/navigation";
 import {MenuItem} from "../../menus/Menu";
-import {showMessage} from "../../dialog/message";
 import {
     getPublishAccessLevel,
     getPublishAccessOptionByLevel,
@@ -20,7 +19,6 @@ import {mountHelp, newNotebook} from "../../util/mount";
 import {isNotCtrl, isOnlyMeta, setStorageVal, updateHotkeyAfterTip} from "../../protyle/util/compatibility";
 import {openFileById} from "../../editor/util";
 import {
-    hasClosestByAttribute,
     hasClosestByClassName,
     hasClosestByTag,
     hasTopClosestByTag
@@ -34,6 +32,27 @@ import {ipcRenderer} from "electron";
 import {hideTooltip, showTooltip} from "../../dialog/tooltip";
 import {selectOpenTab} from "./util";
 import {buildWorkbenchViewNoteMenu} from "../../workbench/viewNoteMenu";
+import {applyFileTreeAppearanceToPanel} from "../../appearance/fileTreeAppearance";
+import {
+    clearFileTreeDropClasses,
+    getFileTreeNotebookElement,
+    getFileTreeMoveDropLabel,
+    isFileTreePathInside,
+    resolveFileTreeMoveDropElement,
+    setFileTreeDragExpandState,
+    setFileTreeDropLabel
+} from "./fileTreeDrag";
+import {
+    genFileTreeDocCountHTML,
+    genFileTreeTotalCountHTML,
+    refreshFileTreeTotalCount,
+    syncFileTreeDocCountElement
+} from "./fileTreeCounts";
+import {
+    FileTreeNavigation,
+    genFileTreeStatusMarksHTML,
+    syncFileTreeStatusMarksElement
+} from "./fileTreeNavigation";
 
 export class Files extends Model {
     public element: HTMLElement;
@@ -41,6 +60,8 @@ export class Files extends Model {
     public closeElement: HTMLElement;
     public lastSelectedElement: Element = null;
     private actionsElement: HTMLElement;
+    private navigationElement: HTMLElement;
+    private navigation: FileTreeNavigation;
 
     constructor(options: { tab: Tab, app: App }) {
         super({
@@ -83,6 +104,7 @@ export class Files extends Model {
                                         previousId = item.id;
                                     }
                                 });
+                                this.refreshTotalCount();
                             });
                             break;
                         case "closeBox":
@@ -98,6 +120,7 @@ export class Files extends Model {
                         case "create":
                             if (data.data.listDocTree) {
                                 this.selectItem(data.data.box.id, data.data.path);
+                                this.refreshTotalCount();
                             } else {
                                 this.updateItemArrow(data.data.box.id, data.data.path);
                             }
@@ -106,6 +129,7 @@ export class Files extends Model {
                         case "heading2doc":
                         case "li2doc":
                             this.selectItem(data.data.box.id, data.data.path);
+                            this.refreshTotalCount();
                             break;
                         case "renamenotebook":
                             this.element.querySelector(`[data-url="${data.data.box}"] .b3-list-item__text`).innerHTML = escapeHtml(data.data.name);
@@ -118,11 +142,14 @@ export class Files extends Model {
             },
         });
         options.tab.panelElement.classList.add("fn__flex-column", "file-tree", "sf__file", "dockPanel");
+        applyFileTreeAppearanceToPanel(options.tab.panelElement);
         options.tab.panelElement.innerHTML = `<div class="block__icons">
     <div class="block__logo">
         <svg class="block__logoicon"><use xlink:href="#iconFiles"></use></svg>${window.sourceflow.languages.fileTree}
     </div>
     <span class="fn__flex-1 fn__space"></span>
+    ${genFileTreeTotalCountHTML()}
+    <span class="fn__space"></span>
     <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.selectOpen1}${updateHotkeyAfterTip(window.sourceflow.config.keymap.general.selectOpen1.custom)}"><svg><use xlink:href='#iconFocus'></use></svg></span>
     <span class="fn__space"></span>
     <span data-type="collapse" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.collapse}${updateHotkeyAfterTip(window.sourceflow.config.keymap.editor.general.collapse.custom)}">
@@ -135,6 +162,7 @@ export class Files extends Model {
     <span class="fn__space"></span>
     <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.sourceflow.languages.min}${updateHotkeyAfterTip(window.sourceflow.config.keymap.general.closeTab.custom)}"><svg><use xlink:href='#iconMin'></use></svg></span>
 </div>
+<div class="file-tree__navigation"></div>
 <div class="fn__flex-1" style="padding-top: 2px;"></div>
 <ul class="b3-list fn__flex-column" style="min-height: auto;height:30px;transition: height  .2s cubic-bezier(0, 0, .2, 1) 0ms">
     <li class="b3-list-item" data-type="toggle">
@@ -147,8 +175,10 @@ export class Files extends Model {
     <ul class="fn__none fn__flex-1"></ul>
 </ul>`;
         this.actionsElement = options.tab.panelElement.firstElementChild as HTMLElement;
-        this.element = this.actionsElement.nextElementSibling as HTMLElement;
+        this.navigationElement = this.actionsElement.nextElementSibling as HTMLElement;
+        this.element = this.navigationElement.nextElementSibling as HTMLElement;
         this.closeElement = options.tab.panelElement.lastElementChild as HTMLElement;
+        this.navigation = new FileTreeNavigation(this.navigationElement, this);
         this.closeElement.addEventListener("click", (event) => {
             setPanelFocus(this.element.parentElement);
             let target = event.target as HTMLElement;
@@ -445,6 +475,18 @@ export class Files extends Model {
                 setPanelFocus(this.element.parentElement);
             }
         });
+        let dragExpandTimer = 0;
+        let dragExpandElement: HTMLElement;
+        const clearDragExpandTimer = () => {
+            if (dragExpandTimer) {
+                window.clearTimeout(dragExpandTimer);
+                dragExpandTimer = 0;
+            }
+            if (dragExpandElement) {
+                setFileTreeDragExpandState(dragExpandElement, false);
+            }
+            dragExpandElement = undefined;
+        };
         this.element.addEventListener("dragstart", (event: DragEvent & { target: HTMLElement }) => {
             if (isTouchDevice()) {
                 event.stopPropagation();
@@ -504,6 +546,8 @@ export class Files extends Model {
                 }
             });
             window.sourceflow.dragElement = undefined;
+            clearFileTreeDropClasses(this.element);
+            clearDragExpandTimer();
             /// #if !BROWSER
             ipcRenderer.send(Constants.SOURCEFLOW_SEND_WINDOWS, {cmd: "resetTabsStyle", data: "rmDragStyle"});
             /// #else
@@ -516,12 +560,42 @@ export class Files extends Model {
             element: HTMLElement,
             positionY: number,
             rafId: number,
-            sourceOnlyRoot: boolean,
         } = {
             element: null,
             positionY: null,
             rafId: null,
-            sourceOnlyRoot: null
+        };
+        const queueDragExpand = (liElement: HTMLElement) => {
+            const targetType = liElement.getAttribute("data-type");
+            if (!["navigation-root", "navigation-file"].includes(targetType)) {
+                clearDragExpandTimer();
+                return;
+            }
+            const toggleElement = liElement.querySelector(".b3-list-item__toggle");
+            const arrowElement = liElement.querySelector(".b3-list-item__arrow");
+            if (!toggleElement || !arrowElement || toggleElement.classList.contains("fn__hidden") ||
+                arrowElement.classList.contains("b3-list-item__arrow--open")) {
+                clearDragExpandTimer();
+                return;
+            }
+            if (dragExpandElement === liElement && dragExpandTimer) {
+                return;
+            }
+            clearDragExpandTimer();
+            dragExpandElement = liElement;
+            setFileTreeDragExpandState(liElement, true);
+            dragExpandTimer = window.setTimeout(() => {
+                const notebookElement = getFileTreeNotebookElement(liElement);
+                if (notebookElement && document.contains(liElement) && liElement.classList.contains("dragover")) {
+                    this.getLeaf(liElement, notebookElement.getAttribute("data-url"), true);
+                }
+                clearDragExpandTimer();
+            }, 650);
+        };
+        const hasMovableFileSelection = () => {
+            return Array.from(this.element.querySelectorAll(".b3-list-item--focus")).some((item: HTMLElement) => {
+                return item.getAttribute("data-type") === "navigation-file";
+            });
         };
         this.element.addEventListener("dragover", (event: DragEvent & { target: HTMLElement }) => {
             if (window.sourceflow.config.readonly || !window.sourceflow.dragElement || event.dataTransfer.types.includes(Constants.SOURCEFLOW_DROP_TAB)) {
@@ -540,88 +614,90 @@ export class Files extends Model {
             }
             dragOverLastObj.rafId = requestAnimationFrame(() => {
                 dragOverLastObj.rafId = null;
-                let liElement = event.target.closest("li");
+                let liElement = event.target.closest("li") as HTMLElement;
                 if (!liElement) {
-                    liElement = document.elementFromPoint(event.clientX, event.clientY - 1).closest("li");
+                    liElement = document.elementFromPoint(event.clientX, event.clientY - 1)?.closest("li");
                 }
-                if (!liElement) {
-                    dragOverLastObj.element = null;
-                    event.preventDefault();
-                    return;
-                }
-                const targetType = liElement.getAttribute("data-type");
-                if (dragOverLastObj.element !== liElement) {
-                    dragOverLastObj.element?.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                    if (gutterType) {
-                        // 块标拖拽
+                if (gutterType) {
+                    if (!liElement) {
+                        dragOverLastObj.element = null;
+                        event.preventDefault();
+                        return;
+                    }
+                    const targetType = liElement.getAttribute("data-type");
+                    if (dragOverLastObj.element !== liElement) {
+                        dragOverLastObj.element?.classList.remove("dragover", "dragover__bottom", "dragover__top");
                         const gutterTypes = gutterType.replace(Constants.SOURCEFLOW_DROP_GUTTER, "").split(Constants.ZWSP);
                         if (!["nodelistitem", "nodeheading"].includes(gutterTypes[0])) {
                             event.preventDefault();
                             return;
                         }
-                    } else if (liElement.classList.contains("b3-list-item--focus")) {
-                        // 选中的文档不能拖拽到自己上，但允许标题拖拽到文档树的选中文档上 https://github.com/lonelyor/SourceFlow/issues/6552
-                        event.preventDefault();
-                        return;
                     }
-
-                    dragOverLastObj.sourceOnlyRoot = gutterType ? false : true;
-                    if (dragOverLastObj.sourceOnlyRoot) {
-                        const focusItems = this.element.querySelectorAll(".b3-list-item--focus");
-                        for (let i = 0; i < focusItems.length; i++) {
-                            if (focusItems[i].getAttribute("data-type") === "navigation-file") {
-                                dragOverLastObj.sourceOnlyRoot = false;
-                                break;
-                            }
+                    if (dragOverLastObj.element && dragOverLastObj.element === liElement && dragOverLastObj.positionY !== event.clientY) {
+                        const notebookElement = getFileTreeNotebookElement(liElement);
+                        if (!notebookElement) {
+                            event.preventDefault();
+                            return;
                         }
-                    }
-                    if (dragOverLastObj.sourceOnlyRoot && targetType !== "navigation-root") {
-                        event.preventDefault();
-                        return;
-                    }
-                }
-                if (dragOverLastObj.element && dragOverLastObj.element === liElement && dragOverLastObj.positionY !== event.clientY) {
-                    const notebookElement = hasClosestByAttribute(liElement, "data-sortmode", null);
-                    if (!notebookElement) {
-                        event.preventDefault();
-                        return;
-                    }
-                    const notebookSort = notebookElement.getAttribute("data-sortmode");
-                    if ((dragOverLastObj.sourceOnlyRoot && targetType === "navigation-root" && window.sourceflow.config.fileTree.sort === 6) ||
-                        (!dragOverLastObj.sourceOnlyRoot && targetType !== "navigation-root" &&
-                            (notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15")))
-                    ) {
-                        const nodeRect = liElement.getBoundingClientRect();
-                        const dragHeight = nodeRect.height * .2;
-                        if (targetType === "navigation-root" && dragOverLastObj.sourceOnlyRoot) {
-                            if (event.clientY > nodeRect.top + nodeRect.height / 2) {
+                        const notebookSort = notebookElement.getAttribute("data-sortmode");
+                        if (targetType !== "navigation-root" &&
+                            (notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15"))) {
+                            const nodeRect = liElement.getBoundingClientRect();
+                            const dragHeight = nodeRect.height * .2;
+                            if (event.clientY > nodeRect.bottom - dragHeight) {
                                 liElement.classList.remove("dragover");
                                 liElement.classList.add("dragover__bottom");
-                            } else {
+                            } else if (event.clientY < nodeRect.top + dragHeight) {
                                 liElement.classList.remove("dragover");
                                 liElement.classList.add("dragover__top");
+                            } else {
+                                liElement.classList.remove("dragover__top", "dragover__bottom");
                             }
-                        } else if (event.clientY > nodeRect.bottom - dragHeight) {
-                            liElement.classList.remove("dragover");
-                            liElement.classList.add("dragover__bottom");
-                        } else if (event.clientY < nodeRect.top + dragHeight) {
-                            liElement.classList.remove("dragover");
-                            liElement.classList.add("dragover__top");
-                        } else {
-                            liElement.classList.remove("dragover__top", "dragover__bottom");
+                        }
+                        if (!liElement.classList.contains("dragover__top") && !liElement.classList.contains("dragover__bottom")) {
+                            liElement.classList.add("dragover");
                         }
                     }
-                    if (liElement.classList.contains("dragover__top") || liElement.classList.contains("dragover__bottom") ||
-                        (targetType === "navigation-root" && dragOverLastObj.sourceOnlyRoot)) {
-                        // do nothing
-                    } else {
-                        liElement.classList.add("dragover");
+                    if (dragOverLastObj.element !== liElement) {
+                        dragOverLastObj.element = liElement;
                     }
+                    dragOverLastObj.positionY = event.clientY;
+                    event.preventDefault();
+                    return;
+                }
+
+                liElement = resolveFileTreeMoveDropElement(this.element, event);
+                if (!liElement || !["navigation-root", "navigation-file"].includes(liElement.getAttribute("data-type")) ||
+                    liElement.classList.contains("b3-list-item--focus") || !hasMovableFileSelection()) {
+                    clearFileTreeDropClasses(this.element);
+                    clearDragExpandTimer();
+                    dragOverLastObj.element = null;
+                    event.dataTransfer.dropEffect = "none";
+                    event.preventDefault();
+                    return;
+                }
+                const toPath = liElement.getAttribute("data-path");
+                const isInvalidTarget = Array.from(this.element.querySelectorAll(".b3-list-item--focus")).some((item: HTMLElement) => {
+                    return item.getAttribute("data-type") === "navigation-file" &&
+                        isFileTreePathInside(toPath, item.getAttribute("data-path"));
+                });
+                if (isInvalidTarget) {
+                    clearFileTreeDropClasses(this.element);
+                    clearDragExpandTimer();
+                    dragOverLastObj.element = null;
+                    event.dataTransfer.dropEffect = "none";
+                    event.preventDefault();
+                    return;
                 }
                 if (dragOverLastObj.element !== liElement) {
+                    clearFileTreeDropClasses(this.element);
+                    liElement.classList.add("dragover");
+                    setFileTreeDropLabel(liElement, getFileTreeMoveDropLabel(liElement));
                     dragOverLastObj.element = liElement;
                 }
+                queueDragExpand(liElement);
                 dragOverLastObj.positionY = event.clientY;
+                event.dataTransfer.dropEffect = "move";
                 event.preventDefault();
             });
             event.preventDefault();
@@ -630,27 +706,26 @@ export class Files extends Model {
         this.element.addEventListener("dragleave", () => {
             counter--;
             if (counter === 0) {
-                this.element.querySelectorAll(".dragover, .dragover__bottom, .dragover__top").forEach((item: HTMLElement) => {
-                    item.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                });
+                clearFileTreeDropClasses(this.element);
+                clearDragExpandTimer();
             }
         });
         this.element.addEventListener("dragenter", (event) => {
             event.preventDefault();
             counter++;
         });
-        this.element.addEventListener("drop", async (event: DragEvent & { target: HTMLElement }) => {
+        this.element.addEventListener("drop", (event: DragEvent & { target: HTMLElement }) => {
             counter = 0;
-            const newElement = this.element.querySelector(".dragover, .dragover__bottom, .dragover__top");
+            clearDragExpandTimer();
+            const newElement = this.element.querySelector(".dragover, .dragover__bottom, .dragover__top") as HTMLElement;
             if (!newElement) {
                 return;
             }
-            const newUlElement = hasTopClosestByTag(newElement, "UL");
-            if (!newUlElement) {
+            const notebookElement = getFileTreeNotebookElement(newElement);
+            if (!notebookElement) {
                 return;
             }
-            const oldScrollTop = this.element.scrollTop;
-            const toURL = newUlElement.getAttribute("data-url");
+            const toURL = notebookElement.getAttribute("data-url");
             const toPath = newElement.getAttribute("data-path");
             let gutterType = "";
             for (const item of event.dataTransfer.items) {
@@ -692,136 +767,43 @@ export class Files extends Model {
                         fetchPost("/api/filetree/li2Doc", toDocOptions);
                     }
                 }
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+                clearFileTreeDropClasses(this.element);
                 window.sourceflow.dragElement = undefined;
                 return;
             }
             window.sourceflow.dragElement = undefined;
             if (!event.dataTransfer.getData(Constants.SOURCEFLOW_DROP_FILE)) {
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+                clearFileTreeDropClasses(this.element);
                 return;
             }
-            const selectRootElements: HTMLElement[] = [];
-            const selectFileElements: HTMLElement[] = [];
             const fromPaths: string[] = [];
             this.element.querySelectorAll(".b3-list-item--focus").forEach((item: HTMLElement) => {
-                if (item.getAttribute("data-type") === "navigation-root") {
-                    selectRootElements.push(item);
-                } else {
-                    const dataPath = item.getAttribute("data-path");
-                    const isChild = fromPaths.find(itemPath => {
-                        if (dataPath.startsWith(itemPath.replace(".sf", ""))) {
-                            return true;
-                        }
-                    });
-                    if (!isChild) {
-                        // 禁止父节点移动到子节点 https://github.com/lonelyor/SourceFlow/issues/12539
-                        if (newElement.getAttribute("data-path").startsWith(item.dataset.path.replace(".sf", ""))) {
-                            return;
-                        }
-                        selectFileElements.push(item);
-                        fromPaths.push(dataPath);
+                if (item.getAttribute("data-type") !== "navigation-file") {
+                    return;
+                }
+                const dataPath = item.getAttribute("data-path");
+                const parentDir = pathPosix().dirname(dataPath);
+                const parentPath = parentDir === "/" ? "/" : parentDir + ".sf";
+                if (toPath === parentPath) {
+                    return;
+                }
+                const isChild = fromPaths.find(itemPath => {
+                    if (dataPath.startsWith(itemPath.replace(".sf", ""))) {
+                        return true;
                     }
+                });
+                if (!isChild && !isFileTreePathInside(toPath, dataPath)) {
+                    fromPaths.push(dataPath);
                 }
             });
-            if (newElement.classList.contains("dragover")) {
+            if (fromPaths.length > 0) {
                 fetchPost("/api/filetree/moveDocs", {
                     toNotebook: toURL,
                     fromPaths,
                     toPath,
                 });
-                newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
-                return;
             }
-            if (newElement.classList.contains("dragover__bottom") || newElement.classList.contains("dragover__top")) {
-                const ulSort = newUlElement.getAttribute("data-sortmode");
-                if (window.sourceflow.config.fileTree.sort === 6 && selectRootElements.length > 0 &&
-                    newElement.getAttribute("data-path") === "/") {
-                    if (newElement.classList.contains("dragover__top")) {
-                        selectRootElements.forEach(item => {
-                            newElement.parentElement.before(item.parentElement);
-                        });
-                    } else {
-                        selectRootElements.reverse().forEach(item => {
-                            newElement.parentElement.after(item.parentElement);
-                        });
-                    }
-                    const notebooks: string[] = [];
-                    Array.from(this.element.children).forEach(item => {
-                        notebooks.push(item.getAttribute("data-url"));
-                    });
-                    fetchPost("/api/notebook/changeSortNotebook", {
-                        notebooks,
-                    });
-                } else if ((ulSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && ulSort === "15")) && selectFileElements.length > 0) {
-                    let hasMove = false;
-                    const toDir = pathPosix().dirname(toPath);
-                    if (fromPaths.length > 0) {
-                        await fetchSyncPost("/api/filetree/moveDocs", {
-                            toNotebook: toURL,
-                            fromPaths,
-                            toPath: toDir === "/" ? "/" : toDir + ".sf",
-                            callback: Constants.CB_MOVE_NOLIST,
-                        });
-                        selectFileElements.forEach(item => {
-                            item.setAttribute("data-path", pathPosix().join(toDir, item.getAttribute("data-node-id") + ".sf"));
-                        });
-                        hasMove = true;
-                    }
-                    if (newElement.classList.contains("dragover__top")) {
-                        selectFileElements.forEach(item => {
-                            let nextULElement;
-                            if (item.nextElementSibling && item.nextElementSibling.tagName === "UL") {
-                                nextULElement = item.nextElementSibling;
-                            }
-                            newElement.before(item);
-                            if (nextULElement) {
-                                item.after(nextULElement);
-                            }
-                        });
-                    } else if (newElement.classList.contains("dragover__bottom")) {
-                        selectFileElements.reverse().forEach(item => {
-                            let nextULElement;
-                            if (item.nextElementSibling && item.nextElementSibling.tagName === "UL") {
-                                nextULElement = item.nextElementSibling;
-                            }
-                            if (newElement.nextElementSibling && newElement.nextElementSibling.tagName === "UL") {
-                                newElement.nextElementSibling.after(item);
-                            } else {
-                                newElement.after(item);
-                            }
-                            if (nextULElement) {
-                                item.after(nextULElement);
-                            }
-                        });
-                    }
-                    const paths: string[] = [];
-                    Array.from(newElement.parentElement.children).forEach(item => {
-                        if (item.tagName === "LI") {
-                            paths.push(item.getAttribute("data-path"));
-                        }
-                    });
-                    fetchPost("/api/filetree/changeSort", {
-                        paths,
-                        notebook: toURL
-                    }, () => {
-                        if (hasMove) {
-                            fetchPost("/api/filetree/listDocsByPath", {
-                                notebook: toURL,
-                                path: toDir === "/" ? "/" : toDir + ".sf",
-                                app: Constants.SOURCEFLOW_APPID,
-                            }, response => {
-                                if (response.data.path === "/" && response.data.files.length === 0) {
-                                    showMessage(window.sourceflow.languages.emptyContent);
-                                    return;
-                                }
-                                this.onLsHTML(response.data, oldScrollTop);
-                            });
-                        }
-                    });
-                }
-            }
-            newElement.classList.remove("dragover", "dragover__bottom", "dragover__top");
+            clearFileTreeDropClasses(this.element);
         });
         this.init();
         if (window.sourceflow.config.openHelp) {
@@ -834,6 +816,11 @@ export class Files extends Model {
         const liElement = this.element.querySelector(`li[data-node-id="${data.data.rootID}"]`);
         if (liElement) {
             liElement.setAttribute("data-count", data.data.subFileCount);
+            syncFileTreeDocCountElement(liElement, data.data.subFileCount);
+            syncFileTreeStatusMarksElement(liElement, {
+                bookmark: data.data.bookmark || "",
+                subFileCount: Number(data.data.subFileCount || 0),
+            });
             liElement.querySelector(".ariaLabel")?.setAttribute("aria-label", this.genDocAriaLabel(data.data, escapeGreat));
             if (data.data.subFileCount === 0) {
                 liElement.querySelector(".b3-list-item__toggle")?.classList.add("fn__hidden");
@@ -846,6 +833,7 @@ export class Files extends Model {
     private updateItemArrow(notebookId: string, filePath: string) {
         const treeElement = this.element.querySelector(`[data-url="${notebookId}"]`);
         if (!treeElement) {
+            this.refreshTotalCount();
             return;
         }
         let currentPath = filePath;
@@ -872,6 +860,7 @@ export class Files extends Model {
                 break;
             }
         }
+        this.refreshTotalCount();
     }
 
     private genNotebook(item: INotebook) {
@@ -940,6 +929,8 @@ data-type="navigation-root" data-path="/">
             this.element.scrollTop = scrollTop;
         });
         this.refreshPublishAccessSwitch();
+        this.refreshTotalCount();
+        this.navigation.refreshShortcuts();
         if (!init) {
             return;
         }
@@ -953,6 +944,10 @@ data-type="navigation-root" data-path="/">
             svgElement.classList.add("b3-list-item__arrow--open");
             this.closeElement.lastElementChild.classList.remove("fn__none");
         }
+    }
+
+    private refreshTotalCount() {
+        refreshFileTreeTotalCount(this.actionsElement);
     }
 
     private onRemove(data: IWebSocketData) {
@@ -975,6 +970,7 @@ data-type="navigation-root" data-path="/">
                         this.closeElement.classList.remove("fn__none");
                     }
                 }
+                this.refreshTotalCount();
             });
             if (data.cmd === "removeBox") {
                 const removeElement = this.closeElement.querySelector(`li[data-url="${data.data.box}"]`);
@@ -1016,6 +1012,7 @@ data-type="navigation-root" data-path="/">
                 }
             }
         });
+        this.refreshTotalCount();
     }
 
     private onMount(data: { data: { box: INotebook, existed?: boolean }, callback?: string }) {
@@ -1056,6 +1053,7 @@ data-type="navigation-root" data-path="/">
                     this.element.insertAdjacentHTML("afterbegin", html);
                 }
             }
+            this.refreshTotalCount();
         });
     }
 
@@ -1066,6 +1064,9 @@ data-type="navigation-root" data-path="/">
         }
         fileItemElement.setAttribute("data-name", Lute.EscapeHTMLStr(data.title));
         fileItemElement.querySelector(".b3-list-item__text").innerHTML = escapeHtml(data.title);
+        if (fileItemElement.classList.contains("file-tree__item--current")) {
+            this.navigation.updateCurrentPath(fileItemElement as HTMLElement);
+        }
     }
 
     private onMove(response: IWebSocketData) {
@@ -1218,12 +1219,25 @@ data-type="navigation-root" data-path="/">
         this.element.querySelectorAll("li.b3-list-item--focus").forEach((liItem) => {
             liItem.classList.remove("b3-list-item--focus");
         });
+        this.element.querySelectorAll("li.file-tree__item--current").forEach((liItem) => {
+            liItem.classList.remove("file-tree__item--current");
+        });
         target.classList.add("b3-list-item--focus");
+        target.classList.add("file-tree__item--current");
+        this.navigation.updateCurrentPath(target);
 
         if (isScroll) {
             const elementRect = this.element.getBoundingClientRect();
             this.element.scrollTop = this.element.scrollTop + (target.getBoundingClientRect().top - (elementRect.top + elementRect.height / 2));
         }
+    }
+
+    public openDoc(rootID: string) {
+        void openFileById({
+            app: this.app,
+            id: rootID,
+            action: [Constants.CB_GET_FOCUS, Constants.CB_GET_SCROLL],
+        });
     }
 
     public getLeaf(liElement: Element, notebookId: string, focusUpdate = false) {
@@ -1349,6 +1363,8 @@ data-type="navigation-root" data-path="/">
         const ariaLabel = this.genDocAriaLabel(item, escapeAriaLabel);
         const paddingLeft = (item.path.split("/").length - 1) * 18;
         const editingPublishAccess = this.element.classList.contains("file-tree__publish-access--active");
+        const docCountHTML = genFileTreeDocCountHTML(item.subFileCount);
+        const statusMarksHTML = genFileTreeStatusMarksHTML(item);
         return `<li data-node-id="${item.id}" data-name="${Lute.EscapeHTMLStr(item.name)}" draggable="true" data-count="${item.subFileCount}"
 data-type="navigation-file"
 style="--file-toggle-width:${paddingLeft + 18}px"
@@ -1360,12 +1376,14 @@ class="b3-list-item b3-list-item--hide-action" data-path="${item.path}">
     <span class="b3-list-item__switch b3-tooltips b3-tooltips__n${editingPublishAccess ? "" : " fn__none"}" aria-label="${window.sourceflow.languages.publishAccess}">${getPublishAccessOptionByLevel("public").iconHTML}</span>
     <span class="b3-list-item__text ariaLabel" data-position="parentE"
 aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
+    ${statusMarksHTML}
     <span data-type="more-file" class="b3-list-item__action b3-tooltips b3-tooltips__nw" aria-label="${window.sourceflow.languages.more}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </span>
     <span data-type="new" class="b3-list-item__action b3-tooltips b3-tooltips__nw${window.sourceflow.config.readonly ? " fn__none" : ""}" aria-label="${window.sourceflow.languages.newSubDoc}">
         <svg><use xlink:href="#iconAdd"></use></svg>
     </span>
+    ${docCountHTML}
     ${countHTML}
 </li>`;
     }

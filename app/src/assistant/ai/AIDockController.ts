@@ -23,6 +23,7 @@ import {
     clearAIDockEditingMessage,
     confirmAIDockTool,
     copyAIDockMessage,
+    rejectAIDockTool,
     focusAIDockComposer,
     getAIDockAttachmentSummary,
     getAIDockEffectiveContextPreview,
@@ -400,6 +401,10 @@ class AssistantAIDock {
 
     private async confirmTool(messageId: string, toolIndex: number) {
         await confirmAIDockTool(this.getRuntime(), messageId, toolIndex);
+    }
+
+    private async rejectTool(messageId: string, toolIndex: number) {
+        await rejectAIDockTool(this.getRuntime(), messageId, toolIndex);
     }
 
     private async saveTranscript() {

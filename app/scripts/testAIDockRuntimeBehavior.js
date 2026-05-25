@@ -7,6 +7,7 @@ const ts = require("typescript");
 class FakeInputElement {
     constructor(attrs = {}, extra = {}) {
         this.attrs = attrs;
+        this.parentElement = null;
         Object.assign(this, extra);
     }
 
@@ -16,6 +17,10 @@ class FakeInputElement {
 
     closest() {
         return null;
+    }
+
+    isEqualNode(other) {
+        return this === other;
     }
 
     blur() {
@@ -43,6 +48,10 @@ class FakeElement {
     dispatch(type, event) {
         const handlers = this.listeners.get(type) || [];
         handlers.forEach((handler) => handler(event));
+    }
+
+    isEqualNode(other) {
+        return this === other;
     }
 }
 
@@ -84,6 +93,8 @@ const compileModule = (entryPath, requireMap = {}, globals = {}) => {
 const appRoot = path.join(__dirname, "..");
 const aiRoot = path.join(appRoot, "src", "assistant", "ai");
 const openSettingCalls = [];
+const capturedPasteFiles = [];
+const fakeImageFiles = [{name: "test.png", type: "image/png", size: 1024}];
 
 const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
     "../../config": {
@@ -92,7 +103,13 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
         },
     },
     "./AIDockShared": {
-        getImageFilesFromDataTransfer: () => [],
+        getImageFilesFromDataTransfer: (dt) => {
+            if (dt && dt._hasImages) {
+                capturedPasteFiles.push(true);
+                return fakeImageFiles;
+            }
+            return [];
+        },
     },
 });
 
@@ -106,13 +123,31 @@ const createRuntime = () => {
         activePanel: "target",
         sessionsCollapsed: false,
         enableTools: false,
+        sending: false,
+        editingMessageId: "",
+        draftMessage: "",
+        draftBackup: "",
+        attachments: [],
+        attachmentsBackup: null,
         noteSearchKeyword: "",
         noteSearchResults: [],
         noteSearchLoading: false,
         selectedProfileId: "",
+        messages: [],
         renderCount: 0,
         switchProfileCalls: [],
         refreshToolCatalogCalls: [],
+        confirmToolCalls: [],
+        rejectToolCalls: [],
+        sendMessageCalls: [],
+        clearEditingMessageCalls: [],
+        startEditingMessageCalls: [],
+        addComposerAttachmentsCalls: [],
+        removeComposerAttachmentCalls: [],
+        setComposerDropActiveCalls: [],
+        copyMessageCalls: [],
+        toggleMessageExpandedCalls: [],
+        openComposerAttachmentPickerCalls: [],
         render() {
             this.renderCount += 1;
         },
@@ -123,16 +158,32 @@ const createRuntime = () => {
             this.refreshToolCatalogCalls.push(profileId);
         },
         async searchTargetNotes() {},
-        async addComposerAttachments() {},
-        async confirmTool() {},
+        async addComposerAttachments(files) {
+            this.addComposerAttachmentsCalls.push(files);
+        },
+        async confirmTool(messageId, toolIndex) {
+            this.confirmToolCalls.push({messageId, toolIndex});
+        },
+        async rejectTool(messageId, toolIndex) {
+            this.rejectToolCalls.push({messageId, toolIndex});
+        },
         async selectSession() {},
-        removeComposerAttachment() {},
+        removeComposerAttachment(id) {
+            this.removeComposerAttachmentCalls.push(id);
+        },
         toggleFloatingPanel() {},
         async handleAction(action, target) {
             return handleAIDockAction(this, action, target);
         },
-        async sendMessage() {},
-        clearEditingMessage() {},
+        async sendMessage() {
+            this.sendMessageCalls.push(1);
+        },
+        clearEditingMessage(restore) {
+            this.clearEditingMessageCalls.push(restore);
+        },
+        startEditingMessage(messageId) {
+            this.startEditingMessageCalls.push(messageId);
+        },
         focusComposer() {},
         async selectTargetNote() {},
         async updateToolPolicyField() {},
@@ -150,12 +201,33 @@ const createRuntime = () => {
         async refreshAudits() {},
         async pinCurrentNoteAsTarget() {},
         async applyToolPolicyPreset() {},
-        openComposerAttachmentPicker() {},
-        copyMessage() {},
-        startEditingMessage() {},
-        toggleMessageExpanded() {},
+        openComposerAttachmentPicker() {
+            this.openComposerAttachmentPickerCalls.push(1);
+        },
+        copyMessage(id) {
+            this.copyMessageCalls.push(id);
+        },
+        toggleMessageExpanded(id) {
+            this.toggleMessageExpandedCalls.push(id);
+        },
+        setComposerDropActive(active) {
+            this.setComposerDropActiveCalls.push(active);
+        },
     };
 };
+
+const createFakeClickEvent = (target) => ({
+    target,
+    preventDefault() {},
+});
+
+const createFakeKeyboardEvent = (target, key) => ({
+    target,
+    key,
+    shiftKey: false,
+    isComposing: false,
+    preventDefault() {},
+});
 
 (async () => {
     const runtime = createRuntime();
@@ -185,6 +257,138 @@ const createRuntime = () => {
     assert.ok(runtime.renderCount >= 2);
     assert.strictEqual(openSettingCalls.length, 1);
     assert.strictEqual(openSettingCalls[0][1], "AI");
+
+    const rt2 = createRuntime();
+    bindAIDockEvents(rt2);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "confirm-tool", "data-message-id": "msg-1", "data-tool-index": "2"}),
+    ));
+    assert.deepStrictEqual(rt2.confirmToolCalls, [{messageId: "msg-1", toolIndex: 2}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "reject-tool", "data-message-id": "msg-1", "data-tool-index": "0"}),
+    ));
+    assert.deepStrictEqual(rt2.rejectToolCalls, [{messageId: "msg-1", toolIndex: 0}]);
+
+    const rt3 = createRuntime();
+    bindAIDockEvents(rt3);
+
+    rt3.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Enter",
+    ));
+    assert.strictEqual(rt3.sendMessageCalls.length, 1);
+
+    rt3.editingMessageId = "msg-1";
+    rt3.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Escape",
+    ));
+    assert.deepStrictEqual(rt3.clearEditingMessageCalls, [true]);
+
+    await handleAIDockAction(rt3, "edit-message", new FakeInputElement({"data-message-id": "msg-42"}));
+    assert.deepStrictEqual(rt3.startEditingMessageCalls, ["msg-42"]);
+
+    const rt4 = createRuntime();
+    bindAIDockEvents(rt4);
+
+    rt4.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "copy-message", "data-message-id": "msg-c1"}),
+    ));
+    rt4.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "edit-message", "data-message-id": "msg-e1"}),
+    ));
+    assert.deepStrictEqual(rt4.startEditingMessageCalls, ["msg-e1"]);
+
+    const rt5 = createRuntime();
+    bindAIDockEvents(rt5);
+
+    rt5.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Enter",
+    ));
+    assert.strictEqual(rt5.sendMessageCalls.length, 1);
+
+    rt5.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "a",
+    ));
+    assert.strictEqual(rt5.sendMessageCalls.length, 1);
+
+    const rt6 = createRuntime();
+    bindAIDockEvents(rt6);
+    rt6.editingMessageId = "";
+
+    rt6.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Escape",
+    ));
+    assert.deepStrictEqual(rt6.clearEditingMessageCalls, []);
+
+    // --- 图片附件测试 ---
+
+    const rt7 = createRuntime();
+    bindAIDockEvents(rt7);
+
+    await handleAIDockAction(rt7, "pick-attachments");
+    assert.strictEqual(rt7.openComposerAttachmentPickerCalls.length, 1);
+
+    rt7.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "remove-attachment", "data-attachment-id": "att-1"}),
+    ));
+    assert.deepStrictEqual(rt7.removeComposerAttachmentCalls, ["att-1"]);
+
+    const fakeFileInput = new FakeInputElement({"data-role": "message-attachments"}, {
+        files: [fakeImageFiles[0]],
+    });
+    fakeFileInput.value = "fake-path";
+    rt7.element.dispatch("input", {target: fakeFileInput});
+    assert.strictEqual(rt7.addComposerAttachmentsCalls.length, 1);
+    assert.strictEqual(rt7.addComposerAttachmentsCalls[0].length, 1);
+    assert.strictEqual(rt7.addComposerAttachmentsCalls[0][0].name, "test.png");
+    assert.strictEqual(fakeFileInput.value, "");
+
+    rt7.element.dispatch("paste", {
+        target: new FakeTextAreaElement({"data-role": "message"}),
+        clipboardData: {_hasImages: true, getData: () => ""},
+        preventDefault() {},
+    });
+    assert.strictEqual(rt7.addComposerAttachmentsCalls.length, 2);
+
+    const rt8 = createRuntime();
+    bindAIDockEvents(rt8);
+
+    rt8.element.dispatch("paste", {
+        target: new FakeTextAreaElement({"data-role": "message"}),
+        clipboardData: {_hasImages: false, getData: () => "some text"},
+        preventDefault() {},
+    });
+    assert.strictEqual(rt8.addComposerAttachmentsCalls.length, 0);
+
+    // --- 编辑重发测试 ---
+
+    const rt9 = createRuntime();
+    bindAIDockEvents(rt9);
+
+    await handleAIDockAction(rt9, "edit-message", new FakeInputElement({"data-message-id": "msg-edit-1"}));
+    assert.deepStrictEqual(rt9.startEditingMessageCalls, ["msg-edit-1"]);
+
+    await handleAIDockAction(rt9, "cancel-edit-message");
+    assert.deepStrictEqual(rt9.clearEditingMessageCalls, [true]);
+
+    await handleAIDockAction(rt9, "copy-message", new FakeInputElement({"data-message-id": "msg-copy-1"}));
+    assert.deepStrictEqual(rt9.copyMessageCalls, ["msg-copy-1"]);
+
+    await handleAIDockAction(rt9, "toggle-message-expand", new FakeInputElement({"data-message-id": "msg-expand-1"}));
+    assert.deepStrictEqual(rt9.toggleMessageExpandedCalls, ["msg-expand-1"]);
+
+    const rt10 = createRuntime();
+    bindAIDockEvents(rt10);
+    rt10.editingMessageId = "msg-active-edit";
+
+    await handleAIDockAction(rt10, "send-message");
+    assert.strictEqual(rt10.sendMessageCalls.length, 1);
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {

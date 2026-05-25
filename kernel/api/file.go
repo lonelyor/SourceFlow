@@ -73,7 +73,7 @@ func globalCopyFiles(c *gin.Context) {
 
 		if !filelock.IsExist(absSrc) {
 			msg := fmt.Sprintf("file [%s] does not exist", src)
-			logging.LogErrorf(msg)
+			logging.LogErrorf("%s", msg)
 			ret.Code = -1
 			ret.Msg = msg
 			return
@@ -81,7 +81,7 @@ func globalCopyFiles(c *gin.Context) {
 
 		if util.IsSensitivePath(absSrc) {
 			msg := fmt.Sprintf("refuse to copy sensitive file [%s]", src)
-			logging.LogErrorf(msg)
+			logging.LogErrorf("%s", msg)
 			ret.Code = -2
 			ret.Msg = msg
 			return
@@ -143,7 +143,7 @@ func copyFile(c *gin.Context) {
 	dest := arg["dest"].(string)
 	if util.IsSensitivePath(dest) {
 		msg := fmt.Sprintf("refuse to copy sensitive file [%s]", dest)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		ret.Code = -2
 		ret.Msg = msg
 		return

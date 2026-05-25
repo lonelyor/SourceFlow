@@ -179,6 +179,14 @@ type AssistantAIToolConfirmRequest struct {
 	Args      map[string]interface{}  `json:"args"`
 }
 
+type AssistantAIToolRejectRequest struct {
+	ProfileID string `json:"profileId"`
+	SessionID string `json:"sessionId"`
+	MessageID string `json:"messageId"`
+	AuditID   string `json:"auditId"`
+	ToolID    string `json:"toolId"`
+}
+
 type assistantAIProviderReply struct {
 	Content           string
 	ProviderMessageID string
@@ -601,7 +609,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
 
-	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider)
+	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider || AssistantAIProviderGemini == profile.Provider)
 	if req.EnableTools && !useNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
@@ -1028,6 +1036,59 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 		AssistantMessage: assistantMessage,
 		Messages:         allMessages,
 		ToolResults:      []*AssistantAIToolResult{toolResult},
+	}, nil
+}
+
+func RejectAssistantAITool(req *AssistantAIToolRejectRequest) (ret *AssistantAIChatResult, err error) {
+	if nil == req {
+		return nil, fmt.Errorf("assistant AI tool reject request is required")
+	}
+	sessionID := strings.TrimSpace(req.SessionID)
+	if "" == sessionID {
+		return nil, fmt.Errorf("assistant AI session ID is required")
+	}
+
+	db, err := getAssistantAIDB()
+	if err != nil {
+		return nil, err
+	}
+	session, err := getAssistantAISession0(db, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	profileID := strings.TrimSpace(req.ProfileID)
+	if "" == profileID {
+		profileID = session.ProfileID
+	}
+	profile, err := getAssistantAIProfile0(db, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	toolResult, err := rejectAssistantAITool(db, profile, session.ID, strings.TrimSpace(req.ToolID))
+	if err != nil {
+		return nil, err
+	}
+
+	if updateErr := updateAssistantAIMessageToolResult(db, strings.TrimSpace(req.MessageID), strings.TrimSpace(toolResult.AuditID), toolResult); nil != updateErr {
+		return nil, updateErr
+	}
+
+	session, err = getAssistantAISession0(db, session.ID)
+	if err != nil {
+		return nil, err
+	}
+	allMessages, err := listAssistantAISessionMessages(db, session.ID, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AssistantAIChatResult{
+		Session:     session,
+		Profile:     profile,
+		Messages:    allMessages,
+		ToolResults: []*AssistantAIToolResult{toolResult},
 	}, nil
 }
 
@@ -1557,7 +1618,7 @@ func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt strin
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropic(profile, systemPrompt, messages)
 	case AssistantAIProviderGemini:
-		return chatAssistantAIGemini(profile, systemPrompt, messages)
+		return chatAssistantAIGemini(profile, systemPrompt, messages, opts)
 	default:
 		return chatAssistantAIOpenAICompatible(profile, systemPrompt, messages, opts)
 	}
@@ -1568,7 +1629,7 @@ func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta, opts)
 	case AssistantAIProviderGemini:
-		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta)
+		return chatAssistantAIGeminiStream(profile, systemPrompt, messages, onDelta, opts)
 	default:
 		return chatAssistantAIOpenAICompatibleStream(profile, systemPrompt, messages, onDelta, opts)
 	}
@@ -1864,7 +1925,7 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 	return ret, nil
 }
 
-func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage) (ret *assistantAIProviderReply, err error) {
+func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	endpoint := strings.TrimRight(profile.BaseURL, "/")
 	if strings.HasSuffix(endpoint, "/v1beta") {
 		endpoint += "/models/" + url.PathEscape(profile.Model) + ":generateContent"
@@ -1884,6 +1945,13 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			"parts": []map[string]string{{"text": systemPrompt}},
 		}
 	}
+	if nil != opts && opts.EnableTools {
+		if declarations := buildAssistantAIGeminiTools(profile); 0 < len(declarations) {
+			reqBody["tools"] = []map[string]interface{}{
+				{"function_declarations": declarations},
+			}
+		}
+	}
 
 	headers := map[string]string{
 		"x-goog-api-key": profile.APIKey,
@@ -1894,7 +1962,11 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			FinishReason string `json:"finishReason"`
 			Content      struct {
 				Parts []struct {
-					Text string `json:"text"`
+					Text         string          `json:"text"`
+					FunctionCall *struct {
+						Name string          `json:"name"`
+						Args json.RawMessage `json:"args"`
+					} `json:"functionCall"`
 				} `json:"parts"`
 			} `json:"content"`
 		} `json:"candidates"`
@@ -1918,10 +1990,23 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 	}
 
 	builder := &strings.Builder{}
+	var toolCalls []map[string]interface{}
 	for _, part := range resp.Candidates[0].Content.Parts {
-		builder.WriteString(part.Text)
+		if "" != strings.TrimSpace(part.Text) {
+			builder.WriteString(part.Text)
+		}
+		if nil != part.FunctionCall {
+			toolCalls = append(toolCalls, map[string]interface{}{
+				"id":   fmt.Sprintf("gemini_%s", part.FunctionCall.Name),
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":      part.FunctionCall.Name,
+					"arguments": string(part.FunctionCall.Args),
+				},
+			})
+		}
 	}
-	return &assistantAIProviderReply{
+	ret = &assistantAIProviderReply{
 		Content:      strings.TrimSpace(builder.String()),
 		InputTokens:  resp.UsageMetadata.PromptTokenCount,
 		OutputTokens: resp.UsageMetadata.CandidatesTokenCount,
@@ -1930,7 +2015,11 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			"finishReason": resp.Candidates[0].FinishReason,
 			"model":        profile.Model,
 		},
-	}, nil
+	}
+	if 0 < len(toolCalls) {
+		ret.ToolCalls = toolCalls
+	}
+	return ret, nil
 }
 
 func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint string, headers map[string]string, reqBody interface{}, respBody interface{}) (err error) {

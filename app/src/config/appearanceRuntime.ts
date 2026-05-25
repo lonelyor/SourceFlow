@@ -88,6 +88,13 @@ import {
     getCodeBlockSkinSettingTexts,
     normalizeCodeBlockSkin
 } from "../appearance/codeBlockSkin";
+import {
+    applyFileTreeAppearance,
+    getFileTreeAppearanceTexts,
+    getFileTreeDensityOptions,
+    normalizeFileTreeDensity
+} from "../appearance/fileTreeAppearance";
+import {refreshAllFileTreeTotalCounts} from "../layout/dock/fileTreeCounts";
 import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
 import {escapeAttr, escapeHtml} from "../util/escape";
 
@@ -134,6 +141,9 @@ export const appearance = {
         const mascotScale = normalizeMascotScale(window.sourceflow.config.appearance.mascotScale);
         const mascotPositionOptionsHTML = getMascotPositionOptions().map((item) => `<option value="${item.value}" ${mascotPosition === item.value ? "selected" : ""}>${item.label}</option>`).join("");
         const mascotEffectOptionsHTML = getMascotEffectOptions().map((item) => `<option value="${item.value}" ${mascotEffect === item.value ? "selected" : ""}>${item.label}</option>`).join("");
+        const fileTreeAppearanceTexts = getFileTreeAppearanceTexts();
+        const fileTreeDensity = normalizeFileTreeDensity(window.sourceflow.config.appearance.fileTreeDensity);
+        const fileTreeDensityOptionsHTML = getFileTreeDensityOptions().map((item) => `<option value="${item.name}" ${fileTreeDensity === item.name ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("");
         return `<div class="fn__flex b3-label config__item">
     <div class="fn__flex-1">
         ${window.sourceflow.languages.appearance4}
@@ -243,6 +253,40 @@ export const appearance = {
     </div>
     <span class="fn__space"></span>
     <select id="lang" class="b3-select fn__flex-center fn__size200">${genLangOptions(window.sourceflow.config.langs, window.sourceflow.config.appearance.lang)}</select>
+</div>
+<div class="b3-label">
+    <div class="fn__block">
+        ${fileTreeAppearanceTexts.title}
+        <div class="b3-label__text">${fileTreeAppearanceTexts.detail}</div>
+        <div class="fn__hr"></div>
+        <label class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.guides}</div>
+            <span class="fn__space"></span>
+            <input class="b3-switch fn__flex-center" id="fileTreeGuides" type="checkbox"${window.sourceflow.config.appearance.fileTreeGuides ? " checked" : ""}>
+        </label>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.guidesTip}</div>
+        <div class="fn__hr"></div>
+        <label class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.docCount}</div>
+            <span class="fn__space"></span>
+            <input class="b3-switch fn__flex-center" id="fileTreeDocCount" type="checkbox"${window.sourceflow.config.appearance.fileTreeDocCount ? " checked" : ""}>
+        </label>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.docCountTip}</div>
+        <div class="fn__hr"></div>
+        <label class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.totalCount}</div>
+            <span class="fn__space"></span>
+            <input class="b3-switch fn__flex-center" id="fileTreeTotalCount" type="checkbox"${window.sourceflow.config.appearance.fileTreeTotalCount !== false ? " checked" : ""}>
+        </label>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.totalCountTip}</div>
+        <div class="fn__hr"></div>
+        <div class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.density}</div>
+            <span class="fn__space"></span>
+            <select class="b3-select fn__flex-center fn__size200" id="fileTreeDensity">${fileTreeDensityOptionsHTML}</select>
+        </div>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.densityTip}</div>
+    </div>
 </div>
 <div class="b3-label">
     <div class="fn__block">
@@ -665,6 +709,10 @@ export const appearance = {
         const themeDark = (appearance.element.querySelector("#themeDark") as HTMLSelectElement).value;
         const modeElementValue = parseInt((appearance.element.querySelector("#mode") as HTMLSelectElement).value);
         const OSTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
+        const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
+        const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
+        const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
         fetchPost("/api/setting/setAppearance", Object.assign({}, window.sourceflow.config.appearance, {
             icon: (appearance.element.querySelector("#icon") as HTMLSelectElement).value,
             mode: modeElementValue === 2 ? (OSTheme === "light" ? 0 : 1) : modeElementValue,
@@ -690,6 +738,10 @@ export const appearance = {
             mascotEffect: getMascotEffectValue(appearance.element),
             mascotOpacity: getMascotOpacityValue(appearance.element),
             mascotScale: getMascotScaleValue(appearance.element),
+            fileTreeGuides: fileTreeGuidesElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeGuides,
+            fileTreeDocCount: fileTreeDocCountElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeDocCount,
+            fileTreeTotalCount: fileTreeTotalCountElement?.checked ?? (window.sourceflow.config.appearance.fileTreeTotalCount !== false),
+            fileTreeDensity: normalizeFileTreeDensity(fileTreeDensityElement?.value || window.sourceflow.config.appearance.fileTreeDensity),
             statusBar: {
                 msgTaskDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskDatabaseIndexCommitDisabled,
                 msgTaskHistoryDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskHistoryDatabaseIndexCommitDisabled,
@@ -1177,6 +1229,22 @@ export const appearance = {
             if (hideStatusBarElement) {
                 hideStatusBarElement.checked = !!data.hideStatusBar;
             }
+            const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
+            const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
+            const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
+            const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+            if (fileTreeGuidesElement) {
+                fileTreeGuidesElement.checked = !!data.fileTreeGuides;
+            }
+            if (fileTreeDocCountElement) {
+                fileTreeDocCountElement.checked = !!data.fileTreeDocCount;
+            }
+            if (fileTreeTotalCountElement) {
+                fileTreeTotalCountElement.checked = data.fileTreeTotalCount !== false;
+            }
+            if (fileTreeDensityElement) {
+                fileTreeDensityElement.value = normalizeFileTreeDensity(data.fileTreeDensity);
+            }
             const startupPageOpacityInput = appearance.element.querySelector("#startupPageOpacity") as HTMLInputElement;
             const startupPageBlurInput = appearance.element.querySelector("#startupPageBlur") as HTMLInputElement;
             if (startupPageOpacityInput) {
@@ -1212,6 +1280,8 @@ export const appearance = {
             setMascotImageInputValue(appearance.element, data.mascotImage);
             syncMascotControls(appearance.element);
         }
+        applyFileTreeAppearance(data);
+        refreshAllFileTreeTotalCounts();
         loadAssets(data);
         document.querySelector("#barMode use")?.setAttribute("xlink:href", `#icon${window.sourceflow.config.appearance.modeOS ? "Mode" : (window.sourceflow.config.appearance.mode === 0 ? "Light" : "Dark")}`);
     }

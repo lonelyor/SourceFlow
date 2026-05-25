@@ -18,7 +18,10 @@ package conf
 
 import "github.com/lonelyor/sourceflow/kernel/util"
 
-const DefaultStartupPageImage = "/appearance/boot/startup-logo.png"
+const (
+	DefaultStartupPageImage = "/appearance/boot/startup-logo.png"
+	DefaultFileTreeDensity  = "default"
+)
 
 type Appearance struct {
 	Mode                int                `json:"mode"`                // 模式：0：明亮，1：暗黑
@@ -48,6 +51,10 @@ type Appearance struct {
 	MascotEffect        string             `json:"mascotEffect"`        // 看板娘特效：float/sway/pulse/none
 	MascotOpacity       int                `json:"mascotOpacity"`       // 看板娘透明度，单位：%
 	MascotScale         int                `json:"mascotScale"`         // 看板娘缩放，单位：%
+	FileTreeGuides      bool               `json:"fileTreeGuides"`      // 是否显示文档树层级引导线
+	FileTreeDensity     string             `json:"fileTreeDensity"`     // 文档树行距密度：compact/default/loose
+	FileTreeDocCount    bool               `json:"fileTreeDocCount"`    // 是否显示文档树子文档数量
+	FileTreeTotalCount  *bool              `json:"fileTreeTotalCount"`  // 是否显示文档树全部笔记总数
 	StatusBar           *util.StatusBar    `json:"statusBar"`           // 底部状态栏配置
 }
 
@@ -74,6 +81,10 @@ func NewAppearance() *Appearance {
 		MascotEffect:        "float",
 		MascotOpacity:       100,
 		MascotScale:         100,
+		FileTreeGuides:      false,
+		FileTreeDensity:     DefaultFileTreeDensity,
+		FileTreeDocCount:    false,
+		FileTreeTotalCount:  func() *bool { v := true; return &v }(),
 		StatusBar:           &util.StatusBar{},
 	}
 }

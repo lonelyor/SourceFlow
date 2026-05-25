@@ -7,17 +7,14 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
     let codeElements: NodeListOf<Element>;
     let isPreview = false;
     if (element.classList.contains("code-block")) {
-        // 编辑器内代码块编辑渲染
         codeElements = element.querySelectorAll(".hljs");
     } else {
         if (element.classList.contains("item__readme")) {
-            // bazaar reademe
             codeElements = element.querySelectorAll("pre code");
             codeElements.forEach(item => {
                 item.parentElement.setAttribute("linenumber", "false");
             });
         } else if (element.classList.contains("b3-typography")) {
-            // preview & export html markdown
             codeElements = element.querySelectorAll(".code-block code");
             isPreview = true;
         } else {
@@ -32,8 +29,13 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
 
     addScript(`${cdn}/js/highlight.js/highlight.min.js?v=11.11.1`, "protyleHljsScript").then(() => {
         addScript(`${cdn}/js/highlight.js/third-languages.js?v=2.0.1`, "protyleHljsThirdScript").then(() => {
-            codeElements.forEach((block: HTMLElement) => {
-                if (block.getAttribute("data-render") === "true") {
+            const blocks = Array.from(codeElements) as HTMLElement[];
+            const pending = blocks.filter((block: HTMLElement) => block.getAttribute("data-render") !== "true");
+            if (pending.length === 0) {
+                return;
+            }
+            const highlightOne = (block: HTMLElement) => {
+                if (!block.isConnected || block.getAttribute("data-render") === "true") {
                     return;
                 }
                 block.setAttribute("data-render", "true");
@@ -49,7 +51,6 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                     while (previousSibling) {
                         startIndex += previousSibling.textContent.length;
                         while (!previousSibling.previousSibling && previousSibling.parentElement.tagName !== "DIV") {
-                            // 高亮 span 中输入
                             previousSibling = previousSibling.parentElement;
                         }
                         previousSibling = previousSibling.previousSibling;
@@ -59,11 +60,10 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
 
                 let language;
                 if (isPreview) {
-                    language = block.parentElement.getAttribute("data-language"); // preview
+                    language = block.parentElement.getAttribute("data-language");
                 } else if (block.previousElementSibling) {
                     language = block.previousElementSibling.firstElementChild.textContent;
                 } else {
-                    // bazaar readme
                     language = block.className.replace("language-", "");
                 }
                 if (!window.hljs.getLanguage(language)) {
@@ -78,7 +78,6 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                     hljsElement.style.setProperty("white-space", "pre-wrap");
                     hljsElement.style.setProperty("word-break", "break-word");
                 } else {
-                    // 该属性会导致有 tab 后光标跳至末尾，目前无解
                     hljsElement.style.setProperty("white-space", "pre");
                     hljsElement.style.setProperty("word-break", "initial");
                 }
@@ -90,7 +89,6 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                 const codeText = hljsElement.textContent;
                 if (block.firstElementChild) {
                     if (!isPreview && (lineNumber === "true" || (lineNumber !== "false" && window.sourceflow.config.editor.codeSyntaxHighlightLineNum))) {
-                        // 需要先添加 class 以防止抖动
                         block.firstElementChild.className = "protyle-linenumber__rows";
                         block.firstElementChild.setAttribute("contenteditable", "false");
                         lineNumberRender(block, zoom);
@@ -103,7 +101,7 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                     }
                 }
                 hljsElement.innerHTML = window.hljs.highlight(
-                    codeText + (codeText.endsWith("\n") ? "" : "\n"), // https://github.com/lonelyor/SourceFlow/issues/4609
+                    codeText + (codeText.endsWith("\n") ? "" : "\n"),
                     {
                         language,
                         ignoreIllegals: true
@@ -111,7 +109,11 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                 if (wbrElement && getSelection().rangeCount > 0) {
                     focusByOffset(block, startIndex, startIndex);
                 }
-            });
+            };
+
+            for (const block of pending) {
+                highlightOne(block);
+            }
         });
     });
 };

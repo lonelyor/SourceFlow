@@ -36,4 +36,6 @@
 @use "business/emojis" as *;
 @use "component/svg" as *;
 @use "main/main" as *;
+@use "business/file-tree-counts" as *;
+@use "business/file-tree-navigation" as *;
 @use "util/responsive" as *; // 需放置最后，否则 https://github.com/lonelyor/SourceFlow/issues/7056

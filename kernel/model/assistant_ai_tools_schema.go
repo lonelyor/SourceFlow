@@ -376,3 +376,20 @@ func buildAssistantAIAnthropicTools(profile *AssistantAIProfile) []map[string]in
 	}
 	return tools
 }
+
+func buildAssistantAIGeminiTools(profile *AssistantAIProfile) []map[string]interface{} {
+	policy := getAssistantAIToolPolicy(profile)
+	declarations := make([]map[string]interface{}, 0, len(assistantAIToolCatalog))
+	for _, def := range assistantAIToolCatalog {
+		mode := resolveAssistantAIToolDecision(policy, def)
+		if AssistantAIToolModeDeny == mode {
+			continue
+		}
+		declarations = append(declarations, map[string]interface{}{
+			"name":        def.ID,
+			"description": def.Description,
+			"parameters":  buildAssistantAIToolParameterSchema(def),
+		})
+	}
+	return declarations
+}
