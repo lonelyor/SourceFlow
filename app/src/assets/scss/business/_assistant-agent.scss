@@ -159,3 +159,39 @@
     line-height: 1.65;
   }
 }
+
+.assistant-inline {
+  min-height: 100%;
+  gap: 10px;
+
+  &__input {
+    min-height: 104px;
+    resize: none;
+    line-height: 1.55;
+  }
+
+  &__recent {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__recent-item {
+    max-width: 100%;
+    min-height: 28px;
+    padding: 0 10px;
+    border: .5px solid color-mix(in srgb, var(--b3-border-color) 84%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--b3-theme-surface) 96%, var(--b3-theme-background));
+    color: var(--b3-theme-on-background);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  &__actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}

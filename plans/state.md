@@ -51,6 +51,8 @@
 - 阶段 2 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - AI 助手体验优化阶段 3 已实现：写入型 skill 流式输出时在编辑器外围显示 ghost draft，Esc 取消只清理临时 DOM；完成后进入 patch 审阅，真实写入仍需接受补丁。
 - 阶段 3 已将 AI 替换选区路径从 `document.execCommand("insertText")` 改为 `/api/block/updateBlock` 正式块事务，并通过 ghost draft 脚本、patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
+- AI 助手体验优化阶段 4 已实现：Protyle 编辑器支持 `Ctrl+I` 打开内联指令面板、`Ctrl+J` 触发当前位置续写；内联指令支持最近 5 条、同一选区最多 3 轮连续调整，并复用 ghost draft + patch 审阅链路。
+- 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、ghost/patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
 
 ## 风险

@@ -5,6 +5,7 @@ import {prepareKeydownContext} from "./keydown/preflight";
 import type {ActiveKeydownContext} from "./keydown/shared";
 import {handleSelectionKeydown} from "./keydown/selection";
 import {handleStructureKeydown} from "./keydown/structureActions";
+import {handleAssistantInlineKeydown} from "../../assistant/inline/keydown";
 
 export {getContentByInlineHTML};
 
@@ -13,6 +14,11 @@ export const keydown = (protyle: IProtyle, editorElement: HTMLElement) => {
         const context = prepareKeydownContext(protyle, editorElement, event);
         if (!context) {
             return;
+        }
+
+        const assistantInlineResult = handleAssistantInlineKeydown(context);
+        if (assistantInlineResult !== undefined) {
+            return assistantInlineResult;
         }
 
         const selectionResult = handleSelectionKeydown(context);

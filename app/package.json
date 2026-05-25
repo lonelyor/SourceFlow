@@ -56,6 +56,7 @@
     "test:assistant-skill-context": "node ./scripts/testAssistantSkillContext.js",
     "test:assistant-patch-review": "node ./scripts/testAssistantPatchReview.js",
     "test:assistant-ghost-draft": "node ./scripts/testAssistantGhostDraft.js",
+    "test:assistant-inline-command": "node ./scripts/testAssistantInlineCommand.js",
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:export-runtime": "node ./scripts/testExportRuntimeElectron.js",
     "gen:types": "tsc -p tsconfig.types.json",

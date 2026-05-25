@@ -4,6 +4,7 @@ import {escapeAttr, escapeHTML} from "../common/dom";
 import {runAssistantFeature} from "../runtime";
 
 const loadAssistantSkillModule = () => import("./execute");
+const loadAssistantInlineModule = () => import("../inline/commands");
 
 interface IAppendAssistantContextActionsOptions {
     protyle: IProtyle;
@@ -38,12 +39,13 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
         {skillId: "ask-ai", label: assistantText("问 AI", "Ask AI")},
     ].map((item) => `<button class="assistant-context-actions__button" type="button" data-skill-id="${escapeAttr(item.skillId)}">${escapeHTML(item.label)}</button>`).join("");
     const selectionButtons = hasSelection ? [
+        {skillId: "", action: "inline-instruction", label: assistantText("内联指令", "Inline")},
         {skillId: "selection-summarize", label: assistantText("总结为笔记", "Summarize")},
         {skillId: "selection-keypoints", label: assistantText("提取要点", "Key Points")},
         {skillId: "selection-qa", label: assistantText("生成问答", "Generate Q&A")},
         {skillId: "selection-rewrite", label: assistantText("改写表达", "Rewrite")},
         {skillId: "selection-translate", label: assistantText("翻译选中", "Translate")},
-    ].map((item) => `<button class="assistant-context-actions__button" type="button" data-skill-id="${escapeAttr(item.skillId)}">${escapeHTML(item.label)}</button>`).join("") : "";
+    ].map((item) => `<button class="assistant-context-actions__button" type="button"${item.skillId ? ` data-skill-id="${escapeAttr(item.skillId)}"` : ""}${item.action ? ` data-action="${escapeAttr(item.action)}"` : ""}>${escapeHTML(item.label)}</button>`).join("") : "";
     const optimizeButton = options.includeOptimizeTypography
         ? `<button class="assistant-context-actions__button" type="button" data-action="optimize">${escapeHTML(window.sourceflow.languages.optimizeTypography)}</button>`
         : "";
@@ -63,6 +65,19 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
                     const skillId = target.getAttribute("data-skill-id");
                     if (action === "optimize" && options.onOptimizeTypography) {
                         options.onOptimizeTypography();
+                        window.sourceflow.menus.menu.remove();
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return;
+                    }
+                    if (action === "inline-instruction") {
+                        runAssistantFeature("context-actions:inline-instruction", loadAssistantInlineModule, ({openAssistantInlineCommandPanel}) => {
+                            openAssistantInlineCommandPanel({
+                                protyle: options.protyle,
+                                range: options.range,
+                                fallbackSelectionText: options.fallbackSelectionText,
+                            });
+                        });
                         window.sourceflow.menus.menu.remove();
                         event.preventDefault();
                         event.stopPropagation();
