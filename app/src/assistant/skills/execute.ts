@@ -6,7 +6,7 @@ import {focusByRange} from "../../protyle/util/selection";
 import {writeText} from "../../protyle/util/compatibility";
 import {hasClosestBlock} from "../../protyle/util/hasClosest";
 import {App} from "../../index";
-import {assistantText, buildAssistantNoteContext} from "../constants";
+import {assistantText, buildAssistantNoteContextForSkill} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {
     getActiveEditorProtyle,
@@ -884,7 +884,7 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             mode: "chat",
             title: requestTitle,
             message: definition.buildMessage(context, params),
-            system: context.note ? buildAssistantNoteContext(context.note) : "",
+            system: context.note ? buildAssistantNoteContextForSkill(context.note, definition.id) : "",
             enableTools: definition.allowTools === true,
             context: context.note || undefined,
         }, {

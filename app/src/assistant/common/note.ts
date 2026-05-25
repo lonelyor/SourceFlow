@@ -14,6 +14,9 @@ export interface ICurrentNoteContext {
     currentBlockType: string;
     currentBlockMarkdown: string;
     selectedText: string;
+    outlineMarkdown?: string;
+    styleSummary?: string;
+    surroundingBlocks?: IAssistantNoteBlockContext[];
 }
 
 export interface IAssistantNoteCandidate {
@@ -22,6 +25,13 @@ export interface IAssistantNoteCandidate {
     path: string;
     title: string;
     boxIcon?: string;
+}
+
+export interface IAssistantNoteBlockContext {
+    id: string;
+    type: string;
+    markdown: string;
+    position: "previous" | "current" | "next";
 }
 
 const resolveEditorProtyle = (editor?: import("../../protyle").Protyle | IProtyle) => {
@@ -33,6 +43,7 @@ const resolveEditorProtyle = (editor?: import("../../protyle").Protyle | IProtyl
 
 const CURRENT_NOTE_CONTEXT_TTL = 1800;
 const ROOT_NOTE_CONTEXT_TTL = 10000;
+const ASSISTANT_CONTEXT_SIBLING_LIMIT = 3;
 
 let currentNoteContextCache: {
     key: string;
@@ -91,6 +102,135 @@ const getCurrentContextCacheKey = (rootID: string, activeBlockID: string, select
     return [rootID, activeBlockID, selectedText].join("::");
 };
 
+const isAssistantBlockElement = (element: Element | null): element is HTMLElement => {
+    return !!element?.getAttribute("data-node-id");
+};
+
+const collectAssistantSiblingBlocks = (blockElement: HTMLElement | null) => {
+    if (!blockElement) {
+        return [] as Array<{ element: HTMLElement, position: "previous" | "current" | "next" }>;
+    }
+    const previous: Array<{ element: HTMLElement, position: "previous" }> = [];
+    let previousElement = blockElement.previousElementSibling;
+    while (previousElement && previous.length < ASSISTANT_CONTEXT_SIBLING_LIMIT) {
+        if (isAssistantBlockElement(previousElement)) {
+            previous.unshift({element: previousElement, position: "previous"});
+        }
+        previousElement = previousElement.previousElementSibling;
+    }
+    const next: Array<{ element: HTMLElement, position: "next" }> = [];
+    let nextElement = blockElement.nextElementSibling;
+    while (nextElement && next.length < ASSISTANT_CONTEXT_SIBLING_LIMIT) {
+        if (isAssistantBlockElement(nextElement)) {
+            next.push({element: nextElement, position: "next"});
+        }
+        nextElement = nextElement.nextElementSibling;
+    }
+    return [...previous, {element: blockElement, position: "current" as const}, ...next];
+};
+
+const fetchAssistantBlockMarkdown = async (id: string, fallback = "") => {
+    const blockID = `${id || ""}`.trim();
+    if (!blockID) {
+        return fallback;
+    }
+    const response = await fetchSyncPost("/api/block/getBlockKramdown", {id: blockID});
+    if (response.code !== 0) {
+        return fallback;
+    }
+    return response.data?.kramdown || response.data || fallback;
+};
+
+const buildAssistantSurroundingBlocks = async (
+    activeBlockElement: HTMLElement | null,
+    activeBlockID: string,
+    activeBlockMarkdown: string,
+) => {
+    const candidates = collectAssistantSiblingBlocks(activeBlockElement);
+    if (!candidates.length) {
+        const markdown = `${activeBlockMarkdown || ""}`.trim();
+        return markdown ? [{
+            id: activeBlockID,
+            type: "",
+            markdown,
+            position: "current" as const,
+        }] : [];
+    }
+    const seen = new Set<string>();
+    const rows = candidates.map((item) => {
+        const id = item.element.getAttribute("data-node-id") || "";
+        if (!id || seen.has(id)) {
+            return null;
+        }
+        seen.add(id);
+        return {
+            id,
+            type: item.element.getAttribute("data-type") || "",
+            position: item.position,
+        };
+    }).filter(Boolean) as Array<{ id: string, type: string, position: "previous" | "current" | "next" }>;
+    const markdownRows = await Promise.all(rows.map(async (item) => {
+        const markdown = item.id === activeBlockID
+            ? `${activeBlockMarkdown || ""}`.trim()
+            : `${await fetchAssistantBlockMarkdown(item.id)}`.trim();
+        return {
+            ...item,
+            markdown,
+        };
+    }));
+    return markdownRows.filter((item) => !!item.markdown);
+};
+
+const buildAssistantMarkdownOutline = (markdown: string) => {
+    const lines = `${markdown || ""}`.split(/\r?\n/);
+    const headings: string[] = [];
+    for (const line of lines) {
+        const match = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+        if (!match) {
+            continue;
+        }
+        const level = match[1].length;
+        const title = match[2].replace(/\s+/g, " ").trim();
+        if (!title) {
+            continue;
+        }
+        headings.push(`${"  ".repeat(Math.max(level - 1, 0))}- H${level} ${title}`);
+        if (headings.length >= 32) {
+            break;
+        }
+    }
+    return headings.join("\n");
+};
+
+const buildAssistantWritingStyleSummary = (markdown: string) => {
+    const normalized = `${markdown || ""}`;
+    const lines = normalized.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) {
+        return "";
+    }
+    const listLines = lines.filter((line) => /^([-*+]|\d+[.)])\s+/.test(line)).length;
+    const headingLevels = lines
+        .map((line) => line.match(/^(#{1,6})\s+/)?.[1].length || 0)
+        .filter((level) => level > 0);
+    const paragraphs = lines.filter((line) => !/^#{1,6}\s+/.test(line) && !/^([-*+]|\d+[.)])\s+/.test(line));
+    const paragraphLengths = paragraphs.map((line) => Array.from(line).length).filter((length) => length > 0);
+    const avgParagraphLength = paragraphLengths.length
+        ? Math.round(paragraphLengths.reduce((sum, length) => sum + length, 0) / paragraphLengths.length)
+        : 0;
+    const cjkCount = (normalized.match(/[\u4e00-\u9fff]/g) || []).length;
+    const latinCount = (normalized.match(/[A-Za-z]/g) || []).length;
+    const language = cjkCount >= latinCount ? "中文为主" : "英文为主";
+    const listRatio = lines.length ? Math.round((listLines / lines.length) * 100) : 0;
+    const maxHeadingLevel = headingLevels.length ? Math.max(...headingLevels) : 0;
+    const paragraphStyle = avgParagraphLength
+        ? `平均段落约 ${avgParagraphLength} 字符`
+        : "段落长度不明显";
+    const structureStyle = maxHeadingLevel
+        ? `标题最深 H${maxHeadingLevel}`
+        : "标题层级较少";
+    return `写作风格：${language}，${paragraphStyle}，列表行约 ${listRatio}% ，${structureStyle}。`;
+};
+
 export const invalidateAssistantNoteContextCache = (rootID = "") => {
     currentNoteContextCache = null;
     if (!rootID.trim()) {
@@ -108,12 +248,13 @@ export const getNoteContextFromProtyle = async (protyle: IProtyle, range?: Range
     const selectionRange = range && protyle.element?.contains(range.startContainer) ? range : null;
     const selectedText = selectionRange?.toString().trim() || `${fallbackSelectionText || ""}`.trim();
     let activeBlockType = "d";
+    let activeBlockElement: HTMLElement | null = null;
     const activeBlockID = (() => {
         if (selectionRange) {
-            const blockElement = hasClosestBlock(selectionRange.startContainer) as HTMLElement;
-            const blockID = blockElement?.getAttribute("data-node-id") || "";
+            activeBlockElement = hasClosestBlock(selectionRange.startContainer) as HTMLElement;
+            const blockID = activeBlockElement?.getAttribute("data-node-id") || "";
             if (blockID) {
-                activeBlockType = blockElement.getAttribute("data-type") || activeBlockType;
+                activeBlockType = activeBlockElement.getAttribute("data-type") || activeBlockType;
                 return blockID;
             }
         }
@@ -138,16 +279,22 @@ export const getNoteContextFromProtyle = async (protyle: IProtyle, range?: Range
         blockInfoResponse.code !== 0 || blockMarkdownResponse.code !== 0) {
         return null;
     }
-    const context = {
+    const markdown = markdownResponse.data.kramdown || markdownResponse.data || "";
+    const currentBlockMarkdown = blockMarkdownResponse.data.kramdown || blockMarkdownResponse.data || "";
+    const surroundingBlocks = await buildAssistantSurroundingBlocks(activeBlockElement, activeBlockID, currentBlockMarkdown);
+    const context: ICurrentNoteContext = {
         rootID,
         notebook: pathResponse.data.notebook,
         path: pathResponse.data.path,
         title: infoResponse.data.name || infoResponse.data.rootTitle || "Assistant",
-        markdown: markdownResponse.data.kramdown || markdownResponse.data || "",
+        markdown,
         currentBlockID: activeBlockID,
         currentBlockType: activeBlockType,
-        currentBlockMarkdown: blockMarkdownResponse.data.kramdown || blockMarkdownResponse.data || "",
+        currentBlockMarkdown,
         selectedText,
+        outlineMarkdown: buildAssistantMarkdownOutline(markdown),
+        styleSummary: buildAssistantWritingStyleSummary(markdown),
+        surroundingBlocks,
     };
     currentNoteContextCache = {
         key: cacheKey,
@@ -162,6 +309,7 @@ export const getNoteContextFromProtyle = async (protyle: IProtyle, range?: Range
             currentBlockType: "d",
             currentBlockMarkdown: "",
             selectedText: "",
+            surroundingBlocks: [],
         },
     });
     return cloneNoteContext(context);
@@ -193,16 +341,20 @@ export const getAssistantNoteContextByRootID = async (rootID: string): Promise<I
     if (pathResponse.code !== 0 || infoResponse.code !== 0 || markdownResponse.code !== 0) {
         return null;
     }
-    const context = {
+    const markdown = markdownResponse.data.kramdown || markdownResponse.data || "";
+    const context: ICurrentNoteContext = {
         rootID: normalizedRootID,
         notebook: pathResponse.data.notebook,
         path: pathResponse.data.path,
         title: infoResponse.data.name || infoResponse.data.rootTitle || "Assistant",
-        markdown: markdownResponse.data.kramdown || markdownResponse.data || "",
+        markdown,
         currentBlockID: normalizedRootID,
         currentBlockType: "d",
         currentBlockMarkdown: "",
         selectedText: "",
+        outlineMarkdown: buildAssistantMarkdownOutline(markdown),
+        styleSummary: buildAssistantWritingStyleSummary(markdown),
+        surroundingBlocks: [],
     };
     rootNoteContextCache.set(normalizedRootID, {
         expiresAt: Date.now() + ROOT_NOTE_CONTEXT_TTL,

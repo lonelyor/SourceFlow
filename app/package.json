@@ -53,6 +53,7 @@
     "test:av-runtime-coverage": "node ./scripts/testAVRuntimeCoverage.js",
     "test:system-runtime-modules": "node ./scripts/testSystemRuntimeModules.js",
     "test:ai-dock-runtime": "node ./scripts/testAIDockRuntimeBehavior.js",
+    "test:assistant-skill-context": "node ./scripts/testAssistantSkillContext.js",
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:export-runtime": "node ./scripts/testExportRuntimeElectron.js",
     "gen:types": "tsc -p tsconfig.types.json",
