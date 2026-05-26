@@ -969,7 +969,7 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 		return nil, err
 	}
 	if !toolResult.Executed {
-		return nil, fmt.Errorf(firstAssistantAINonEmpty(toolResult.Error, toolResult.Summary, "assistant AI tool confirm failed"))
+		return nil, fmt.Errorf("%s", firstAssistantAINonEmpty(toolResult.Error, toolResult.Summary, "assistant AI tool confirm failed"))
 	}
 
 	if updateErr := updateAssistantAIMessageToolResult(db, strings.TrimSpace(req.MessageID), strings.TrimSpace(req.AuditID), toolResult); nil != updateErr {
@@ -1903,7 +1903,7 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 
 	builder := &strings.Builder{}
@@ -1998,7 +1998,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 	if 1 > len(resp.Candidates) {
 		return nil, fmt.Errorf("assistant AI provider returned empty candidates")

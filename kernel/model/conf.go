@@ -1182,7 +1182,7 @@ func ImportSyncBackupProfile(data []byte) (ret *SyncBackupProfileInfo, err error
 		cloudName = "main"
 	}
 	if !cloud.IsValidCloudDirName(cloudName) {
-		err = fmt.Errorf(Conf.Language(37))
+		err = fmt.Errorf("%s", Conf.Language(37))
 		return
 	}
 	SetCloudSyncDir(cloudName)

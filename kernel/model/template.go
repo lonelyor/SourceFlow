@@ -356,7 +356,7 @@ func RenderTemplate(p, id string, preview bool) (tree *parse.Tree, dom string, e
 	tree = parseKTree(md)
 	if nil == tree {
 		msg := fmt.Sprintf("parse tree [%s] failed", p)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}

@@ -241,7 +241,7 @@ func execOp(op *dbQueueOperation, tx *sql.Tx, context map[string]interface{}) (e
 		err = indexNode(tx, op.id)
 	default:
 		msg := fmt.Sprintf("unknown operation [%s]", op.action)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 	}
 	return
