@@ -25,7 +25,10 @@
   - [x] Agent 执行器基础：逐项执行、超时、暂停/取消检查、失败记录、retry 计数和 review 状态。
   - [x] Agent UI 创建/启动真实批量任务、任务项 patch 审阅入口和失败重试入口。
 - [x] AI 产品级阶段 7：AI 操作历史产品化，补齐持久审计与更多低风险回滚。
-- [ ] AI 产品级阶段 8：建立 fake provider 端到端验证和 GUI 冒烟清单。
+- [x] AI 产品级阶段 8：建立 fake provider 端到端验证和 GUI 冒烟清单。
+  - [x] GUI 冒烟清单纳入 `plans/20260527-AI助手GUI冒烟清单.md`。
+  - [x] 后端 fake provider 支持配置、模型列表、普通回复、流式和工具 patch 预览。
+  - [x] fake provider 覆盖测试通过。
 
 ## 后续
 

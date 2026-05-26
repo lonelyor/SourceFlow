@@ -27,6 +27,10 @@ type AssistantAIModelListResult struct {
 }
 
 func TestAssistantAIConnection(provider, baseURL, apiKey, proxy, userAgent string) *AssistantAIConnectionTestResult {
+	provider = normalizeAssistantAIProvider(provider)
+	if AssistantAIProviderFake == provider {
+		return &AssistantAIConnectionTestResult{OK: true, Message: "OK (fake provider)", Latency: 0}
+	}
 	baseURL = strings.TrimSpace(baseURL)
 	apiKey = strings.TrimSpace(apiKey)
 	if "" == baseURL {
@@ -79,6 +83,10 @@ func TestAssistantAIConnection(provider, baseURL, apiKey, proxy, userAgent strin
 }
 
 func ListAssistantAIModels(provider, baseURL, apiKey, proxy, userAgent string) *AssistantAIModelListResult {
+	provider = normalizeAssistantAIProvider(provider)
+	if AssistantAIProviderFake == provider {
+		return &AssistantAIModelListResult{Models: getAssistantAIStaticModels(provider)}
+	}
 	baseURL = strings.TrimSpace(baseURL)
 	apiKey = strings.TrimSpace(apiKey)
 	if "" == baseURL || "" == apiKey {
@@ -238,6 +246,10 @@ func parseOllamaModelsResponse(body []byte) *AssistantAIModelListResult {
 
 func getAssistantAIStaticModels(provider string) []*AssistantAIModelEntry {
 	switch provider {
+	case AssistantAIProviderFake:
+		return []*AssistantAIModelEntry{
+			{ID: "sourceflow-fake-chat", Name: "SourceFlow Fake Chat"},
+		}
 	case AssistantAIProviderAnthropic:
 		return []*AssistantAIModelEntry{
 			{ID: "claude-sonnet-4-20250514", Name: "Claude Sonnet 4"},

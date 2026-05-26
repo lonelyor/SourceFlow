@@ -76,6 +76,8 @@
 - AI 产品级阶段 7 落地方向：先把本地 AI 操作历史升级为更完整的审计记录，补齐 session/profile/target/error/results 字段，失败应用也写入历史；低风险回滚扩展到 AI 创建的新笔记，不在本阶段新增后端审计表。
 - AI 产品级阶段 7 已完成：本地 AI 操作历史记录包含 source/risk/session/profile/target/error/results，patch 应用失败会写入 failed 审计；历史面板展示目标与错误；低风险回滚扩展到 AI 创建的新笔记和子文档。
 - 阶段 7 已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和阶段文件范围 `git diff --check`。
+- AI 产品级阶段 8 已完成：新增仅用于本地验收的 `fake` Provider，覆盖配置连通测试、静态模型列表、确定性普通回复、mock stream 和工具 dry-run patch 预览；GUI 冒烟清单已纳入 `plans/20260527-AI助手GUI冒烟清单.md`。
+- 阶段 8 已通过 `go test -vet=off ./model -run TestAssistantAIFake -count=1`、`go test -vet=off ./model -run TestListAssistantAIProviderTypesIncludesDefaults -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和阶段文件范围 `git diff --check`。
 - 文档树空白处右键入口已实现：空白区域复用文档数右侧顶部“更多”菜单，菜单补齐“新建笔记”入口；该交互只新增入口，不改变文档行、笔记本根行、多选文档右键菜单或文件树数据语义。
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 

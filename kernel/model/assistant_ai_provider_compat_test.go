@@ -38,6 +38,132 @@ func TestListAssistantAIProviderTypesIncludesDefaults(t *testing.T) {
 	}
 }
 
+func TestAssistantAIFakeProviderConfigAndConnectivity(t *testing.T) {
+	providers := ListAssistantAIProviderTypes()
+	var fake *AssistantAIProviderType
+	for _, provider := range providers {
+		if AssistantAIProviderFake == provider.ID {
+			fake = provider
+			break
+		}
+	}
+	if nil == fake {
+		t.Fatal("expected fake provider")
+	}
+	if "sourceflow://fake" != fake.BaseURL || "sourceflow-fake-chat" != fake.DefaultModel {
+		t.Fatalf("unexpected fake provider defaults: baseURL=%q model=%q", fake.BaseURL, fake.DefaultModel)
+	}
+	if got := getAssistantAIFloatSetting(fake.RecommendedSettings, "temperature", -1); 0 != got {
+		t.Fatalf("expected fake provider temperature 0, got %v", got)
+	}
+
+	result := TestAssistantAIConnection("sourceflow-fake", "", "", "", "")
+	if nil == result || !result.OK {
+		t.Fatalf("expected fake connection to succeed without network, got %#v", result)
+	}
+
+	models := ListAssistantAIModels(AssistantAIProviderFake, "", "", "", "")
+	if "" != models.Error || 1 != len(models.Models) || "sourceflow-fake-chat" != models.Models[0].ID {
+		t.Fatalf("unexpected fake models result: %#v", models)
+	}
+}
+
+func TestAssistantAIFakeProviderReplyAndStream(t *testing.T) {
+	profile := &AssistantAIProfile{
+		Provider: AssistantAIProviderFake,
+		Model:    "sourceflow-fake-chat",
+		Settings: map[string]interface{}{},
+	}
+	messages := []*AssistantAIMessage{{Role: "user", Content: "hello fake provider"}}
+
+	reply, err := chatWithAssistantAIProvider(profile, "", messages, &assistantAIChatOptions{})
+	if nil != err {
+		t.Fatal(err)
+	}
+	if !strings.Contains(reply.Content, "Fake Reply") {
+		t.Fatalf("expected fake reply content, got %q", reply.Content)
+	}
+	if !strings.HasPrefix(reply.ProviderMessageID, "fake-") {
+		t.Fatalf("expected fake message id, got %q", reply.ProviderMessageID)
+	}
+	if AssistantAIProviderFake != reply.Metadata["provider"] || true != reply.Metadata["fake"] {
+		t.Fatalf("expected fake metadata, got %#v", reply.Metadata)
+	}
+
+	var deltas []string
+	streamReply, err := chatWithAssistantAIProviderStream(profile, "", messages, func(delta string) error {
+		deltas = append(deltas, delta)
+		return nil
+	}, &assistantAIChatOptions{})
+	if nil != err {
+		t.Fatal(err)
+	}
+	if strings.Join(deltas, "") != streamReply.Content {
+		t.Fatalf("expected stream deltas to reconstruct content, got %q vs %q", strings.Join(deltas, ""), streamReply.Content)
+	}
+	if true != streamReply.Metadata["stream"] {
+		t.Fatalf("expected stream metadata, got %#v", streamReply.Metadata)
+	}
+}
+
+func TestAssistantAIFakeProviderToolLoopPreviewPatch(t *testing.T) {
+	profile := &AssistantAIProfile{
+		ID:       "fake-profile",
+		Provider: AssistantAIProviderFake,
+		Model:    "sourceflow-fake-chat",
+		Settings: map[string]interface{}{
+			"toolWriteScope": AssistantAIToolScopeCurrentNote,
+		},
+	}
+	normalizeAssistantAIProfileSettings(profile)
+	context := &AssistantAINoteContext{
+		RootID:   "root-doc",
+		Notebook: "notebook",
+		Path:     "/fake.sy",
+		Title:    "Fake Note",
+	}
+	userPrompt := "请预览追加一段 AI 冒烟测试摘要"
+	systemPrompt := buildAssistantAIToolPrompt(profile, context)
+	if !strings.Contains(systemPrompt, AssistantAIToolAppendCurrentNote) {
+		t.Fatal("expected tool prompt to include append-current-note")
+	}
+
+	result, err := runAssistantAIToolLoop(&assistantAIToolLoopParams{
+		DB:              nil,
+		Profile:         profile,
+		SessionID:       "fake-session",
+		Context:         context,
+		UserPrompt:      userPrompt,
+		SystemPrompt:    systemPrompt,
+		ContextMessages: []*AssistantAIMessage{{Role: "user", Content: userPrompt}},
+		EnableTools:     true,
+		UseNativeTools:  false,
+	})
+	if nil != err {
+		t.Fatal(err)
+	}
+	if 1 != len(result.ToolResults) {
+		t.Fatalf("expected one tool result, got %d", len(result.ToolResults))
+	}
+	toolResult := result.ToolResults[0]
+	if AssistantAIToolAppendCurrentNote != toolResult.ToolID {
+		t.Fatalf("expected append tool, got %q", toolResult.ToolID)
+	}
+	if toolResult.Executed {
+		t.Fatal("expected dry-run tool result to remain unexecuted")
+	}
+	patch, ok := toolResult.Data["previewPatch"].(map[string]interface{})
+	if !ok || nil == patch {
+		t.Fatalf("expected preview patch, got %#v", toolResult.Data)
+	}
+	if AssistantAIToolAppendCurrentNote != patch["toolId"] {
+		t.Fatalf("expected preview patch tool id, got %#v", patch)
+	}
+	if !strings.Contains(result.Reply.Content, "Fake tool flow complete") {
+		t.Fatalf("expected normal follow-up reply, got %q", result.Reply.Content)
+	}
+}
+
 func TestNormalizeAssistantAIProfileSettingsKimiK25(t *testing.T) {
 	profile := &AssistantAIProfile{
 		Provider: AssistantAIProviderKimi,

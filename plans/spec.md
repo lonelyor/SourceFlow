@@ -18,6 +18,7 @@
 - Agent 面板创建批量任务时复用 Dock 当前输入作为任务列表，任务项必须保存待审阅 patch 与最小笔记上下文；暂停/取消需要中止当前执行请求，恢复/重试必须重新进入同一执行器。
 - AI 操作历史先采用本地持久化审计模型，记录 patch、session/profile、目标、状态、应用结果和失败原因；低风险回滚覆盖追加/插入块以及 AI 创建的新笔记，后端审计表留待确认存储边界后再引入。
 - Provider 配置列表应返回默认 baseURL、默认模型和推荐参数，前端 ProfilesPanel 使用这些字段初始化新 profile；模型列表失败必须向用户展示后端错误原因。
+- AI 助手验收必须提供不依赖外部服务的 `fake` Provider：默认 baseURL 为 `sourceflow://fake`，默认模型为 `sourceflow-fake-chat`，不要求 API Key，支持配置连通测试、静态模型列表、确定性普通回复、mock stream，以及工具 dry-run patch 预览。该 Provider 仅用于本地测试和产品验收，不应作为真实生产模型接入。
 
 ## 发布约束
 
