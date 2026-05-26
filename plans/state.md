@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-25
+更新日期：2026-05-26
 
 ## 已确认
 
@@ -53,11 +53,15 @@
 - 阶段 3 已将 AI 替换选区路径从 `document.execCommand("insertText")` 改为 `/api/block/updateBlock` 正式块事务，并通过 ghost draft 脚本、patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
 - AI 助手体验优化阶段 4 已实现：Protyle 编辑器支持 `Ctrl+I` 打开内联指令面板、`Ctrl+J` 触发当前位置续写；内联指令支持最近 5 条、同一选区最多 3 轮连续调整，并复用 ghost draft + patch 审阅链路。
 - 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、ghost/patch 脚本、TypeScript、SCSS 编译和 `git diff --check`。
-- AI 助手体验优化阶段 5 已实现：写工具支持 `dryRun` 预览语义，未确认写入默认返回 `previewPatch`；工具卡可展示 patch 预览，`note-health` 改为输出可审阅修复 patch。
+- AI 助手体验优化阶段 5 已实现基础能力：写工具支持 `dryRun` 预览语义，未确认写入默认返回 `previewPatch`；工具卡可展示 patch 预览，`note-health` 可输出结构化修复 patch。当前尚未达到产品级闭环：Dock 工具卡仍以只读 patch 展示为主，确认路径仍可能直接执行工具，需改为逐项 patch 审阅与应用。
 - 阶段 5 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`；普通 `go test ./model` 仍被既有 vet 格式串问题阻断。
-- AI 助手体验优化阶段 6 已实现：Dock 新增 Agent 与历史面板，前端提供批量 Agent 队列基础状态、暂停/恢复/取消、本地 AI 操作历史记录，以及低风险追加/插入写入的历史回滚入口。
+- AI 助手体验优化阶段 6 已实现基础外壳：Dock 新增 Agent 与历史面板，前端提供本地 Agent 队列状态、暂停/恢复/取消状态切换、本地 AI 操作历史记录，以及低风险追加/插入写入的历史回滚入口。当前尚未达到产品级闭环：没有真正批量 Agent 执行器、失败重试、逐项任务 patch 调度和持久审计。
 - 阶段 6 已通过 `pnpm --dir app run test:assistant-agent-history`、patch/inline 脚本、TypeScript、SCSS 编译和 `git diff --check`。
-- 前端 ProfilesPanel 适配已完成：连通测试按钮 + 模型列表下拉 + provider 切换自动填入，尚未提交。
+- 前端 ProfilesPanel 适配已有未提交改动：连通测试按钮、模型列表下拉、provider 切换自动填入。当前仍需补齐后端 provider list 返回 `defaultModel` / `recommendedSettings`，并让模型列表接口 `error` 在 UI 明确展示。
+- 2026-05-26 产品级补齐路线已确认按 8 个顺序推进：修复验证红灯与 ProfilesPanel 配置闭环 → Tool 确认改为真正 patch review → 补齐 patch apply operations → 重做选区替换可靠性 → 打磨 ghost/inline 连续编辑 → 实现真正 Agent 执行器 → AI 操作历史产品化 → fake provider 端到端验证与 GUI 冒烟清单。
+- 本轮识别到 plans 与代码存在状态冲突：`todo.md` 曾标记 AI 助手体验优化阶段 6“批量 Agent、审计与自动化”完成，但代码仅具备队列与历史外壳。因 plans 冲突，已按代码实际状态为准，并将阶段 6 调整为“基础外壳已完成，产品级执行器待开发”。
+- AI 产品级阶段 1 已完成：后端 provider list 返回 `defaultModel` 与 `recommendedSettings`，ProfilesPanel 模型列表错误会显示后端 `error`，`test:ai-dock-runtime` 新增 agent/history 测试桩后恢复通过。
+- 阶段 1 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestListAssistantAIProviderTypesIncludesDefaults -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`。
 
 ## 风险
 
@@ -67,3 +71,5 @@
 - 当前工作区仍有未跟踪 `.kilo/`，本轮不纳入提交；正式发布前仍需确认导出范围不包含未授权内容。
 - GitHub Release 发布需要有效 token，默认从 `.release.local.env` 或环境变量读取；不得在日志或文档中输出 token 内容。
 - `go test ./model` 当前会被既有非本轮格式串 vet 问题拦截；AI 工具策略目标测试使用 `go test -vet=off ./model -run TestAssistantAITool -count=1` 验证。
+- `pnpm --dir app run test:ai-dock-runtime` 已恢复稳定；上一轮堆栈溢出确认为测试依赖链未覆盖新增 agent/history import。
+- AI 写入产品级化会改变工具确认与写入路径：写工具应优先由 preview patch 进入逐项审阅，真实写入必须由用户接受 patch 后执行。

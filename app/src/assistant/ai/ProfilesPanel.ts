@@ -8,10 +8,13 @@ import {
     IAssistantAIProviderType,
     IAssistantAIToolCatalogResult,
     IAssistantAIToolDefinition,
+    IAssistantAIModelEntry,
     listAssistantAIProfiles,
     listAssistantAIProviders,
     getAssistantAIToolCatalog,
     saveAssistantAIProfile,
+    testAssistantAIConnection,
+    listAssistantAIModels,
 } from "./api";
 import {applyAssistantAIRecommendedSettings, assistantAISettingDefaults} from "./presets";
 
@@ -32,6 +35,10 @@ interface IAssistantAIProfilesPanelState {
     loading: boolean;
     showAdvanced: boolean;
     showToolPermissions: boolean;
+    modelCandidates: IAssistantAIModelEntry[];
+    testResult: { ok: boolean; message: string; latency: number } | null;
+    testing: boolean;
+    loadingModels: boolean;
 }
 
 const assistantAIToolModeOptions = [
@@ -94,19 +101,29 @@ const cloneSettings = (settings?: Record<string, unknown>) => {
 
 const createDraft = (providers: IAssistantAIProviderType[], profile?: IAssistantAIProfile): Partial<IAssistantAIProfile> => {
     const provider = profile?.provider || providers[0]?.id || "openai-compatible";
-    const model = profile?.model || "";
+    const providerInfo = providers.find((item) => item.id === provider);
+    const model = profile?.model || providerInfo?.defaultModel || "";
+    const settings = cloneSettings(profile?.settings);
+    if (!profile && providerInfo?.recommendedSettings) {
+        const settingsMap = settings as Record<string, unknown>;
+        Object.entries(providerInfo.recommendedSettings).forEach(([key, value]) => {
+            if (settingsMap[key] === assistantAISettingDefaults[key as keyof typeof assistantAISettingDefaults] || !settingsMap[key]) {
+                settingsMap[key] = value;
+            }
+        });
+    }
     return {
         id: profile?.id || "",
         name: profile?.name || "",
         provider,
-        baseURL: profile?.baseURL || getProviderDefaultBaseURL(providers, provider),
+        baseURL: profile?.baseURL || providerInfo?.baseURL || "",
         apiKey: profile?.apiKey || "",
         model,
         userAgent: profile?.userAgent || "",
         proxy: profile?.proxy || "",
         version: profile?.version || "",
         isDefault: !!profile?.isDefault,
-        settings: applyAssistantAIRecommendedSettings(cloneSettings(profile?.settings), provider, model),
+        settings: applyAssistantAIRecommendedSettings(settings, provider, model),
     };
 };
 
@@ -233,7 +250,14 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
             <div class="assistant-profiles__grid">
                 <label class="fn__flex-column assistant-profiles__field">
                     <span>${escapeHTML(assistantText("模型", "Model"))}</span>
-                    <input class="b3-text-field" data-field="model" value="${escapeAttr(state.draft.model || "")}" placeholder="gpt-4.1 / claude-sonnet-4 / deepseek-chat">
+                    <div class="fn__flex">
+                        <input class="b3-text-field fn__flex-1" data-field="model" value="${escapeAttr(state.draft.model || "")}" placeholder="gpt-4.1 / claude-sonnet-4 / deepseek-chat">
+                        <button type="button" class="b3-button b3-button--text fn__flex-shrink" data-action="load-models"${state.loadingModels || !state.draft.baseURL ? " disabled" : ""}>${escapeHTML(state.loadingModels ? assistantText("加载中...", "Loading...") : assistantText("选择模型", "Pick model"))}</button>
+                    </div>
+                    ${state.modelCandidates.length ? `<select class="b3-select fn__block assistant-profiles__model-select" data-field="model-select">
+                        <option value="">${escapeHTML(assistantText("-- 选择模型 --", "-- Pick a model --"))}</option>
+                        ${state.modelCandidates.map((m) => `<option value="${escapeAttr(m.id)}">${escapeHTML(m.name || m.id)}</option>`).join("")}
+                    </select>` : ""}
                 </label>
                 <label class="fn__flex-column assistant-profiles__field">
                     <span>API Key</span>
@@ -258,6 +282,10 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 <span>User-Agent</span>
                 <input class="b3-text-field" data-field="userAgent" value="${escapeAttr(state.draft.userAgent || "")}" placeholder="${escapeAttr(assistantText("留空则使用默认 Chromium/Chrome UA", "Leave empty to use the default Chromium/Chrome UA"))}">
             </label>
+            <div class="assistant-profiles__test-row fn__flex">
+                <button type="button" class="b3-button b3-button--outline" data-action="test-connection"${state.testing || !state.draft.baseURL ? " disabled" : ""}>${escapeHTML(state.testing ? assistantText("测试中...", "Testing...") : assistantText("测试连通", "Test connection"))}</button>
+                ${state.testResult ? `<span class="assistant-profiles__test-result${state.testResult.ok ? " assistant-profiles__test-result--ok" : " assistant-profiles__test-result--fail"}">${escapeHTML(state.testResult.ok ? assistantText(`连通成功 (${state.testResult.latency}ms)`, `OK (${state.testResult.latency}ms)`) : state.testResult.message)}</span>` : ""}
+            </div>
             <div class="assistant-profiles__section">
                 <button type="button" class="assistant-profiles__section-head" data-action="toggle-advanced">
                     <span class="assistant-profiles__section-title">${escapeHTML(assistantText("高级参数", "Advanced"))}</span>
@@ -352,6 +380,10 @@ export class AssistantAIProfilesPanel {
         loading: true,
         showAdvanced: false,
         showToolPermissions: false,
+        modelCandidates: [],
+        testResult: null,
+        testing: false,
+        loadingModels: false,
     };
 
     constructor(element: HTMLElement, options: IAssistantAIProfilesPanelOptions = {}) {
@@ -430,6 +462,12 @@ export class AssistantAIProfilesPanel {
     }
 
     private syncFromEvent(target: HTMLInputElement | HTMLSelectElement) {
+        const modelSelect = target.getAttribute("data-field") === "model-select";
+        if (modelSelect && target instanceof HTMLSelectElement && target.value) {
+            this.syncField("model", target.value);
+            this.render();
+            return;
+        }
         const toolMode = target.getAttribute("data-tool-mode");
         if (toolMode) {
             this.syncToolMode(toolMode, target.value);
@@ -462,9 +500,21 @@ export class AssistantAIProfilesPanel {
             const previousProvider = `${this.state.draft.provider || ""}`.trim();
             const previousModel = `${this.state.draft.model || ""}`.trim();
             this.state.draft.provider = `${value}`;
+            const providerInfo = this.state.providers.find((item) => item.id === this.state.draft.provider);
             const previousDefault = getProviderDefaultBaseURL(this.state.providers, previousProvider);
             if (!previousBaseURL || previousBaseURL === previousDefault) {
-                this.state.draft.baseURL = getProviderDefaultBaseURL(this.state.providers, this.state.draft.provider);
+                this.state.draft.baseURL = providerInfo?.baseURL || "";
+            }
+            if (!previousModel || previousModel === (this.state.providers.find((item) => item.id === previousProvider)?.defaultModel || "")) {
+                this.state.draft.model = providerInfo?.defaultModel || "";
+            }
+            if (providerInfo?.recommendedSettings) {
+                const settings = cloneSettings(this.state.draft.settings as Record<string, unknown> | undefined);
+                const settingsMap = settings as Record<string, unknown>;
+                Object.entries(providerInfo.recommendedSettings).forEach(([key, val]) => {
+                    settingsMap[key] = val;
+                });
+                this.state.draft.settings = settings;
             }
             this.state.draft.settings = applyAssistantAIRecommendedSettings(
                 this.state.draft.settings as Record<string, unknown> | undefined,
@@ -473,6 +523,8 @@ export class AssistantAIProfilesPanel {
                 previousProvider,
                 previousModel,
             );
+            this.state.modelCandidates = [];
+            this.state.testResult = null;
             this.render();
             return;
         }
@@ -553,6 +605,12 @@ export class AssistantAIProfilesPanel {
                 this.state.showToolPermissions = !this.state.showToolPermissions;
                 this.render();
                 return;
+            case "test-connection":
+                await this.testConnection();
+                return;
+            case "load-models":
+                await this.loadModels();
+                return;
             default:
                 return;
         }
@@ -617,6 +675,54 @@ export class AssistantAIProfilesPanel {
                 showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
             }
         }, true);
+    }
+
+    private async testConnection() {
+        this.state.testing = true;
+        this.state.testResult = null;
+        this.render();
+        try {
+            const result = await testAssistantAIConnection({
+                provider: this.state.draft.provider || "",
+                baseURL: this.state.draft.baseURL || "",
+                apiKey: this.state.draft.apiKey || "",
+                proxy: this.state.draft.proxy || "",
+                userAgent: this.state.draft.userAgent || "",
+            });
+            this.state.testResult = result;
+        } catch (error) {
+            this.state.testResult = {ok: false, message: error instanceof Error ? error.message : String(error), latency: 0};
+        } finally {
+            this.state.testing = false;
+            this.render();
+        }
+    }
+
+    private async loadModels() {
+        this.state.loadingModels = true;
+        this.state.modelCandidates = [];
+        this.render();
+        try {
+            const data = await listAssistantAIModels({
+                provider: this.state.draft.provider || "",
+                baseURL: this.state.draft.baseURL || "",
+                apiKey: this.state.draft.apiKey || "",
+                proxy: this.state.draft.proxy || "",
+                userAgent: this.state.draft.userAgent || "",
+            });
+            if (data.error) {
+                showMessage(data.error, 5000, "error");
+            }
+            this.state.modelCandidates = data.models || [];
+            if (!this.state.modelCandidates.length && !data.error) {
+                showMessage(assistantText("没有获取到可选模型", "No models were returned"), 4000, "error");
+            }
+        } catch (error) {
+            showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        } finally {
+            this.state.loadingModels = false;
+            this.render();
+        }
     }
 
     private render() {

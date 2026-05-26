@@ -111,6 +111,12 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
             return [];
         },
     },
+    "../agent/queue": {
+        updateAssistantAgentTaskStatus: () => undefined,
+    },
+    "../history/operations": {
+        rollbackAssistantOperationHistoryItem: async () => true,
+    },
 });
 
 const {bindAIDockEvents, handleAIDockAction} = eventsModule;

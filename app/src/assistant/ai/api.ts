@@ -4,6 +4,8 @@ export interface IAssistantAIProviderType {
     id: string;
     name: string;
     baseURL: string;
+    defaultModel: string;
+    recommendedSettings: Record<string, unknown>;
 }
 
 export interface IAssistantAIProfile {
@@ -165,6 +167,38 @@ export const invalidateAssistantAIProfileCache = () => {
 
 export const listAssistantAIProviders = async () => {
     return ensureArray(ensureOK(await fetchSyncPost("/api/assistant/ai/provider/list", {})) as IAssistantAIProviderType[] | null);
+};
+
+export interface IAssistantAIConnectionTestResult {
+    ok: boolean;
+    message: string;
+    latency: number;
+}
+
+export interface IAssistantAIModelEntry {
+    id: string;
+    name: string;
+}
+
+export const testAssistantAIConnection = async (payload: {
+    provider: string;
+    baseURL: string;
+    apiKey: string;
+    proxy: string;
+    userAgent: string;
+}) => {
+    return ensureOK(await fetchSyncPost("/api/assistant/ai/profile/test", payload)) as IAssistantAIConnectionTestResult;
+};
+
+export const listAssistantAIModels = async (payload: {
+    provider: string;
+    baseURL: string;
+    apiKey: string;
+    proxy: string;
+    userAgent: string;
+}) => {
+    const data = ensureOK(await fetchSyncPost("/api/assistant/ai/profile/models", payload)) as { models: IAssistantAIModelEntry[]; error?: string };
+    return data;
 };
 
 export const listAssistantAIProfiles = async (forceRefresh = false) => {

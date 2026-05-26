@@ -8,6 +8,36 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+func TestListAssistantAIProviderTypesIncludesDefaults(t *testing.T) {
+	providers := ListAssistantAIProviderTypes()
+	if 0 == len(providers) {
+		t.Fatal("expected provider catalog")
+	}
+	var openAI *AssistantAIProviderType
+	for _, provider := range providers {
+		if AssistantAIProviderOpenAICompatible == provider.ID {
+			openAI = provider
+			break
+		}
+	}
+	if nil == openAI {
+		t.Fatal("expected OpenAI compatible provider")
+	}
+	if "" == openAI.BaseURL || "" == openAI.DefaultModel {
+		t.Fatalf("expected base URL and default model, got baseURL=%q model=%q", openAI.BaseURL, openAI.DefaultModel)
+	}
+	if 0 == len(openAI.RecommendedSettings) {
+		t.Fatal("expected recommended settings")
+	}
+	openAI.RecommendedSettings["temperature"] = 99
+	providersAgain := ListAssistantAIProviderTypes()
+	for _, provider := range providersAgain {
+		if AssistantAIProviderOpenAICompatible == provider.ID && 99 == provider.RecommendedSettings["temperature"] {
+			t.Fatal("provider recommended settings should be cloned")
+		}
+	}
+}
+
 func TestNormalizeAssistantAIProfileSettingsKimiK25(t *testing.T) {
 	profile := &AssistantAIProfile{
 		Provider: AssistantAIProviderKimi,

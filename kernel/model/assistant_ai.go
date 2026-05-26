@@ -207,7 +207,13 @@ type assistantAIChatOptions struct {
 func ListAssistantAIProviderTypes() []*AssistantAIProviderType {
 	ret := make([]*AssistantAIProviderType, 0, len(assistantAIProviderCatalog))
 	for _, item := range assistantAIProviderCatalog {
-		ret = append(ret, &AssistantAIProviderType{ID: item.ID, Name: item.Name, BaseURL: item.BaseURL})
+		ret = append(ret, &AssistantAIProviderType{
+			ID:                  item.ID,
+			Name:                item.Name,
+			BaseURL:             item.BaseURL,
+			DefaultModel:        item.DefaultModel,
+			RecommendedSettings: cloneAssistantAIMap(item.RecommendedSettings),
+		})
 	}
 	return ret
 }

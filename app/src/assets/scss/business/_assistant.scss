@@ -2750,6 +2750,28 @@
     align-self: center;
   }
 
+  &__test-row {
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__test-result {
+    font-size: 12px;
+    line-height: 1.4;
+
+    &--ok {
+      color: var(--b3-theme-success);
+    }
+
+    &--fail {
+      color: var(--b3-theme-error);
+    }
+  }
+
+  &__model-select {
+    margin-top: 3px;
+  }
+
   &--embedded {
     height: 100%;
     min-height: 0;
