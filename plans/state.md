@@ -62,6 +62,8 @@
 - 本轮识别到 plans 与代码存在状态冲突：`todo.md` 曾标记 AI 助手体验优化阶段 6“批量 Agent、审计与自动化”完成，但代码仅具备队列与历史外壳。因 plans 冲突，已按代码实际状态为准，并将阶段 6 调整为“基础外壳已完成，产品级执行器待开发”。
 - AI 产品级阶段 1 已完成：后端 provider list 返回 `defaultModel` 与 `recommendedSettings`，ProfilesPanel 模型列表错误会显示后端 `error`，`test:ai-dock-runtime` 新增 agent/history 测试桩后恢复通过。
 - 阶段 1 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestListAssistantAIProviderTypesIncludesDefaults -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`。
+- AI 产品级阶段 2 已完成：Dock 工具卡在存在 `previewPatch` / `patch` 时进入 patch review，支持接受全部、接受单项、拒绝剩余、拒绝单项；带 patch 的工具不再优先展示“确认执行”按钮，接受后通过统一 patch apply 写入并记录 AI 操作历史。
+- 阶段 2 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 
 ## 风险
 
@@ -72,4 +74,4 @@
 - GitHub Release 发布需要有效 token，默认从 `.release.local.env` 或环境变量读取；不得在日志或文档中输出 token 内容。
 - `go test ./model` 当前会被既有非本轮格式串 vet 问题拦截；AI 工具策略目标测试使用 `go test -vet=off ./model -run TestAssistantAITool -count=1` 验证。
 - `pnpm --dir app run test:ai-dock-runtime` 已恢复稳定；上一轮堆栈溢出确认为测试依赖链未覆盖新增 agent/history import。
-- AI 写入产品级化会改变工具确认与写入路径：写工具应优先由 preview patch 进入逐项审阅，真实写入必须由用户接受 patch 后执行。
+- AI 写入产品级化已改变 Dock 工具确认默认路径：写工具优先由 preview patch 进入逐项审阅，真实写入由用户接受 patch 后执行；旧的无 patch 工具确认路径保留兼容。

@@ -2,6 +2,17 @@ import {assistantText} from "../constants";
 import {escapeHTML, truncateText} from "../common/dom";
 import type {IAssistantEditPatch, IAssistantPatchOperation, TAssistantPatchOperationStatus} from "./types";
 
+export interface IAssistantPatchRenderOptions {
+    readonly?: boolean;
+    acceptAction?: string;
+    rejectAction?: string;
+    extraActionAttrs?: string;
+}
+
+const normalizePatchRenderOptions = (options: boolean | IAssistantPatchRenderOptions = false): IAssistantPatchRenderOptions => {
+    return typeof options === "boolean" ? {readonly: options} : options;
+};
+
 export const getAssistantPatchRiskLabel = (risk: string) => {
     switch (risk) {
         case "L1":
@@ -83,9 +94,17 @@ export const formatAssistantPatchMarkdown = (patch: IAssistantEditPatch) => {
     return lines.join("\n").trim();
 };
 
-export const renderAssistantPatchOperationHTML = (operation: IAssistantPatchOperation, index: number, readonly = false) => {
+export const renderAssistantPatchOperationHTML = (
+    operation: IAssistantPatchOperation,
+    index: number,
+    options: boolean | IAssistantPatchRenderOptions = false,
+) => {
+    const renderOptions = normalizePatchRenderOptions(options);
     const status = operation.status || "pending";
-    const canAct = !readonly && status === "pending";
+    const canAct = !renderOptions.readonly && status === "pending";
+    const acceptAction = renderOptions.acceptAction || "accept-op";
+    const rejectAction = renderOptions.rejectAction || "reject-op";
+    const extraActionAttrs = renderOptions.extraActionAttrs ? ` ${renderOptions.extraActionAttrs}` : "";
     return `<div class="assistant-patch__operation assistant-patch__operation--${status}" data-op-id="${operation.id}">
     <div class="assistant-patch__op-head">
         <div class="assistant-patch__op-title">
@@ -93,8 +112,8 @@ export const renderAssistantPatchOperationHTML = (operation: IAssistantPatchOper
             <span class="b3-chip b3-chip--small">${escapeHTML(getAssistantPatchStatusLabel(status))}</span>
         </div>
         ${canAct ? `<div class="assistant-patch__op-actions">
-            <button type="button" class="b3-button b3-button--outline" data-action="accept-op" data-op-id="${operation.id}">${escapeHTML(assistantText("接受", "Accept"))}</button>
-            <button type="button" class="b3-button b3-button--outline b3-button--error" data-action="reject-op" data-op-id="${operation.id}">${escapeHTML(assistantText("拒绝", "Reject"))}</button>
+            <button type="button" class="b3-button b3-button--outline" data-action="${acceptAction}" data-op-id="${operation.id}"${extraActionAttrs}>${escapeHTML(assistantText("接受", "Accept"))}</button>
+            <button type="button" class="b3-button b3-button--outline b3-button--error" data-action="${rejectAction}" data-op-id="${operation.id}"${extraActionAttrs}>${escapeHTML(assistantText("拒绝", "Reject"))}</button>
         </div>` : ""}
     </div>
     ${operation.targetId ? `<div class="assistant-patch__meta">${escapeHTML(`${operation.targetLabel || assistantText("目标", "Target")}: ${truncateText(operation.targetId, 48)}`)}</div>` : ""}
@@ -110,13 +129,14 @@ export const renderAssistantPatchOperationHTML = (operation: IAssistantPatchOper
 </div>`;
 };
 
-export const renderAssistantPatchHTML = (patch: IAssistantEditPatch, readonly = false) => {
+export const renderAssistantPatchHTML = (patch: IAssistantEditPatch, options: boolean | IAssistantPatchRenderOptions = false) => {
+    const renderOptions = normalizePatchRenderOptions(options);
     return `<div class="assistant-patch">
     <div class="assistant-patch__summary">${escapeHTML(patch.summary || assistantText("AI 修改建议", "AI edit proposal"))}</div>
     <div class="assistant-patch__chips">
         <span class="b3-chip b3-chip--small">${escapeHTML(getAssistantPatchRiskLabel(patch.risk))}</span>
         <span class="b3-chip b3-chip--small">${escapeHTML(`${assistantText("操作", "Ops")} ${patch.operations.length}`)}</span>
     </div>
-    <div class="assistant-patch__operations">${patch.operations.map((operation, index) => renderAssistantPatchOperationHTML(operation, index, readonly)).join("")}</div>
+    <div class="assistant-patch__operations">${patch.operations.map((operation, index) => renderAssistantPatchOperationHTML(operation, index, renderOptions)).join("")}</div>
 </div>`;
 };

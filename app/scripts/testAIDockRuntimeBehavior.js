@@ -145,6 +145,8 @@ const createRuntime = () => {
         refreshToolCatalogCalls: [],
         confirmToolCalls: [],
         rejectToolCalls: [],
+        applyToolPatchCalls: [],
+        rejectToolPatchCalls: [],
         sendMessageCalls: [],
         clearEditingMessageCalls: [],
         startEditingMessageCalls: [],
@@ -172,6 +174,12 @@ const createRuntime = () => {
         },
         async rejectTool(messageId, toolIndex) {
             this.rejectToolCalls.push({messageId, toolIndex});
+        },
+        async applyToolPatch(messageId, toolIndex, operationId = "") {
+            this.applyToolPatchCalls.push({messageId, toolIndex, operationId});
+        },
+        rejectToolPatch(messageId, toolIndex, operationId = "") {
+            this.rejectToolPatchCalls.push({messageId, toolIndex, operationId});
         },
         async selectSession() {},
         removeComposerAttachment(id) {
@@ -276,6 +284,16 @@ const createFakeKeyboardEvent = (target, key) => ({
         new FakeInputElement({"data-action": "reject-tool", "data-message-id": "msg-1", "data-tool-index": "0"}),
     ));
     assert.deepStrictEqual(rt2.rejectToolCalls, [{messageId: "msg-1", toolIndex: 0}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "accept-tool-patch-op", "data-message-id": "msg-1", "data-tool-index": "0", "data-op-id": "op-1"}),
+    ));
+    assert.deepStrictEqual(rt2.applyToolPatchCalls, [{messageId: "msg-1", toolIndex: 0, operationId: "op-1"}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "reject-tool-patch-all", "data-message-id": "msg-1", "data-tool-index": "0"}),
+    ));
+    assert.deepStrictEqual(rt2.rejectToolPatchCalls, [{messageId: "msg-1", toolIndex: 0, operationId: ""}]);
 
     const rt3 = createRuntime();
     bindAIDockEvents(rt3);

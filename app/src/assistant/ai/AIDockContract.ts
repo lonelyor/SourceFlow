@@ -103,6 +103,8 @@ export interface IAssistantAIDockRuntime {
     sendMessage(): Promise<void>;
     confirmTool(messageId: string, toolIndex: number): Promise<void>;
     rejectTool(messageId: string, toolIndex: number): Promise<void>;
+    applyToolPatch(messageId: string, toolIndex: number, operationId?: string): Promise<void>;
+    rejectToolPatch(messageId: string, toolIndex: number, operationId?: string): void;
     saveTranscript(): Promise<void>;
     saveAnalysis(): Promise<void>;
     insertLastReply(): Promise<void>;

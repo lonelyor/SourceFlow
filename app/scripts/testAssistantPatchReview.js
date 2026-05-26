@@ -102,6 +102,13 @@ assert(patchMarkdown.includes("L2"));
 const patchHTML = formatModule.renderAssistantPatchHTML(replacePatch);
 assert(patchHTML.includes("assistant-patch__operation"));
 assert(patchHTML.includes("替换选区"));
+const toolPatchHTML = formatModule.renderAssistantPatchHTML(replacePatch, {
+    acceptAction: "accept-tool-patch-op",
+    rejectAction: "reject-tool-patch-op",
+    extraActionAttrs: 'data-message-id="msg-1" data-tool-index="0"',
+});
+assert(toolPatchHTML.includes("accept-tool-patch-op"));
+assert(toolPatchHTML.includes('data-message-id="msg-1"'));
 
 const healthPatch = buildModule.buildAssistantPatchFromSkillResult({
     id: "note-health",

@@ -16,6 +16,7 @@ import type {
 import type {IAssistantAIDockRuntime, IAssistantAINotePreview} from "./AIDockContract";
 import {
     addAIDockComposerAttachments,
+    applyAIDockToolPatch,
     buildAIDockCollapsedMessageContent,
     buildAIDockLocalMessage,
     buildAIDockMessageCopyText,
@@ -24,6 +25,7 @@ import {
     confirmAIDockTool,
     copyAIDockMessage,
     rejectAIDockTool,
+    rejectAIDockToolPatch,
     focusAIDockComposer,
     getAIDockAttachmentSummary,
     getAIDockEffectiveContextPreview,
@@ -405,6 +407,14 @@ class AssistantAIDock {
 
     private async rejectTool(messageId: string, toolIndex: number) {
         await rejectAIDockTool(this.getRuntime(), messageId, toolIndex);
+    }
+
+    private async applyToolPatch(messageId: string, toolIndex: number, operationId = "") {
+        await applyAIDockToolPatch(this.getRuntime(), messageId, toolIndex, operationId);
+    }
+
+    private rejectToolPatch(messageId: string, toolIndex: number, operationId = "") {
+        rejectAIDockToolPatch(this.getRuntime(), messageId, toolIndex, operationId);
     }
 
     private async saveTranscript() {

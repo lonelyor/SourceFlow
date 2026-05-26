@@ -1379,6 +1379,14 @@
     margin-left: auto;
   }
 
+  &__tool-result-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
   &__composer {
     padding: 5px 7px 7px;
     border-top: .5px solid color-mix(in srgb, var(--b3-border-color) 76%, transparent);

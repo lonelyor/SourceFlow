@@ -213,6 +213,8 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
 
 export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: string, target?: HTMLElement) => {
     const messageId = target?.getAttribute("data-message-id") || target?.closest<HTMLElement>(".assistant-ai__message")?.getAttribute("data-message-id") || "";
+    const toolIndex = parseInt(target?.getAttribute("data-tool-index") || target?.closest<HTMLElement>(".assistant-ai__tool-result")?.getAttribute("data-tool-index") || "-1", 10);
+    const operationId = target?.getAttribute("data-op-id") || "";
     switch (action) {
         case "open-profiles":
         case "configure-profile":
@@ -264,6 +266,18 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "refresh-audits":
             await ctx.refreshAudits();
+            return;
+        case "accept-tool-patch-op":
+            await ctx.applyToolPatch(messageId, toolIndex, operationId);
+            return;
+        case "accept-tool-patch-all":
+            await ctx.applyToolPatch(messageId, toolIndex);
+            return;
+        case "reject-tool-patch-op":
+            ctx.rejectToolPatch(messageId, toolIndex, operationId);
+            return;
+        case "reject-tool-patch-all":
+            ctx.rejectToolPatch(messageId, toolIndex);
             return;
         case "pause-agent-task":
             updateAssistantAgentTaskStatus(target?.getAttribute("data-task-id") || "", "paused");

@@ -62,7 +62,18 @@ export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntim
         const context = tool?.context && typeof tool.context === "object" ? tool.context as Record<string, unknown> : null;
         const details: string[] = [];
         if (patch?.operations?.length) {
-            details.push(`<div class="assistant-ai__tool-patch">${renderAssistantPatchHTML(patch, true)}</div>`);
+            const canReviewPatch = tool?.decision === "confirm" && !tool?.executed && !tool?.rejected && hasPendingPatchOperations(patch);
+            const messageId = `${tool?.messageId || ""}`;
+            const toolIndex = typeof tool?.toolIndex === "number" ? tool.toolIndex : -1;
+            const extraActionAttrs = canReviewPatch && messageId && toolIndex > -1
+                ? `data-message-id="${escapeAttr(messageId)}" data-tool-index="${toolIndex}"`
+                : "";
+            details.push(`<div class="assistant-ai__tool-patch">${renderAssistantPatchHTML(patch, {
+                readonly: !canReviewPatch,
+                acceptAction: "accept-tool-patch-op",
+                rejectAction: "reject-tool-patch-op",
+                extraActionAttrs,
+            })}</div>`);
         }
         if (context?.currentBlockID || context?.rootID) {
             details.push(`<div class="assistant-ai__tool-summary">${escapeHTML(`${assistantText("目标", "Target")}: ${context.currentBlockID || context.rootID}`)}</div>`);
@@ -72,23 +83,48 @@ export const renderAIDockMessageToolResults = (ctx: TAssistantAIDockRenderRuntim
         }
         return details.join("");
     };
+    const hasPendingPatchOperations = (patch: IAssistantEditPatch | undefined) => {
+        return !!patch?.operations?.some((operation) => (operation.status || "pending") === "pending");
+    };
+    const hasAcceptedPatchOperations = (patch: IAssistantEditPatch | undefined) => {
+        return !!patch?.operations?.some((operation) => operation.status === "accepted");
+    };
     return `<div class="assistant-ai__tool-results">${raw.map((tool, index) => {
+        const normalizedTool = tool && typeof tool === "object" ? {
+            ...(tool as Record<string, unknown>),
+            messageId: item.id,
+            toolIndex: index,
+        } : tool;
+        const data = normalizedTool?.data && typeof normalizedTool.data === "object" ? normalizedTool.data as Record<string, unknown> : {};
+        const patch = (data.patch || data.previewPatch) as IAssistantEditPatch | undefined;
+        const canReviewPatch = !!patch?.operations?.length && !normalizedTool?.executed && !normalizedTool?.rejected && normalizedTool?.decision === "confirm" && hasPendingPatchOperations(patch);
+        const patchReviewed = !!patch?.operations?.length && !hasPendingPatchOperations(patch);
         const name = `${tool?.name || tool?.toolId || assistantText("工具", "Tool")}`;
         const isRejected = !!tool?.rejected;
-        const status = tool?.executed ? assistantText("已执行", "Executed") : (isRejected ? assistantText("已拒绝", "Rejected") : (tool?.decision === "confirm" ? assistantText("待确认", "Needs confirm") : assistantText("已拦截", "Blocked")));
+        const status = tool?.executed
+            ? assistantText("已执行", "Executed")
+            : (isRejected
+                ? assistantText("已拒绝", "Rejected")
+                : (patchReviewed
+                    ? (hasAcceptedPatchOperations(patch) ? assistantText("补丁已应用", "Patch applied") : assistantText("补丁已拒绝", "Patch rejected"))
+                    : (tool?.decision === "confirm" ? assistantText("待审阅", "Needs review") : assistantText("已拦截", "Blocked"))));
         const summary = `${tool?.summary || tool?.error || ""}`.trim();
-        const canConfirm = !tool?.executed && !isRejected && tool?.decision === "confirm" && !!tool?.toolId;
-        const statusClass = tool?.executed ? "success" : (isRejected ? "error" : (tool?.decision === "confirm" ? "warning" : "secondary"));
-        return `<div class="assistant-ai__tool-result assistant-ai__tool-result--${statusClass}">
+        const canConfirm = !tool?.executed && !isRejected && tool?.decision === "confirm" && !!tool?.toolId && !patch?.operations?.length;
+        const statusClass = tool?.executed || (patchReviewed && hasAcceptedPatchOperations(patch)) ? "success" : (isRejected || (patchReviewed && !hasAcceptedPatchOperations(patch)) ? "error" : (tool?.decision === "confirm" ? "warning" : "secondary"));
+        return `<div class="assistant-ai__tool-result assistant-ai__tool-result--${statusClass}" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}">
     <div class="assistant-ai__tool-result-head">
         <div class="assistant-ai__tool-title-group">
             <span class="assistant-ai__tool-name">${escapeHTML(name)}</span>
             <span class="b3-chip b3-chip--small b3-chip--${statusClass}">${escapeHTML(status)}</span>
         </div>
+        ${canReviewPatch ? `<div class="assistant-ai__tool-result-actions">
+            <button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="accept-tool-patch-all" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("接受全部", "Accept all"))}</button>
+            <button type="button" class="b3-button b3-button--outline b3-button--error assistant-ai__tool-action" data-action="reject-tool-patch-all" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("拒绝剩余", "Reject remaining"))}</button>
+        </div>` : ""}
         ${canConfirm ? `<button type="button" class="b3-button b3-button--outline assistant-ai__tool-action" data-action="confirm-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("确认执行", "Confirm"))}</button><button type="button" class="b3-button b3-button--outline b3-button--error assistant-ai__tool-action" data-action="reject-tool" data-message-id="${escapeAttr(item.id)}" data-tool-index="${index}"${ctx.sending ? " disabled" : ""}>${escapeHTML(assistantText("拒绝", "Reject"))}</button>` : ""}
     </div>
     ${summary ? `<div class="assistant-ai__tool-summary">${escapeHTML(summary)}</div>` : ""}
-    ${renderToolDetails(tool as Record<string, unknown>)}
+    ${renderToolDetails(normalizedTool as Record<string, unknown>)}
 </div>`;
     }).join("")}</div>`;
 };
