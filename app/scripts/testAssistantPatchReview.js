@@ -130,4 +130,100 @@ assert.strictEqual(healthPatch.summary, "发现结构问题");
 assert.strictEqual(healthPatch.operations[0].type, "append-note");
 assert.strictEqual(healthPatch.operations[0].after, "## AI 体检建议\n- 补充来源。");
 
-console.log("[assistant-patch-review] ok");
+const attrsPatch = buildModule.buildAssistantPatchFromSkillResult({
+    id: "note-health",
+    shortLabel: "体检",
+    description: "检查当前笔记异常",
+    action: "insert-below",
+}, baseContext, JSON.stringify({
+    summary: "补充属性",
+    target: "block",
+    operations: [{
+        type: "set-attrs",
+        targetId: "block-1",
+        attrs: {"custom-ai-reviewed": "true"},
+        reason: "标记已审阅",
+    }],
+}));
+assert(attrsPatch, "set attrs result should create a patch");
+assert.strictEqual(attrsPatch.operations[0].type, "set-attrs");
+assert.strictEqual(attrsPatch.operations[0].attrs["custom-ai-reviewed"], "true");
+
+const fetchCalls = [];
+const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
+    "../../dialog/message": {
+        showMessage: (message) => fetchCalls.push({url: "message", payload: message}),
+    },
+    "../../util/fetch": {
+        fetchSyncPost: async (url, payload) => {
+            fetchCalls.push({url, payload});
+            if (url === "/api/filetree/createDocWithMd") {
+                return {code: 0, data: "doc-created"};
+            }
+            return {code: 0, data: [{doOperations: [{id: "block-created"}]}]};
+        },
+    },
+    "../../util/highlightById": {
+        highlightById: () => undefined,
+    },
+    "../constants": {
+        assistantText: (zh, en) => zh || en,
+    },
+    "../common/note": {
+        invalidateAssistantNoteContextCache: () => undefined,
+    },
+});
+
+const applyContext = {
+    note: {
+        rootID: "root-1",
+        notebook: "notebook-1",
+        path: "/测试笔记",
+        title: "测试笔记",
+        markdown: "",
+        currentBlockID: "block-1",
+        currentBlockType: "p",
+        currentBlockMarkdown: "重复。重复。",
+        selectedText: "重复。",
+    },
+    hasSelection: true,
+    selectedText: "重复。",
+};
+
+applyModule.applyAssistantPatchOperation(replacePatch, {
+    id: "dup",
+    type: "replace-selection",
+    targetId: "block-1",
+    before: "重复。",
+    after: "改写。",
+    status: "pending",
+}, applyContext).then((ok) => {
+    assert.strictEqual(ok, false, "duplicate selection should not be auto replaced");
+    return applyModule.applyAssistantPatchOperation(attrsPatch, attrsPatch.operations[0], applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, true, "attrs patch should apply");
+    return applyModule.applyAssistantPatchOperation({
+        ...insertPatch,
+        operations: [{
+            id: "create-note-op",
+            type: "create-note",
+            targetLabel: "新笔记",
+            after: "内容",
+            status: "pending",
+        }],
+    }, {
+        id: "create-note-op",
+        type: "create-note",
+        targetLabel: "新笔记",
+        after: "内容",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, true, "create-note patch should apply");
+    assert(fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
+    assert(fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd" && item.payload.path === "/AI/新笔记"));
+    console.log("[assistant-patch-review] ok");
+}).catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

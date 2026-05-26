@@ -89,6 +89,9 @@ export const formatAssistantPatchMarkdown = (patch: IAssistantEditPatch) => {
         if (operation.after) {
             lines.push("", assistantText("修改后：", "After:"), "```markdown", operation.after, "```");
         }
+        if (operation.attrs && Object.keys(operation.attrs).length) {
+            lines.push("", assistantText("属性：", "Attrs:"), "```json", JSON.stringify(operation.attrs, null, 2), "```");
+        }
         lines.push("");
     });
     return lines.join("\n").trim();
@@ -125,6 +128,10 @@ export const renderAssistantPatchOperationHTML = (
     ${operation.after ? `<div class="assistant-patch__diff assistant-patch__diff--after">
         <div class="assistant-patch__diff-title">${escapeHTML(assistantText("修改后", "After"))}</div>
         <pre>${escapeHTML(operation.after)}</pre>
+    </div>` : ""}
+    ${operation.attrs && Object.keys(operation.attrs).length ? `<div class="assistant-patch__diff assistant-patch__diff--after">
+        <div class="assistant-patch__diff-title">${escapeHTML(assistantText("属性", "Attrs"))}</div>
+        <pre>${escapeHTML(JSON.stringify(operation.attrs, null, 2))}</pre>
     </div>` : ""}
 </div>`;
 };

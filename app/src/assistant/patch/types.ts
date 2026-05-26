@@ -25,6 +25,7 @@ export interface IAssistantPatchOperation {
     targetLabel?: string;
     before?: string;
     after?: string;
+    attrs?: Record<string, string | null>;
     reason?: string;
     status?: TAssistantPatchOperationStatus;
     appliedTargetId?: string;

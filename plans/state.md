@@ -64,6 +64,8 @@
 - 阶段 1 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、`go test -vet=off ./model -run TestListAssistantAIProviderTypesIncludesDefaults -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和 `git diff --check`。
 - AI 产品级阶段 2 已完成：Dock 工具卡在存在 `previewPatch` / `patch` 时进入 patch review，支持接受全部、接受单项、拒绝剩余、拒绝单项；带 patch 的工具不再优先展示“确认执行”按钮，接受后通过统一 patch apply 写入并记录 AI 操作历史。
 - 阶段 2 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 产品级阶段 3 已完成：patch apply 支持 `create-note`、`create-child-note`、`delete-block`、`rename-note` 和 `set-attrs`；结构化 patch 可携带 `attrs`；`replace-selection` 遇到重复原文或原文缺失时会停止自动替换并提示，避免误改。
+- 阶段 3 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 
 ## 风险
 

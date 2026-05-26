@@ -17,8 +17,8 @@
 - [x] AI 助手体验优化阶段 3：Ghost Draft 编辑器内体验，流式阶段只显示临时预览，接受后正式写入。
 - [x] AI 助手体验优化阶段 4：内联指令与连续编辑，支持 Ctrl+I、Ctrl+J、最近指令和最多 3 轮调整。
 - [x] AI 产品级阶段 2：Tool 确认改为真正 patch review，Dock 工具写入支持逐项接受/拒绝。
-- [ ] AI 产品级阶段 3：补齐 patch apply operations，至少覆盖 create-note、create-child-note、delete-block、rename-note、set-attrs。
-- [ ] AI 产品级阶段 4：重做选区替换可靠性，避免重复文本误替换。
+- [x] AI 产品级阶段 3：补齐 patch apply operations，至少覆盖 create-note、create-child-note、delete-block、rename-note、set-attrs。
+- [x] AI 产品级阶段 4：重做选区替换可靠性，避免重复文本误替换。
 - [ ] AI 产品级阶段 5：打磨 ghost draft 和 inline 连续编辑体验。
 - [ ] AI 产品级阶段 6：实现真正 Agent 执行器，支持任务逐项执行、暂停、恢复、取消、失败重试和 patch 审阅。
 - [ ] AI 产品级阶段 7：AI 操作历史产品化，补齐持久审计与更多低风险回滚。

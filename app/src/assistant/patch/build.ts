@@ -106,7 +106,13 @@ const buildStructuredAssistantPatch = (
         const type = normalizeAssistantPatchOperationType(raw.type);
         const after = `${raw.after ?? raw.markdown ?? raw.content ?? raw.text ?? ""}`.trim();
         const before = `${raw.before ?? ""}`.trim();
-        if (!type || (!after && type !== "delete-block")) {
+        const attrs = raw.attrs && typeof raw.attrs === "object" && !Array.isArray(raw.attrs)
+            ? raw.attrs as Record<string, string | null>
+            : undefined;
+        if (!type || (!after && type !== "delete-block" && type !== "set-attrs")) {
+            return null;
+        }
+        if (type === "set-attrs" && (!attrs || !Object.keys(attrs).length)) {
             return null;
         }
         const defaultTarget = type === "append-note" || type === "create-child-note"
@@ -119,6 +125,7 @@ const buildStructuredAssistantPatch = (
             targetLabel: `${raw.targetLabel || ""}`.trim(),
             before,
             after,
+            attrs,
             reason: `${raw.reason || ""}`.trim(),
             status: "pending",
         } as IAssistantPatchOperation;
