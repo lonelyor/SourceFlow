@@ -68,6 +68,10 @@
 - 阶段 3 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - AI 产品级阶段 4 已完成：ghost draft 不再在打开 patch 审阅弹窗后立即销毁，而是随弹窗关闭、接受、拒绝或继续调整清理；内联继续调整会携带上一轮结果，接受/拒绝后释放连续编辑轮次限制。
 - 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、`pnpm --dir app run test:assistant-ghost-draft`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 产品级 Agent 执行器基础已实现：新增 `assistant/agent/executor.ts`，支持按任务逐项执行、单项超时、取消/暂停状态检查、失败错误记录、retry 计数、item 进入 `review` 状态和任务进入 `review` 状态。
+- Agent 执行器基础已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。当前仍未完成批量 Agent 产品级闭环：缺少 UI 创建/启动真实批量任务、任务项 patch 审阅入口和持久审计存储。
+- 文档树空白处右键入口已实现：空白区域复用文档数右侧顶部“更多”菜单，菜单补齐“新建笔记”入口；该交互只新增入口，不改变文档行、笔记本根行、多选文档右键菜单或文件树数据语义。
+- 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 
 ## 风险
 

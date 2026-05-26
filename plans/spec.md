@@ -41,6 +41,7 @@
 - 文档树密度作为外观配置提供，取值为紧凑、默认、宽松；默认保持当前行距。
 - 文档树子文档数量作为外观配置提供，默认关闭；开启后仅在有子文档的条目右侧显示弱化数字，`0` 不显示。
 - 文档树全部笔记总数作为外观配置提供，默认开启；顶部标题栏右侧以轻量胶囊显示已打开笔记本下的文档总数。
+- 文档树空白区域右键复用顶部“更多”菜单，作为新建笔记、重建索引、排序和发布权限等全局文档树操作的低成本入口；该入口不改变文档行、笔记本根行和多选文档的既有右键菜单语义。
 - 设置入口放在“设置 > 外观 > 文档树”，配置写入外观配置，不引入独立配置文件。
 - 外观配置字段为 `appearance.fileTreeGuides`、`appearance.fileTreeDensity`、`appearance.fileTreeDocCount` 与 `appearance.fileTreeTotalCount`，后端对密度做 `compact/default/loose` 归一化。
 - 文档树面板通过 `file-tree--guides`、`file-tree--density-*`、`file-tree--doc-count`、`file-tree--total-count` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
