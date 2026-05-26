@@ -151,7 +151,7 @@ func ClearWorkspaceHistory() (err error) {
 func GetDocHistoryContent(historyPath, keyword string, highlight bool) (id, rootID, content string, isLargeDoc bool, err error) {
 	if !util.IsAbsPathInWorkspace(historyPath) {
 		msg := "Path [" + historyPath + "] is not in workspace"
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}

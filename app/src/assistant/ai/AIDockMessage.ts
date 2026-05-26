@@ -8,6 +8,7 @@ import {
     confirmAssistantAITool,
     editAssistantAIMessageStream,
     IAssistantAIInputAttachment,
+    IAssistantAINoteContext,
     rejectAssistantAITool,
     streamAssistantAI,
 } from "./api";
@@ -20,6 +21,10 @@ import {
     readAssistantAIImageFile,
     TAssistantAIMessageItem,
 } from "./AIDockShared";
+import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
+import {applyAssistantPatch, applyAssistantPatchOperation} from "../patch/apply";
+import type {IAssistantEditPatch} from "../patch/types";
+import type {IAssistantSkillContext} from "../skills/types";
 
 export const focusAIDockComposer = (ctx: IAssistantAIDockRuntime) => {
     const textarea = ctx.element.querySelector("[data-role='message']") as HTMLTextAreaElement;
@@ -464,6 +469,106 @@ export const confirmAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId:
         ctx.render();
         ctx.scrollToBottom();
     }
+};
+
+const getAIDockToolResult = (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number) => {
+    const message = ctx.messages.find((item) => item.id === messageId);
+    const toolResults = Array.isArray(message?.metadata?.toolResults) ? message.metadata.toolResults as Array<Record<string, unknown>> : [];
+    return toolResults[toolIndex];
+};
+
+const getAIDockToolPatch = (tool: Record<string, unknown> | undefined) => {
+    const data = tool?.data && typeof tool.data === "object" ? tool.data as Record<string, unknown> : {};
+    const patch = (data.patch || data.previewPatch) as IAssistantEditPatch | undefined;
+    return patch?.operations?.length ? patch : null;
+};
+
+const buildAIDockToolPatchContext = (tool: Record<string, unknown>): IAssistantSkillContext | null => {
+    const context = tool.context && typeof tool.context === "object" ? tool.context as IAssistantAINoteContext : null;
+    if (!context?.rootID) {
+        return null;
+    }
+    const note = {
+        rootID: context.rootID,
+        notebook: context.notebook || "",
+        path: context.path || "",
+        title: context.title || assistantText("当前笔记", "Current note"),
+        markdown: "",
+        currentBlockID: context.currentBlockID || context.rootID,
+        currentBlockType: context.currentBlockType || "d",
+        currentBlockMarkdown: context.currentBlockMarkdown || "",
+        selectedText: context.selectedText || "",
+    };
+    return {
+        note,
+        hasSelection: !!note.selectedText,
+        selectedText: note.selectedText,
+    };
+};
+
+const buildAIDockPatchHistoryMetadata = (ctx: IAssistantAIDockRuntime, context: IAssistantSkillContext | null) => ({
+    sessionId: ctx.selectedSessionId,
+    profileId: ctx.selectedProfileId,
+    targetId: context?.note?.rootID || "",
+    targetLabel: context?.note?.title || "",
+});
+
+export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number, operationId = "") => {
+    if (!messageId || toolIndex < 0 || ctx.sending) {
+        return;
+    }
+    const tool = getAIDockToolResult(ctx, messageId, toolIndex);
+    const patch = getAIDockToolPatch(tool);
+    const context = tool ? buildAIDockToolPatchContext(tool) : null;
+    if (!tool || !patch || !context) {
+        showMessage(assistantText("当前工具补丁缺少可应用的笔记上下文", "This tool patch has no applicable note context"), 5000, "error");
+        return;
+    }
+    ctx.sending = true;
+    ctx.render();
+    try {
+        const metadata = buildAIDockPatchHistoryMetadata(ctx, context);
+        if (operationId) {
+            const operation = patch.operations.find((item) => item.id === operationId);
+            if (!operation) {
+                showMessage(assistantText("没有找到要应用的补丁项", "Patch operation not found"), 4000, "error");
+                return;
+            }
+            if (await applyAssistantPatchOperation(patch, operation, context)) {
+                recordAssistantPatchHistory(patch, metadata);
+            } else {
+                recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
+            }
+            return;
+        }
+        if (await applyAssistantPatch(patch, context)) {
+            recordAssistantPatchHistory(patch, metadata);
+        } else {
+            recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
+        }
+    } catch (error) {
+        recordAssistantPatchFailure(patch, error instanceof Error ? error.message : String(error), buildAIDockPatchHistoryMetadata(ctx, context));
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+    } finally {
+        ctx.sending = false;
+        ctx.render();
+    }
+};
+
+export const rejectAIDockToolPatch = (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number, operationId = "") => {
+    const patch = getAIDockToolPatch(getAIDockToolResult(ctx, messageId, toolIndex));
+    if (!patch) {
+        return;
+    }
+    patch.operations.forEach((operation) => {
+        if ((operation.status || "pending") !== "pending") {
+            return;
+        }
+        if (!operationId || operation.id === operationId) {
+            operation.status = "rejected";
+        }
+    });
+    ctx.render();
 };
 
 export const rejectAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number) => {

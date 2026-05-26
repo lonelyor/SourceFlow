@@ -88,15 +88,15 @@ func SetPetalEnabled(name string, enabled bool, frontend string) (ret *Petal, er
 	}
 
 	if enabled && incompatible {
-		err = fmt.Errorf(Conf.Language(205))
+		err = fmt.Errorf("%s", Conf.Language(205))
 		logging.LogInfof("plugin [%s] is incompatible [%s]", name, frontend)
 		return
 	}
 
 	if enabled && disallowInstall {
 		msg := "require upgrade SourceFlow to use this plugin [" + name + "]"
-		err = fmt.Errorf(msg)
-		logging.LogInfof(msg)
+		err = fmt.Errorf("%s", msg)
+		logging.LogInfof("%s", msg)
 		return
 	}
 

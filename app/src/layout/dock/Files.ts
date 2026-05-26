@@ -475,6 +475,20 @@ export class Files extends Model {
                 setPanelFocus(this.element.parentElement);
             }
         });
+        this.element.addEventListener("contextmenu", (event: MouseEvent) => {
+            if (event.shiftKey || window.sourceflow.config.readonly) {
+                return;
+            }
+            const target = event.target as HTMLElement;
+            const liElement = hasClosestByTag(target, "LI");
+            if (liElement && this.element.contains(liElement)) {
+                return;
+            }
+            this.initMoreMenu().popup({x: event.clientX, y: event.clientY});
+            setPanelFocus(this.element.parentElement);
+            event.preventDefault();
+            event.stopPropagation();
+        });
         let dragExpandTimer = 0;
         let dragExpandElement: HTMLElement;
         const clearDragExpandTimer = () => {
@@ -1392,6 +1406,21 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
         window.sourceflow.menus.menu.remove();
         if (!window.sourceflow.config.readonly) {
             const target = getNewFilePath(false);
+            window.sourceflow.menus.menu.append(new MenuItem({
+                id: "newFile",
+                icon: "iconFile",
+                label: window.sourceflow.languages.newFile,
+                accelerator: window.sourceflow.config.keymap.general.newFile.custom,
+                click: () => {
+                    newFile({
+                        app: this.app,
+                        notebookId: target.notebookId,
+                        currentPath: target.currentPath,
+                        useSavePath: false,
+                        listDocTree: true,
+                    });
+                }
+            }).element);
             window.sourceflow.menus.menu.append(new MenuItem({
                 icon: "iconFilesRoot",
                 label: window.sourceflow.languages.newNotebook,

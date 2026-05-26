@@ -16,6 +16,7 @@ import type {
 import type {IAssistantAIDockRuntime, IAssistantAINotePreview} from "./AIDockContract";
 import {
     addAIDockComposerAttachments,
+    applyAIDockToolPatch,
     buildAIDockCollapsedMessageContent,
     buildAIDockLocalMessage,
     buildAIDockMessageCopyText,
@@ -24,6 +25,7 @@ import {
     confirmAIDockTool,
     copyAIDockMessage,
     rejectAIDockTool,
+    rejectAIDockToolPatch,
     focusAIDockComposer,
     getAIDockAttachmentSummary,
     getAIDockEffectiveContextPreview,
@@ -47,6 +49,15 @@ import {
     cloneAIDockComposerAttachments,
 } from "./AIDockMessage";
 import {IAssistantAIDockRenderContext, renderAssistantAIDock} from "./AIDockRender";
+import {
+    applyAIDockAgentPatch,
+    cancelAIDockAgentTask,
+    pauseAIDockAgentTask,
+    rejectAIDockAgentPatch,
+    retryAIDockAgentTaskItem,
+    runAIDockAgentTask,
+    startAIDockAgentFromDraft,
+} from "./AIDockAgent";
 import {
     TAssistantAIFloatingPanel,
     TAssistantAIMessageItem,
@@ -405,6 +416,42 @@ class AssistantAIDock {
 
     private async rejectTool(messageId: string, toolIndex: number) {
         await rejectAIDockTool(this.getRuntime(), messageId, toolIndex);
+    }
+
+    private async applyToolPatch(messageId: string, toolIndex: number, operationId = "") {
+        await applyAIDockToolPatch(this.getRuntime(), messageId, toolIndex, operationId);
+    }
+
+    private rejectToolPatch(messageId: string, toolIndex: number, operationId = "") {
+        rejectAIDockToolPatch(this.getRuntime(), messageId, toolIndex, operationId);
+    }
+
+    private async startAgentFromDraft() {
+        await startAIDockAgentFromDraft(this.getRuntime());
+    }
+
+    private async runAgentTask(taskId: string) {
+        await runAIDockAgentTask(this.getRuntime(), taskId);
+    }
+
+    private pauseAgentTask(taskId: string) {
+        pauseAIDockAgentTask(this.getRuntime(), taskId);
+    }
+
+    private cancelAgentTask(taskId: string) {
+        cancelAIDockAgentTask(this.getRuntime(), taskId);
+    }
+
+    private async retryAgentTaskItem(taskId: string, itemId: string) {
+        await retryAIDockAgentTaskItem(this.getRuntime(), taskId, itemId);
+    }
+
+    private async applyAgentPatch(taskId: string, itemId: string, operationId = "") {
+        await applyAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
+    }
+
+    private rejectAgentPatch(taskId: string, itemId: string, operationId = "") {
+        rejectAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
     }
 
     private async saveTranscript() {

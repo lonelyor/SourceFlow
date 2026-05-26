@@ -2,11 +2,10 @@ import {Dialog} from "../../dialog";
 import {showMessage} from "../../dialog/message";
 import {fetchSyncPost} from "../../util/fetch";
 import {bgFade, highlightById} from "../../util/highlightById";
-import {focusByRange} from "../../protyle/util/selection";
 import {writeText} from "../../protyle/util/compatibility";
 import {hasClosestBlock} from "../../protyle/util/hasClosest";
 import {App} from "../../index";
-import {assistantText, buildAssistantNoteContext} from "../constants";
+import {assistantText, buildAssistantNoteContextForSkill} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {
     getActiveEditorProtyle,
@@ -17,6 +16,9 @@ import {
 } from "../common/note";
 import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
 import {reportAssistantRuntimeError} from "../runtime";
+import {buildAssistantPatchFromSkillResult, isAssistantPatchableSkill} from "../patch/build";
+import {openAssistantPatchReviewDialog} from "../patch/dialog";
+import {createAssistantGhostDraft} from "../ghost/draft";
 import {getAssistantSkillDefinition} from "./registry";
 import {IAssistantSkillContext, IAssistantSkillDefinition, IAssistantSkillParams, TAssistantSkillId} from "./types";
 
@@ -517,16 +519,24 @@ const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, pa
     };
 };
 
-const replaceCurrentSelection = (context: IAssistantSkillContext, text: string) => {
-    if (!context.range || !context.range.toString().trim()) {
+const replaceCurrentSelection = async (context: IAssistantSkillContext, text: string) => {
+    const note = context.note;
+    const before = `${context.selectedText || note?.selectedText || ""}`;
+    const after = `${text || ""}`.trim();
+    const blockID = `${note?.currentBlockID || ""}`.trim();
+    const blockMarkdown = `${note?.currentBlockMarkdown || ""}`;
+    if (!note || !before.trim() || !after || !blockID || !blockMarkdown.includes(before)) {
         return false;
     }
-    focusByRange(context.range);
-    const replaced = document.execCommand("insertText", false, `${text || ""}`.trim());
-    if (replaced && context.note?.rootID) {
-        invalidateAssistantNoteContextCache(context.note.rootID);
+    const response = await fetchSyncPost("/api/block/updateBlock", {
+        id: blockID,
+        data: blockMarkdown.replace(before, after),
+        dataType: "markdown",
+    });
+    if (response.code === 0) {
+        invalidateAssistantNoteContextCache(note.rootID);
     }
-    return replaced;
+    return response.code === 0;
 };
 
 const buildSkillInboxTitle = (definition: IAssistantSkillDefinition, context: IAssistantSkillContext) => {
@@ -694,7 +704,7 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                 return;
             }
             if (action === "replace-selection") {
-                const replaced = replaceCurrentSelection(context, displayResult);
+                const replaced = await replaceCurrentSelection(context, displayResult);
                 if (replaced) {
                     dialog.destroy();
                     presentSkillApplyFeedback(context, {
@@ -804,7 +814,7 @@ const updateSkillLoadingDialog = (dialog: Dialog, partial: string) => {
 
 const applySkillResultAutomatically = async (definition: IAssistantSkillDefinition, context: IAssistantSkillContext, reply: string) => {
     if (definition.action === "replace-selection") {
-        const replaced = replaceCurrentSelection(context, reply);
+        const replaced = await replaceCurrentSelection(context, reply);
         if (replaced) {
             presentSkillApplyFeedback(context, {
                 fallbackMessage: assistantText("已应用到当前选区内容", "Applied to the current selection"),
@@ -870,13 +880,18 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         showMessage(assistantText("请先配置至少一个 AI 模型", "Configure at least one AI profile first"), 5000, "error");
         return false;
     }
-    const loadingDialog = createSkillLoadingDialog(definition, context);
+    const useGhostDraft = isAssistantPatchableSkill(definition);
+    const loadingDialog = useGhostDraft ? null : createSkillLoadingDialog(definition, context);
+    const ghostDraft = useGhostDraft ? createAssistantGhostDraft(definition, context) : null;
     try {
         let partialReply = "";
         let previewTimer = 0;
         const flushStreamPreview = () => {
             previewTimer = 0;
-            updateSkillLoadingDialog(loadingDialog, partialReply);
+            if (loadingDialog) {
+                updateSkillLoadingDialog(loadingDialog, partialReply);
+            }
+            ghostDraft?.update(partialReply);
         };
         const requestTitle = truncateText(`${definition.shortLabel} ${context.note?.title || ""}`.trim(), 72) || definition.label;
         const result = await streamAssistantAI({
@@ -884,7 +899,7 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             mode: "chat",
             title: requestTitle,
             message: definition.buildMessage(context, params),
-            system: context.note ? buildAssistantNoteContext(context.note) : "",
+            system: context.note ? buildAssistantNoteContextForSkill(context.note, definition.id) : "",
             enableTools: definition.allowTools === true,
             context: context.note || undefined,
         }, {
@@ -900,11 +915,41 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             flushStreamPreview();
         }
         const reply = [...result.messages].reverse().find((item) => item.role === "assistant")?.content?.trim() || "";
-        loadingDialog.destroy();
+        loadingDialog?.destroy();
+        if (ghostDraft?.isCanceled()) {
+            showMessage(assistantText("AI 临时草稿已取消", "AI ghost draft canceled"));
+            return false;
+        }
         if (!reply) {
+            ghostDraft?.destroy();
             showMessage(assistantText("AI 没有返回可用结果", "The AI did not return a usable result"), 4000, "error");
             return false;
         }
+        const patchResult = buildAssistantPatchFromSkillResult(
+            definition,
+            context,
+            definition.action === "replace-selection" ? reply : appendResultCitation(reply, context)
+        );
+        if (patchResult) {
+            ghostDraft?.markReviewing();
+            openAssistantPatchReviewDialog({
+                patch: patchResult,
+                context,
+                title: definition.label,
+                sessionId: result.session.id,
+                onContinue: () => openAssistantChatDock({
+                    sessionId: result.session.id,
+                    append: true,
+                    message: assistantText(
+                        `请基于刚才的「${definition.shortLabel}」结果继续调整，目标是得到更合适的可接受补丁。`,
+                        `Continue refining the previous ${definition.shortLabel} result into a better acceptable patch.`
+                    ),
+                }),
+                onClose: () => ghostDraft?.destroy(),
+            });
+            return true;
+        }
+        ghostDraft?.destroy();
         if (definition.resultMode === "auto-apply") {
             const applied = await applySkillResultAutomatically(definition, context, reply);
             if (applied) {
@@ -915,7 +960,8 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         openSkillResultDialog(definition, context, reply, result.session.id);
         return true;
     } catch (error) {
-        loadingDialog.destroy();
+        ghostDraft?.destroy();
+        loadingDialog?.destroy();
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
         return false;
     }

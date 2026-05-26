@@ -122,7 +122,7 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 			continue
 		}
 		if nil != chunk.Error && "" != strings.TrimSpace(chunk.Error.Message) {
-			return nil, fmt.Errorf(chunk.Error.Message)
+			return nil, fmt.Errorf("%s", chunk.Error.Message)
 		}
 		if 0 < chunk.UsageMetadata.PromptTokenCount {
 			inputTokens = chunk.UsageMetadata.PromptTokenCount

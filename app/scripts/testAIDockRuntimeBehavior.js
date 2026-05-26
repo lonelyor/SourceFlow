@@ -111,6 +111,9 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
             return [];
         },
     },
+    "../history/operations": {
+        rollbackAssistantOperationHistoryItem: async () => true,
+    },
 });
 
 const {bindAIDockEvents, handleAIDockAction} = eventsModule;
@@ -139,6 +142,15 @@ const createRuntime = () => {
         refreshToolCatalogCalls: [],
         confirmToolCalls: [],
         rejectToolCalls: [],
+        applyToolPatchCalls: [],
+        rejectToolPatchCalls: [],
+        startAgentCalls: [],
+        runAgentTaskCalls: [],
+        pauseAgentTaskCalls: [],
+        cancelAgentTaskCalls: [],
+        retryAgentTaskItemCalls: [],
+        applyAgentPatchCalls: [],
+        rejectAgentPatchCalls: [],
         sendMessageCalls: [],
         clearEditingMessageCalls: [],
         startEditingMessageCalls: [],
@@ -166,6 +178,33 @@ const createRuntime = () => {
         },
         async rejectTool(messageId, toolIndex) {
             this.rejectToolCalls.push({messageId, toolIndex});
+        },
+        async applyToolPatch(messageId, toolIndex, operationId = "") {
+            this.applyToolPatchCalls.push({messageId, toolIndex, operationId});
+        },
+        rejectToolPatch(messageId, toolIndex, operationId = "") {
+            this.rejectToolPatchCalls.push({messageId, toolIndex, operationId});
+        },
+        async startAgentFromDraft() {
+            this.startAgentCalls.push(1);
+        },
+        async runAgentTask(taskId) {
+            this.runAgentTaskCalls.push(taskId);
+        },
+        pauseAgentTask(taskId) {
+            this.pauseAgentTaskCalls.push(taskId);
+        },
+        cancelAgentTask(taskId) {
+            this.cancelAgentTaskCalls.push(taskId);
+        },
+        async retryAgentTaskItem(taskId, itemId) {
+            this.retryAgentTaskItemCalls.push({taskId, itemId});
+        },
+        async applyAgentPatch(taskId, itemId, operationId = "") {
+            this.applyAgentPatchCalls.push({taskId, itemId, operationId});
+        },
+        rejectAgentPatch(taskId, itemId, operationId = "") {
+            this.rejectAgentPatchCalls.push({taskId, itemId, operationId});
         },
         async selectSession() {},
         removeComposerAttachment(id) {
@@ -270,6 +309,41 @@ const createFakeKeyboardEvent = (target, key) => ({
         new FakeInputElement({"data-action": "reject-tool", "data-message-id": "msg-1", "data-tool-index": "0"}),
     ));
     assert.deepStrictEqual(rt2.rejectToolCalls, [{messageId: "msg-1", toolIndex: 0}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "accept-tool-patch-op", "data-message-id": "msg-1", "data-tool-index": "0", "data-op-id": "op-1"}),
+    ));
+    assert.deepStrictEqual(rt2.applyToolPatchCalls, [{messageId: "msg-1", toolIndex: 0, operationId: "op-1"}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "reject-tool-patch-all", "data-message-id": "msg-1", "data-tool-index": "0"}),
+    ));
+    assert.deepStrictEqual(rt2.rejectToolPatchCalls, [{messageId: "msg-1", toolIndex: 0, operationId: ""}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "start-agent-from-draft"}),
+    ));
+    assert.deepStrictEqual(rt2.startAgentCalls, [1]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "resume-agent-task", "data-task-id": "task-1"}),
+    ));
+    assert.deepStrictEqual(rt2.runAgentTaskCalls, ["task-1"]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "retry-agent-item", "data-task-id": "task-1", "data-item-id": "item-1"}),
+    ));
+    assert.deepStrictEqual(rt2.retryAgentTaskItemCalls, [{taskId: "task-1", itemId: "item-1"}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "accept-agent-patch-op", "data-task-id": "task-1", "data-item-id": "item-1", "data-op-id": "op-1"}),
+    ));
+    assert.deepStrictEqual(rt2.applyAgentPatchCalls, [{taskId: "task-1", itemId: "item-1", operationId: "op-1"}]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "reject-agent-patch-all", "data-task-id": "task-1", "data-item-id": "item-1"}),
+    ));
+    assert.deepStrictEqual(rt2.rejectAgentPatchCalls, [{taskId: "task-1", itemId: "item-1", operationId: ""}]);
 
     const rt3 = createRuntime();
     bindAIDockEvents(rt3);

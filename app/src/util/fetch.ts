@@ -123,9 +123,10 @@ export const fetchPost = (
     });
 };
 
-export const fetchSyncPost = async (url: string, data?: any) => {
+export const fetchSyncPost = async (url: string, data?: any, options: Pick<RequestInit, "signal"> = {}) => {
     const init: RequestInit = {
         method: "POST",
+        signal: options.signal,
     };
     if (data) {
         if (data instanceof FormData) {

@@ -207,18 +207,18 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 	case AssistantAIToolAppendCurrentNote:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"markdown": map[string]interface{}{
 					"type":        "string",
 					"description": "要追加的Markdown内容",
 				},
-			},
+			}),
 			"required": []string{"markdown"},
 		}
 	case AssistantAIToolCreateNote:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"title": map[string]interface{}{
 					"type":        "string",
 					"description": "笔记标题",
@@ -235,13 +235,13 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 					"type":        "string",
 					"description": "笔记路径（可选）",
 				},
-			},
+			}),
 			"required": []string{"markdown"},
 		}
 	case AssistantAIToolCreateChildNote:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"title": map[string]interface{}{
 					"type":        "string",
 					"description": "子文档标题",
@@ -250,13 +250,13 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 					"type":        "string",
 					"description": "子文档内容（Markdown）",
 				},
-			},
+			}),
 			"required": []string{"markdown"},
 		}
 	case AssistantAIToolCreateWorkbench:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"type": map[string]interface{}{
 					"type":        "string",
 					"description": "类型：note/task/event/project",
@@ -270,20 +270,20 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 					"type":        "string",
 					"description": "内容（Markdown）",
 				},
-				"status": map[string]interface{}{"type": "string", "description": "状态"},
+				"status":  map[string]interface{}{"type": "string", "description": "状态"},
 				"project": map[string]interface{}{"type": "string", "description": "所属项目"},
 				"dueDate": map[string]interface{}{"type": "string", "description": "截止日期"},
 				"tags": map[string]interface{}{
 					"type":        "string",
 					"description": "标签（逗号分隔）",
 				},
-			},
+			}),
 			"required": []string{"markdown"},
 		}
 	case AssistantAIToolInsertAfterBlock:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"id": map[string]interface{}{
 					"type":        "string",
 					"description": "目标块ID（可选，默认当前块）",
@@ -292,23 +292,23 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 					"type":        "string",
 					"description": "要插入的Markdown内容",
 				},
-			},
+			}),
 			"required": []string{"markdown"},
 		}
 	case AssistantAIToolDeleteBlock:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"id": map[string]interface{}{
 					"type":        "string",
 					"description": "要删除的块ID（可选，默认当前块）",
 				},
-			},
+			}),
 		}
 	case AssistantAIToolReplaceBlock:
 		return map[string]interface{}{
 			"type": "object",
-			"properties": map[string]interface{}{
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
 				"id": map[string]interface{}{
 					"type":        "string",
 					"description": "要替换的块ID",
@@ -317,7 +317,7 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 					"type":        "string",
 					"description": "替换后的Markdown内容",
 				},
-			},
+			}),
 			"required": []string{"id", "markdown"},
 		}
 	default:
@@ -326,6 +326,18 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 			"properties": map[string]interface{}{},
 		}
 	}
+}
+
+func addAssistantAIToolDryRunProperty(properties map[string]interface{}) map[string]interface{} {
+	if nil == properties {
+		properties = map[string]interface{}{}
+	}
+	properties["dryRun"] = map[string]interface{}{
+		"type":        "boolean",
+		"description": "仅生成预览补丁，不执行真实写入",
+		"default":     false,
+	}
+	return properties
 }
 
 func buildAssistantAIToolContextSystemPart(context *AssistantAINoteContext) string {

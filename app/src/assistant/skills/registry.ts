@@ -20,8 +20,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请只基于下面的选中文本，输出一段精炼总结。直接给出结果，不要标题、不要解释、不要引号。\n\n${selectionSourceText(context.selectedText)}`,
-            `Summarize the following selected text into a concise paragraph. Return only the result with no title, quotes, or explanation.\n\n${selectionSourceText(context.selectedText)}`
+            `请把选中文本压缩成更精炼的 1-3 句话。保留核心事实和结论，去掉冗余。直接输出结果，不要标题、不要解释、不要引号。\n\n${selectionSourceText(context.selectedText)}`,
+            `Condense the selected text into 1-3 sharper sentences. Preserve the key facts and conclusions, remove redundancy, and return only the result with no title, quotes, or explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-keypoints": {
@@ -36,8 +36,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请从下面的选中文本中提取 3-7 条最重要的要点，并输出 Markdown 无序列表。每条要点尽量短，保留事实与结论，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
-            `Extract the 3-7 most important takeaways from the selected text below and return them as a Markdown bullet list. Keep each point short and concrete, with no extra explanation.\n\n${selectionSourceText(context.selectedText)}`
+            `从选中文本中提取 3-7 条核心要点。每条一行，保留事实与结论，去掉冗余。输出 Markdown 无序列表，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Extract 3-7 core takeaways from the selected text. Keep one point per line, preserve facts and conclusions, remove redundancy, and return a Markdown bullet list with no explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-qa": {
@@ -52,8 +52,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请基于下面的选中文本生成 3-5 组 Markdown 问答，适合复习。直接输出结果，不要解释。格式要求：\n## 问答\n1. 问：...\n   答：...\n\n${selectionSourceText(context.selectedText)}`,
-            `Generate 3-5 Markdown Q&A pairs from the selected text below for review. Return only the result with no explanation. Use this format:\n## Q&A\n1. Q: ...\n   A: ...\n\n${selectionSourceText(context.selectedText)}`
+            `基于选中文本生成 3-5 组问答对，用于复习。格式：\n## 问答\n1. 问：...\n   答：...\n直接输出，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Generate 3-5 Q&A pairs from the selected text for review. Use this format:\n## Q&A\n1. Q: ...\n   A: ...\nReturn only the result with no explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-rewrite": {
@@ -68,8 +68,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请改写下面的选中文本，保留原意，但让表达更清晰、自然、精炼。直接输出改写结果，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
-            `Rewrite the selected text below while preserving its meaning, making it clearer, more natural, and more concise. Return only the rewritten text.\n\n${selectionSourceText(context.selectedText)}`
+            `请改写选中文本，让表达更清晰、自然、精炼。保持原意不变。直接输出改写结果，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Rewrite the selected text to make it clearer, more natural, and more concise while preserving the original meaning. Return only the rewritten text with no explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-translate": {
@@ -86,8 +86,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         buildMessage: (context, params) => {
             const targetLanguage = `${params.targetLanguage || assistantText("中文", "English")}`.trim();
             return assistantText(
-                `请把下面的选中文本翻译成${targetLanguage}。尽量保留原来的语气、列表和结构。直接输出译文，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
-            `Translate the selected text below into ${targetLanguage}. Preserve the original tone, list structure, and formatting as much as possible. Return only the translation.\n\n${selectionSourceText(context.selectedText)}`
+                `将选中文本翻译成${targetLanguage}。保持原有语气、列表和结构。直接输出译文，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Translate the selected text into ${targetLanguage}. Preserve the original tone, lists, and structure. Return only the translation with no explanation.\n\n${selectionSourceText(context.selectedText)}`
         );
         },
     },
@@ -125,8 +125,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请基于下面的选中文本生成一个最合适的 Mermaid 图。只输出一个完整的 Markdown fenced code block，代码块语言必须是 mermaid，不要任何额外解释。\n\n${selectionSourceText(context.selectedText)}`,
-            `Generate the most suitable Mermaid diagram from the selected text below. Return only one complete fenced Markdown code block with language \`mermaid\`, and no extra explanation.\n\n${selectionSourceText(context.selectedText)}`
+            `将选中文本转换成最合适的 Mermaid 图。只输出一个完整的 \`\`\`mermaid 代码块，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Convert the selected text into the most suitable Mermaid diagram. Return only one complete \`\`\`mermaid code block with no explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-table": {
@@ -141,8 +141,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请把下面的选中文本整理成最合适的 Markdown 表格。只输出表格本身，不要解释。如果信息不完整，请先合理补齐列名。\n\n${selectionSourceText(context.selectedText)}`,
-            `Turn the selected text below into the most suitable Markdown table. Return only the table itself with no explanation. If needed, infer sensible column headers.\n\n${selectionSourceText(context.selectedText)}`
+            `将选中文本整理成 Markdown 表格。合理推断列名，只输出表格，不要解释。\n\n${selectionSourceText(context.selectedText)}`,
+            `Turn the selected text into a Markdown table. Infer sensible column headers, return only the table, and include no explanation.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "selection-mind-elixir": {
@@ -157,8 +157,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         requiresSelection: true,
         buildMessage: (context) => assistantText(
-            `请基于下面的选中文本生成一个适合 Mind Elixir 的思维导图 JSON。只输出一个 JSON 对象，不要 Markdown，不要解释。JSON 结构要求如下：\n{\n  "topic": "根节点标题",\n  "children": [\n    {"topic": "子节点", "children": [...]}\n  ]\n}\n要求：1. 必须只有一个根节点 2. topic 必须是简洁短语 3. children 可省略 4. 不要输出 id、style、summary 等额外字段，除非确有必要。\n\n${selectionSourceText(context.selectedText)}`,
-            `Generate a Mind Elixir compatible mind map JSON from the selected text below. Return only one JSON object with no Markdown and no explanation. Use this structure:\n{\n  "topic": "Root topic",\n  "children": [\n    {"topic": "Child node", "children": [...]}\n  ]\n}\nRequirements: 1. exactly one root node 2. concise topic phrases 3. children may be omitted 4. do not include id, style, summary, or extra fields unless truly necessary.\n\n${selectionSourceText(context.selectedText)}`
+            `将选中文本转换成 Mind Elixir 思维导图 JSON。只输出一个 JSON 对象，不要 Markdown，不要解释。结构：\n{"topic":"根节点","children":[{"topic":"子节点","children":[...]}]}\n要求：1. 一个根节点 2. topic 用简洁短语 3. 不要 id/style 等额外字段。\n\n${selectionSourceText(context.selectedText)}`,
+            `Convert the selected text into Mind Elixir mind map JSON. Return only one JSON object with no Markdown and no explanation. Shape:\n{"topic":"Root","children":[{"topic":"Child","children":[...]}]}\nRequirements: 1. one root node 2. concise topic phrases 3. no id/style or extra fields.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
     "note-create": {
@@ -172,8 +172,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请阅读当前笔记，围绕它的主题、语气和结构，创作一段可以直接追加到文末的新内容。要求：1. 不是简单复述原文；2. 内容要完整、有信息增量；3. 使用 Markdown；4. 直接输出结果，不要解释。",
-            "Read the current note and create a new section that can be appended directly to the end. Requirements: 1. do not merely restate the original note 2. add meaningful new information 3. use Markdown 4. return only the result with no explanation."
+            "请阅读当前笔记，在已有内容基础上创作新的 2-3 个自然段。要求：1. 补充原文未展开的论点、角度或实例；2. 不要复述已有内容；3. 保持与原文一致的语气和 Markdown 风格；4. 直接输出创作内容，不要标题、不要解释。",
+            "Read the current note and create 2-3 new natural paragraphs based on it. Requirements: 1. expand undeveloped points, angles, or examples 2. do not restate existing content 3. keep the same tone and Markdown style 4. return only the new content with no title or explanation."
         ),
     },
     "note-continue-writing": {
@@ -187,8 +187,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请先阅读当前笔记，然后按照现有内容的主题、语气和组织方式继续续写。要求：1. 与现有上下文自然衔接；2. 优先补全未展开的论点、示例、步骤或结论；3. 使用 Markdown；4. 直接输出续写结果，不要解释。",
-            "Read the current note first, then continue it in a way that matches the existing topic, tone, and structure. Requirements: 1. connect naturally to the current content 2. prioritize unfinished points, examples, steps, or conclusions 3. use Markdown 4. return only the continuation."
+            "请阅读当前笔记的上下文，续写 1-2 个自然段。要求：1. 紧接当前内容自然衔接，不要重复已有内容；2. 只续写下一部分，不要写完整篇文章；3. 保持与原文一致的语气、术语和 Markdown 风格；4. 直接输出续写内容，不要标题、不要解释。",
+            "Read the current note context and continue with 1-2 natural paragraphs. Requirements: 1. connect directly to the current content without repeating it 2. write only the next part, not a full article 3. keep the same tone, terms, and Markdown style 4. return only the continuation with no title or explanation."
         ),
     },
     "note-summarize": {
@@ -202,8 +202,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请阅读当前笔记，输出一份结构清晰的 Markdown 总结。至少包含：主题概括、关键要点、待补充的信息、可执行下一步。",
-            "Read the current note and produce a well-structured Markdown summary. Include at least: overall theme, key points, missing context, and actionable next steps."
+            "请阅读当前笔记，输出结构化总结。要求：1. 先用 1-2 句话概括全文主题；2. 再列出 3-7 个核心要点；3. 标注缺失信息或待补充内容；4. 给出 1-3 条可执行的下一步建议；5. 直接输出 Markdown，不要解释。",
+            "Read the current note and produce a structured summary. Requirements: 1. summarize the topic in 1-2 sentences 2. list 3-7 core points 3. note missing or incomplete information 4. give 1-3 actionable next steps 5. return Markdown only with no explanation."
         ),
     },
     "note-outline": {
@@ -217,8 +217,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请阅读当前笔记，输出一份结构化 Markdown 提纲。要求：1. 保留核心层级；2. 标题短而清楚；3. 使用列表或标题组织，不要额外解释。",
-            "Read the current note and output a structured Markdown outline. Requirements: 1. preserve the core hierarchy 2. keep headings concise 3. organize with headings or lists and include no extra explanation."
+            "请阅读当前笔记，生成结构化提纲。要求：1. 用 Markdown 标题和列表表达层级；2. 保留核心结构，每个标题/要点不超过 15 字；3. 直接输出，不要解释。",
+            "Read the current note and generate a structured outline. Requirements: 1. express hierarchy with Markdown headings and lists 2. preserve the core structure 3. keep each heading/point within 15 words 4. return only the outline with no explanation."
         ),
     },
     "note-qa": {
@@ -232,8 +232,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请阅读当前笔记并生成 4-8 组 Markdown 问答，适合复习和自测。直接输出结果，不要解释。格式要求：\n## 问答\n1. 问：...\n   答：...",
-            "Read the current note and generate 4-8 Markdown Q&A pairs for review and self-testing. Return only the result with no explanation. Use this format:\n## Q&A\n1. Q: ...\n   A: ..."
+            "请阅读当前笔记，生成 4-8 组问答对用于复习。格式：\n## 问答\n1. 问：...\n   答：...\n直接输出，不要解释。",
+            "Read the current note and generate 4-8 Q&A pairs for review. Use this format:\n## Q&A\n1. Q: ...\n   A: ...\nReturn only the result with no explanation."
         ),
     },
     "note-flashcards": {
@@ -247,8 +247,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         resultMode: "auto-apply",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请阅读当前笔记并生成 5-10 张 Markdown 复习卡片。直接输出结果，不要解释。格式要求：\n## 复习卡片\n1. 正面：...\n   背面：...",
-            "Read the current note and generate 5-10 Markdown study flashcards. Return only the result with no explanation. Use this format:\n## Flashcards\n1. Front: ...\n   Back: ..."
+            "请阅读当前笔记，生成 5-10 张复习卡片。格式：\n## 复习卡片\n1. 正面：...\n   背面：...\n直接输出，不要解释。",
+            "Read the current note and generate 5-10 study flashcards. Use this format:\n## Flashcards\n1. Front: ...\n   Back: ...\nReturn only the result with no explanation."
         ),
     },
     "note-task": {
@@ -283,8 +283,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         action: "insert-below",
         requiresNote: true,
         buildMessage: () => assistantText(
-            "请检查当前笔记的结构、表达、待办和缺失信息，并输出一份可直接采用的优化稿。结果请使用 Markdown，先给精简结论，再给建议改写版本。",
-            "Review the current note for structure, wording, tasks, and missing context, then output a directly usable improved draft in Markdown. Start with a concise conclusion, then provide the suggested rewrite."
+            "请逐段检查当前笔记，输出一份完整的润色版本。要求：1. 修正语法、错别字和不通顺的表达；2. 改善段落结构和信息流；3. 补充明显缺失的上下文；4. 保持原有语义不变，不要增加新观点；5. 先用一句话总结主要修改点，再输出完整润色稿；6. 使用 Markdown，直接输出结果。",
+            "Review the current note paragraph by paragraph and produce a complete polished version. Requirements: 1. fix grammar, typos, and awkward wording 2. improve paragraph structure and information flow 3. add obviously missing context 4. preserve the original meaning and add no new claims 5. start with one sentence summarizing the main changes, then output the full polished draft 6. use Markdown and return only the result."
         ),
     },
     "note-links": {
@@ -313,8 +313,8 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
         requiresNote: true,
         allowTools: true,
         buildMessage: () => assistantText(
-            "请为当前笔记做一次体检。必要时调用工具检查附件、链接、资源和引用情况。输出 Markdown 报告，至少包含：结构问题、图片/附件风险、语法与表达问题、链接或引用异常、建议修复动作。",
-            "Run a health check on the current note. Use tools when needed to inspect assets, links, resources, and references. Return a Markdown report covering at least: structure issues, image/asset risks, grammar/style problems, link/reference anomalies, and suggested fixes."
+            "请为当前笔记做一次体检，并输出可审阅的修复补丁。必要时调用工具检查附件、链接、资源和引用情况。只输出一个 JSON 对象，不要 Markdown，不要解释。结构：{\"summary\":\"一句话体检结论\",\"target\":\"note\",\"operations\":[{\"type\":\"append-note\",\"targetId\":\"当前笔记 rootID\",\"after\":\"## AI 体检建议\\n...\",\"reason\":\"结构/重复/引用/附件/行动项/表达质量问题\"}]}。要求：1. operations 最多 6 条；2. 只能使用 append-note、insert-after-block、replace-block；3. 没有安全把握替换原文时使用 append-note 给出修复建议；4. replace-block 必须提供 targetId、before、after 和 reason；5. 不要编造不存在的块 ID。",
+            "Run a health check on the current note and return a reviewable fix patch. Use tools when needed to inspect assets, links, resources, and references. Return exactly one JSON object with no Markdown and no explanation. Shape: {\"summary\":\"one-sentence health conclusion\",\"target\":\"note\",\"operations\":[{\"type\":\"append-note\",\"targetId\":\"current note rootID\",\"after\":\"## AI Health Suggestions\\n...\",\"reason\":\"structure/repetition/references/assets/action items/writing quality issue\"}]}. Requirements: 1. at most 6 operations 2. only use append-note, insert-after-block, or replace-block 3. use append-note when replacing original content is not clearly safe 4. replace-block must include targetId, before, after, and reason 5. do not invent block IDs."
         ),
     },
     "note-extract-tasks": {

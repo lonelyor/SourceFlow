@@ -105,6 +105,7 @@ export const renderAIDockQuickActions = (ctx: TAssistantAIDockRenderRuntime) => 
     const targetHint = ctx.buildHoverHint(targetSummary, assistantText("点击管理目标", "Click to manage"));
     const contextHint = ctx.buildHoverHint(contextSummary, assistantText("点击查看", "Click to inspect"));
     const auditHint = ctx.buildHoverHint(auditSummary, assistantText("点击查看", "Click to inspect"));
+    const agentHint = ctx.buildHoverHint(assistantText("队列与历史", "Queue & history"), assistantText("点击查看", "Click to inspect"));
     const toolsHint = ctx.buildHoverHint(toolSummary, assistantText("点击管理", "Click to manage"));
     return `<div class="assistant-ai__toolbar-group assistant-ai__toolbar-group--chips">
     <button type="button" class="assistant-ai__quick-button${ctx.activePanel === "target" ? " assistant-ai__quick-button--active" : ""}" data-action="toggle-panel" data-panel="target" aria-label="${escapeAttr(targetHint)}" title="${escapeAttr(targetHint)}">
@@ -124,6 +125,12 @@ export const renderAIDockQuickActions = (ctx: TAssistantAIDockRenderRuntime) => 
         <svg><use xlink:href="#iconInfo"></use></svg>
         <span class="assistant-ai__quick-copy">
             <span class="assistant-ai__quick-label">${assistantText("审计", "Audits")}</span>
+        </span>
+    </button>
+    <button type="button" class="assistant-ai__quick-button${ctx.activePanel === "agent" ? " assistant-ai__quick-button--active" : ""}" data-action="toggle-panel" data-panel="agent" aria-label="${escapeAttr(agentHint)}" title="${escapeAttr(agentHint)}">
+        <svg><use xlink:href="#iconHistory"></use></svg>
+        <span class="assistant-ai__quick-copy">
+            <span class="assistant-ai__quick-label">${assistantText("Agent", "Agent")}</span>
         </span>
     </button>
     <button type="button" class="assistant-ai__quick-button${ctx.activePanel === "tools" ? " assistant-ai__quick-button--active" : ""}" data-action="toggle-panel" data-panel="tools"${!ctx.getSelectedProfile() ? " disabled" : ""} aria-label="${escapeAttr(toolsHint)}" title="${escapeAttr(toolsHint)}">

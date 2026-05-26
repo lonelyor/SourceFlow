@@ -117,7 +117,7 @@ import {applyWorkbenchBoundState, appendMarkdownToCurrentNote, applyWorkbenchSav
 import {batchSetAttrs, buildCurrentWorkbenchBlockDraft, buildCurrentWorkbenchItemDraft, openWorkbenchBatchMetaDialog, openWorkbenchItem, openWorkbenchMetaDialog} from "./dialogMeta";
 import {buildWorkbenchAIPrompt, buildWorkbenchDraft, buildWorkbenchViewTemplate, createWorkbenchViewNote} from "./dialogDraft";
 
-let workbenchQueryInputTimer = 0;
+const workbenchQueryInputTimer = 0;
 let workbenchRenderToken = 0;
 
 export const openWorkbenchBoundViewByID = async (app: App, id: string) => {

@@ -61,7 +61,7 @@ func BootMobile(container, appDir, workspaceBaseDir, lang string) {
 
 	initPathDir()
 	bootBanner := figure.NewFigure("SourceFlow", "", true)
-	logging.LogInfof("\n" + bootBanner.String())
+	logging.LogInfof("%s", "\n" + bootBanner.String())
 	logBootInfo()
 }
 

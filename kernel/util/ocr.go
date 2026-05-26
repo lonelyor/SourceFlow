@@ -186,7 +186,7 @@ func ExistsAssetText(asset string) (ret bool) {
 
 func OcrAsset(asset string) (ret []map[string]interface{}, err error) {
 	if !TesseractEnabled {
-		err = fmt.Errorf(Langs[Lang][266])
+		err = fmt.Errorf("%s", Langs[Lang][266])
 		return
 	}
 

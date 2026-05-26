@@ -1,6 +1,7 @@
 import {openSettingTab} from "../../config";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
+import {rollbackAssistantOperationHistoryItem} from "../history/operations";
 
 export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
     ctx.element.addEventListener("click", (event: MouseEvent) => {
@@ -211,6 +212,10 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
 
 export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: string, target?: HTMLElement) => {
     const messageId = target?.getAttribute("data-message-id") || target?.closest<HTMLElement>(".assistant-ai__message")?.getAttribute("data-message-id") || "";
+    const toolIndex = parseInt(target?.getAttribute("data-tool-index") || target?.closest<HTMLElement>(".assistant-ai__tool-result")?.getAttribute("data-tool-index") || "-1", 10);
+    const operationId = target?.getAttribute("data-op-id") || "";
+    const taskId = target?.getAttribute("data-task-id") || "";
+    const itemId = target?.getAttribute("data-item-id") || "";
     switch (action) {
         case "open-profiles":
         case "configure-profile":
@@ -262,6 +267,49 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "refresh-audits":
             await ctx.refreshAudits();
+            return;
+        case "accept-tool-patch-op":
+            await ctx.applyToolPatch(messageId, toolIndex, operationId);
+            return;
+        case "accept-tool-patch-all":
+            await ctx.applyToolPatch(messageId, toolIndex);
+            return;
+        case "reject-tool-patch-op":
+            ctx.rejectToolPatch(messageId, toolIndex, operationId);
+            return;
+        case "reject-tool-patch-all":
+            ctx.rejectToolPatch(messageId, toolIndex);
+            return;
+        case "start-agent-from-draft":
+            await ctx.startAgentFromDraft();
+            return;
+        case "pause-agent-task":
+            ctx.pauseAgentTask(taskId);
+            return;
+        case "resume-agent-task":
+            await ctx.runAgentTask(taskId);
+            return;
+        case "cancel-agent-task":
+            ctx.cancelAgentTask(taskId);
+            return;
+        case "retry-agent-item":
+            await ctx.retryAgentTaskItem(taskId, itemId);
+            return;
+        case "accept-agent-patch-op":
+            await ctx.applyAgentPatch(taskId, itemId, operationId);
+            return;
+        case "accept-agent-patch-all":
+            await ctx.applyAgentPatch(taskId, itemId);
+            return;
+        case "reject-agent-patch-op":
+            ctx.rejectAgentPatch(taskId, itemId, operationId);
+            return;
+        case "reject-agent-patch-all":
+            ctx.rejectAgentPatch(taskId, itemId);
+            return;
+        case "rollback-history":
+            await rollbackAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
+            ctx.render();
             return;
         case "pin-current-note":
             await ctx.pinCurrentNoteAsTarget();

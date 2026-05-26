@@ -38,6 +38,7 @@ import {deferEmojiConfLoad, setInitialEmojiConf} from "../emoji/load";
 import {ensureBuiltinAssistantPlugin} from "../assistant/register";
 import {initBootSyncBanner} from "../sync/bootSyncBanner";
 import {openStartupHomepage} from "../homepage";
+import {deferSecurityNotice} from "./securityNotice";
 
 const writeStartupLog = (msg: string) => {
     /// #if !BROWSER
@@ -225,6 +226,7 @@ export const onGetConfig = (isStart: boolean, app: App) => {
         sendGlobalShortcut(app);
         /// #endif
         deferOpenChangelog();
+        deferSecurityNotice();
         deferInitialPluginLoad(app);
         deferEmojiConfLoad();
         void ensureBuiltinAssistantPlugin(app).catch((error) => {

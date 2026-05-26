@@ -223,6 +223,11 @@ func getAssistantAIRecommendedSettings(profile *AssistantAIProfile) (ret assista
 		}
 	case AssistantAIProviderOllama:
 		ret.LocalAPIKeyFallback = "ollama"
+	case AssistantAIProviderFake:
+		ret.FixedTemperature = assistantAIFloat64Ptr(0)
+		ret.MaxTokens = 1024
+		ret.TemperatureMin = assistantAIFloat64Ptr(0)
+		ret.TemperatureMax = assistantAIFloat64Ptr(0)
 	}
 	return ret
 }

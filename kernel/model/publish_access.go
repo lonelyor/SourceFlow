@@ -102,7 +102,7 @@ func SetPublishAccess(inputPublishAccess PublishAccess) (err error) {
 	err = os.MkdirAll(filepath.Dir(publishAccessPath), 0755)
 	if err != nil {
 		msg := fmt.Sprintf("create dir for publishAccess.json [%s] failed: %s", publishAccessPath, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
@@ -116,7 +116,7 @@ func SetPublishAccess(inputPublishAccess PublishAccess) (err error) {
 	err = filelock.WriteFile(publishAccessPath, data)
 	if err != nil {
 		msg := fmt.Sprintf("write publishAccess.json [%s] failed: %s", publishAccessPath, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}

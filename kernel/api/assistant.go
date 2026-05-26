@@ -17,6 +17,14 @@ type assistantAIIDRequest struct {
 	ID string `json:"id"`
 }
 
+type assistantAIProfileTestRequest struct {
+	Provider  string `json:"provider"`
+	BaseURL   string `json:"baseURL"`
+	APIKey    string `json:"apiKey"`
+	Proxy     string `json:"proxy"`
+	UserAgent string `json:"userAgent"`
+}
+
 type assistantAISessionCreateRequest struct {
 	ProfileID string `json:"profileId"`
 	Mode      string `json:"mode"`
@@ -113,6 +121,32 @@ func assistantAIProfileDelete(c *gin.Context) {
 		ret.Code = -1
 		ret.Msg = err.Error()
 	}
+}
+
+func assistantAIProfileTest(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &assistantAIProfileTestRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ret.Code = -1
+		ret.Msg = "parses request failed"
+		return
+	}
+	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
+}
+
+func assistantAIProfileModels(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &assistantAIProfileTestRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ret.Code = -1
+		ret.Msg = "parses request failed"
+		return
+	}
+	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
 }
 
 func assistantAISessionList(c *gin.Context) {

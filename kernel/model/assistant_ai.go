@@ -33,6 +33,7 @@ const (
 	AssistantAIProviderOpenRouter       = "openrouter"
 	AssistantAIProviderDeepSeek         = "deepseek"
 	AssistantAIProviderOllama           = "ollama"
+	AssistantAIProviderFake             = "fake"
 
 	assistantAIDefaultTimeout          = 60
 	assistantAIDefaultTemperature      = 0.7
@@ -49,37 +50,41 @@ var (
 )
 
 var assistantAIProviderCatalog = []*AssistantAIProviderType{
-	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1"},
-	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
-	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com"},
-	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1"},
-	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
-	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1"},
-	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1"},
-	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1"},
+	{ID: AssistantAIProviderOpenAICompatible, Name: "OpenAI Compatible", BaseURL: "https://api.openai.com/v1", DefaultModel: "gpt-4.1", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 1048576, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderAnthropic, Name: "Anthropic", BaseURL: "https://api.anthropic.com", DefaultModel: "claude-sonnet-4-20250514", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 200000, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderGemini, Name: "Gemini", BaseURL: "https://generativelanguage.googleapis.com", DefaultModel: "gemini-2.5-flash", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 1048576, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderVolcengine, Name: "Volcengine Ark", BaseURL: "https://ark.cn-beijing.volces.com/api/v3", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.1, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderVolcenginePlan, Name: "Volcengine Coding Plan", BaseURL: "https://ark.cn-beijing.volces.com/api/v3", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.1, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderKimi, Name: "Kimi", BaseURL: "https://api.moonshot.cn/v1", DefaultModel: "moonshot-v1-auto", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderGLM, Name: "GLM", BaseURL: "https://open.bigmodel.cn/api/paas/v4", DefaultModel: "glm-4-flash", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderQwen, Name: "Qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", DefaultModel: "qwen-plus", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderOpenRouter, Name: "OpenRouter", BaseURL: "https://openrouter.ai/api/v1", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 4096, "maxContextTokens": 200000, "maxContextMessages": 32}},
+	{ID: AssistantAIProviderDeepSeek, Name: "DeepSeek", BaseURL: "https://api.deepseek.com/v1", DefaultModel: "deepseek-chat", RecommendedSettings: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192, "maxContextTokens": 131072, "maxContextMessages": 24}},
+	{ID: AssistantAIProviderOllama, Name: "Ollama", BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "", RecommendedSettings: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096, "maxContextTokens": 32768, "maxContextMessages": 16}},
+	{ID: AssistantAIProviderFake, Name: "SourceFlow Fake", BaseURL: "sourceflow://fake", DefaultModel: "sourceflow-fake-chat", RecommendedSettings: map[string]interface{}{"temperature": 0.0, "maxTokens": 1024, "maxContextTokens": 32768, "maxContextMessages": 8}},
 }
 
 var assistantAIProviderBaseURLs = map[string]string{
-		AssistantAIProviderOpenAICompatible: "https://api.openai.com/v1",
-		AssistantAIProviderAnthropic:        "https://api.anthropic.com",
-		AssistantAIProviderGemini:           "https://generativelanguage.googleapis.com",
-		AssistantAIProviderVolcengine:       "https://ark.cn-beijing.volces.com/api/v3",
-		AssistantAIProviderVolcenginePlan:   "https://ark.cn-beijing.volces.com/api/v3",
-		AssistantAIProviderKimi:             "https://api.moonshot.cn/v1",
+	AssistantAIProviderOpenAICompatible: "https://api.openai.com/v1",
+	AssistantAIProviderAnthropic:        "https://api.anthropic.com",
+	AssistantAIProviderGemini:           "https://generativelanguage.googleapis.com",
+	AssistantAIProviderVolcengine:       "https://ark.cn-beijing.volces.com/api/v3",
+	AssistantAIProviderVolcenginePlan:   "https://ark.cn-beijing.volces.com/api/v3",
+	AssistantAIProviderKimi:             "https://api.moonshot.cn/v1",
 	AssistantAIProviderGLM:              "https://open.bigmodel.cn/api/paas/v4",
 	AssistantAIProviderQwen:             "https://dashscope.aliyuncs.com/compatible-mode/v1",
 	AssistantAIProviderOpenRouter:       "https://openrouter.ai/api/v1",
-		AssistantAIProviderDeepSeek:         "https://api.deepseek.com/v1",
-		AssistantAIProviderOllama:           "http://127.0.0.1:11434/v1",
+	AssistantAIProviderDeepSeek:         "https://api.deepseek.com/v1",
+	AssistantAIProviderOllama:           "http://127.0.0.1:11434/v1",
+	AssistantAIProviderFake:             "sourceflow://fake",
 }
 
 type AssistantAIProviderType struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	BaseURL string `json:"baseURL"`
+	ID                   string                 `json:"id"`
+	Name                 string                 `json:"name"`
+	BaseURL              string                 `json:"baseURL"`
+	DefaultModel         string                 `json:"defaultModel"`
+	RecommendedSettings  map[string]interface{} `json:"recommendedSettings"`
 }
 
 type AssistantAIProfile struct {
@@ -205,7 +210,13 @@ type assistantAIChatOptions struct {
 func ListAssistantAIProviderTypes() []*AssistantAIProviderType {
 	ret := make([]*AssistantAIProviderType, 0, len(assistantAIProviderCatalog))
 	for _, item := range assistantAIProviderCatalog {
-		ret = append(ret, &AssistantAIProviderType{ID: item.ID, Name: item.Name, BaseURL: item.BaseURL})
+		ret = append(ret, &AssistantAIProviderType{
+			ID:                  item.ID,
+			Name:                item.Name,
+			BaseURL:             item.BaseURL,
+			DefaultModel:        item.DefaultModel,
+			RecommendedSettings: cloneAssistantAIMap(item.RecommendedSettings),
+		})
 	}
 	return ret
 }
@@ -958,7 +969,7 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 		return nil, err
 	}
 	if !toolResult.Executed {
-		return nil, fmt.Errorf(firstAssistantAINonEmpty(toolResult.Error, toolResult.Summary, "assistant AI tool confirm failed"))
+		return nil, fmt.Errorf("%s", firstAssistantAINonEmpty(toolResult.Error, toolResult.Summary, "assistant AI tool confirm failed"))
 	}
 
 	if updateErr := updateAssistantAIMessageToolResult(db, strings.TrimSpace(req.MessageID), strings.TrimSpace(req.AuditID), toolResult); nil != updateErr {
@@ -1615,6 +1626,8 @@ func listAssistantAISessionMessages(db *dbsql.DB, sessionID string, limit int) (
 
 func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	switch profile.Provider {
+	case AssistantAIProviderFake:
+		return chatAssistantAIFake(profile, systemPrompt, messages, opts)
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropic(profile, systemPrompt, messages)
 	case AssistantAIProviderGemini:
@@ -1626,6 +1639,8 @@ func chatWithAssistantAIProvider(profile *AssistantAIProfile, systemPrompt strin
 
 func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
 	switch profile.Provider {
+	case AssistantAIProviderFake:
+		return chatAssistantAIFakeStream(profile, systemPrompt, messages, onDelta, opts)
 	case AssistantAIProviderAnthropic:
 		return chatAssistantAIAnthropicStream(profile, systemPrompt, messages, onDelta, opts)
 	case AssistantAIProviderGemini:
@@ -1888,7 +1903,7 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 
 	builder := &strings.Builder{}
@@ -1983,7 +1998,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 	if 1 > len(resp.Candidates) {
 		return nil, fmt.Errorf("assistant AI provider returned empty candidates")
@@ -2250,6 +2265,8 @@ func normalizeAssistantAIProvider(provider string) string {
 		return AssistantAIProviderDeepSeek
 	case "ollama":
 		return AssistantAIProviderOllama
+	case "fake", "sourceflow-fake", "sourceflow_fake":
+		return AssistantAIProviderFake
 	default:
 		return strings.ToLower(strings.TrimSpace(provider))
 	}

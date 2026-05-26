@@ -1379,6 +1379,14 @@
     margin-left: auto;
   }
 
+  &__tool-result-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
   &__composer {
     padding: 5px 7px 7px;
     border-top: .5px solid color-mix(in srgb, var(--b3-border-color) 76%, transparent);
@@ -2748,6 +2756,28 @@
 
   &__tool-mode {
     align-self: center;
+  }
+
+  &__test-row {
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__test-result {
+    font-size: 12px;
+    line-height: 1.4;
+
+    &--ok {
+      color: var(--b3-theme-success);
+    }
+
+    &--fail {
+      color: var(--b3-theme-error);
+    }
+  }
+
+  &__model-select {
+    margin-top: 3px;
   }
 
   &--embedded {

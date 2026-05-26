@@ -178,7 +178,7 @@ func Boot() {
 	initPathDir()
 
 	bootBanner := figure.NewColorFigure("SourceFlow", "isometric3", "green", true)
-	logging.LogInfof("\n" + bootBanner.String())
+	logging.LogInfof("%s", "\n" + bootBanner.String())
 	logBootInfo()
 }
 
@@ -567,14 +567,14 @@ func ReadWorkspacePaths() (ret []string, err error) {
 	data, err := os.ReadFile(workspaceConf)
 	if err != nil {
 		msg := fmt.Sprintf("read workspace conf [%s] failed: %s", workspaceConf, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
 
 	if ret, err = decodeWorkspaceConfPaths(data); err != nil {
 		msg := fmt.Sprintf("unmarshal workspace conf [%s] failed: %s", workspaceConf, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
@@ -611,7 +611,7 @@ func WriteWorkspacePaths(workspacePaths []string) (err error) {
 	workspaceConf := GetWorkspaceConfPath()
 	if err = os.MkdirAll(filepath.Dir(workspaceConf), 0755); err != nil && !os.IsExist(err) {
 		msg := fmt.Sprintf("create workspace conf dir [%s] failed: %s", filepath.Dir(workspaceConf), err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
@@ -625,14 +625,14 @@ func WriteWorkspacePaths(workspacePaths []string) (err error) {
 	data, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		msg := fmt.Sprintf("marshal workspace conf [%s] failed: %s", workspaceConf, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
 
 	if err = filelock.WriteFile(workspaceConf, data); err != nil {
 		msg := fmt.Sprintf("write workspace conf [%s] failed: %s", workspaceConf, err)
-		logging.LogErrorf(msg)
+		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
 	}
