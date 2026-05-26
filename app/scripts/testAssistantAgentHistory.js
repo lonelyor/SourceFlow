@@ -55,6 +55,27 @@ assert.deepStrictEqual(plain(queue.getAssistantAgentTaskProgress(task)), {total:
 assert.strictEqual(queue.updateAssistantAgentTaskStatus(task.id, "paused").status, "paused");
 assert.strictEqual(queue.updateAssistantAgentTaskStatus(task.id, "canceled").items[0].status, "canceled");
 
+const executor = compileModule(path.join(appRoot, "src", "assistant", "agent", "executor.ts"), {}, {
+    window: fakeWindow,
+    AbortController,
+    setTimeout,
+    clearTimeout,
+});
+const runTask = queue.createAssistantAgentTask("执行测试", [{title: "生成补丁"}, {title: "直接完成"}]);
+const executorPromise = executor.runAssistantAgentTask(runTask.id, async (item) => {
+    if (item.title === "生成补丁") {
+        return {patchId: "patch-1"};
+    }
+    return {};
+}, {itemTimeoutMs: 1000}).then((updatedTask) => {
+    assert(updatedTask, "agent executor should return task");
+    const latest = queue.readAssistantAgentTasks().find((entry) => entry.id === runTask.id);
+    assert.strictEqual(latest.items[0].status, "review");
+    assert.strictEqual(latest.items[0].patchId, "patch-1");
+    assert.strictEqual(latest.items[1].status, "done");
+    assert.strictEqual(latest.status, "review");
+});
+
 const deleted = [];
 const requireMap = {
     "../../dialog/message": {
@@ -91,10 +112,13 @@ const historyItem = operations.recordAssistantPatchHistory(patch);
 assert(historyItem.id, "history item should be recorded");
 assert.strictEqual(historyStore.readAssistantOperationHistory().length, 1);
 
-operations.rollbackAssistantOperationHistoryItem(historyItem.id).then((ok) => {
+const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyItem.id).then((ok) => {
     assert.strictEqual(ok, true);
     assert.deepStrictEqual(deleted, ["inserted-block"]);
     assert.strictEqual(historyStore.readAssistantOperationHistory()[0].status, "rolled-back");
+});
+
+Promise.all([executorPromise, historyPromise]).then(() => {
     console.log("[assistant-agent-history] ok");
 }).catch((error) => {
     console.error(error);

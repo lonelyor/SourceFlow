@@ -1,4 +1,4 @@
-export type TAssistantAgentTaskStatus = "running" | "paused" | "completed" | "canceled";
+export type TAssistantAgentTaskStatus = "running" | "paused" | "review" | "completed" | "canceled";
 export type TAssistantAgentItemStatus = "pending" | "running" | "review" | "done" | "failed" | "canceled";
 
 export interface IAssistantAgentTaskItem {
@@ -8,6 +8,8 @@ export interface IAssistantAgentTaskItem {
     status: TAssistantAgentItemStatus;
     patchId?: string;
     error?: string;
+    retryCount?: number;
+    updatedAt?: number;
 }
 
 export interface IAssistantAgentTask {
@@ -71,6 +73,52 @@ export const updateAssistantAgentTaskStatus = (id: string, status: TAssistantAge
     } : task);
     writeAssistantAgentTasks(next);
     return next.find((task) => task.id === id) || null;
+};
+
+export const updateAssistantAgentTaskItem = (
+    taskId: string,
+    itemId: string,
+    mutator: (item: IAssistantAgentTaskItem) => IAssistantAgentTaskItem,
+) => {
+    const now = Date.now();
+    let updatedItem: IAssistantAgentTaskItem | null = null;
+    const next = readAssistantAgentTasks().map((task) => {
+        if (task.id !== taskId) {
+            return task;
+        }
+        return {
+            ...task,
+            updatedAt: now,
+            items: task.items.map((item) => {
+                if (item.id !== itemId) {
+                    return item;
+                }
+                updatedItem = {...mutator({...item}), updatedAt: now};
+                return updatedItem;
+            }),
+        };
+    });
+    writeAssistantAgentTasks(next);
+    return updatedItem;
+};
+
+export const updateAssistantAgentTaskItems = (
+    taskId: string,
+    mutator: (item: IAssistantAgentTaskItem) => IAssistantAgentTaskItem,
+) => {
+    const now = Date.now();
+    const next = readAssistantAgentTasks().map((task) => {
+        if (task.id !== taskId) {
+            return task;
+        }
+        return {
+            ...task,
+            updatedAt: now,
+            items: task.items.map((item) => ({...mutator({...item}), updatedAt: now})),
+        };
+    });
+    writeAssistantAgentTasks(next);
+    return next.find((task) => task.id === taskId) || null;
 };
 
 export const getAssistantAgentTaskProgress = (task: IAssistantAgentTask) => {
