@@ -119,7 +119,7 @@ func TestAssistantAIFakeProviderToolLoopPreviewPatch(t *testing.T) {
 	context := &AssistantAINoteContext{
 		RootID:   "root-doc",
 		Notebook: "notebook",
-		Path:     "/fake.sy",
+		Path:     "/fake-test-note",
 		Title:    "Fake Note",
 	}
 	userPrompt := "请预览追加一段 AI 冒烟测试摘要"
