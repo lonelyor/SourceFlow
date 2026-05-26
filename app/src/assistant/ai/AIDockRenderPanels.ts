@@ -118,12 +118,19 @@ export const renderAIDockAgentPanel = (ctx: TAssistantAIDockRenderRuntime) => {
     }).join("") : `<div class="assistant-ai__context-line ft__secondary">${escapeHTML(assistantText("当前没有批量 Agent 任务", "No batch Agent tasks yet"))}</div>`;
     const historyHTML = history.length ? history.slice(0, 20).map((item) => {
         const canRollback = item.status === "applied" && item.patch.operations.some(canRollbackAssistantPatchOperation);
+        const metaParts = [
+            item.patch.source,
+            item.patch.risk,
+            item.targetLabel || item.targetId || "",
+            new Date(item.createdAt).toLocaleString(),
+        ].filter(Boolean);
         return `<div class="assistant-ai__agent-item">
     <div class="assistant-ai__agent-head">
         <span class="assistant-ai__agent-title">${escapeHTML(item.patch.summary || assistantText("AI 修改", "AI edit"))}</span>
         <span class="b3-chip b3-chip--small">${escapeHTML(item.status)}</span>
     </div>
-    <div class="assistant-ai__agent-meta">${escapeHTML(`${item.patch.source} · ${item.patch.risk} · ${new Date(item.createdAt).toLocaleString()}`)}</div>
+    <div class="assistant-ai__agent-meta">${escapeHTML(metaParts.join(" · "))}</div>
+    ${item.error ? `<div class="assistant-ai__agent-error">${escapeHTML(item.error)}</div>` : ""}
     <div class="assistant-ai__panel-actions">
         ${canRollback ? `<button type="button" class="b3-button b3-button--outline b3-button--error" data-action="rollback-history" data-history-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("回滚", "Rollback"))}</button>` : ""}
     </div>

@@ -4,7 +4,7 @@ import {writeText} from "../../protyle/util/compatibility";
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import type {IAssistantSkillContext} from "../skills/types";
-import {recordAssistantPatchHistory} from "../history/operations";
+import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
 import {applyAssistantPatch, applyAssistantPatchOperation} from "./apply";
 import {formatAssistantPatchMarkdown, renderAssistantPatchHTML} from "./format";
 import type {IAssistantEditPatch} from "./types";
@@ -23,6 +23,12 @@ interface IAssistantPatchReviewOptions {
 const hasPendingOperations = (patch: IAssistantEditPatch) => {
     return patch.operations.some((operation) => (operation.status || "pending") === "pending");
 };
+
+const buildPatchDialogHistoryMetadata = (options: IAssistantPatchReviewOptions) => ({
+    sessionId: options.sessionId,
+    targetId: options.context.note?.rootID || "",
+    targetLabel: options.context.note?.title || "",
+});
 
 export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOptions) => {
     const {patch, context} = options;
@@ -85,11 +91,13 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                 const opID = target.getAttribute("data-op-id") || "";
                 const operation = patch.operations.find((item) => item.id === opID);
                 if (operation && await applyAssistantPatchOperation(patch, operation, context)) {
-                    recordAssistantPatchHistory(patch);
+                    recordAssistantPatchHistory(patch, buildPatchDialogHistoryMetadata(options));
                     if (!hasPendingOperations(patch)) {
                         cleanup();
                     }
                     refresh();
+                } else if (operation) {
+                    recordAssistantPatchFailure(patch, assistantText("应用补丁项失败", "Failed to apply patch operation"), buildPatchDialogHistoryMetadata(options));
                 }
                 event.preventDefault();
                 return;
@@ -109,10 +117,11 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
             }
             if (action === "accept-all") {
                 if (await applyAssistantPatch(patch, context)) {
-                    recordAssistantPatchHistory(patch);
+                    recordAssistantPatchHistory(patch, buildPatchDialogHistoryMetadata(options));
                     cleanup();
                     dialog.destroy();
                 } else {
+                    recordAssistantPatchFailure(patch, assistantText("应用补丁失败", "Failed to apply patch"), buildPatchDialogHistoryMetadata(options));
                     refresh();
                 }
                 event.preventDefault();

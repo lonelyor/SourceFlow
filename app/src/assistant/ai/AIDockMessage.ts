@@ -21,7 +21,7 @@ import {
     readAssistantAIImageFile,
     TAssistantAIMessageItem,
 } from "./AIDockShared";
-import {recordAssistantPatchHistory} from "../history/operations";
+import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
 import {applyAssistantPatch, applyAssistantPatchOperation} from "../patch/apply";
 import type {IAssistantEditPatch} from "../patch/types";
 import type {IAssistantSkillContext} from "../skills/types";
@@ -506,6 +506,13 @@ const buildAIDockToolPatchContext = (tool: Record<string, unknown>): IAssistantS
     };
 };
 
+const buildAIDockPatchHistoryMetadata = (ctx: IAssistantAIDockRuntime, context: IAssistantSkillContext | null) => ({
+    sessionId: ctx.selectedSessionId,
+    profileId: ctx.selectedProfileId,
+    targetId: context?.note?.rootID || "",
+    targetLabel: context?.note?.title || "",
+});
+
 export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, messageId: string, toolIndex: number, operationId = "") => {
     if (!messageId || toolIndex < 0 || ctx.sending) {
         return;
@@ -520,6 +527,7 @@ export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, message
     ctx.sending = true;
     ctx.render();
     try {
+        const metadata = buildAIDockPatchHistoryMetadata(ctx, context);
         if (operationId) {
             const operation = patch.operations.find((item) => item.id === operationId);
             if (!operation) {
@@ -527,14 +535,19 @@ export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, message
                 return;
             }
             if (await applyAssistantPatchOperation(patch, operation, context)) {
-                recordAssistantPatchHistory(patch);
+                recordAssistantPatchHistory(patch, metadata);
+            } else {
+                recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
             }
             return;
         }
         if (await applyAssistantPatch(patch, context)) {
-            recordAssistantPatchHistory(patch);
+            recordAssistantPatchHistory(patch, metadata);
+        } else {
+            recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
         }
     } catch (error) {
+        recordAssistantPatchFailure(patch, error instanceof Error ? error.message : String(error), buildAIDockPatchHistoryMetadata(ctx, context));
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
     } finally {
         ctx.sending = false;

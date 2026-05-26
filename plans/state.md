@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-26
+更新日期：2026-05-27
 
 ## 已确认
 
@@ -73,6 +73,9 @@
 - AI 产品级阶段 6 剩余落地方向：Agent 面板从 Dock 当前输入创建批量任务，按行生成任务项；任务项执行后保存待审阅 patch 与最小笔记上下文；暂停/取消会中止当前请求，恢复/失败重试重新调度执行器；真实写入仍必须通过逐项 patch 接受完成。
 - AI 产品级阶段 6 已完成产品级主闭环：Agent 面板可从 Dock 当前输入创建并运行批量任务；任务项保存待审阅 patch 与上下文；支持暂停、取消、恢复、失败重试、逐项接受/拒绝和接受全部/拒绝剩余。持久审计与更完整回滚继续归入阶段 7。
 - 阶段 6 主闭环已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 产品级阶段 7 落地方向：先把本地 AI 操作历史升级为更完整的审计记录，补齐 session/profile/target/error/results 字段，失败应用也写入历史；低风险回滚扩展到 AI 创建的新笔记，不在本阶段新增后端审计表。
+- AI 产品级阶段 7 已完成：本地 AI 操作历史记录包含 source/risk/session/profile/target/error/results，patch 应用失败会写入 failed 审计；历史面板展示目标与错误；低风险回滚扩展到 AI 创建的新笔记和子文档。
+- 阶段 7 已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和阶段文件范围 `git diff --check`。
 - 文档树空白处右键入口已实现：空白区域复用文档数右侧顶部“更多”菜单，菜单补齐“新建笔记”入口；该交互只新增入口，不改变文档行、笔记本根行、多选文档右键菜单或文件树数据语义。
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 

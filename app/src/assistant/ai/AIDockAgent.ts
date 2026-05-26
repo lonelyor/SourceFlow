@@ -14,7 +14,7 @@ import {
     updateAssistantAgentTaskItem,
     updateAssistantAgentTaskStatus,
 } from "../agent/queue";
-import {recordAssistantPatchHistory} from "../history/operations";
+import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
 import {applyAssistantPatch, applyAssistantPatchOperation} from "../patch/apply";
 import type {IAssistantEditPatch} from "../patch/types";
 import type {IAssistantSkillContext} from "../skills/types";
@@ -79,6 +79,13 @@ const toSkillContext = (context: IAssistantAgentPatchContext): IAssistantSkillCo
     note: toNoteContext(context),
     hasSelection: !!`${context.selectedText || ""}`.trim(),
     selectedText: `${context.selectedText || ""}`,
+});
+
+const buildAgentPatchHistoryMetadata = (ctx: IAssistantAIDockRuntime, context: IAssistantAgentPatchContext) => ({
+    sessionId: ctx.selectedSessionId,
+    profileId: ctx.selectedProfileId,
+    targetId: context.rootID,
+    targetLabel: context.title,
 });
 
 const getTaskItem = (taskId: string, itemId: string) => {
@@ -287,20 +294,26 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
     }
     const patch = item.patch;
     const context = toSkillContext(item.context);
+    const metadata = buildAgentPatchHistoryMetadata(ctx, item.context);
     ctx.sending = true;
     ctx.render();
     try {
+        let ok = false;
         if (operationId) {
             const operation = patch.operations.find((entry) => entry.id === operationId);
             if (!operation) {
                 showMessage(assistantText("没有找到要应用的补丁项", "Patch operation not found"), 4000, "error");
                 return;
             }
-            await applyAssistantPatchOperation(patch, operation, context);
+            ok = await applyAssistantPatchOperation(patch, operation, context);
         } else {
-            await applyAssistantPatch(patch, context);
+            ok = await applyAssistantPatch(patch, context);
         }
-        recordAssistantPatchHistory(patch);
+        if (!ok) {
+            recordAssistantPatchFailure(patch, assistantText("应用 Agent 补丁失败", "Failed to apply Agent patch"), metadata);
+            return;
+        }
+        recordAssistantPatchHistory(patch, metadata);
         const hasPending = patch.operations.some((operation) => (operation.status || "pending") === "pending");
         updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
             ...current,
@@ -310,6 +323,7 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
         }));
         syncAgentTaskReviewStatus(taskId);
     } catch (error) {
+        recordAssistantPatchFailure(patch, error instanceof Error ? error.message : String(error), metadata);
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
     } finally {
         ctx.sending = false;

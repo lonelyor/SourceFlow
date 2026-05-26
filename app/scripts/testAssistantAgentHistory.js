@@ -107,12 +107,14 @@ const executorPromise = executor.runAssistantAgentTask(runTask.id, async (item) 
 });
 
 const deleted = [];
+const fetchCalls = [];
 const requireMap = {
     "../../dialog/message": {
         showMessage: () => undefined,
     },
     "../../util/fetch": {
-        fetchSyncPost: async (_url, payload) => {
+        fetchSyncPost: async (url, payload) => {
+            fetchCalls.push({url, payload});
             deleted.push(payload.id);
             return {code: 0};
         },
@@ -138,14 +140,50 @@ const patch = {
     }],
     createdAt: Date.now(),
 };
-const historyItem = operations.recordAssistantPatchHistory(patch);
+const historyItem = operations.recordAssistantPatchHistory(patch, {
+    sessionId: "session-1",
+    profileId: "profile-1",
+    targetId: "root-1",
+    targetLabel: "目标笔记",
+});
 assert(historyItem.id, "history item should be recorded");
+assert.strictEqual(historyItem.sessionId, "session-1");
+assert.strictEqual(historyItem.profileId, "profile-1");
+assert.strictEqual(historyItem.targetLabel, "目标笔记");
+assert.strictEqual(historyItem.results[0].appliedTargetId, "inserted-block");
 assert.strictEqual(historyStore.readAssistantOperationHistory().length, 1);
+
+const failureItem = operations.recordAssistantPatchFailure(patch, "写入失败", {targetLabel: "失败目标"});
+assert.strictEqual(failureItem.status, "failed");
+assert.strictEqual(failureItem.error, "写入失败");
+
+const createPatch = {
+    id: "patch-create",
+    source: "agent",
+    target: "notebook",
+    risk: "L2",
+    summary: "创建笔记",
+    operations: [{
+        id: "op-create",
+        type: "create-note",
+        status: "accepted",
+        appliedTargetId: "created-doc",
+        after: "内容",
+    }],
+    createdAt: Date.now(),
+};
+const createHistoryItem = operations.recordAssistantPatchHistory(createPatch);
+assert(createHistoryItem.id, "create-note history item should be recorded");
 
 const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyItem.id).then((ok) => {
     assert.strictEqual(ok, true);
     assert.deepStrictEqual(deleted, ["inserted-block"]);
-    assert.strictEqual(historyStore.readAssistantOperationHistory()[0].status, "rolled-back");
+    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === historyItem.id).status, "rolled-back");
+    return operations.rollbackAssistantOperationHistoryItem(createHistoryItem.id);
+}).then((ok) => {
+    assert.strictEqual(ok, true);
+    assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "created-doc"));
+    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === createHistoryItem.id).status, "rolled-back");
 });
 
 Promise.all([executorPromise, historyPromise]).then(() => {
