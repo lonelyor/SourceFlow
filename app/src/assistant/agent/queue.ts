@@ -1,5 +1,18 @@
+import type {IAssistantEditPatch} from "../patch/types";
+
 export type TAssistantAgentTaskStatus = "running" | "paused" | "review" | "completed" | "canceled";
 export type TAssistantAgentItemStatus = "pending" | "running" | "review" | "done" | "failed" | "canceled";
+
+export interface IAssistantAgentPatchContext {
+    rootID: string;
+    notebook: string;
+    path: string;
+    title: string;
+    currentBlockID?: string;
+    currentBlockType?: string;
+    currentBlockMarkdown?: string;
+    selectedText?: string;
+}
 
 export interface IAssistantAgentTaskItem {
     id: string;
@@ -7,6 +20,8 @@ export interface IAssistantAgentTaskItem {
     targetId?: string;
     status: TAssistantAgentItemStatus;
     patchId?: string;
+    patch?: IAssistantEditPatch;
+    context?: IAssistantAgentPatchContext;
     error?: string;
     retryCount?: number;
     updatedAt?: number;
@@ -44,7 +59,7 @@ export const writeAssistantAgentTasks = (items: IAssistantAgentTask[]) => {
     }
 };
 
-export const createAssistantAgentTask = (title: string, items: Array<{title: string, targetId?: string}>) => {
+export const createAssistantAgentTask = (title: string, items: Array<{title: string, targetId?: string, context?: IAssistantAgentPatchContext}>) => {
     const now = Date.now();
     const task: IAssistantAgentTask = {
         id: createAgentID("agent"),
@@ -54,6 +69,7 @@ export const createAssistantAgentTask = (title: string, items: Array<{title: str
             id: createAgentID("item"),
             title: `${item.title || ""}`.trim() || "Task item",
             targetId: item.targetId,
+            context: item.context,
             status: "pending",
         })),
         createdAt: now,
@@ -69,7 +85,7 @@ export const updateAssistantAgentTaskStatus = (id: string, status: TAssistantAge
         ...task,
         status,
         updatedAt: now,
-        items: status === "canceled" ? task.items.map((item) => item.status === "done" ? item : {...item, status: "canceled" as TAssistantAgentItemStatus}) : task.items,
+        items: status === "canceled" ? task.items.map((item) => item.status === "done" || item.status === "review" ? item : {...item, status: "canceled" as TAssistantAgentItemStatus}) : task.items,
     } : task);
     writeAssistantAgentTasks(next);
     return next.find((task) => task.id === id) || null;

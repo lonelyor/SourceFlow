@@ -70,6 +70,9 @@
 - 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、`pnpm --dir app run test:assistant-ghost-draft`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - AI 产品级 Agent 执行器基础已实现：新增 `assistant/agent/executor.ts`，支持按任务逐项执行、单项超时、取消/暂停状态检查、失败错误记录、retry 计数、item 进入 `review` 状态和任务进入 `review` 状态。
 - Agent 执行器基础已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。当前仍未完成批量 Agent 产品级闭环：缺少 UI 创建/启动真实批量任务、任务项 patch 审阅入口和持久审计存储。
+- AI 产品级阶段 6 剩余落地方向：Agent 面板从 Dock 当前输入创建批量任务，按行生成任务项；任务项执行后保存待审阅 patch 与最小笔记上下文；暂停/取消会中止当前请求，恢复/失败重试重新调度执行器；真实写入仍必须通过逐项 patch 接受完成。
+- AI 产品级阶段 6 已完成产品级主闭环：Agent 面板可从 Dock 当前输入创建并运行批量任务；任务项保存待审阅 patch 与上下文；支持暂停、取消、恢复、失败重试、逐项接受/拒绝和接受全部/拒绝剩余。持久审计与更完整回滚继续归入阶段 7。
+- 阶段 6 主闭环已通过 `pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 文档树空白处右键入口已实现：空白区域复用文档数右侧顶部“更多”菜单，菜单补齐“新建笔记”入口；该交互只新增入口，不改变文档行、笔记本根行、多选文档右键菜单或文件树数据语义。
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 

@@ -61,10 +61,38 @@ const executor = compileModule(path.join(appRoot, "src", "assistant", "agent", "
     setTimeout,
     clearTimeout,
 });
+const agentPatchContext = {
+    rootID: "doc-1",
+    notebook: "box",
+    path: "/doc",
+    title: "Doc",
+    currentBlockID: "doc-1",
+    currentBlockType: "d",
+    currentBlockMarkdown: "",
+    selectedText: "",
+};
 const runTask = queue.createAssistantAgentTask("执行测试", [{title: "生成补丁"}, {title: "直接完成"}]);
 const executorPromise = executor.runAssistantAgentTask(runTask.id, async (item) => {
     if (item.title === "生成补丁") {
-        return {patchId: "patch-1"};
+        return {
+            patchId: "patch-1",
+            context: agentPatchContext,
+            patch: {
+                id: "patch-1",
+                source: "agent",
+                target: "note",
+                risk: "L2",
+                summary: "Agent 补丁",
+                operations: [{
+                    id: "op-agent-1",
+                    type: "append-note",
+                    targetId: "doc-1",
+                    after: "生成内容",
+                    status: "pending",
+                }],
+                createdAt: Date.now(),
+            },
+        };
     }
     return {};
 }, {itemTimeoutMs: 1000}).then((updatedTask) => {
@@ -72,6 +100,8 @@ const executorPromise = executor.runAssistantAgentTask(runTask.id, async (item) 
     const latest = queue.readAssistantAgentTasks().find((entry) => entry.id === runTask.id);
     assert.strictEqual(latest.items[0].status, "review");
     assert.strictEqual(latest.items[0].patchId, "patch-1");
+    assert.strictEqual(latest.items[0].patch.summary, "Agent 补丁");
+    assert.strictEqual(latest.items[0].context.rootID, "doc-1");
     assert.strictEqual(latest.items[1].status, "done");
     assert.strictEqual(latest.status, "review");
 });

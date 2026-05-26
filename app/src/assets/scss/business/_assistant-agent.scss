@@ -235,3 +235,30 @@
   line-height: 1.5;
   color: var(--b3-theme-on-surface-light);
 }
+
+.assistant-ai__agent-subitems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assistant-ai__agent-subitem {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: .5px solid color-mix(in srgb, var(--b3-border-color) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--b3-theme-background) 72%, var(--b3-theme-surface));
+}
+
+.assistant-ai__agent-error {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--b3-theme-error);
+  word-break: break-word;
+}
+
+.assistant-ai__agent-patch {
+  margin-top: 2px;
+}

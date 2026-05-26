@@ -105,6 +105,13 @@ export interface IAssistantAIDockRuntime {
     rejectTool(messageId: string, toolIndex: number): Promise<void>;
     applyToolPatch(messageId: string, toolIndex: number, operationId?: string): Promise<void>;
     rejectToolPatch(messageId: string, toolIndex: number, operationId?: string): void;
+    startAgentFromDraft(): Promise<void>;
+    runAgentTask(taskId: string): Promise<void>;
+    pauseAgentTask(taskId: string): void;
+    cancelAgentTask(taskId: string): void;
+    retryAgentTaskItem(taskId: string, itemId: string): Promise<void>;
+    applyAgentPatch(taskId: string, itemId: string, operationId?: string): Promise<void>;
+    rejectAgentPatch(taskId: string, itemId: string, operationId?: string): void;
     saveTranscript(): Promise<void>;
     saveAnalysis(): Promise<void>;
     insertLastReply(): Promise<void>;

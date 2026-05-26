@@ -265,8 +265,8 @@ export const chatAssistantAI = async (payload: {
     enableTools?: boolean;
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
-}) => {
-    const data = ensureOK(await fetchSyncPost("/api/assistant/ai/chat", payload)) as IAssistantAIChatResult;
+}, options: { signal?: AbortSignal } = {}) => {
+    const data = ensureOK(await fetchSyncPost("/api/assistant/ai/chat", payload, {signal: options.signal})) as IAssistantAIChatResult;
     return {
         ...data,
         messages: ensureArray(data?.messages),

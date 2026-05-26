@@ -1,4 +1,5 @@
 import {
+    IAssistantAgentPatchContext,
     IAssistantAgentTask,
     IAssistantAgentTaskItem,
     readAssistantAgentTasks,
@@ -6,9 +7,12 @@ import {
     updateAssistantAgentTaskItems,
     updateAssistantAgentTaskStatus,
 } from "./queue";
+import type {IAssistantEditPatch} from "../patch/types";
 
 export interface IAssistantAgentRunResult {
     patchId?: string;
+    patch?: IAssistantEditPatch;
+    context?: IAssistantAgentPatchContext;
 }
 
 export interface IAssistantAgentRunContext {
@@ -28,13 +32,15 @@ export interface IAssistantAgentExecutorOptions {
 
 const defaultAgentItemTimeoutMs = 60000;
 const defaultAgentMaxItems = 20;
+const activeAgentItemControllers = new Map<string, AbortController>();
 
 const getTask = (taskId: string) => {
     return readAssistantAgentTasks().find((task) => task.id === taskId) || null;
 };
 
-const runWithTimeout = async <T>(runner: (signal: AbortSignal) => Promise<T>, timeoutMs: number) => {
+const runWithTimeout = async <T>(controllerKey: string, runner: (signal: AbortSignal) => Promise<T>, timeoutMs: number) => {
     const controller = new AbortController();
+    activeAgentItemControllers.set(controllerKey, controller);
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
     try {
         return await Promise.race([
@@ -50,7 +56,20 @@ const runWithTimeout = async <T>(runner: (signal: AbortSignal) => Promise<T>, ti
         if (timeoutHandle) {
             clearTimeout(timeoutHandle);
         }
+        activeAgentItemControllers.delete(controllerKey);
     }
+};
+
+export const abortRunningAssistantAgentTask = (taskId: string) => {
+    const normalizedTaskId = `${taskId || ""}`.trim();
+    if (!normalizedTaskId) {
+        return;
+    }
+    activeAgentItemControllers.forEach((controller, key) => {
+        if (key.startsWith(`${normalizedTaskId}:`)) {
+            controller.abort();
+        }
+    });
 };
 
 export const cancelPendingAssistantAgentItems = (taskId: string) => {
@@ -96,14 +115,25 @@ export const runAssistantAgentTask = async (
         processed += 1;
         updateAssistantAgentTaskItem(normalizedTaskId, item.id, (current) => ({...current, status: "running", error: ""}));
         try {
-            const result = await runWithTimeout((signal) => runner(item, {signal, task: task as IAssistantAgentTask}), timeoutMs);
+            const result = await runWithTimeout(`${normalizedTaskId}:${item.id}`, (signal) => runner(item, {signal, task: task as IAssistantAgentTask}), timeoutMs);
             updateAssistantAgentTaskItem(normalizedTaskId, item.id, (current) => ({
                 ...current,
-                status: result.patchId ? "review" : "done",
-                patchId: result.patchId || current.patchId,
+                status: result.patch || result.patchId ? "review" : "done",
+                patchId: result.patch?.id || result.patchId || current.patchId,
+                patch: result.patch || current.patch,
+                context: result.context || current.context,
                 error: "",
             }));
         } catch (error) {
+            const latestTask = getTask(normalizedTaskId);
+            if (latestTask?.status === "paused") {
+                updateAssistantAgentTaskItem(normalizedTaskId, item.id, (current) => ({...current, status: "pending", error: ""}));
+                return getTask(normalizedTaskId);
+            }
+            if (latestTask?.status === "canceled") {
+                cancelPendingAssistantAgentItems(normalizedTaskId);
+                return getTask(normalizedTaskId);
+            }
             updateAssistantAgentTaskItem(normalizedTaskId, item.id, (current) => ({
                 ...current,
                 status: "failed",
