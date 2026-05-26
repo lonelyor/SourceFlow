@@ -10,6 +10,7 @@ import {isBrowser, isMobile} from "../util/functions";
 import {originalPath, useShell} from "../util/pathName";
 import {escapeAttr, escapeHtml} from "../util/escape";
 import {openHistory} from "../history/history";
+import {writeText} from "../protyle/util/compatibility";
 import {openBootSyncSettingTarget} from "../sync/bootSyncGuard";
 /// #if !BROWSER
 import {ipcRenderer} from "electron";
@@ -932,7 +933,21 @@ const bindProviderEvent = () => {
 export const repos = {
     element: undefined as Element,
     genHTML: () => {
+        const hasRepoKey = !!window.sourceflow.config.repo.key;
         return `<div>
+<div class="b3-label fn__flex config__item">
+    <div class="fn__flex-1 fn__flex-center">
+        ${window.sourceflow.languages.dataRepoKey}
+        <div class="b3-label__text">${window.sourceflow.languages.dataRepoKeyTip1}</div>
+        <div class="b3-label__text"><span class="ft__error">${window.sourceflow.languages.dataRepoKeyTip2}</span></div>
+    </div>
+    <div class="fn__space"></div>
+    <div class="fn__size200 config__item-line fn__flex-center${hasRepoKey ? "" : " fn__none"}">
+        <button class="b3-button b3-button--outline fn__block" id="reposCopyKey">
+            <svg><use xlink:href="#iconCopy"></use></svg>${window.sourceflow.languages.copyKey}
+        </button>
+    </div>
+</div>
 <div class="fn__flex b3-label config__item">
     <div class="fn__flex-1">
         ${window.sourceflow.languages.syncProvider}
@@ -1040,6 +1055,10 @@ export const repos = {
 </div>`;
     },
     bindEvent: () => {
+        repos.element.querySelector("#reposCopyKey")?.addEventListener("click", () => {
+            showMessage(window.sourceflow.languages.copied);
+            writeText(window.sourceflow.config.repo.key);
+        });
         bindProviderEvent();
         refreshSnapshotProtectionStat();
         bindSyncDiagnosticsWindowListener();

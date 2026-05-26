@@ -164,8 +164,8 @@ export const WorkbenchViewAttr = {
 };
 
 export const WORKBENCH_SAVED_VIEWS_QUERY = "type:doc has:view";
-let workbenchQueryInputTimer = 0;
-let workbenchRenderToken = 0;
+const workbenchQueryInputTimer = 0;
+const workbenchRenderToken = 0;
 export const WORKBENCH_QUERY_CACHE_TTL = 8000;
 export const WORKBENCH_BLOCK_CACHE_TTL = 8000;
 export const workbenchQueryCache = new Map<string, { expiresAt: number, data: IWorkbenchQueryResponse }>();

@@ -185,6 +185,8 @@ export abstract class Constants {
     public static readonly LOCAL_WORKBENCH_ITEMS = "local-workbench-items";
     public static readonly LOCAL_ACTIVITYBAR = "local-activitybar";
     public static readonly LOCAL_HOMEPAGE = "local-homepage";
+    public static readonly LOCAL_SECURITY_FIRST_ACK = "local-security-first-ack";
+    public static readonly LOCAL_SECURITY_TIP_NEVER = "local-security-tip-never";
 
     // dialog
     public static readonly DIALOG_CONFIRM = "dialog-confirm";
@@ -245,6 +247,7 @@ export abstract class Constants {
     public static readonly DIALOG_SAVEWORKSPACE = "dialog-saveworkspace"; // 保存工作空间
     public static readonly DIALOG_CAPTURE = "dialog-capture"; // 快速收集
     public static readonly DIALOG_WORKBENCH = "dialog-workbench"; // 工作台
+    public static readonly DIALOG_SECURITY_NOTICE = "dialog-securitynotice"; // 安全须知
 
     // menu
     public static readonly MENU_BAR_WORKSPACE = "barWorkspace"; // 顶栏主菜单
