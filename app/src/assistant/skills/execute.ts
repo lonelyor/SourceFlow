@@ -945,8 +945,8 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
                         `Continue refining the previous ${definition.shortLabel} result into a better acceptable patch.`
                     ),
                 }),
+                onClose: () => ghostDraft?.destroy(),
             });
-            ghostDraft?.destroy();
             return true;
         }
         ghostDraft?.destroy();

@@ -66,6 +66,8 @@
 - 阶段 2 已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - AI 产品级阶段 3 已完成：patch apply 支持 `create-note`、`create-child-note`、`delete-block`、`rename-note` 和 `set-attrs`；结构化 patch 可携带 `attrs`；`replace-selection` 遇到重复原文或原文缺失时会停止自动替换并提示，避免误改。
 - 阶段 3 已通过 `pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- AI 产品级阶段 4 已完成：ghost draft 不再在打开 patch 审阅弹窗后立即销毁，而是随弹窗关闭、接受、拒绝或继续调整清理；内联继续调整会携带上一轮结果，接受/拒绝后释放连续编辑轮次限制。
+- 阶段 4 已通过 `pnpm --dir app run test:assistant-inline-command`、`pnpm --dir app run test:assistant-ghost-draft`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 
 ## 风险
 

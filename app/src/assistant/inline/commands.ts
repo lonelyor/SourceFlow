@@ -14,12 +14,15 @@ import {
     normalizeAssistantInlineInstruction,
     readAssistantInlineRecentInstructions,
     rememberAssistantInlineInstruction,
+    resetAssistantInlineRounds,
 } from "./state";
 
 interface IAssistantInlineCommandOptions {
     protyle: IProtyle;
     range?: Range | null;
     fallbackSelectionText?: string;
+    previousResultText?: string;
+    roundKey?: string;
 }
 
 const inlineDefinition: IAssistantSkillDefinition = {
@@ -51,7 +54,14 @@ const resolveInlineContext = async (options: IAssistantInlineCommandOptions): Pr
     };
 };
 
-const buildInlineInstructionMessage = (instruction: string, context: IAssistantSkillContext) => {
+const buildInlineInstructionMessage = (instruction: string, context: IAssistantSkillContext, previousResultText = "") => {
+    const previousResult = `${previousResultText || ""}`.trim();
+    if (previousResult) {
+        return assistantText(
+            `请基于上一轮结果继续调整，而不是重新处理。保持事实不变，除非新指令明确要求补充；直接输出最终改写文本，不要解释。\n\n新指令：${instruction}\n\n原始选中文本：\n\`\`\`text\n${context.selectedText.trim()}\n\`\`\`\n\n上一轮结果：\n\`\`\`text\n${previousResult}\n\`\`\``,
+            `Continue refining the previous result instead of starting over. Preserve facts unless the new instruction explicitly asks for additions. Return only the final rewritten text with no explanation.\n\nNew instruction: ${instruction}\n\nOriginal selected text:\n\`\`\`text\n${context.selectedText.trim()}\n\`\`\`\n\nPrevious result:\n\`\`\`text\n${previousResult}\n\`\`\``
+        );
+    }
     return assistantText(
         `请严格按下面的自然语言指令改写选中文本。保持事实不变，除非指令明确要求补充；直接输出改写后的文本，不要解释。\n\n指令：${instruction}\n\n选中文本：\n\`\`\`text\n${context.selectedText.trim()}\n\`\`\``,
         `Rewrite the selected text strictly according to this natural-language instruction. Preserve facts unless the instruction explicitly asks for additions. Return only the rewritten text with no explanation.\n\nInstruction: ${instruction}\n\nSelected text:\n\`\`\`text\n${context.selectedText.trim()}\n\`\`\``
@@ -73,7 +83,7 @@ export const runAssistantInlineInstruction = async (options: IAssistantInlineCom
         showMessage(assistantText("请先选中要处理的内容", "Select the content to edit first"), 4000, "error");
         return false;
     }
-    const roundKey = buildAssistantInlineRoundKey(context.note.rootID, context.note.currentBlockID || "", context.selectedText);
+    const roundKey = options.roundKey || buildAssistantInlineRoundKey(context.note.rootID, context.note.currentBlockID || "", context.selectedText);
     const round = claimAssistantInlineRound(roundKey);
     if (!round.ok) {
         showMessage(assistantText("当前选区已连续调整 3 轮，请先接受或重新选择内容。", "This selection has already been refined 3 times. Accept it or select content again."), 5000, "error");
@@ -92,7 +102,7 @@ export const runAssistantInlineInstruction = async (options: IAssistantInlineCom
             profileId: profile.id,
             mode: "chat",
             title: truncateText(`${assistantText("内联指令", "Inline")} ${context.note.title || ""}`, 72),
-            message: buildInlineInstructionMessage(instruction, context),
+            message: buildInlineInstructionMessage(instruction, context, options.previousResultText),
             system: buildAssistantNoteContextForSkill(context.note, "selection-rewrite"),
             enableTools: false,
             context: context.note,
@@ -128,9 +138,12 @@ export const runAssistantInlineInstruction = async (options: IAssistantInlineCom
             onContinue: () => openAssistantInlineCommandPanel({
                 ...options,
                 fallbackSelectionText: context.selectedText,
+                previousResultText: reply,
+                roundKey,
             }),
+            onSettled: () => resetAssistantInlineRounds(roundKey),
+            onClose: () => ghostDraft?.destroy(),
         });
-        ghostDraft?.destroy();
         return true;
     } catch (error) {
         ghostDraft?.destroy();

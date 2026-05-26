@@ -16,6 +16,8 @@ interface IAssistantPatchReviewOptions {
     subtitle?: string;
     sessionId?: string;
     onContinue?: () => Promise<boolean> | boolean;
+    onSettled?: () => void;
+    onClose?: () => void;
 }
 
 const hasPendingOperations = (patch: IAssistantEditPatch) => {
@@ -47,6 +49,17 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
         height: "76vh",
         content: renderContent(),
     });
+    let cleanedUp = false;
+    const cleanup = (settled = true) => {
+        if (cleanedUp) {
+            return;
+        }
+        cleanedUp = true;
+        if (settled) {
+            options.onSettled?.();
+        }
+        options.onClose?.();
+    };
     const refresh = () => {
         const body = dialog.element.querySelector(".assistant-skill-dialog") as HTMLElement;
         if (body) {
@@ -73,6 +86,9 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                 const operation = patch.operations.find((item) => item.id === opID);
                 if (operation && await applyAssistantPatchOperation(patch, operation, context)) {
                     recordAssistantPatchHistory(patch);
+                    if (!hasPendingOperations(patch)) {
+                        cleanup();
+                    }
                     refresh();
                 }
                 event.preventDefault();
@@ -83,6 +99,9 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                 const operation = patch.operations.find((item) => item.id === opID);
                 if (operation) {
                     operation.status = "rejected";
+                    if (!hasPendingOperations(patch)) {
+                        cleanup();
+                    }
                     refresh();
                 }
                 event.preventDefault();
@@ -91,6 +110,7 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
             if (action === "accept-all") {
                 if (await applyAssistantPatch(patch, context)) {
                     recordAssistantPatchHistory(patch);
+                    cleanup();
                     dialog.destroy();
                 } else {
                     refresh();
@@ -104,18 +124,21 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                         operation.status = "rejected";
                     }
                 });
+                cleanup();
                 refresh();
                 event.preventDefault();
                 return;
             }
             if (action === "continue-adjust" && options.onContinue) {
                 if (await options.onContinue()) {
+                    cleanup(false);
                     dialog.destroy();
                 }
                 event.preventDefault();
                 return;
             }
             if (action === "close") {
+                cleanup(false);
                 dialog.destroy();
                 event.preventDefault();
                 return;
