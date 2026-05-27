@@ -80,6 +80,8 @@
 - 阶段 8 已通过 `go test -vet=off ./model -run TestAssistantAIFake -count=1`、`go test -vet=off ./model -run TestListAssistantAIProviderTypesIncludesDefaults -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1` 和阶段文件范围 `git diff --check`。
 - 文档树空白处右键入口已实现：空白区域复用文档数右侧顶部“更多”菜单，菜单补齐“新建笔记”入口；该交互只新增入口，不改变文档行、笔记本根行、多选文档右键菜单或文件树数据语义。
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- 语义搜索基础设施（Stage 6 MVP）已实现：后端 `assistant_embedding.go` 支持 Ollama/OpenAI 兼容 Embedding API 调用；`assistant_vector.go` 使用内存 map + JSON 文件持久化向量，支持余弦相似度搜索；API 路由注册在 `/api/assistant/embedding/` 下（config、setConfig、search、index、indexAll）；搜索面板新增"语义搜索"按钮切换语义搜索模式；AI 设置页新增 Embedding 配置区域（启用开关、服务地址、模型、API Key、索引按钮、保存按钮）。
+- 语义搜索 MVP 已通过 `go build ./...`、`go vet ./...`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 
 ## 风险
 

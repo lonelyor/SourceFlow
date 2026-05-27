@@ -29,6 +29,7 @@
   - [x] GUI 冒烟清单纳入 `plans/20260527-AI助手GUI冒烟清单.md`。
   - [x] 后端 fake provider 支持配置、模型列表、普通回复、流式和工具 patch 预览。
   - [x] fake provider 覆盖测试通过。
+- [x] 语义搜索基础设施（Stage 6 MVP）：后端 Embedding 服务 + 向量存储 + API 路由 + 搜索面板语义搜索按钮 + AI 设置 Embedding 配置 UI。
 
 ## 后续
 

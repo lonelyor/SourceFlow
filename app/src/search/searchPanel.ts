@@ -53,6 +53,7 @@ import {assistantText} from "../assistant/constants";
 import {escapeAttr as escapeAssistantAttr, escapeHTML as escapeAssistantHTML, truncateText} from "../assistant/common/dom";
 import {ensureAssistantFeatureAvailable, reportAssistantRuntimeError, runAssistantFeature} from "../assistant/runtime";
 import {getSearchAIState, renderSearchAIPanel, resetSearchAI, runSearchAI} from "./searchAI";
+import {closeSemanticSearchPanel, openSemanticSearchPanel} from "../assistant/search/semanticSearch";
 import {focusSearchResultById, getArticle, inputEvent, openSearchEditor, renderNextSearchMark, replace} from "./searchResults";
 
 type IAssistantSearchSource = import("../assistant/search/ask").IAssistantSearchSource;
@@ -155,7 +156,7 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
         <div class="block__icons">
             <span id="searchFilter" aria-label="${window.sourceflow.languages.searchType}" class="block__icon ariaLabel" data-position="9south">
                 <svg><use xlink:href="#iconFilter"></use></svg>
-            </span> 
+            </span>
             <span class="fn__space"></span>
             ${genQueryHTML(config.method, "searchSyntaxCheck")}
             <span class="fn__space"></span>
@@ -169,6 +170,10 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
             <span class="fn__space"></span>
             <span id="searchAskAI" aria-label="${assistantText("问 AI", "Ask AI")}" class="block__icon ariaLabel" data-position="9south">
                 <svg><use xlink:href="#iconSparkles"></use></svg>
+            </span>
+            <span class="fn__space"></span>
+            <span id="searchSemantic" aria-label="${assistantText("语义搜索", "Semantic Search")}" class="block__icon ariaLabel" data-position="9south">
+                <svg><use xlink:href="#iconGlobal"></use></svg>
             </span>
             <div class="fn__flex${config.group === 0 ? " fn__none" : ""}">
                 <span class="fn__space"></span>
@@ -553,6 +558,7 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
                 event.preventDefault();
                 break;
             } else if (target.id === "searchUnRef") {
+                closeSemanticSearchPanel(element);
                 openSearchUnRef(unRefPanelElement, unRefEdit);
                 event.stopPropagation();
                 event.preventDefault();
@@ -593,6 +599,7 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
                 event.preventDefault();
                 break;
             } else if (target.id === "searchAsset") {
+                closeSemanticSearchPanel(element);
                 openSearchAsset(assetsElement, !closeCB);
                 event.stopPropagation();
                 event.preventDefault();
@@ -620,7 +627,14 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
                 event.preventDefault();
                 break;
             } else if (target.id === "searchAskAI") {
+                closeSemanticSearchPanel(element);
                 void runSearchAI(app, element, config);
+                event.stopPropagation();
+                event.preventDefault();
+                break;
+            } else if (target.id === "searchSemantic") {
+                resetSearchAI(element);
+                openSemanticSearchPanel(app, element);
                 event.stopPropagation();
                 event.preventDefault();
                 break;

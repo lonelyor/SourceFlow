@@ -523,6 +523,12 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/terminal/session/create", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantTerminalSessionCreate)
 	ginServer.Handle("POST", "/api/assistant/terminal/session/delete", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantTerminalSessionDelete)
 
+	ginServer.Handle("POST", "/api/assistant/embedding/config", model.CheckAuth, model.CheckAdminRole, ServeEmbeddingConfig)
+	ginServer.Handle("POST", "/api/assistant/embedding/setConfig", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ServeSetEmbeddingConfig)
+	ginServer.Handle("POST", "/api/assistant/embedding/search", model.CheckAuth, model.CheckAdminRole, ServeSemanticSearch)
+	ginServer.Handle("POST", "/api/assistant/embedding/index", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ServeIndexNote)
+	ginServer.Handle("POST", "/api/assistant/embedding/indexAll", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ServeIndexAllNotes)
+
 	ginServer.Handle("POST", "/api/petal/loadPetals", model.CheckAuth, loadPetals)
 	ginServer.Handle("POST", "/api/petal/setPetalEnabled", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setPetalEnabled)
 	ginServer.Handle("POST", "/api/plugins/loadPlugins", model.CheckAuth, loadPlugins)
