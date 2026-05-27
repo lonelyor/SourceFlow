@@ -300,6 +300,10 @@ declare namespace Config {
          * Whether to show the total doc count in the doc tree header
          */
         fileTreeTotalCount: boolean;
+        /**
+         * Custom accent color (hex, e.g. #e74c3c). Empty means theme default.
+         */
+        accentColor: string;
         statusBar: IAppearanceStatusBar;
     }
 

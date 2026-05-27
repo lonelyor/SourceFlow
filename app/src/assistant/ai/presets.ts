@@ -4,6 +4,7 @@ export const assistantAISettingDefaults = {
     maxTokens: 0,
     maxContextTokens: 256 * 1024,
     maxContextMessages: 24,
+    personaPrompt: "",
 };
 
 export const getAssistantAIRecommendedSettings = (provider: string, model: string) => {

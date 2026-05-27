@@ -934,7 +934,15 @@ export const repos = {
     element: undefined as Element,
     genHTML: () => {
         const hasRepoKey = !!window.sourceflow.config.repo.key;
+        const lang = window.sourceflow;
+        const backupBannerZH = "工作空间目录不可放置于同步网盘（如 OneDrive、iCloud 等），否则会导致数据损坏。如需云端备份，请使用下方的快照备份功能，将备份目录设置到云盘同步文件夹中。";
+        const backupBannerEN = "Do NOT place the workspace directory in sync cloud drives (e.g. OneDrive, iCloud), which will corrupt data. For cloud backup, use the snapshot backup below and set the backup directory to a cloud-synced folder.";
+        const isZH = `${lang.config?.lang || ""}`.toLowerCase().startsWith("zh");
         return `<div>
+<div class="b3-label" style="padding:12px 16px;margin-bottom:16px;border-radius:6px;background:var(--b3-theme-surface);border-left:3px solid var(--b3-theme-primary);">
+    <div style="font-weight:bold;margin-bottom:4px;">${isZH ? "备份与同步说明" : "Backup & Sync Info"}</div>
+    <div style="color:var(--b3-theme-on-surface);font-size:13px;">${isZH ? backupBannerZH : backupBannerEN}</div>
+</div>
 <div class="b3-label fn__flex config__item">
     <div class="fn__flex-1 fn__flex-center">
         ${window.sourceflow.languages.dataRepoKey}

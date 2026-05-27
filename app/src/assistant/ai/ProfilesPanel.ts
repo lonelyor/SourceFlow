@@ -92,6 +92,7 @@ const cloneSettings = (settings?: Record<string, unknown>) => {
         maxTokens: getIntSetting(settings, "maxTokens", assistantAISettingDefaults.maxTokens),
         maxContextTokens: getIntSetting(settings, "maxContextTokens", assistantAISettingDefaults.maxContextTokens),
         maxContextMessages: getIntSetting(settings, "maxContextMessages", assistantAISettingDefaults.maxContextMessages),
+        personaPrompt: getStringSetting(settings, "personaPrompt", ""),
         toolReadScope: getStringSetting(settings, "toolReadScope", "workspace"),
         toolWriteScope: getStringSetting(settings, "toolWriteScope", "current-notebook"),
         toolTraceMode: getStringSetting(settings, "toolTraceMode", "audit-only"),
@@ -319,6 +320,25 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                             <input class="b3-text-field" type="number" min="1" step="1" data-setting="maxContextMessages" value="${escapeAttr(`${settings.maxContextMessages}`)}">
                         </label>
                     </div>
+                    <div class="assistant-profiles__grid">
+                        <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
+                            <span>${escapeHTML(assistantText("AI 人设", "AI Persona"))}</span>
+                            <div class="fn__flex" style="gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                                ${["student", "professional", "designer", "developer", "creative"].map((p) => {
+                                    const labels: Record<string, [string, string]> = {
+                                        student: [assistantText("学生", "Student"), assistantText("简洁易懂，适合学习场景", "Simple and clear, for learning")],
+                                        professional: [assistantText("职场", "Professional"), assistantText("正式严谨，适合工作文档", "Formal and precise, for work docs")],
+                                        designer: [assistantText("设计师", "Designer"), assistantText("视觉导向，注重排版和美感", "Visual-focused, layout-aware")],
+                                        developer: [assistantText("程序员", "Developer"), assistantText("技术精确，代码友好", "Technical and code-friendly")],
+                                        creative: [assistantText("二次元", "Creative"), assistantText("活泼有趣，想象力丰富", "Playful and imaginative")],
+                                    };
+                                    const [label, title] = labels[p] || [p, p];
+                                    return `<button type="button" class="b3-button b3-button--text${(settings.personaPrompt || "").includes(`[${p}]`) ? " b3-button--primary" : ""}" data-persona="${escapeAttr(p)}" title="${escapeAttr(title)}" style="padding:2px 8px;font-size:12px;">${escapeHTML(label)}</button>`;
+                                }).join("")}
+                            </div>
+                            <textarea class="b3-text-field" rows="2" data-setting="personaPrompt" placeholder="${escapeAttr(assistantText("选择预设或自定义人设描述，如：你是一个经验丰富的技术写作者...", "Pick a preset or describe a custom persona, e.g.: You are an experienced technical writer..."))}">${escapeHTML(settings.personaPrompt || "")}</textarea>
+                        </label>
+                    </div>
                 </div>` : ""}
             </div>
             <div class="assistant-profiles__section">
@@ -448,6 +468,11 @@ export class AssistantAIProfilesPanel {
                     await this.handleAction(action);
                     return;
                 }
+                const persona = target.getAttribute("data-persona");
+                if (persona) {
+                    this.applyPersonaPreset(persona);
+                    return;
+                }
                 target = target.parentElement;
             }
         });
@@ -571,8 +596,44 @@ export class AssistantAIProfilesPanel {
             this.state.draft.settings[setting] = Number.isFinite(parsed) ? parsed : assistantAISettingDefaults.temperature;
             return;
         }
+        if (setting === "personaPrompt") {
+            this.state.draft.settings[setting] = trimmed;
+            return;
+        }
         const parsed = parseInt(trimmed, 10);
         this.state.draft.settings[setting] = Number.isFinite(parsed) ? parsed : assistantAISettingDefaults[setting as keyof typeof assistantAISettingDefaults];
+    }
+
+    private applyPersonaPreset(persona: string) {
+        if (!this.state.draft.settings) {
+            this.state.draft.settings = {};
+        }
+        const prompts: Record<string, [string, string]> = {
+            student: [
+                "你是一位耐心、善于举例的学习助手。用简洁易懂的语言回答，遇到复杂概念用类比说明，适当使用列表和表格整理要点。偏好中文回答，关键技术术语保留英文。",
+                "You are a patient, example-driven learning assistant. Use simple, clear language. Explain complex concepts with analogies. Organize key points with lists and tables.",
+            ],
+            professional: [
+                "你是一位严谨的职场助手。输出正式、专业、条理清晰，适合直接用于工作文档。避免口语化表达，使用结构化格式（标题、列表、表格），注意逻辑性和完整性。",
+                "You are a precise, professional assistant. Output formal, well-structured content suitable for work documents. Avoid colloquialisms. Use structured formats: headings, lists, tables.",
+            ],
+            designer: [
+                "你是一位注重视觉表达的创意助手。在内容中关注排版、配色和美感，善于用比喻和视觉描述，适当建议使用图表、思维导图和视觉元素增强表达。",
+                "You are a visually-oriented creative assistant. Focus on layout, color, and aesthetics. Use vivid descriptions and suggest charts, mind maps, and visual elements.",
+            ],
+            developer: [
+                "你是一位技术精确的编程助手。回答技术问题时准确使用术语，代码块标注语言类型，优先给出可运行的示例，注意边界条件和错误处理。",
+                "You are a technically precise coding assistant. Use accurate terminology, annotate code blocks with language, provide runnable examples, and consider edge cases and error handling.",
+            ],
+            creative: [
+                "你是一位活泼有趣、富有想象力的创意助手。回答风格轻松愉快，善于用故事、比喻和创意表达，适当使用 emoji 增加趣味性，鼓励发散思维。",
+                "You are a playful, imaginative creative assistant. Use a lively tone, stories, metaphors, and creative expressions. Use emojis for fun. Encourage divergent thinking.",
+            ],
+        };
+        const [zh, en] = prompts[persona] || ["", ""];
+        const isZH = `${window.sourceflow?.config?.lang || navigator.language || ""}`.toLowerCase().startsWith("zh");
+        this.state.draft.settings.personaPrompt = `[${persona}] ${isZH ? zh : en}`;
+        this.render();
     }
 
     private async handleAction(action: string) {

@@ -97,8 +97,62 @@ import {
 import {refreshAllFileTreeTotalCounts} from "../layout/dock/fileTreeCounts";
 import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
 import {escapeAttr, escapeHtml} from "../util/escape";
+import {assistantText} from "../assistant/constants";
 
 import {escapeCSSURL, escapeCSSURLAttr, getAppearancePreviewImageURL, getCursorColorPickerValue, getCursorColorValue, shouldKeepCursorCustomSelection, getCursorImageInput, setCursorImageInputValue, getCursorImageValue, getCursorSavedImages, getCursorImageWidthPercentValue, getCursorImageHeightPercentValue, getCursorImageOffsetXValue, getCursorImageOffsetYValue, getHiddenBlockColorValue, getNoteBackgroundImageInput, setNoteBackgroundImageInputValue, getNoteBackgroundImageValue, getNoteBackgroundOpacityValue, getNoteBackgroundBlurValue, getStartupPageImageInput, setStartupPageImageInputValue, getStartupPageImageValue, getStartupPageOpacityValue, getStartupPageBlurValue, getMascotImageInput, setMascotImageInputValue, getMascotImageValue, getMascotEnabledValue, getMascotPositionValue, getMascotEffectValue, getMascotOpacityValue, getMascotScaleValue, getNoteBackgroundState, applyNoteBackgroundState, getMascotState, applyMascotState, importDesktopAppearanceImageFile, applyImportedNoteBackgroundFile, applyImportedStartupPageFile, applyImportedMascotFile, renderCursorImagePreview, renderNoteBackgroundPreview, renderStartupPagePreview, renderMascotPreview, renderCursorSavedImageList, syncCursorControls, syncNoteBackgroundControls, syncStartupPageControls, syncMascotControls} from "./appearanceHelpers";
+
+const ACCENT_COLOR_VARS = [
+    "--b3-theme-primary",
+    "--b3-theme-primary-light",
+    "--b3-theme-primary-lighter",
+    "--b3-theme-primary-lightest",
+];
+
+const hexToRGB = (hex: string) => {
+    const h = hex.replace("#", "");
+    if (h.length !== 6) {
+        return null;
+    }
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) {
+        return null;
+    }
+    return {r, g, b};
+};
+
+const applyAccentColorCSS = (hex: string) => {
+    let styleEl = document.getElementById("sourceflowAccentColor") as HTMLStyleElement | null;
+    if (!hex) {
+        if (styleEl) {
+            styleEl.remove();
+        }
+        return;
+    }
+    const rgb = hexToRGB(hex);
+    if (!rgb) {
+        return;
+    }
+    const css = `:root {
+  --b3-theme-primary: ${hex};
+  --b3-theme-primary-light: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, .54);
+  --b3-theme-primary-lighter: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, .38);
+  --b3-theme-primary-lightest: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, .12);
+}`;
+    if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "sourceflowAccentColor";
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = css;
+};
+
+export const applyAccentColor = (hex: string) => {
+    window.sourceflow.config.appearance.accentColor = hex;
+    applyAccentColorCSS(hex);
+    appearance._send();
+};
 
 export const appearance = {
     element: undefined as Element,
@@ -184,6 +238,17 @@ export const appearance = {
         <select class="b3-select fn__flex-center fn__size200" id="themeDark">
            ${genOptions(window.sourceflow.config.appearance.darkThemes, window.sourceflow.config.appearance.themeDark)}
         </select>
+    </div>
+</div>
+<div class="b3-label fn__flex config__item">
+    <div class="fn__flex-1">
+        ${assistantText("强调色", "Accent Color")}
+        <div class="b3-label__text">${assistantText("选择一个颜色，全局按钮、链接和选中态自动适配。留空使用主题默认色。", "Pick a color. Buttons, links and selection states adapt globally. Leave empty for theme default.")}</div>
+    </div>
+    <span class="fn__space"></span>
+    <div class="fn__flex fn__flex-center fn__size200" style="gap:8px;">
+        <input class="b3-text-field" id="accentColorPicker" type="color" style="width:36px;height:28px;padding:2px;cursor:pointer;" value="${escapeAttr(window.sourceflow.config.appearance.accentColor || "#3575f0")}">
+        <button class="b3-button b3-button--text" id="accentColorReset" style="white-space:nowrap;">${assistantText("重置", "Reset")}</button>
     </div>
 </div>
 <div class="b3-label">
@@ -742,6 +807,7 @@ export const appearance = {
             fileTreeDocCount: fileTreeDocCountElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeDocCount,
             fileTreeTotalCount: fileTreeTotalCountElement?.checked ?? (window.sourceflow.config.appearance.fileTreeTotalCount !== false),
             fileTreeDensity: normalizeFileTreeDensity(fileTreeDensityElement?.value || window.sourceflow.config.appearance.fileTreeDensity),
+            accentColor: window.sourceflow.config.appearance.accentColor || "",
             statusBar: {
                 msgTaskDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskDatabaseIndexCommitDisabled,
                 msgTaskHistoryDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskHistoryDatabaseIndexCommitDisabled,
@@ -759,6 +825,16 @@ export const appearance = {
         setStatusBar(appearance.element.querySelector("#statusBarSetting"));
         appearance.element.querySelector("#codeSnippet").addEventListener("click", () => {
             openSnippets();
+        });
+        appearance.element.querySelector("#accentColorPicker")?.addEventListener("input", () => {
+            applyAccentColor((appearance.element.querySelector("#accentColorPicker") as HTMLInputElement)?.value || "");
+        });
+        appearance.element.querySelector("#accentColorReset")?.addEventListener("click", () => {
+            const picker = appearance.element.querySelector("#accentColorPicker") as HTMLInputElement;
+            if (picker) {
+                picker.value = "#3575f0";
+            }
+            applyAccentColor("");
         });
         appearance.element.querySelector("#resetLayout").addEventListener("click", () => {
             confirmDialog("⚠️ " + window.sourceflow.languages.reset, window.sourceflow.languages.appearance6, () => {
@@ -1283,6 +1359,7 @@ export const appearance = {
         applyFileTreeAppearance(data);
         refreshAllFileTreeTotalCounts();
         loadAssets(data);
+        applyAccentColorCSS(data.accentColor || "");
         document.querySelector("#barMode use")?.setAttribute("xlink:href", `#icon${window.sourceflow.config.appearance.modeOS ? "Mode" : (window.sourceflow.config.appearance.mode === 0 ? "Light" : "Dark")}`);
     }
 };
