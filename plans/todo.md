@@ -1,6 +1,6 @@
 # SourceFlow 当前任务队列
 
-更新日期：2026-05-27
+更新日期：2026-05-28
 
 ## 本轮
 
@@ -30,6 +30,7 @@
   - [x] 后端 fake provider 支持配置、模型列表、普通回复、流式和工具 patch 预览。
   - [x] fake provider 覆盖测试通过。
 - [x] 语义搜索基础设施（Stage 6 MVP）：后端 Embedding 服务 + 向量存储 + API 路由 + 搜索面板语义搜索按钮 + AI 设置 Embedding 配置 UI。
+- [ ] v0.1.5 发布：更新版本号/发布说明、重新编译 Windows x64 安装包与便携包、创建新的 GitHub Release。
 
 ## 后续
 

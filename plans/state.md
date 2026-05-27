@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-27
+更新日期：2026-05-28
 
 ## 已确认
 
@@ -82,13 +82,14 @@
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 语义搜索基础设施（Stage 6 MVP）已实现：后端 `assistant_embedding.go` 支持 Ollama/OpenAI 兼容 Embedding API 调用；`assistant_vector.go` 使用内存 map + JSON 文件持久化向量，支持余弦相似度搜索；API 路由注册在 `/api/assistant/embedding/` 下（config、setConfig、search、index、indexAll）；搜索面板新增"语义搜索"按钮切换语义搜索模式；AI 设置页新增 Embedding 配置区域（启用开关、服务地址、模型、API Key、索引按钮、保存按钮）。
 - 语义搜索 MVP 已通过 `go build ./...`、`go vet ./...`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
+- 用户确认因远端 `v0.1.4` Release 已存在且 tag 不指向当前 `dev` HEAD，本次改为发布新版本 `v0.1.5`；版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，并新增 `app/changelogs/v0.1.5/` 中英文发布说明。下一步需重新运行 `python 编译.py`，再用 `发布.py` 创建新的 GitHub Release。
 
 ## 风险
 
 - 阶段一需要修改文件树拖拽交互，必须保持现有 `/api/filetree/moveDocs` 安全边界，不自动改变用户排序配置。
 - `pnpm --dir app run typecheck:app` 当前会被既有 `app/src/protyle/wysiwyg/editorEvents.ts` 模块守卫拦截；本轮使用直接 `tsc --noEmit` 验证文件树改动。
 - `go test ./api -count=1` 已通过。
-- 当前工作区仍有未跟踪 `.kilo/`，本轮不纳入提交；正式发布前仍需确认导出范围不包含未授权内容。
+- 当前工作区仍有未跟踪 `.kilo/` 与 `app/NUL`，本轮不纳入提交；正式发布前仍需确认导出范围不包含未授权内容。
 - GitHub Release 发布需要有效 token，默认从 `.release.local.env` 或环境变量读取；不得在日志或文档中输出 token 内容。
 - `go test ./model` 当前会被既有非本轮格式串 vet 问题拦截；AI 工具策略目标测试使用 `go test -vet=off ./model -run TestAssistantAITool -count=1` 验证。
 - `pnpm --dir app run test:ai-dock-runtime` 已恢复稳定；上一轮堆栈溢出确认为测试依赖链未覆盖新增 agent/history import。
