@@ -22,6 +22,7 @@ const syncZenModeAliasButton = () => {
         zenModeButton.classList.toggle("fn__none", !hasEditorFullscreen);
         zenModeButton.setAttribute("aria-label", hasEditorFullscreen ? (window.sourceflow.languages.zModeExit || window.sourceflow.languages.zMode) : window.sourceflow.languages.zMode);
     }
+    /// #if !MOBILE
     if (document.body.getAttribute("data-zen-mode") !== "true") {
         if (hasEditorFullscreen) {
             showZenModeExitButton(() => {
@@ -31,7 +32,7 @@ const syncZenModeAliasButton = () => {
                     return;
                 }
                 fullscreen(fullscreenElement);
-                const editorModel = getAllModels().editor.find((item) => item.editor.protyle.element === fullscreenElement);
+                const editorModel = getAllModels().editor.find((item: { editor: { protyle: { element: Element } } }) => item.editor.protyle.element === fullscreenElement);
                 if (editorModel) {
                     resize(editorModel.editor.protyle);
                 }
@@ -40,6 +41,7 @@ const syncZenModeAliasButton = () => {
             hideZenModeExitButton();
         }
     }
+    /// #endif
     resizeTopBar();
 };
 
