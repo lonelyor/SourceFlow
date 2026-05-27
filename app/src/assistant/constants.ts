@@ -53,6 +53,8 @@ const assistantSummarySkillIds = new Set([
     "note-qa",
     "note-flashcards",
     "note-health",
+    "note-translate-mixed",
+    "note-translate-replace",
 ]);
 
 const limitAssistantText = (value: string, limit: number) => {

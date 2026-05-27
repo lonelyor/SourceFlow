@@ -447,8 +447,8 @@ export const updateHotkeyAfterTip = (hotkey: string, split = " ") => {
 };
 
 // Mac，Windows 快捷键展示
-export const updateHotkeyTip = (hotkey: string) => {
-    if (!hotkey || isMac()) {
+const formatHotkeyChordForDisplay = (hotkey: string) => {
+    if (!hotkey || !/[⌘⇧⌥⌃]/.test(hotkey)) {
         return hotkey;
     }
     const keys = [];
@@ -467,6 +467,13 @@ export const updateHotkeyTip = (hotkey: string) => {
         }[lastKey] || lastKey);
     }
     return keys.join("+");
+};
+
+export const updateHotkeyTip = (hotkey: string) => {
+    if (!hotkey || isMac()) {
+        return hotkey;
+    }
+    return hotkey.split("/").map(formatHotkeyChordForDisplay).join("/");
 };
 
 export const getLocalStorage = (cb: () => void) => {

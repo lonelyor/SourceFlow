@@ -46,7 +46,7 @@ import {renameAsset} from "../../../editor/rename";
 import {electronUndo} from "../../../protyle/undo";
 import {pushBack} from "../../../mobile/util/MobileBackFoward";
 import {copyPNGByLink, exportAsset, writeAssetToClipboard} from "../../util";
-import {removeInlineType} from "../../../protyle/toolbar/util";
+import {genLinkText, removeInlineType} from "../../../protyle/toolbar/util";
 import {alignImgCenter, alignImgLeft} from "../../../protyle/wysiwyg/commonHotkey";
 import {checkFold, renameTag} from "../../../util/noRelyPCFunction";
 import {hideElements} from "../../../protyle/ui/hideElements";
@@ -132,10 +132,7 @@ style="margin:4px 0;width: ${isMobile() ? "100%" : "360px"}" class="b3-text-fiel
                 // https://github.com/lonelyor/SourceFlow/issues/6798
                 let anchor = linkElement.textContent.replace(Constants.ZWSP, "");
                 if (!anchor && linkAddress) {
-                    anchor = decodeURIComponent(linkAddress.replace("https://", "").replace("http://", ""));
-                    if (anchor.length > Constants.SIZE_LINK_TEXT_MAX) {
-                        anchor = anchor.substring(0, Constants.SIZE_LINK_TEXT_MAX) + "...";
-                    }
+                    anchor = genLinkText(linkAddress, true, true);
                     linkElement.innerHTML = Lute.EscapeHTMLStr(anchor);
                 }
                 inputElements[1].value = anchor;

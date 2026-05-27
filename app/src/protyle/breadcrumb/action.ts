@@ -12,6 +12,7 @@ import {disabledProtyle, enableProtyle} from "../util/onGet";
 import {isWindow} from "../../util/functions";
 import {Wnd} from "../../layout/Wnd";
 import {resizeTopBar} from "../../layout/util";
+import {hideZenModeExitButton, showZenModeExitButton} from "../../editor/zenModeExitButton";
 
 const syncZenModeAliasButton = () => {
     const hasEditorFullscreen = !!document.querySelector(".protyle.fullscreen");
@@ -20,6 +21,24 @@ const syncZenModeAliasButton = () => {
     if (zenModeButton) {
         zenModeButton.classList.toggle("fn__none", !hasEditorFullscreen);
         zenModeButton.setAttribute("aria-label", hasEditorFullscreen ? (window.sourceflow.languages.zModeExit || window.sourceflow.languages.zMode) : window.sourceflow.languages.zMode);
+    }
+    if (document.body.getAttribute("data-zen-mode") !== "true") {
+        if (hasEditorFullscreen) {
+            showZenModeExitButton(() => {
+                const fullscreenElement = document.querySelector(".protyle.fullscreen") as HTMLElement | null;
+                if (!fullscreenElement) {
+                    hideZenModeExitButton();
+                    return;
+                }
+                fullscreen(fullscreenElement);
+                const editorModel = getAllModels().editor.find((item) => item.editor.protyle.element === fullscreenElement);
+                if (editorModel) {
+                    resize(editorModel.editor.protyle);
+                }
+            });
+        } else {
+            hideZenModeExitButton();
+        }
     }
     resizeTopBar();
 };

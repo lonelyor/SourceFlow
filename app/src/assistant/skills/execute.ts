@@ -79,15 +79,29 @@ const chooseTargetLanguage = () => {
     return `${window.prompt(assistantText("翻译成哪种语言？", "Translate into which language?"), fallback) || fallback}`.trim() || fallback;
 };
 
-const ensureSkillParams = (definition: IAssistantSkillDefinition): IAssistantSkillParams | null => {
-    if (definition.id !== "selection-translate") {
-        return {};
+const loadFullTextDialogModule = () => import("../translate/fullTextDialog");
+
+const ensureSkillParams = async (definition: IAssistantSkillDefinition): Promise<IAssistantSkillParams | null> => {
+    if (definition.id === "selection-translate") {
+        const targetLanguage = chooseTargetLanguage();
+        if (!targetLanguage) {
+            return null;
+        }
+        return {targetLanguage};
     }
-    const targetLanguage = chooseTargetLanguage();
-    if (!targetLanguage) {
-        return null;
+    if (definition.id === "note-translate-mixed" || definition.id === "note-translate-replace") {
+        const {openAssistantFullTextTranslateDialog} = await loadFullTextDialogModule();
+        const result = await openAssistantFullTextTranslateDialog();
+        if (!result) {
+            return null;
+        }
+        const skillId = result.mode === "replace" ? "note-translate-replace" as TAssistantSkillId : "note-translate-mixed" as TAssistantSkillId;
+        if (skillId !== definition.id) {
+            return {targetLanguage: result.targetLanguage, redirectSkillId: skillId};
+        }
+        return {targetLanguage: result.targetLanguage};
     }
-    return {targetLanguage};
+    return {};
 };
 
 const ensureDefaultProfile = async () => {
@@ -849,7 +863,7 @@ const applySkillResultAutomatically = async (definition: IAssistantSkillDefiniti
 };
 
 export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
-    const definition = getAssistantSkillDefinition(options.skillId);
+    let definition = getAssistantSkillDefinition(options.skillId);
     if (!definition) {
         return false;
     }
@@ -862,9 +876,16 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         showMessage(assistantText("请先选中要处理的内容", "Select some content first"), 4000, "error");
         return false;
     }
-    const params = ensureSkillParams(definition);
+    const params = await ensureSkillParams(definition);
     if (!params) {
         return false;
+    }
+    if (params.redirectSkillId) {
+        const redirectDefinition = getAssistantSkillDefinition(params.redirectSkillId);
+        if (redirectDefinition) {
+            definition = redirectDefinition;
+            delete params.redirectSkillId;
+        }
     }
     if (definition.action === "capture-task" || definition.action === "capture-event") {
         return openCaptureFromSkill(definition, context, options.app);

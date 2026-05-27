@@ -36,6 +36,7 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
         {skillId: "note-polish", label: assistantText("润色", "Polish")},
         {skillId: "note-outline", label: assistantText("提纲", "Outline")},
         {skillId: "note-qa", label: assistantText("问答", "Q&A")},
+        {skillId: "note-translate-mixed", label: assistantText("全文翻译", "Full Translate")},
         {skillId: "ask-ai", label: assistantText("问 AI", "Ask AI")},
     ].map((item) => `<button class="assistant-context-actions__button" type="button" data-skill-id="${escapeAttr(item.skillId)}">${escapeHTML(item.label)}</button>`).join("");
     const selectionButtons = hasSelection ? [

@@ -24,6 +24,8 @@ export type TAssistantSkillId =
     | "note-health"
     | "note-extract-tasks"
     | "note-create-project"
+    | "note-translate-mixed"
+    | "note-translate-replace"
     | "ask-ai";
 
 export type TAssistantSkillPlacement = "selection" | "note";
@@ -51,6 +53,7 @@ export interface IAssistantSkillContext {
 
 export interface IAssistantSkillParams {
     targetLanguage?: string;
+    redirectSkillId?: TAssistantSkillId;
 }
 
 export interface IAssistantSkillDefinition {

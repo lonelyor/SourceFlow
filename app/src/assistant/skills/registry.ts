@@ -347,6 +347,40 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
             "Read the current note and decide whether it should become a project. If so, create a project, add tasks or events as needed, and provide a clear execution summary. Explain your plan before writing."
         ),
     },
+    "note-translate-mixed": {
+        id: "note-translate-mixed",
+        placement: "note",
+        label: assistantText("全文翻译（混合模式）", "Full-Text Translation (Mixed)"),
+        shortLabel: assistantText("全文翻译", "Full Translate"),
+        description: assistantText("保留原文主体，在关键术语后追加括号译文。", "Keep the original text and append translations in brackets after key terms."),
+        output: "markdown",
+        action: "append-note",
+        requiresNote: true,
+        buildMessage: (context, params) => {
+            const targetLanguage = `${params.targetLanguage || assistantText("中文", "English")}`.trim();
+            return assistantText(
+                `请将以下笔记中的关键英文术语后追加括号${targetLanguage}译文，保留原文主体不变。保持 Markdown 格式。直接输出处理后的完整文本，不要解释。\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``,
+                `Append ${targetLanguage} translations in brackets after key English terms in the note below. Keep the original text intact. Preserve Markdown formatting. Return only the processed text with no explanation.\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``
+            );
+        },
+    },
+    "note-translate-replace": {
+        id: "note-translate-replace",
+        placement: "note",
+        label: assistantText("全文翻译（替换模式）", "Full-Text Translation (Replace)"),
+        shortLabel: assistantText("全文替换翻译", "Full Replace"),
+        description: assistantText("将整篇笔记翻译为目标语言。", "Translate the entire document into a target language."),
+        output: "markdown",
+        action: "append-note",
+        requiresNote: true,
+        buildMessage: (context, params) => {
+            const targetLanguage = `${params.targetLanguage || assistantText("中文", "English")}`.trim();
+            return assistantText(
+                `请将以下笔记完整翻译为${targetLanguage}，保持 Markdown 格式。直接输出译文，不要解释。\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``,
+                `Translate the note below entirely into ${targetLanguage}. Preserve Markdown formatting. Return only the translated text with no explanation.\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``
+            );
+        },
+    },
     "ask-ai": {
         id: "ask-ai",
         placement: "selection",
