@@ -82,7 +82,8 @@
 - 本轮文档树空白右键入口已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 语义搜索基础设施（Stage 6 MVP）已实现：后端 `assistant_embedding.go` 支持 Ollama/OpenAI 兼容 Embedding API 调用；`assistant_vector.go` 使用内存 map + JSON 文件持久化向量，支持余弦相似度搜索；API 路由注册在 `/api/assistant/embedding/` 下（config、setConfig、search、index、indexAll）；搜索面板新增"语义搜索"按钮切换语义搜索模式；AI 设置页新增 Embedding 配置区域（启用开关、服务地址、模型、API Key、索引按钮、保存按钮）。
 - 语义搜索 MVP 已通过 `go build ./...`、`go vet ./...`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
-- 用户确认因远端 `v0.1.4` Release 已存在且 tag 不指向当前 `dev` HEAD，本次改为发布新版本 `v0.1.5`；版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，并新增 `app/changelogs/v0.1.5/` 中英文发布说明。下一步需重新运行 `python 编译.py`，再用 `发布.py` 创建新的 GitHub Release。
+- 用户确认因远端 `v0.1.4` Release 已存在且 tag 不指向当前 `dev` HEAD，本次改为发布新版本 `v0.1.5`。
+- `v0.1.5` 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，发布说明位于 `app/changelogs/v0.1.5/`；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `c502611`，创建 `v0.1.5` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。发布脚本遗留的 `.opensource-release` 临时清理目录已确认在导出根目录内并清理完成。
 
 ## 风险
 
