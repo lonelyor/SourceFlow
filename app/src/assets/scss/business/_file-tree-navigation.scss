@@ -70,9 +70,29 @@
 
   .file-tree__nav-group-title {
     color: var(--b3-theme-on-surface-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
     font-size: 12px;
+    gap: 2px;
     line-height: 20px;
     padding: 0 6px;
+    user-select: none;
+
+    svg {
+      flex-shrink: 0;
+      height: 12px;
+      transition: transform .15s;
+      width: 12px;
+    }
+  }
+
+  .file-tree__nav-group--collapsed > .file-tree__nav-group-title svg {
+    transform: rotate(-90deg);
+  }
+
+  .file-tree__nav-group--collapsed > ul {
+    display: none;
   }
 
   .file-tree__nav-empty {

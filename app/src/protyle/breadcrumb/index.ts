@@ -33,6 +33,7 @@ import {improveBreadcrumbAppearance} from "../wysiwyg/renderBacklink";
 import {assistantText} from "../../assistant/constants";
 import {runAssistantFeature} from "../../assistant/runtime";
 import {getFullWidthAttr, getReadonlyAttr} from "../../util/attrCompat";
+import {showNoteStyleMenu} from "../../menus/protyleMenu/noteStyleMenu";
 
 const loadAssistantSkillMenuModule = () => import("../../assistant/skills/menu");
 const loadAssistantSkillModule = () => import("../../assistant/skills/execute");
@@ -624,6 +625,18 @@ ${padHTML}
                 });
             }
             window.sourceflow.menus.menu.append(new MenuItem({id: "separator_2", type: "separator"}).element);
+            if (!protyle.disabled) {
+                const lang = `${window.sourceflow?.config?.lang || navigator.language || ""}`.toLowerCase();
+                window.sourceflow.menus.menu.append(new MenuItem({
+                    id: "noteStyle",
+                    icon: "iconTheme",
+                    label: lang.startsWith("zh") ? "笔记样式" : "Note Style",
+                    click: () => {
+                        showNoteStyleMenu(protyle);
+                    },
+                }).element);
+                window.sourceflow.menus.menu.append(new MenuItem({id: "separator_noteStyle", type: "separator"}).element);
+            }
             window.sourceflow.menus.menu.append(new MenuItem({
                 id: "docInfo",
                 iconHTML: "",

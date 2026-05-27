@@ -1,3 +1,5 @@
+import {hideZenModeExitButton, showZenModeExitButton} from "./zenModeExitButton";
+
 type IZenModeState = {
     active: boolean,
     wasFullscreen: boolean,
@@ -13,9 +15,11 @@ const normalizeZenModeState = (value?: Partial<IZenModeState> | null): IZenModeS
 const setBodyZenMode = (active: boolean) => {
     if (active) {
         document.body.setAttribute("data-zen-mode", "true");
+        showZenModeExitButton(() => exitZenMode());
         return;
     }
     document.body.removeAttribute("data-zen-mode");
+    hideZenModeExitButton();
 };
 
 export const getZenModeState = () => normalizeZenModeState(window.sourceflow.zenMode);

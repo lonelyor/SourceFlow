@@ -4,7 +4,7 @@ import {openAssistantInlineCommandPanel} from "./commands";
 const loadAssistantSkillModule = () => import("../skills/execute");
 
 const isAssistantInlineModifier = (event: KeyboardEvent) => {
-    return (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && !event.isComposing;
+    return (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && !event.isComposing;
 };
 
 export const handleAssistantInlineKeydown = (context: KeydownContext) => {

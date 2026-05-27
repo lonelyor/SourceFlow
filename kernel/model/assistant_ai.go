@@ -620,6 +620,15 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
 	}
 
+	personaPrompt := strings.TrimSpace(getAssistantAIStringSetting(profile.Settings, "personaPrompt", ""))
+	if "" != personaPrompt {
+		if "" != systemPrompt {
+			systemPrompt = personaPrompt + "\n\n" + systemPrompt
+		} else {
+			systemPrompt = personaPrompt
+		}
+	}
+
 	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider || AssistantAIProviderGemini == profile.Provider)
 	if req.EnableTools && !useNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
@@ -798,6 +807,15 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 	systemPrompt := strings.TrimSpace(req.System)
 	if "" == systemPrompt {
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
+	}
+
+	personaPrompt := strings.TrimSpace(getAssistantAIStringSetting(profile.Settings, "personaPrompt", ""))
+	if "" != personaPrompt {
+		if "" != systemPrompt {
+			systemPrompt = personaPrompt + "\n\n" + systemPrompt
+		} else {
+			systemPrompt = personaPrompt
+		}
 	}
 
 	editUseNativeTools := req.EnableTools && isAssistantAILegacyCompatibleProvider(profile.Provider)

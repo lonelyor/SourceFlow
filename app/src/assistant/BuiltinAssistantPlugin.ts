@@ -4,6 +4,7 @@ import {Custom} from "../layout/dock/Custom";
 import {isStartupFuseEnabled} from "../stability/startupGuard";
 import {assistantDockPosition, assistantDockSizes, assistantText, ASSISTANT_AI_DOCK_KEY, ASSISTANT_PLUGIN_NAME, ASSISTANT_RESULTS_DOCK_KEY, ASSISTANT_TERMINAL_DOCK_KEY, getAssistantDockTitles} from "./constants";
 import {reportAssistantRuntimeError} from "./runtime";
+import {initAssistantSelectionBar, destroyAssistantSelectionBar} from "./inline/selectionBar";
 
 type TAssistantDockKey = typeof ASSISTANT_AI_DOCK_KEY | typeof ASSISTANT_RESULTS_DOCK_KEY | typeof ASSISTANT_TERMINAL_DOCK_KEY;
 
@@ -108,6 +109,11 @@ export class BuiltinAssistantPlugin extends Plugin {
                 update: () => this.runDockLifecycle(ASSISTANT_TERMINAL_DOCK_KEY, (module) => module.update()),
             });
         }
+        initAssistantSelectionBar();
+    }
+
+    public onunload() {
+        destroyAssistantSelectionBar();
     }
 
     private getDockModule(key: TAssistantDockKey) {

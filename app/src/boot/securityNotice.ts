@@ -142,8 +142,8 @@ export const showSecurityTip = () => {
         return;
     }
 
-    const zhTip = "请确保数据仓库密钥已独立备份，且笔记数据未存放于同步网盘中。";
-    const enTip = "Ensure your data repository key is independently backed up and notes are not stored in sync cloud drives.";
+    const zhTip = "请确保数据仓库密钥已独立备份，且笔记数据未存放于同步网盘中。内置快照备份可存到云盘目录。";
+    const enTip = "Ensure your data repo key is independently backed up and notes are not stored in sync cloud drives. Built-in snapshots can be saved to cloud directories.";
     const zhNeverRemind = "永久不提醒";
     const enNeverRemind = "Never remind again";
 

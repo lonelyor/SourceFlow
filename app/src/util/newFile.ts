@@ -81,6 +81,7 @@ export const newFile = (optios: {
     name?: string,
     afterCB?: (id: string, title: string) => void
     listDocTree?: boolean
+    markdown?: string
 }) => {
     if (getOpenNotebookCount() === 0) {
         showMessage(window.sourceflow.languages.newFileTip);
@@ -102,7 +103,7 @@ export const newFile = (optios: {
                     notebook: data.data.box,
                     path: createPath,
                     // 根目录时无法确定 parentID
-                    markdown: "",
+                    markdown: optios.markdown || "",
                     listDocTree: optios.listDocTree
                 }, response => {
                     if (optios.afterCB) {
@@ -128,7 +129,7 @@ export const newFile = (optios: {
                         notebook: data.data.box,
                         path: createPath,
                         parentID: getDisplayName(optios.currentPath, true, true),
-                        markdown: "",
+                        markdown: optios.markdown || "",
                         listDocTree: optios.listDocTree
                     }, response => {
                         if (optios.afterCB) {
@@ -156,7 +157,7 @@ export const newFile = (optios: {
                 fetchPost("/api/filetree/createDocWithMd", {
                     notebook: data.data.box,
                     path: createPath,
-                    markdown: "",
+                    markdown: optios.markdown || "",
                     listDocTree: optios.listDocTree
                 }, response => {
                     if (optios.afterCB) {
@@ -184,7 +185,7 @@ export const newFile = (optios: {
                 notebook: data.data.box,
                 path: newPath,
                 title,
-                md: "",
+                md: optios.markdown || "",
                 sorts: optios.paths,
                 listDocTree: optios.listDocTree
             }, () => {

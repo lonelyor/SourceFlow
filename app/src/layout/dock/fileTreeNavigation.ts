@@ -37,6 +37,7 @@ interface IPathResponse {
 const MAX_FILTER_RESULTS = 24;
 const MAX_SHORTCUT_ITEMS = 5;
 const FILTER_DELAY = 180;
+const COLLAPSED_STORAGE_KEY = "file-tree-nav-collapsed";
 
 const language = (key: string, fallback: string) => {
     return window.sourceflow.languages[key] || fallback;
@@ -186,6 +187,17 @@ export class FileTreeNavigation {
         });
         this.container.addEventListener("click", (event) => {
             const target = event.target as HTMLElement;
+            const toggleTarget = target.closest('[data-action="toggle-nav-group"]') as HTMLElement;
+            if (toggleTarget) {
+                const group = toggleTarget.closest(".file-tree__nav-group") as HTMLElement;
+                if (group) {
+                    group.classList.toggle("file-tree__nav-group--collapsed");
+                    this.saveCollapsedState();
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
             const pathButton = target.closest('[data-type="currentPath"]') as HTMLElement;
             if (pathButton) {
                 this.focusCurrentTreeItem();
@@ -283,6 +295,7 @@ export class FileTreeNavigation {
             return;
         }
         this.shortcutElement.innerHTML = updatedHTML + viewedHTML;
+        this.restoreCollapsedState();
     }
 
     private renderShortcutGroup(title: string, source: string, docs: IRecentDocItem[]) {
@@ -292,7 +305,7 @@ export class FileTreeNavigation {
         if (uniqueDocs.length === 0) {
             return "";
         }
-        let html = `<div class="file-tree__nav-group"><div class="file-tree__nav-group-title">${escapeHtml(title)}</div><ul class="b3-list b3-list--background">`;
+        let html = `<div class="file-tree__nav-group" data-nav-group="${escapeAttr(source)}"><div class="file-tree__nav-group-title" data-action="toggle-nav-group"><svg><use xlink:href="#iconRight"></use></svg>${escapeHtml(title)}</div><ul class="b3-list b3-list--background">`;
         uniqueDocs.forEach((item) => {
             html += `<li class="b3-list-item" data-type="file-tree-nav-item" data-source="${escapeAttr(source)}" data-node-id="${escapeAttr(item.rootID)}">
     ${renderIcon(item.icon, window.sourceflow.storage[Constants.LOCAL_IMAGES].file)}
@@ -300,6 +313,40 @@ export class FileTreeNavigation {
 </li>`;
         });
         return html + "</ul></div>";
+    }
+
+    private saveCollapsedState() {
+        const collapsed: string[] = [];
+        this.shortcutElement.querySelectorAll(".file-tree__nav-group").forEach((group) => {
+            if (group.classList.contains("file-tree__nav-group--collapsed")) {
+                const key = group.getAttribute("data-nav-group") || "";
+                if (key) {
+                    collapsed.push(key);
+                }
+            }
+        });
+        try {
+            localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed));
+        } catch { /* ignore */ }
+    }
+
+    private restoreCollapsedState() {
+        let collapsed: string[] = [];
+        try {
+            const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+            if (raw) {
+                collapsed = JSON.parse(raw);
+            }
+        } catch { /* ignore */ }
+        if (!collapsed.length) {
+            return;
+        }
+        this.shortcutElement.querySelectorAll(".file-tree__nav-group").forEach((group) => {
+            const key = group.getAttribute("data-nav-group") || "";
+            if (collapsed.includes(key)) {
+                group.classList.add("file-tree__nav-group--collapsed");
+            }
+        });
     }
 
     private renderCurrentPath(pathText: string) {

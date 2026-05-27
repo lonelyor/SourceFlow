@@ -36,6 +36,8 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
         {skillId: "note-polish", label: assistantText("润色", "Polish")},
         {skillId: "note-outline", label: assistantText("提纲", "Outline")},
         {skillId: "note-qa", label: assistantText("问答", "Q&A")},
+        {skillId: "note-translate-mixed", label: assistantText("全文翻译", "Full Translate")},
+        {skillId: "note-batch-instruct", label: assistantText("批量指令", "Batch")},
         {skillId: "ask-ai", label: assistantText("问 AI", "Ask AI")},
     ].map((item) => `<button class="assistant-context-actions__button" type="button" data-skill-id="${escapeAttr(item.skillId)}">${escapeHTML(item.label)}</button>`).join("");
     const selectionButtons = hasSelection ? [
@@ -45,6 +47,7 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
         {skillId: "selection-qa", label: assistantText("生成问答", "Generate Q&A")},
         {skillId: "selection-rewrite", label: assistantText("改写表达", "Rewrite")},
         {skillId: "selection-translate", label: assistantText("翻译选中", "Translate")},
+        {skillId: "selection-to-chart", label: assistantText("生成图表", "Chart")},
     ].map((item) => `<button class="assistant-context-actions__button" type="button"${item.skillId ? ` data-skill-id="${escapeAttr(item.skillId)}"` : ""}${item.action ? ` data-action="${escapeAttr(item.action)}"` : ""}>${escapeHTML(item.label)}</button>`).join("") : "";
     const optimizeButton = options.includeOptimizeTypography
         ? `<button class="assistant-context-actions__button" type="button" data-action="optimize">${escapeHTML(window.sourceflow.languages.optimizeTypography)}</button>`

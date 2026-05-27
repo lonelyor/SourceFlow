@@ -77,6 +77,47 @@ body[data-zen-mode="true"] {
   }
 }
 
+.sourceflow-zen-exit {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  z-index: 10001;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--b3-theme-primary);
+  border-radius: var(--b3-border-radius);
+  background: var(--b3-theme-primary);
+  color: var(--b3-theme-on-primary);
+  box-shadow: 0 8px 22px rgb(15 23 42 / 14%);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  transition: var(--b3-transition);
+  animation: zen-exit-pulse 2s ease-in-out 3;
+
+  &:hover {
+    opacity: .88;
+    background: var(--b3-theme-primary);
+    color: var(--b3-theme-on-primary);
+    box-shadow: 0 4px 12px rgb(15 23 42 / 22%);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@keyframes zen-exit-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
 #sourceflowMascot {
   --sourceflow-mascot-size: 132px;
   --sourceflow-mascot-opacity: 1;
