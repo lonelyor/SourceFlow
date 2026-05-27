@@ -1,0 +1,106 @@
+.protyle-wysiwyg[data-note-style] {
+    transition: background-color 0.3s ease, color 0.3s ease;
+
+    background-color: var(--editor-note-bg);
+    color: var(--editor-note-text);
+    border-radius: var(--editor-note-radius);
+    font-family: var(--editor-note-font);
+    line-height: var(--editor-note-line-height);
+
+    [data-node-id] {
+        &.hr > div::after {
+            background-color: var(--editor-note-border-color);
+        }
+
+        &[data-type="NodeHeading"] {
+            color: var(--editor-note-heading-color);
+        }
+    }
+
+    .bq,
+    .callout-content {
+        border-color: var(--editor-note-border-color);
+    }
+
+    .code-block {
+        border-color: var(--editor-note-border-color);
+    }
+
+    [data-type="NodeBlockQueryEmbed"] {
+        border-color: var(--editor-note-border-color);
+    }
+
+    table {
+        border-color: var(--editor-note-border-color);
+
+        th, td {
+            border-color: var(--editor-note-border-color);
+        }
+    }
+
+    span[data-type~="a"] {
+        color: var(--editor-note-accent);
+    }
+
+    span[data-type~="block-ref"] {
+        color: var(--editor-note-accent);
+    }
+
+    .protyle-attr--refcount {
+        background-color: var(--editor-note-bg);
+    }
+}
+
+.protyle-wysiwyg[data-note-style="xiaohongshu"] {
+    [data-node-id] {
+        &.p,
+        &[data-type="NodeParagraph"] {
+            margin-bottom: 0.75em;
+        }
+    }
+}
+
+.protyle-wysiwyg[data-note-style="academic"] {
+    padding: 24px 32px;
+
+    [data-node-id] {
+        &.h1::before,
+        &.h2::before,
+        &.h3::before {
+            color: var(--editor-note-accent);
+            font-weight: 700;
+        }
+    }
+}
+
+.protyle-wysiwyg[data-note-style="dark-premium"] {
+    .img--select {
+        filter: brightness(1.1) drop-shadow(0 0 4px rgba(212, 168, 67, 0.3));
+    }
+
+    .protyle-attr--refcount {
+        background-color: var(--editor-note-bg);
+        color: var(--editor-note-text);
+    }
+
+    ::selection {
+        background-color: rgba(212, 168, 67, 0.3);
+        color: #fff;
+    }
+}
+
+.protyle-wysiwyg[data-note-style="japanese-journal"] {
+    [data-node-id] {
+        &.hr > div::after {
+            background-image: repeating-linear-gradient(
+                90deg,
+                var(--editor-note-border-color) 0px,
+                var(--editor-note-border-color) 4px,
+                transparent 4px,
+                transparent 8px
+            );
+            background-color: transparent;
+            height: 2px;
+        }
+    }
+}

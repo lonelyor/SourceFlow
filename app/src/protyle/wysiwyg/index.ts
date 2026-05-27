@@ -107,6 +107,7 @@ import {updateCalloutType} from "./callout";
 import {nbsp2space, removeZWJ} from "../util/normalizeText";
 import {getAVViewAttr, getFullWidthAttr} from "../../util/attrCompat";
 import {applyEditorStructureGuideClasses} from "../util/structureGuide";
+import {isNoteStyleId, applyNoteStyle} from "../../editor/noteStylePresets";
 
 import {bindCommonEvent as bindCommonEventImpl} from "./commonEvents";
 import {bindEvent as bindEditorEventImpl} from "./editorEvents";
@@ -168,6 +169,14 @@ export class WYSIWYG {
                 this.element.setAttribute(key, ial[key]);
             }
         });
+        const noteStyleValue = ial["custom-note-style"] || this.element.getAttribute("data-note-style");
+        if (noteStyleValue && isNoteStyleId(noteStyleValue)) {
+            this.element.setAttribute("data-note-style", noteStyleValue);
+            const protyleEl = this.element.closest(".protyle") as HTMLElement | null;
+            if (protyleEl) {
+                applyNoteStyle(protyleEl, noteStyleValue);
+            }
+        }
     }
 
     // text block-ref file-annotation-ref a 结尾处打字应为普通文本

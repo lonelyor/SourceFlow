@@ -161,6 +161,40 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
             `Convert the selected text into Mind Elixir mind map JSON. Return only one JSON object with no Markdown and no explanation. Shape:\n{"topic":"Root","children":[{"topic":"Child","children":[...]}]}\nRequirements: 1. one root node 2. concise topic phrases 3. no id/style or extra fields.\n\n${selectionSourceText(context.selectedText)}`
         ),
     },
+    "selection-to-chart": {
+        id: "selection-to-chart",
+        placement: "selection",
+        label: assistantText("生成图表", "Generate Chart"),
+        shortLabel: assistantText("图表", "Chart"),
+        description: assistantText("把选中内容转换成最合适的图表。", "Convert the selection into the most suitable chart."),
+        output: "markdown",
+        action: "insert-below",
+        resultMode: "auto-apply",
+        requiresNote: true,
+        requiresSelection: true,
+        buildMessage: (context) => {
+            const text = context.selectedText || "";
+            return assistantText(
+                `将以下内容转换成最合适的图表。如果数据适合柱状图/折线图/饼图，输出 ECharts option JSON（只输出 JSON，不要 markdown 代码块）；如果内容是流程/关系，输出 Mermaid 图表（用 \`\`\`mermaid 代码块）。直接输出结果，不要解释。\n\n${text}`,
+                `Convert the following content into the most suitable chart. If the data fits a bar/line/pie chart, output an ECharts option JSON (JSON only, no markdown code block); if the content is a flowchart/relationship, output a Mermaid diagram (use a \`\`\`mermaid code block). Output the result directly with no explanation.\n\n${text}`
+            );
+        },
+    },
+    "note-batch-instruct": {
+        id: "note-batch-instruct",
+        placement: "note",
+        label: assistantText("批量指令", "Batch"),
+        shortLabel: assistantText("批量指令", "Batch"),
+        description: assistantText("分析当前笔记并生成可批量执行的任务计划。", "Analyze the current note and generate a batch execution plan."),
+        output: "markdown",
+        action: "chat",
+        requiresNote: true,
+        allowTools: true,
+        buildMessage: () => assistantText(
+            "请分析当前笔记内容，并生成一个可以批量执行的任务计划。用户指令：整理当前笔记",
+            "Analyze the current note content and generate a batch execution plan. User instruction: Organize current note"
+        ),
+    },
     "note-create": {
         id: "note-create",
         placement: "note",
@@ -378,6 +412,65 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
             return assistantText(
                 `请将以下笔记完整翻译为${targetLanguage}，保持 Markdown 格式。直接输出译文，不要解释。\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``,
                 `Translate the note below entirely into ${targetLanguage}. Preserve Markdown formatting. Return only the translated text with no explanation.\n\n\`\`\`markdown\n${context.selectedText || context.note?.markdown || ""}\n\`\`\``
+            );
+        },
+    },
+    "note-auto-tag": {
+        id: "note-auto-tag",
+        placement: "note",
+        label: assistantText("智能标签", "Smart Tags"),
+        shortLabel: assistantText("智能标签", "Smart Tags"),
+        description: assistantText("自动为笔记推荐 3-5 个标签。", "Auto-suggest 3-5 tags for the current note."),
+        output: "markdown",
+        action: "insert-below",
+        resultMode: "auto-apply",
+        requiresNote: true,
+        allowTools: true,
+        buildMessage: (context) => {
+            const title = context.note?.title || "";
+            const md = context.note?.markdown || "";
+            const preview = md.length > 3000 ? md.substring(0, 3000) + "\n..." : md;
+            return assistantText(
+                `请阅读以下笔记内容，推荐 3-5 个标签。标签应简洁（2-6 字），能概括笔记主题、领域和用途。\n\n标题：${title}\n\n内容：\n${preview}\n\n请以 Markdown 无序列表输出标签，格式：\n- 标签1\n- 标签2\n- 标签3\n\n直接输出，不要解释。`,
+                `Read the note below and suggest 3-5 tags. Tags should be concise (1-3 words), capturing the topic, domain, and purpose.\n\nTitle: ${title}\n\nContent:\n${preview}\n\nOutput tags as a Markdown bullet list:\n- Tag1\n- Tag2\n- Tag3\n\nReturn only the list with no explanation.`
+            );
+        },
+    },
+    "note-highlight-keypoints": {
+        id: "note-highlight-keypoints",
+        placement: "note",
+        label: assistantText("重点高亮", "Key Highlights"),
+        shortLabel: assistantText("重点高亮", "Key Highlights"),
+        description: assistantText("区分重点、难点和易混淆内容并标注。", "Highlight key points, difficulties, and easily confused items."),
+        output: "markdown",
+        action: "insert-below",
+        resultMode: "auto-apply",
+        requiresNote: true,
+        buildMessage: (context) => {
+            const md = context.note?.markdown || "";
+            const preview = md.length > 4000 ? md.substring(0, 4000) + "\n..." : md;
+            return assistantText(
+                `请阅读以下学习内容，区分重点、难点和易混淆内容，用不同标记标注后输出。\n\n标记规则：\n- 🟢 重点：核心概念、必须掌握的知识\n- 🟠 难点：理解困难、需要反复练习的内容\n- 🔴 易混淆：容易记错、容易搞混的知识点\n\n内容：\n${preview}\n\n请按分类输出，每项一行，格式：\n🟢 重点：...\n🟠 难点：...\n🔴 易混淆：...\n\n直接输出，不要解释。`,
+                `Read the study material below and classify content into key points, difficulties, and easily confused items using distinct markers.\n\nMarkers:\n- 🟢 Key Point: core concepts, must-know knowledge\n- 🟠 Difficulty: hard to understand, needs repeated practice\n- 🔴 Confusable: easy to misremember or mix up\n\nContent:\n${preview}\n\nOutput by category, one item per line:\n🟢 Key Point: ...\n🟠 Difficulty: ...\n🔴 Confusable: ...\n\nReturn only the result with no explanation.`
+            );
+        },
+    },
+    "selection-desensitize": {
+        id: "selection-desensitize",
+        placement: "selection",
+        label: assistantText("隐私脱敏", "Desensitize"),
+        shortLabel: assistantText("隐私脱敏", "Desensitize"),
+        description: assistantText("识别并替换选中文本中的敏感信息。", "Detect and replace sensitive information in the selected text."),
+        output: "plain-text",
+        action: "replace-selection",
+        resultMode: "auto-apply",
+        requiresNote: true,
+        requiresSelection: true,
+        buildMessage: (context) => {
+            const text = context.selectedText || "";
+            return assistantText(
+                `请识别以下文本中的敏感信息（手机号、身份证号、邮箱、银行卡号、IP地址、公司内部项目名、真实人名等），并将其替换为脱敏标记（如 138****1234、z***@example.com、张* 等）。保持原文结构和语义不变。\n\n${text}\n\n直接输出脱敏后的文本，不要解释。`,
+                `Detect sensitive information in the text below (phone numbers, ID numbers, emails, bank card numbers, IP addresses, internal project names, real names, etc.) and replace them with desensitized markers (e.g. 138****1234, z***@example.com, J**). Preserve the original structure and meaning.\n\n${text}\n\nReturn only the desensitized text with no explanation.`
             );
         },
     },

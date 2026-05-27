@@ -342,12 +342,17 @@ export class Files extends Model {
                         const pathString = target.parentElement.getAttribute("data-path");
                         if (!window.sourceflow.config.readonly) {
                             if (type === "new") {
-                                newFile({
-                                    app: options.app,
-                                    notebookId,
-                                    currentPath: pathString,
-                                    useSavePath: false,
-                                    listDocTree: true,
+                                void import("../../config/templatePicker").then(({openTemplatePicker}) => {
+                                    void openTemplatePicker().then((markdown) => {
+                                        newFile({
+                                            app: options.app,
+                                            notebookId,
+                                            currentPath: pathString,
+                                            useSavePath: false,
+                                            listDocTree: true,
+                                            markdown,
+                                        });
+                                    });
                                 });
                             } else if (type === "more-root") {
                                 initNavigationMenu(options.app, target.parentElement).popup({

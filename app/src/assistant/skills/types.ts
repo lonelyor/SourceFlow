@@ -11,6 +11,8 @@ export type TAssistantSkillId =
     | "selection-table"
     | "selection-mermaid"
     | "selection-mind-elixir"
+    | "selection-to-chart"
+    | "selection-desensitize"
     | "note-create"
     | "note-continue-writing"
     | "note-summarize"
@@ -26,6 +28,9 @@ export type TAssistantSkillId =
     | "note-create-project"
     | "note-translate-mixed"
     | "note-translate-replace"
+    | "note-batch-instruct"
+    | "note-auto-tag"
+    | "note-highlight-keypoints"
     | "ask-ai";
 
 export type TAssistantSkillPlacement = "selection" | "note";

@@ -73,6 +73,7 @@ export abstract class Constants {
     public static readonly CUSTOM_SF_AV_VIEW: string = "custom-sf-av-view";
     public static readonly CUSTOM_SF_TITLE_EMPTY: string = "custom-sf-title-empty";
     public static readonly CUSTOM_SF_AV_STATIC_TEXT_PREFIX: string = "custom-sf-av-s-text-";
+    public static readonly CUSTOM_NOTE_STYLE: string = "custom-note-style";
 
     // size
     public static readonly SIZE_DATABASE_MAZ_SIZE: number = 102400;
