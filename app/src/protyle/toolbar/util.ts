@@ -226,16 +226,22 @@ export const resolveLinkDest = (text: string, lute: Lute): string => {
  * Shared between Ctrl+K link handler and paste URL auto-convert.
  * @param stripScheme When true, removes https:// and http:// prefixes (used by Ctrl+K).
  */
-export const genLinkText = (href: string, stripScheme: boolean = true, decodeURI: boolean = false): string => {
+export const genLinkText = (href: string, stripScheme: boolean = true, _decodeURI: boolean = false): string => {
     try {
         let text = stripScheme
             ? href.replace("https://", "").replace("http://", "")
             : href;
-        if (decodeURI) {
-            text = decodeURIComponent(text);
-        }
         if (text.length > Constants.SIZE_LINK_TEXT_MAX) {
-            text = text.substring(0, Constants.SIZE_LINK_TEXT_MAX) + "...";
+            const truncated = text.substring(0, Constants.SIZE_LINK_TEXT_MAX);
+            if (truncated.endsWith("%") || /[^\x00-\x7F]$/.test(truncated)) {
+                text = truncated.substring(0, truncated.length - 1) + "...";
+            } else if (/%[0-9A-Fa-f]$/.test(truncated)) {
+                text = truncated.substring(0, truncated.length - 2) + "...";
+            } else if (/%[0-9A-Fa-f][0-9A-Fa-f]/.test(truncated.substring(truncated.length - 3))) {
+                text = truncated + "...";
+            } else {
+                text = truncated + "...";
+            }
         }
         return text;
     } catch {

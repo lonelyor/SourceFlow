@@ -55,7 +55,8 @@ type Appearance struct {
 	FileTreeDensity     string             `json:"fileTreeDensity"`     // 文档树行距密度：compact/default/loose
 	FileTreeDocCount    bool               `json:"fileTreeDocCount"`    // 是否显示文档树子文档数量
 	FileTreeTotalCount  *bool              `json:"fileTreeTotalCount"`  // 是否显示文档树全部笔记总数
-	AccentColor         string             `json:"accentColor"`         // 自定义强调色（十六进制，如 #e74c3c），空则使用主题默认
+	AccentColor             string          `json:"accentColor"`             // 自定义强调色
+	FileTreeHighlightColor  string          `json:"fileTreeHighlightColor"`  // 文档树当前文档高亮色
 	StatusBar           *util.StatusBar    `json:"statusBar"`           // 底部状态栏配置
 }
 

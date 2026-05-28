@@ -257,6 +257,10 @@ const runPluginSandboxRuntimeTest = () => {
     return runNodeScript("testPluginSandboxRuntime.js");
 };
 
+const runKeymapConsistencyTest = () => {
+    return runNodeScript("testKeymapConsistency.js");
+};
+
 const runExportBuilderTest = () => {
     return runNodeScript("testExportBuilders.js");
 };
@@ -466,6 +470,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] export builders");
 exitCode = runExportBuilderTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] keymap consistency");
+exitCode = runKeymapConsistencyTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

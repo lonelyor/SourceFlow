@@ -301,6 +301,10 @@ declare namespace Config {
          */
         fileTreeTotalCount: boolean;
         /**
+         * Custom highlight color for active doc in file tree (hex). Empty means theme default.
+         */
+        fileTreeHighlightColor: string;
+        /**
          * Custom accent color (hex, e.g. #e74c3c). Empty means theme default.
          */
         accentColor: string;

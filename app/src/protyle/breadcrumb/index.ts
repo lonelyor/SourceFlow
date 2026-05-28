@@ -3,6 +3,7 @@ import {fetchPost} from "../../util/fetch";
 import {Constants} from "../../constants";
 import {MenuItem} from "../../menus/Menu";
 import {fullscreen, net2LocalAssets, updateReadonly} from "./action";
+import {exitZenMode, isZenModeActive} from "../../editor/zenMode";
 import {openFileAttr} from "../../menus/commonMenuItem";
 import {setEditMode} from "../util/setEditMode";
 import {RecordMedia} from "../util/RecordMedia";
@@ -263,6 +264,18 @@ ${padHTML}
                     }
                     event.preventDefault();
                     event.stopPropagation();
+                    break;
+                } else if (type === "exit-zen") {
+                    if (isZenModeActive()) {
+                        exitZenMode();
+                    } else {
+                        const fullscreenElement = protyle.element;
+                        if (fullscreenElement?.classList.contains("fullscreen")) {
+                            fullscreen(fullscreenElement);
+                        }
+                    }
+                    event.stopPropagation();
+                    event.preventDefault();
                     break;
                 }
                 target = target.parentElement;

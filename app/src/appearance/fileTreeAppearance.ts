@@ -30,7 +30,26 @@ export const getFileTreeAppearanceTexts = () => ({
     totalCountTip: window.sourceflow.languages.fileTreeTotalCountTip || "",
     density: window.sourceflow.languages.fileTreeDensity || "Row density",
     densityTip: window.sourceflow.languages.fileTreeDensityTip || "",
+    highlightColor: window.sourceflow.languages.fileTreeHighlightColor || "Active doc highlight",
+    highlightColorTip: window.sourceflow.languages.fileTreeHighlightColorTip || "",
 });
+
+export const applyFileTreeHighlightColor = (hex: string) => {
+    let styleEl = document.getElementById("sourceflowFileTreeHighlight") as HTMLStyleElement | null;
+    if (!hex) {
+        if (styleEl) {
+            styleEl.remove();
+        }
+        return;
+    }
+    const css = `:root { --sf-file-tree-active-bg: ${hex}20; --sf-file-tree-active-border: ${hex}; }`;
+    if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "sourceflowFileTreeHighlight";
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = css;
+};
 
 export const applyFileTreeAppearanceToPanel = (
     panelElement: HTMLElement,
@@ -53,4 +72,5 @@ export const applyFileTreeAppearance = (
     document.querySelectorAll<HTMLElement>(".sf__file").forEach((panelElement) => {
         applyFileTreeAppearanceToPanel(panelElement, appearanceData);
     });
+    applyFileTreeHighlightColor(appearanceData.fileTreeHighlightColor || "");
 };

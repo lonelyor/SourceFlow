@@ -1,5 +1,3 @@
-import {hideZenModeExitButton, showZenModeExitButton} from "./zenModeExitButton";
-
 type IZenModeState = {
     active: boolean,
     wasFullscreen: boolean,
@@ -12,14 +10,53 @@ const normalizeZenModeState = (value?: Partial<IZenModeState> | null): IZenModeS
     };
 };
 
+const getZenExitLabel = () => {
+    const languages = window.sourceflow?.languages || {};
+    if (languages.zModeExit) {
+        return languages.zModeExit;
+    }
+    const lang = `${window.sourceflow?.config?.lang || navigator.language || ""}`.toLowerCase();
+    return lang.startsWith("zh") ? "退出 Z 模式" : "Exit Z Mode";
+};
+
+const injectZenBreadcrumbBar = () => {
+    document.querySelectorAll(".protyle.fullscreen .protyle-breadcrumb").forEach((breadcrumb) => {
+        if (breadcrumb.querySelector(".protyle-breadcrumb__zen-bar")) {
+            return;
+        }
+        const bar = document.createElement("div");
+        bar.className = "protyle-breadcrumb__zen-bar";
+
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "protyle-breadcrumb__zen-title";
+        const docBtn = breadcrumb.querySelector('[data-type="doc"]');
+        titleSpan.textContent = docBtn?.textContent || "";
+        bar.appendChild(titleSpan);
+
+        const exitBtn = document.createElement("button");
+        exitBtn.type = "button";
+        exitBtn.className = "protyle-breadcrumb__zen-exit";
+        exitBtn.setAttribute("data-type", "exit-zen");
+        exitBtn.setAttribute("aria-label", getZenExitLabel());
+        exitBtn.innerHTML = '<svg><use xlink:href="#iconClose"></use></svg><span>' + getZenExitLabel() + '</span>';
+        bar.appendChild(exitBtn);
+
+        breadcrumb.prepend(bar);
+    });
+};
+
+const removeZenBreadcrumbBar = () => {
+    document.querySelectorAll(".protyle-breadcrumb__zen-bar").forEach((el) => el.remove());
+};
+
 const setBodyZenMode = (active: boolean) => {
     if (active) {
         document.body.setAttribute("data-zen-mode", "true");
-        showZenModeExitButton(() => exitZenMode());
+        injectZenBreadcrumbBar();
         return;
     }
     document.body.removeAttribute("data-zen-mode");
-    hideZenModeExitButton();
+    removeZenBreadcrumbBar();
 };
 
 export const getZenModeState = () => normalizeZenModeState(window.sourceflow.zenMode);
