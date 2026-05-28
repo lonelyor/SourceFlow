@@ -689,12 +689,15 @@ export const refreshActivityBar = () => {
         const fixedActions = getFixedActionButtons();
         const storage = getActivityBarStorage();
         const {rail, more} = arrangeActivityItems(items, storage);
-        const railMarkup = rail.map((item) => renderSafely(item.sortKey, () => {
+        const renderRailItem = (item: TActivityItem) => renderSafely(item.sortKey, () => {
             if (isDockItem(item)) {
                 return renderDockButton(item, "rail");
             }
             return renderActionButton(item.action, "", item.sortKey, "rail");
-        })).join("");
+        });
+        const outlineIdx = rail.findIndex((item) => isDockItem(item) && item.type === "outline");
+        const railBeforeOutline = outlineIdx >= 0 ? rail.slice(0, outlineIdx + 1).map(renderRailItem).join("") : rail.map(renderRailItem).join("");
+        const railAfterOutline = outlineIdx >= 0 ? rail.slice(outlineIdx + 1).map(renderRailItem).join("") : "";
         const moreMarkup = more.map((item) => renderSafely(item.sortKey, () => {
             if (isDockItem(item)) {
                 return renderPanelDockButton(item);
@@ -703,7 +706,7 @@ export const refreshActivityBar = () => {
         })).join("");
         const fixedMarkup = fixedActions.map((item) => renderSafely(item.sortKey, () => renderActionButton(item.action))).join("");
         const moreButtonMarkup = renderSafely("action:more", () => renderActionButton("more"));
-        if (!railMarkup.trim() && !fixedMarkup.trim() && !moreButtonMarkup.trim()) {
+        if (!railBeforeOutline.trim() && !fixedMarkup.trim() && !moreButtonMarkup.trim()) {
             activityBarElement.innerHTML = "";
             morePanelVisible = false;
             setUnifiedActivityBarEnabled(false);
@@ -713,12 +716,13 @@ export const refreshActivityBar = () => {
         activityBarElement.innerHTML = `
 <div class="activity-bar__rail">
     <div class="activity-bar__section activity-bar__section--rail" data-sort-group="rail">
-        ${railMarkup}
+        ${railBeforeOutline}
+        ${moreButtonMarkup}
+        ${railAfterOutline}
     </div>
     <div class="activity-bar__section activity-bar__section--fixed">
         <div class="activity-bar__divider"></div>
         ${fixedMarkup}
-        ${moreButtonMarkup}
     </div>
 </div>
 <div class="activity-bar__more-panel" aria-hidden="${morePanelVisible ? "false" : "true"}">
