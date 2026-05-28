@@ -70,11 +70,15 @@ const positionSelectionBar = (bar: HTMLElement, range: Range) => {
     const rect = range.getBoundingClientRect();
     const barRect = bar.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     let left = rect.left + rect.width / 2 - barRect.width / 2;
     left = Math.max(8, Math.min(left, viewportWidth - barRect.width - 8));
-    let top = rect.top - barRect.height - 8;
+    let top = rect.bottom + 8;
+    if (top + barRect.height > viewportHeight - 8) {
+        top = rect.top - barRect.height - 8;
+    }
     if (top < 8) {
-        top = rect.bottom + 8;
+        top = 8;
     }
     bar.style.left = `${left}px`;
     bar.style.top = `${top}px`;

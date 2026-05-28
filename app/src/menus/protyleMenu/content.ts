@@ -351,29 +351,6 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
             }
         }).element);
     }
-    const hasSelection = range && range.toString().trim().length > 0;
-    if (!captionElement && !protyle.disabled && hasSelection) {
-        window.sourceflow.menus.menu.append(new MenuItem({
-            id: "formatInline",
-            icon: "iconFont",
-            label: hiddenInlineText("行内格式", "Inline Format"),
-            type: "submenu",
-            submenu: [
-                {id: "fmt-strong", icon: "iconBold", label: hiddenInlineText("粗体", "Bold"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.strong.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "strong", "toolbar"); }},
-                {id: "fmt-em", icon: "iconItalic", label: hiddenInlineText("斜体", "Italic"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.italic.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "em", "toolbar"); }},
-                {id: "fmt-u", icon: "iconUnderline", label: hiddenInlineText("下划线", "Underline"), click: () => { protyle.toolbar.setInlineMark(protyle, "u", "toolbar"); }},
-                {id: "fmt-s", icon: "iconStrike", label: hiddenInlineText("删除线", "Strikethrough"), click: () => { protyle.toolbar.setInlineMark(protyle, "s", "toolbar"); }},
-                {type: "separator"},
-                {id: "fmt-code", icon: "iconInlineCode", label: hiddenInlineText("行内代码", "Inline Code"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.code.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "code", "toolbar"); }},
-                {id: "fmt-kbd", icon: "iconKeymap", label: hiddenInlineText("键盘按键", "Keyboard"), click: () => { protyle.toolbar.setInlineMark(protyle, "kbd", "toolbar"); }},
-                {id: "fmt-mark", icon: "iconMark", label: hiddenInlineText("高亮", "Highlight"), click: () => { protyle.toolbar.setInlineMark(protyle, "mark", "toolbar"); }},
-                {id: "fmt-sup", icon: "iconSup", label: hiddenInlineText("上标", "Superscript"), click: () => { protyle.toolbar.setInlineMark(protyle, "sup", "toolbar"); }},
-                {id: "fmt-sub", icon: "iconSub", label: hiddenInlineText("下标", "Subscript"), click: () => { protyle.toolbar.setInlineMark(protyle, "sub", "toolbar"); }},
-                {type: "separator"},
-                {id: "fmt-clear", icon: "iconClear", label: hiddenInlineText("清除格式", "Clear Format"), click: () => { protyle.toolbar.setInlineMark(protyle, "clear", "toolbar"); }},
-            ],
-        }).element);
-    }
     if (!captionElement && !protyle.disabled) {
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "insertBlock",
@@ -403,6 +380,29 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
                 {id: "ins-memo", icon: "iconM", label: hiddenInlineText("备注", "Memo"), click: () => { protyle.toolbar.setInlineMark(protyle, "inline-memo", "toolbar"); }},
                 {id: "ins-ref", icon: "iconRef", label: hiddenInlineText("块引用", "Block Ref"), click: () => { protyle.toolbar.setInlineMark(protyle, "block-ref", "toolbar"); }},
                 {id: "ins-imath", icon: "iconMath", label: hiddenInlineText("行内公式", "Inline Math"), click: () => { protyle.toolbar.setInlineMark(protyle, "inline-math", "toolbar"); }},
+            ],
+        }).element);
+    }
+    const hasSelection = range && range.toString().trim().length > 0;
+    if (!captionElement && !protyle.disabled && hasSelection) {
+        window.sourceflow.menus.menu.append(new MenuItem({
+            id: "formatInline",
+            icon: "iconFont",
+            label: hiddenInlineText("行内格式", "Inline Format"),
+            type: "submenu",
+            submenu: [
+                {id: "fmt-strong", icon: "iconBold", label: hiddenInlineText("粗体", "Bold"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.bold.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "strong", "toolbar"); }},
+                {id: "fmt-em", icon: "iconItalic", label: hiddenInlineText("斜体", "Italic"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.italic.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "em", "toolbar"); }},
+                {id: "fmt-u", icon: "iconUnderline", label: hiddenInlineText("下划线", "Underline"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.underline.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "u", "toolbar"); }},
+                {id: "fmt-s", icon: "iconStrike", label: hiddenInlineText("删除线", "Strikethrough"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.strike.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "s", "toolbar"); }},
+                {type: "separator"},
+                {id: "fmt-code", icon: "iconInlineCode", label: hiddenInlineText("行内代码", "Inline Code"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert["inline-code"].custom), click: () => { protyle.toolbar.setInlineMark(protyle, "code", "toolbar"); }},
+                {id: "fmt-kbd", icon: "iconKeymap", label: hiddenInlineText("键盘按键", "Keyboard"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.kbd.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "kbd", "toolbar"); }},
+                {id: "fmt-mark", icon: "iconMark", label: hiddenInlineText("高亮", "Highlight"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.mark.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "mark", "toolbar"); }},
+                {id: "fmt-sup", icon: "iconSup", label: hiddenInlineText("上标", "Superscript"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.sup.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "sup", "toolbar"); }},
+                {id: "fmt-sub", icon: "iconSub", label: hiddenInlineText("下标", "Subscript"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.sub.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "sub", "toolbar"); }},
+                {type: "separator"},
+                {id: "fmt-clear", icon: "iconClear", label: hiddenInlineText("清除格式", "Clear Format"), accelerator: updateHotkeyTip(window.sourceflow.config.keymap.editor.insert.clearInline.custom), click: () => { protyle.toolbar.setInlineMark(protyle, "clear", "toolbar"); }},
             ],
         }).element);
     }

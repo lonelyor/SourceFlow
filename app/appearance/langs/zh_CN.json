@@ -1444,6 +1444,8 @@
   "fileTreeDensityCompact": "紧凑",
   "fileTreeDensityDefault": "默认",
   "fileTreeDensityLoose": "宽松",
+  "fileTreeHighlightColor": "当前文档高亮",
+  "fileTreeHighlightColorTip": "自定义文档树中当前打开文档的高亮颜色，留空使用主题默认色。",
   "fileTreeDropIntoDoc": "移入此文档下",
   "fileTreeDropToRoot": "移动到根目录",
   "fileTreeWillExpand": "将展开",

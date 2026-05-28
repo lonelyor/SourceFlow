@@ -133,7 +133,7 @@ style="margin:4px 0;width: ${isMobile() ? "100%" : "360px"}" class="b3-text-fiel
                 let anchor = linkElement.textContent.replace(Constants.ZWSP, "");
                 if (!anchor && linkAddress) {
                     anchor = genLinkText(linkAddress, true, true);
-                    linkElement.innerHTML = Lute.EscapeHTMLStr(anchor);
+                    linkElement.textContent = anchor;
                 }
                 inputElements[1].value = anchor;
                 inputElements[1].addEventListener("compositionend", () => {

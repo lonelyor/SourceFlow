@@ -90,6 +90,7 @@ import {
 } from "../appearance/codeBlockSkin";
 import {
     applyFileTreeAppearance,
+    applyFileTreeHighlightColor,
     getFileTreeAppearanceTexts,
     getFileTreeDensityOptions,
     normalizeFileTreeDensity
@@ -351,6 +352,16 @@ export const appearance = {
             <select class="b3-select fn__flex-center fn__size200" id="fileTreeDensity">${fileTreeDensityOptionsHTML}</select>
         </div>
         <div class="b3-label__text">${fileTreeAppearanceTexts.densityTip}</div>
+        <div class="fn__hr"></div>
+        <div class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.highlightColor}</div>
+            <span class="fn__space"></span>
+            <div class="fn__flex fn__flex-center fn__size200" style="gap:8px;">
+                <input class="b3-text-field" id="fileTreeHighlightColor" type="color" style="width:36px;height:28px;padding:2px;cursor:pointer;" value="${escapeAttr(window.sourceflow.config.appearance.fileTreeHighlightColor || "#3575f0")}">
+                <button class="b3-button b3-button--text" id="fileTreeHighlightColorReset" style="white-space:nowrap;">${assistantText("重置", "Reset")}</button>
+            </div>
+        </div>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.highlightColorTip}</div>
     </div>
 </div>
 <div class="b3-label">
@@ -778,6 +789,7 @@ export const appearance = {
         const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
         const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
         const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+        const fileTreeHighlightColorEl = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
         fetchPost("/api/setting/setAppearance", Object.assign({}, window.sourceflow.config.appearance, {
             icon: (appearance.element.querySelector("#icon") as HTMLSelectElement).value,
             mode: modeElementValue === 2 ? (OSTheme === "light" ? 0 : 1) : modeElementValue,
@@ -807,6 +819,7 @@ export const appearance = {
             fileTreeDocCount: fileTreeDocCountElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeDocCount,
             fileTreeTotalCount: fileTreeTotalCountElement?.checked ?? (window.sourceflow.config.appearance.fileTreeTotalCount !== false),
             fileTreeDensity: normalizeFileTreeDensity(fileTreeDensityElement?.value || window.sourceflow.config.appearance.fileTreeDensity),
+            fileTreeHighlightColor: fileTreeHighlightColorEl?.value || window.sourceflow.config.appearance.fileTreeHighlightColor || "",
             accentColor: window.sourceflow.config.appearance.accentColor || "",
             statusBar: {
                 msgTaskDatabaseIndexCommitDisabled: window.sourceflow.config.appearance.statusBar.msgTaskDatabaseIndexCommitDisabled,
@@ -835,6 +848,21 @@ export const appearance = {
                 picker.value = "#3575f0";
             }
             applyAccentColor("");
+        });
+        appearance.element.querySelector("#fileTreeHighlightColor")?.addEventListener("input", () => {
+            const val = (appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement)?.value || "";
+            window.sourceflow.config.appearance.fileTreeHighlightColor = val;
+            applyFileTreeHighlightColor(val);
+            appearance._send();
+        });
+        appearance.element.querySelector("#fileTreeHighlightColorReset")?.addEventListener("click", () => {
+            const picker = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
+            if (picker) {
+                picker.value = "#3575f0";
+            }
+            window.sourceflow.config.appearance.fileTreeHighlightColor = "";
+            applyFileTreeHighlightColor("");
+            appearance._send();
         });
         appearance.element.querySelector("#resetLayout").addEventListener("click", () => {
             confirmDialog("⚠️ " + window.sourceflow.languages.reset, window.sourceflow.languages.appearance6, () => {
@@ -1308,7 +1336,8 @@ export const appearance = {
             const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
             const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
             const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
-            const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+        const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+        const fileTreeHighlightColorElement = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
             if (fileTreeGuidesElement) {
                 fileTreeGuidesElement.checked = !!data.fileTreeGuides;
             }
@@ -1320,6 +1349,9 @@ export const appearance = {
             }
             if (fileTreeDensityElement) {
                 fileTreeDensityElement.value = normalizeFileTreeDensity(data.fileTreeDensity);
+            }
+            if (fileTreeHighlightColorElement) {
+                fileTreeHighlightColorElement.value = data.fileTreeHighlightColor || "#3575f0";
             }
             const startupPageOpacityInput = appearance.element.querySelector("#startupPageOpacity") as HTMLInputElement;
             const startupPageBlurInput = appearance.element.querySelector("#startupPageBlur") as HTMLInputElement;

@@ -55,6 +55,7 @@ export const keymap = {
     <input data-key="plugin${Constants.ZWSP}${item.name}${Constants.ZWSP}${command.langKey}" data-value="${command.customHotkey}" data-default="${command.hotkey}" class="b3-text-field fn__none" value="${keyValue}" spellcheck="false">
 </label>`;
             });
+            const pluginKeymap = window.sourceflow.config.keymap.plugin?.[item.name];
             item.updateProtyleToolbar([]).forEach(toolbarItem => {
                 if (typeof toolbarItem === "string" || Constants.INLINE_TYPE.concat("|").includes(toolbarItem.name)) {
                     return;
@@ -62,7 +63,10 @@ export const keymap = {
                 if (typeof toolbarItem.hotkey !== "string") {
                     toolbarItem.hotkey = "";
                 }
-                const dockKeymap = window.sourceflow.config.keymap.plugin[item.name][toolbarItem.name];
+                const dockKeymap = pluginKeymap?.[toolbarItem.name];
+                if (!dockKeymap) {
+                    return;
+                }
                 const keyValue = updateHotkeyTip(dockKeymap.custom);
                 commandHTML += `<label class="b3-list-item b3-list-item--narrow b3-list-item--hide-action">
     <span class="b3-list-item__text">${toolbarItem.tip || window.sourceflow.languages[toolbarItem.lang]}</span>
@@ -78,7 +82,10 @@ export const keymap = {
             });
             Object.keys(item.docks).forEach(key => {
                 const dockConfig = item.docks[key].config;
-                const dockKeymap = window.sourceflow.config.keymap.plugin[item.name][key];
+                const dockKeymap = pluginKeymap?.[key];
+                if (!dockKeymap) {
+                    return;
+                }
                 const keyValue = updateHotkeyTip(dockKeymap.custom);
                 commandHTML += `<label class="b3-list-item b3-list-item--narrow b3-list-item--hide-action">
     <span class="b3-list-item__text">${dockConfig.title}</span>
