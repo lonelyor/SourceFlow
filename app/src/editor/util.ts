@@ -588,6 +588,7 @@ export const updatePanelByEditor = (options: {
                 countBlockWord([], options.protyle.block.rootID);
             }
         }
+        highlightActiveDocInFileTree(options.protyle);
         if (window.sourceflow.config.fileTree.alwaysSelectOpenedFile && options.protyle) {
             const fileModel = getDockByType("file")?.data.file;
             if (fileModel instanceof Files) {
@@ -755,4 +756,21 @@ export const openBy = (url: string, type: "folder" | "app") => {
         useShell("showItemInFolder", address);
     }
     /// #endif
+};
+
+const highlightActiveDocInFileTree = (protyle: IProtyle) => {
+    if (!protyle?.path) {
+        return;
+    }
+    const fileModel = getDockByType("file")?.data.file;
+    if (!(fileModel instanceof Files)) {
+        return;
+    }
+    fileModel.element.querySelectorAll("li.file-tree__item--current").forEach((liItem) => {
+        liItem.classList.remove("file-tree__item--current");
+    });
+    const target = fileModel.element.querySelector(`li[data-path="${protyle.path}"]`);
+    if (target) {
+        target.classList.add("file-tree__item--current");
+    }
 };

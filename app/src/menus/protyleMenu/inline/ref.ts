@@ -145,7 +145,7 @@ export const refMenu = (protyle: IProtyle, element: HTMLElement) => {
         id: "refTab",
         label: window.sourceflow.languages.refTab,
         icon: "iconEyeoff",
-        accelerator: window.sourceflow.config.keymap.editor.general.refTab.custom + "/" + updateHotkeyTip("?" + window.sourceflow.languages.click),
+        accelerator: window.sourceflow.config.keymap.editor.general.refTab.custom + "/" + updateHotkeyTip("⌘" + window.sourceflow.languages.click),
         click() {
             checkFold(refBlockId, (zoomIn) => {
                 openFileById({
@@ -162,7 +162,7 @@ export const refMenu = (protyle: IProtyle, element: HTMLElement) => {
         id: "insertRight",
         label: window.sourceflow.languages.insertRight,
         icon: "iconLayoutRight",
-        accelerator: window.sourceflow.config.keymap.editor.general.insertRight.custom + "/" + updateHotkeyTip("?" + window.sourceflow.languages.click),
+        accelerator: window.sourceflow.config.keymap.editor.general.insertRight.custom + "/" + updateHotkeyTip("⌘" + window.sourceflow.languages.click),
         click() {
             checkFold(refBlockId, (zoomIn, action, isRoot) => {
                 if (!isRoot) {
@@ -182,7 +182,7 @@ export const refMenu = (protyle: IProtyle, element: HTMLElement) => {
         id: "insertBottom",
         label: window.sourceflow.languages.insertBottom,
         icon: "iconLayoutBottom",
-        accelerator: window.sourceflow.config.keymap.editor.general.insertBottom.custom + (window.sourceflow.config.keymap.editor.general.insertBottom.custom ? "/" : "") + updateHotkeyTip("?" + window.sourceflow.languages.click),
+        accelerator: window.sourceflow.config.keymap.editor.general.insertBottom.custom + (window.sourceflow.config.keymap.editor.general.insertBottom.custom ? "/" : "") + updateHotkeyTip("⌘" + window.sourceflow.languages.click),
         click() {
             checkFold(refBlockId, (zoomIn, action, isRoot) => {
                 if (!isRoot) {

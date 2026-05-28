@@ -157,7 +157,7 @@ export const imgMenu = (protyle: IProtyle, range: Range, assetElement: HTMLEleme
     window.sourceflow.menus.menu.append(new MenuItem({
         id: "copy",
         label: window.sourceflow.languages.copy,
-        accelerator: "?C",
+        accelerator: "⌘C",
         icon: "iconCopy",
         click() {
             let content = protyle.lute.BlockDOM2StdMd(assetElement.outerHTML);
@@ -180,7 +180,7 @@ export const imgMenu = (protyle: IProtyle, range: Range, assetElement: HTMLEleme
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "cut",
             icon: "iconCut",
-            accelerator: "?X",
+            accelerator: "⌘X",
             label: window.sourceflow.languages.cut,
             click() {
                 let content = protyle.lute.BlockDOM2StdMd(assetElement.outerHTML);
@@ -196,7 +196,7 @@ export const imgMenu = (protyle: IProtyle, range: Range, assetElement: HTMLEleme
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "delete",
             icon: "iconTrashcan",
-            accelerator: "?",
+            accelerator: "⌫",
             label: window.sourceflow.languages.delete,
             click: function () {
                 (assetElement as HTMLElement).outerHTML = "<wbr>";
