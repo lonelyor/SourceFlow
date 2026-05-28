@@ -12,7 +12,45 @@ import {disabledProtyle, enableProtyle} from "../util/onGet";
 import {isWindow} from "../../util/functions";
 import {Wnd} from "../../layout/Wnd";
 import {resizeTopBar} from "../../layout/util";
-import {hideZenModeExitButton, showZenModeExitButton} from "../../editor/zenModeExitButton";
+
+const getZenExitLabel = () => {
+    const languages = window.sourceflow?.languages || {};
+    if (languages.zModeExit) {
+        return languages.zModeExit;
+    }
+    const lang = `${window.sourceflow?.config?.lang || navigator.language || ""}`.toLowerCase();
+    return lang.startsWith("zh") ? "退出全屏" : "Exit Fullscreen";
+};
+
+const injectBreadcrumbZenBar = () => {
+    document.querySelectorAll(".protyle.fullscreen .protyle-breadcrumb").forEach((breadcrumb) => {
+        if (breadcrumb.querySelector(".protyle-breadcrumb__zen-bar")) {
+            return;
+        }
+        const bar = document.createElement("div");
+        bar.className = "protyle-breadcrumb__zen-bar";
+
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "protyle-breadcrumb__zen-title";
+        const docBtn = breadcrumb.querySelector('[data-type="doc"]');
+        titleSpan.textContent = docBtn?.textContent || "";
+        bar.appendChild(titleSpan);
+
+        const exitBtn = document.createElement("button");
+        exitBtn.type = "button";
+        exitBtn.className = "protyle-breadcrumb__zen-exit";
+        exitBtn.setAttribute("data-type", "exit-zen");
+        exitBtn.setAttribute("aria-label", getZenExitLabel());
+        exitBtn.innerHTML = '<svg><use xlink:href="#iconClose"></use></svg><span>' + getZenExitLabel() + '</span>';
+        bar.appendChild(exitBtn);
+
+        breadcrumb.prepend(bar);
+    });
+};
+
+const removeBreadcrumbZenBar = () => {
+    document.querySelectorAll(".protyle-breadcrumb__zen-bar").forEach((el) => el.remove());
+};
 
 const syncZenModeAliasButton = () => {
     const hasEditorFullscreen = !!document.querySelector(".protyle.fullscreen");
@@ -25,20 +63,9 @@ const syncZenModeAliasButton = () => {
     /// #if !MOBILE
     if (document.body.getAttribute("data-zen-mode") !== "true") {
         if (hasEditorFullscreen) {
-            showZenModeExitButton(() => {
-                const fullscreenElement = document.querySelector(".protyle.fullscreen") as HTMLElement | null;
-                if (!fullscreenElement) {
-                    hideZenModeExitButton();
-                    return;
-                }
-                fullscreen(fullscreenElement);
-                const editorModel = getAllModels().editor.find((item: { editor: { protyle: { element: Element } } }) => item.editor.protyle.element === fullscreenElement);
-                if (editorModel) {
-                    resize(editorModel.editor.protyle);
-                }
-            });
+            injectBreadcrumbZenBar();
         } else {
-            hideZenModeExitButton();
+            removeBreadcrumbZenBar();
         }
     }
     /// #endif
