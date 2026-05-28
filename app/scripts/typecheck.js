@@ -265,6 +265,10 @@ const runExportBuilderTest = () => {
     return runNodeScript("testExportBuilders.js");
 };
 
+const runFileTreeActiveDocTest = () => {
+    return runNodeScript("testFileTreeActiveDoc.js");
+};
+
 const runTypecheck = (targetName) => {
     const tempDir = fs.mkdtempSync(path.join(appRoot, `.typecheck-${targetName}-`));
     const tempSrcDir = path.join(tempDir, "src");
@@ -476,6 +480,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] keymap consistency");
 exitCode = runKeymapConsistencyTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] file tree active doc tracking");
+exitCode = runFileTreeActiveDocTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

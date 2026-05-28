@@ -342,17 +342,12 @@ export class Files extends Model {
                         const pathString = target.parentElement.getAttribute("data-path");
                         if (!window.sourceflow.config.readonly) {
                             if (type === "new") {
-                                void import("../../config/templatePicker").then(({openTemplatePicker}) => {
-                                    void openTemplatePicker().then((markdown) => {
-                                        newFile({
-                                            app: options.app,
-                                            notebookId,
-                                            currentPath: pathString,
-                                            useSavePath: false,
-                                            listDocTree: true,
-                                            markdown,
-                                        });
-                                    });
+                                newFile({
+                                    app: options.app,
+                                    notebookId,
+                                    currentPath: pathString,
+                                    useSavePath: false,
+                                    listDocTree: true,
                                 });
                             } else if (type === "more-root") {
                                 initNavigationMenu(options.app, target.parentElement).popup({
@@ -485,6 +480,46 @@ export class Files extends Model {
                 return;
             }
             const target = event.target as HTMLElement;
+            const actionTarget = target.closest('[data-type="new"].b3-list-item__action') as HTMLElement;
+            if (actionTarget && !actionTarget.classList.contains("fn__none")) {
+                event.preventDefault();
+                event.stopPropagation();
+                const pathString = actionTarget.parentElement.getAttribute("data-path");
+                const ulElement = hasTopClosestByTag(actionTarget, "UL");
+                if (!ulElement) {
+                    return;
+                }
+                const notebookId = ulElement.getAttribute("data-url");
+                const lang = window.sourceflow.config.lang;
+                window.sourceflow.menus.menu.remove();
+                void import("../../config/templatePicker").then(({fillTemplateSubMenu}) => {
+                    const menuItem = new MenuItem({
+                        id: "newFromTemplate",
+                        icon: "iconImage",
+                        label: lang === "zh_CN" ? "从模板新建" : "New from Template",
+                        type: "submenu",
+                        submenu: [{
+                            id: "template-placeholder",
+                            iconHTML: "",
+                            label: lang === "zh_CN" ? "加载中..." : "Loading...",
+                            type: "readonly",
+                        }],
+                    });
+                    window.sourceflow.menus.menu.append(menuItem.element);
+                    fillTemplateSubMenu((markdown) => {
+                        newFile({
+                            app: this.app,
+                            notebookId,
+                            currentPath: pathString,
+                            useSavePath: false,
+                            listDocTree: true,
+                            markdown,
+                        });
+                    });
+                    window.sourceflow.menus.menu.popup({x: event.clientX, y: event.clientY});
+                });
+                return;
+            }
             const liElement = hasClosestByTag(target, "LI");
             if (liElement && this.element.contains(liElement)) {
                 return;

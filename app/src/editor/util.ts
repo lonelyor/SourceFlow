@@ -588,13 +588,17 @@ export const updatePanelByEditor = (options: {
                 countBlockWord([], options.protyle.block.rootID);
             }
         }
-        highlightActiveDocInFileTree(options.protyle);
-        if (window.sourceflow.config.fileTree.alwaysSelectOpenedFile && options.protyle) {
+        if (options.protyle) {
             const fileModel = getDockByType("file")?.data.file;
             if (fileModel instanceof Files) {
                 const target = fileModel.element.querySelector(`li[data-path="${options.protyle.path}"]`);
                 if (!target || (target && !target.classList.contains("b3-list-item--focus"))) {
                     fileModel.selectItem(options.protyle.notebookId, options.protyle.path);
+                } else if (!target.classList.contains("file-tree__item--current")) {
+                    fileModel.element.querySelectorAll("li.file-tree__item--current").forEach((liItem) => {
+                        liItem.classList.remove("file-tree__item--current");
+                    });
+                    target.classList.add("file-tree__item--current");
                 }
             }
         }
@@ -756,21 +760,4 @@ export const openBy = (url: string, type: "folder" | "app") => {
         useShell("showItemInFolder", address);
     }
     /// #endif
-};
-
-const highlightActiveDocInFileTree = (protyle: IProtyle) => {
-    if (!protyle?.path) {
-        return;
-    }
-    const fileModel = getDockByType("file")?.data.file;
-    if (!(fileModel instanceof Files)) {
-        return;
-    }
-    fileModel.element.querySelectorAll("li.file-tree__item--current").forEach((liItem) => {
-        liItem.classList.remove("file-tree__item--current");
-    });
-    const target = fileModel.element.querySelector(`li[data-path="${protyle.path}"]`);
-    if (target) {
-        target.classList.add("file-tree__item--current");
-    }
 };
