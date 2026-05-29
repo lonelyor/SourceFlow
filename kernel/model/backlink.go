@@ -677,10 +677,10 @@ func buildLinkRefs(defRootID string, refs []*sql.Ref, keywords []string) (ret []
 			}
 		}
 		var headingChildren []*Block
-		for _, headingID := range headingIDs {
-			sqlChildren := sql.GetChildBlocks(headingID, "", -1)
+		if 0 < len(headingIDs) {
+			sqlChildren := sql.GetChildBlocksBatch(headingIDs)
 			children := fromSQLBlocks(&sqlChildren, "", 12)
-			headingChildren = append(headingChildren, children...)
+			headingChildren = children
 		}
 		for _, child := range headingChildren {
 			if nil == child {

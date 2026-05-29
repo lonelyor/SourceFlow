@@ -30,10 +30,12 @@ export const initWindowEvent = (app: App) => {
             window.sourceflow.layout.rightDock.hideDock();
             window.sourceflow.layout.bottomDock.hideDock();
         }
-        document.querySelectorAll(".protyle-gutters").forEach(item => {
-            item.classList.add("fn__none");
-            item.innerHTML = "";
-        });
+        if (!window.sourceflow.config.editor.alwaysShowGutter) {
+            document.querySelectorAll(".protyle-gutters").forEach(item => {
+                item.classList.add("fn__none");
+                item.innerHTML = "";
+            });
+        }
         hideTooltip();
     });
     let mouseIsEnter = false;

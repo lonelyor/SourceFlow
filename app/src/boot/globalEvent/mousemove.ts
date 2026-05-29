@@ -212,10 +212,12 @@ export const windowMouseMove = (event: MouseEvent, mouseIsEnter: boolean) => {
     }
 
     if (!hasClosestByClassName(target, "protyle", true)) {
-        document.querySelectorAll(".protyle-gutters").forEach(item => {
-            item.classList.add("fn__none");
-            item.innerHTML = "";
-        });
+        if (!window.sourceflow.config.editor.alwaysShowGutter) {
+            document.querySelectorAll(".protyle-gutters").forEach(item => {
+                item.classList.add("fn__none");
+                item.innerHTML = "";
+            });
+        }
     }
 
     const blockElement = hasClosestByClassName(target, "table");

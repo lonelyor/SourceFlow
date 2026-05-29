@@ -1,7 +1,7 @@
 const BATCH_SIZE = 16;
 const FRAME_BUDGET_MS = 12;
 
-type RenderTask = () => void;
+export type RenderTask = () => void;
 
 interface ScheduledJob {
     tasks: RenderTask[];

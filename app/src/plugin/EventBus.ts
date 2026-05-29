@@ -1,26 +1,65 @@
 import {MenuItem, subMenu} from "../menus/Menu";
 
-export class EventBus<DetailType = any> {
-    private eventTarget: EventTarget;
+type Listener<DetailType> = (detail: DetailType) => boolean | void;
 
-    constructor(name = "") {
-        this.eventTarget = document.appendChild(document.createComment(name));
+export class EventBus<DetailType = any> {
+    private listeners: Map<TEventBus, Set<Listener<DetailType>>> = new Map();
+
+    constructor(_name = "") {
     }
 
     on(type: TEventBus, listener: (event: CustomEvent<DetailType>) => void) {
-        this.eventTarget.addEventListener(type, listener);
+        const wrappedListener = (detail: DetailType) => {
+            listener(new CustomEvent(type, {detail}));
+        };
+        if (!this.listeners.has(type)) {
+            this.listeners.set(type, new Set());
+        }
+        this.listeners.get(type).add(wrappedListener as Listener<DetailType>);
     }
 
     once(type: TEventBus, listener: (event: CustomEvent<DetailType>) => void) {
-        this.eventTarget.addEventListener(type, listener, {once: true});
+        const wrappedListener = (detail: DetailType) => {
+            listener(new CustomEvent(type, {detail}));
+        };
+        const onceWrapper: Listener<DetailType> = ((detail: DetailType) => {
+            wrappedListener(detail);
+            this.listeners.get(type)?.delete(onceWrapper);
+        }) as Listener<DetailType>;
+        if (!this.listeners.has(type)) {
+            this.listeners.set(type, new Set());
+        }
+        this.listeners.get(type).add(onceWrapper);
     }
 
     off(type: TEventBus, listener: (event: CustomEvent<DetailType>) => void) {
-        this.eventTarget.removeEventListener(type, listener);
+        const set = this.listeners.get(type);
+        if (set) {
+            set.forEach((wrappedListener) => {
+                if (wrappedListener.toString().includes(listener.toString())) {
+                    set.delete(wrappedListener);
+                }
+            });
+        }
     }
 
     emit(type: TEventBus, detail?: DetailType) {
-        return this.eventTarget.dispatchEvent(new CustomEvent(type, {detail, cancelable: true}));
+        const set = this.listeners.get(type);
+        if (!set) {
+            return true;
+        }
+        for (const listener of set) {
+            const result = listener(detail);
+            if (result === false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    hasListeners(type: TEventBus): boolean {
+        const set = this.listeners.get(type);
+        return !!set && set.size > 0;
     }
 }
 

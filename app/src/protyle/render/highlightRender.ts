@@ -111,9 +111,19 @@ export const highlightRender = (element: Element, cdn = Constants.PROTYLE_CDN, z
                 }
             };
 
-            for (const block of pending) {
-                highlightOne(block);
-            }
+            let highlightIdx = 0;
+            const highlightBatch = () => {
+                const frameStart = performance.now();
+                while (highlightIdx < pending.length) {
+                    highlightOne(pending[highlightIdx]);
+                    highlightIdx++;
+                    if (performance.now() - frameStart > 10) {
+                        requestAnimationFrame(highlightBatch);
+                        return;
+                    }
+                }
+            };
+            highlightBatch();
         });
     });
 };

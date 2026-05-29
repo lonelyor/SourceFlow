@@ -698,18 +698,29 @@ func getBlockInfo(c *gin.Context) {
 	}
 
 	var rootChildID string
-	b := block
-	for i := 0; i < 128; i++ {
-		parentID := b.ParentID
-		if "" == parentID {
-			rootChildID = b.ID
-			break
-		}
-		if b, _ = model.GetBlock(parentID, tree); nil == b {
-			logging.LogErrorf("not found parent")
-			break
-		}
-	}
+ treeNode := treenode.GetNodeInTree(tree, id)
+ if nil != treeNode {
+  for n := treeNode; nil != n; n = n.Parent {
+   if nil != n.Parent && nil == n.Parent.Parent {
+    rootChildID = n.ID
+    break
+   }
+  }
+ }
+ if "" == rootChildID {
+  b := block
+  for i := 0; i < 128; i++ {
+   parentID := b.ParentID
+   if "" == parentID {
+    rootChildID = b.ID
+    break
+   }
+   if b, _ = model.GetBlock(parentID, tree); nil == b {
+    logging.LogErrorf("not found parent")
+    break
+   }
+  }
+ }
 
 	root, err := model.GetBlock(block.RootID, tree)
 	if errors.Is(err, model.ErrIndexing) {

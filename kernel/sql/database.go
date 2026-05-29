@@ -214,6 +214,22 @@ func initDBTables() {
 	if err != nil {
 		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create table [refs] failed: %s", err)
 	}
+	_, err = db.Exec("CREATE INDEX idx_refs_def_block_id ON refs(def_block_id)")
+	if err != nil {
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_refs_def_block_id] failed: %s", err)
+	}
+	_, err = db.Exec("CREATE INDEX idx_refs_def_block_root_id ON refs(def_block_root_id)")
+	if err != nil {
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_refs_def_block_root_id] failed: %s", err)
+	}
+	_, err = db.Exec("CREATE INDEX idx_refs_block_id ON refs(block_id)")
+	if err != nil {
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_refs_block_id] failed: %s", err)
+	}
+	_, err = db.Exec("CREATE INDEX idx_refs_root_id ON refs(root_id)")
+	if err != nil {
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_refs_root_id] failed: %s", err)
+	}
 
 	_, err = db.Exec("DROP TABLE IF EXISTS file_annotation_refs")
 	if err != nil {

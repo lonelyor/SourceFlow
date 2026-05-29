@@ -41,7 +41,11 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/render"
 	"github.com/panjf2000/ants/v2"
+	gcache "github.com/patrickmn/go-cache"
+	"time"
 )
+
+var hpathCache = gcache.New(5*time.Minute, 1*time.Minute)
 
 func LoadTrees(ids []string) (ret map[string]*parse.Tree) {
 	ret = map[string]*parse.Tree{}
@@ -115,8 +119,19 @@ func batchLoadTrees(boxIDs, paths []string, luteEngine *lute.Lute) (ret []*parse
 
 func LoadTree(boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err error) {
 	rootID := util.GetTreeID(p)
+
+	if cached := cache.GetParsedTree(rootID); nil != cached {
+		ret = cached
+		ret.Path = p
+		ret.Root.Path = p
+		return
+	}
+
 	if raw, ok := cache.GetTreeData(rootID); ok {
 		ret, err = LoadTreeByData(raw, boxID, p, luteEngine)
+		if nil == err {
+			cache.SetParsedTree(rootID, ret)
+		}
 		return
 	}
 
@@ -135,6 +150,7 @@ func LoadTree(boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err erro
 	ret, err = LoadTreeByData(data, boxID, p, luteEngine)
 	if nil == err {
 		cache.SetTreeData(rootID, data)
+		cache.SetParsedTree(rootID, ret)
 	}
 	return
 }
@@ -149,50 +165,54 @@ func LoadTreeByData(data []byte, boxID, p string, luteEngine *lute.Lute) (ret *p
 	ret.Root.Path = p
 
 	parts := strings.Split(p, "/")
-	parts = parts[1 : len(parts)-1] // 去掉开头的斜杆和结尾的自己
+	parts = parts[1 : len(parts)-1]
 	if 1 > len(parts) {
 		ret.HPath = "/" + ret.Root.IALAttr("title")
 		ret.Hash = treenode.NodeHash(ret.Root, ret, luteEngine)
 		return
 	}
 
-	// 构造 HPath
-	hPathBuilder := bytes.Buffer{}
-	hPathBuilder.WriteString("/")
-	for i := range parts {
-		var parentAbsPath string
-		if 0 < i {
-			parentAbsPath = strings.Join(parts[:i+1], "/")
-		} else {
-			parentAbsPath = parts[0]
-		}
-		parentAbsPath += ".sf"
-		parentPath := parentAbsPath
-		parentAbsPath = filepath.Join(util.DataDir, boxID, parentAbsPath)
-
-		parentDocIAL := DocIAL(parentAbsPath)
-		if 1 > len(parentDocIAL) {
-			// 子文档缺失父文档时自动补全 https://github.com/lonelyor/SourceFlow/issues/7376
-			parentTree := treenode.NewTree(boxID, parentPath, hPathBuilder.String()+"Untitled", "Untitled")
-			if _, writeErr := WriteTree(parentTree); nil != writeErr {
-				logging.LogErrorf("rebuild parent tree [%s] failed: %s", parentAbsPath, writeErr)
-			} else {
-				logging.LogInfof("rebuilt parent tree [%s]", parentAbsPath)
-				treenode.UpsertBlockTree(parentTree)
-			}
-			hPathBuilder.WriteString("Untitled/")
-			continue
-		}
-
-		title := parentDocIAL["title"]
-		if "" == title {
-			title = "Untitled"
-		}
-		hPathBuilder.WriteString(util.UnescapeHTML(title))
+	cacheKey := boxID + p
+	if cached, found := hpathCache.Get(cacheKey); found {
+		ret.HPath = cached.(string)
+	} else {
+		hPathBuilder := bytes.Buffer{}
 		hPathBuilder.WriteString("/")
+		for i := range parts {
+			var parentAbsPath string
+			if 0 < i {
+				parentAbsPath = strings.Join(parts[:i+1], "/")
+			} else {
+				parentAbsPath = parts[0]
+			}
+			parentAbsPath += ".sf"
+			parentPath := parentAbsPath
+			parentAbsPath = filepath.Join(util.DataDir, boxID, parentAbsPath)
+
+			parentDocIAL := DocIAL(parentAbsPath)
+			if 1 > len(parentDocIAL) {
+				parentTree := treenode.NewTree(boxID, parentPath, hPathBuilder.String()+"Untitled", "Untitled")
+				if _, writeErr := WriteTree(parentTree); nil != writeErr {
+					logging.LogErrorf("rebuild parent tree [%s] failed: %s", parentAbsPath, writeErr)
+				} else {
+					logging.LogInfof("rebuilt parent tree [%s]", parentAbsPath)
+					treenode.UpsertBlockTree(parentTree)
+				}
+				hPathBuilder.WriteString("Untitled/")
+				continue
+			}
+
+			title := parentDocIAL["title"]
+			if "" == title {
+				title = "Untitled"
+			}
+			hPathBuilder.WriteString(util.UnescapeHTML(title))
+			hPathBuilder.WriteString("/")
+		}
+		hPathBuilder.WriteString(ret.Root.IALAttr("title"))
+		ret.HPath = hPathBuilder.String()
+		hpathCache.Set(cacheKey, ret.HPath, gcache.DefaultExpiration)
 	}
-	hPathBuilder.WriteString(ret.Root.IALAttr("title"))
-	ret.HPath = hPathBuilder.String()
 	ret.Hash = treenode.NodeHash(ret.Root, ret, luteEngine)
 	return
 }

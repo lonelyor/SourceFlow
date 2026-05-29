@@ -27,4 +27,7 @@ func TestNewEditorStructureGuideDefaults(t *testing.T) {
 	if !editor.DisplayHeadingLevel {
 		t.Fatal("displayHeadingLevel should default to true")
 	}
+	if editor.AlwaysShowGutter {
+		t.Fatal("alwaysShowGutter should default to false")
+	}
 }
