@@ -1,6 +1,6 @@
 {
   "name": "SourceFlow",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "SourceFlow is a local-first personal knowledge workspace.",
   "homepage": "https://github.com/lonelyor/SourceFlow",
   "main": "./electron/main.js",

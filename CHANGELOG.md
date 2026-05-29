@@ -2,13 +2,24 @@
 
 All notable changes to SourceFlow will be documented in this file.
 
-## [Unreleased]
+## [0.1.6] - 2026-05-29
 
 ### Editor
 
 - **Block numbers moved to left margin** — block numbers no longer appear as inline badges mixed with content. They now display in the left margin area (similar to VSCode line numbers), right-aligned and unobtrusive. Combined block-number + heading-level labels (e.g. "42 H1") are also displayed in the margin.
 - **Always show block type icon** — new setting **Settings → Editor → Always show block type icon**. When enabled, the block type gutter icon persists in the left margin after hovering instead of disappearing on scroll or mouse leave. When disabled (default), the icon only appears on hover as before.
-- Added `testEditorStructureGuide` — automated checks for config field, type declaration, settings UI, i18n, search index, SCSS positioning, `hideElements` logic, and global event handling.
+
+### Platform
+
+- Kernel block query and tree cache optimization
+- AV table runtime and highlight render improvements
+- Template picker, navigation menu, EventBus refactor
+- File tree dock and protyle menu enhancements
+- Render scheduler and paste utility updates
+
+### Test & Quality
+
+- Added `testEditorStructureGuide` — 15 automated checks covering config, types, UI, i18n, SCSS, hideElements logic, and global events.
 
 ## [0.1.5] - 2026-05-28
 
