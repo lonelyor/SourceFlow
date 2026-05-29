@@ -230,6 +230,28 @@ func removeTemplate(c *gin.Context) {
 	}
 }
 
+func saveTemplate(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	name := arg["name"].(string)
+	content := arg["content"].(string)
+	path, err := model.SaveTemplate(name, content)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"path": path,
+	}
+}
+
 func searchTemplate(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

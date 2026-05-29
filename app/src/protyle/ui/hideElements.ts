@@ -1,8 +1,6 @@
 import {getAllEditor} from "../../layout/getAll";
 import {isIPhone} from "../util/compatibility";
 
-const isGutterAlwaysShow = () => window.sourceflow.config.editor.alwaysShowGutter;
-
 // "gutter", "toolbar", "select", "hint", "util", "dialog", "gutterOnly"
 export const hideElements = (panels: string[], protyle?: IProtyle, focusHide = false) => {
     if (!protyle) {
@@ -19,24 +17,18 @@ export const hideElements = (panels: string[], protyle?: IProtyle, focusHide = f
         protyle.hint.element.classList.add("fn__none");
     }
     if (protyle.gutter && panels.includes("gutter")) {
-        if (isGutterAlwaysShow()) {
-            protyle.gutter.element.innerHTML = "";
-        } else {
-            protyle.gutter.element.classList.add("fn__none");
-            protyle.gutter.element.innerHTML = "";
-        }
+        protyle.gutter.element.classList.add("fn__none");
+        protyle.gutter.element.innerHTML = "";
         protyle.wysiwyg.element.querySelectorAll(".protyle-wysiwyg--hl").forEach((item) => {
             item.classList.remove("protyle-wysiwyg--hl");
         });
     }
     //  不能 remove("protyle-wysiwyg--hl") 否则打开页签的时候 "cb-get-hl" 高亮会被移除
     if (protyle.gutter && panels.includes("gutterOnly")) {
-        if (!isGutterAlwaysShow()) {
-            if (!isIPhone()) {
-                protyle.gutter.element.classList.add("fn__none");
-            }
-            protyle.gutter.element.innerHTML = "";
+        if (!isIPhone()) {
+            protyle.gutter.element.classList.add("fn__none");
         }
+        protyle.gutter.element.innerHTML = "";
     }
     if (protyle.toolbar && panels.includes("toolbar")) {
         protyle.toolbar.element.classList.add("fn__none");
@@ -89,11 +81,9 @@ export const hideAllElements = (types: string[]) => {
         });
     }
     if (types.includes("gutter")) {
-        if (!isGutterAlwaysShow()) {
-            document.querySelectorAll(".protyle-gutters").forEach(item => {
-                item.classList.add("fn__none");
-                item.innerHTML = "";
-            });
-        }
+        document.querySelectorAll(".protyle-gutters").forEach(item => {
+            item.classList.add("fn__none");
+            item.innerHTML = "";
+        });
     }
 };

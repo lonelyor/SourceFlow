@@ -111,16 +111,27 @@ const openEditor = (parentElement: HTMLElement, templates: ITemplateItem[], edit
         if (!inputName) {
             return;
         }
-        if (editIndex !== undefined && templates[editIndex]) {
-            templates[editIndex] = {path: inputName, content: inputContent};
-        } else {
-            templates.push({path: inputName, content: inputContent});
+        const isEdit = editIndex !== undefined && templates[editIndex];
+        if (isEdit) {
+            const oldItem = templates[editIndex];
+            if (oldItem.path) {
+                fetchPost("/api/search/removeTemplate", {path: oldItem.path});
+            }
         }
-        closeEditor();
-        renderTemplateGrid(
-            parentElement.querySelector(".template-library__grid") as HTMLElement,
-            templates
-        );
+        fetchPost("/api/search/saveTemplate", {name: inputName, content: inputContent}, (response) => {
+            const savedPath = response.data?.path || inputName;
+            const savedItem: ITemplateItem = {path: savedPath, content: inputContent};
+            if (isEdit) {
+                templates[editIndex] = savedItem;
+            } else {
+                templates.push(savedItem);
+            }
+            closeEditor();
+            renderTemplateGrid(
+                parentElement.querySelector(".template-library__grid") as HTMLElement,
+                templates
+            );
+        });
     });
 };
 
@@ -183,7 +194,7 @@ export const templateLibrary = {
                     if (!item) {
                         return;
                     }
-                    fetchPost("/api/template/remove", {path: item.path}, () => {
+                    fetchPost("/api/search/removeTemplate", {path: item.path}, () => {
                         templates.splice(index, 1);
                         renderTemplateGrid(customGrid, templates);
                     });

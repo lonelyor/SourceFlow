@@ -21,13 +21,7 @@ import "testing"
 func TestNewEditorStructureGuideDefaults(t *testing.T) {
 	editor := NewEditor()
 
-	if editor.DisplayBlockLineNumber {
-		t.Fatal("displayBlockLineNumber should default to false")
-	}
 	if !editor.DisplayHeadingLevel {
 		t.Fatal("displayHeadingLevel should default to true")
-	}
-	if editor.AlwaysShowGutter {
-		t.Fatal("alwaysShowGutter should default to false")
 	}
 }

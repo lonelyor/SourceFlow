@@ -1,3 +1,10 @@
+.protyle-content {
+  > .protyle-wysiwyg--block-lines,
+  > .protyle-wysiwyg--heading-levels {
+    overflow-x: visible;
+  }
+}
+
 .protyle-wysiwyg {
   &--block-lines {
     counter-reset: sf-block-line;
@@ -6,6 +13,7 @@
   &--block-lines > [data-node-id],
   &--heading-levels [data-type="NodeHeading"] {
     overflow: visible;
+    contain: style;
   }
 
   &--block-lines > [data-node-id] > [spellcheck],

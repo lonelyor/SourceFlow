@@ -29,7 +29,6 @@ import (
 
 	"github.com/lonelyor/sourceflow/kernel/av"
 	"github.com/lonelyor/sourceflow/kernel/filesys"
-	"github.com/lonelyor/sourceflow/kernel/search"
 	"github.com/lonelyor/sourceflow/kernel/sql"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
@@ -76,6 +75,25 @@ func RemoveTemplate(p string) (err error) {
 	return
 }
 
+func SaveTemplate(name, content string) (path string, err error) {
+	templates := filepath.Join(util.DataDir, "templates")
+	if !util.IsPathRegularDirOrSymlinkDir(templates) {
+		if mkErr := os.MkdirAll(templates, 0755); mkErr != nil {
+			err = mkErr
+			return
+		}
+	}
+
+	name = util.FilterFileName(name) + ".md"
+	name = util.TruncateLenFileName(name)
+	path = filepath.Join(templates, name)
+	err = filelock.WriteFile(path, []byte(content))
+	if err != nil {
+		logging.LogErrorf("save template failed: %s", err)
+	}
+	return
+}
+
 func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 	ret = []*TemplateSearchResult{}
 
@@ -90,7 +108,7 @@ func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 		return
 	}
 
-	sort.Slice(ret, func(i, j int) bool {
+	sort.Slice(groups, func(i, j int) bool {
 		return util.PinYinCompare(filepath.Base(groups[i].Name()), filepath.Base(groups[j].Name()))
 	})
 
@@ -121,13 +139,13 @@ func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 					return nil
 				}
 
-				content := strings.TrimPrefix(path, templates)
-				content = strings.TrimSuffix(content, ".md")
-				p := filepath.Join(group.Name(), content)
+				relPath := strings.TrimPrefix(path, templates+string(os.PathSeparator))
+				relPath = strings.TrimSuffix(relPath, ".md")
+				relPath = filepath.ToSlash(relPath)
 				score := 0.0
 				hit := true
 				for _, k := range keywords {
-					if strings.Contains(strings.ToLower(p), strings.ToLower(k)) {
+					if strings.Contains(strings.ToLower(relPath), strings.ToLower(k)) {
 						score += smetrics.JaroWinkler(name, k, 0.7, 4)
 					} else {
 						hit = false
@@ -135,11 +153,11 @@ func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 					}
 				}
 				if hit {
-					content = strings.TrimPrefix(path, templates)
-					content = strings.TrimSuffix(content, ".md")
-					content = filepath.ToSlash(content)
-					_, content = search.MarkText(content, strings.Join(keywords, search.TermSep), 32, Conf.Search.CaseSensitive)
-					b := &TemplateSearchResult{Path: path, Content: content}
+					fileContent, readErr := os.ReadFile(path)
+					if readErr != nil {
+						return nil
+					}
+					b := &TemplateSearchResult{Path: path, Content: string(fileContent)}
 					results = append(results, &result{item: b, score: score})
 				}
 				return nil
@@ -150,12 +168,11 @@ func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 				continue
 			}
 
-			content := group.Name()
-			content = strings.TrimSuffix(content, ".md")
+			displayName := strings.TrimSuffix(group.Name(), ".md")
 			score := 0.0
 			hit := true
 			for _, k := range keywords {
-				if strings.Contains(strings.ToLower(content), strings.ToLower(k)) {
+				if strings.Contains(strings.ToLower(displayName), strings.ToLower(k)) {
 					score += smetrics.JaroWinkler(name, k, 0.7, 4)
 				} else {
 					hit = false
@@ -163,9 +180,12 @@ func SearchTemplate(keyword string) (ret []*TemplateSearchResult) {
 				}
 			}
 			if hit {
-				content = filepath.ToSlash(content)
-				_, content = search.MarkText(content, strings.Join(keywords, search.TermSep), 32, Conf.Search.CaseSensitive)
-				b := &TemplateSearchResult{Path: filepath.Join(templates, group.Name()), Content: content}
+				fullPath := filepath.Join(templates, group.Name())
+				fileContent, readErr := os.ReadFile(fullPath)
+				if readErr != nil {
+					continue
+				}
+				b := &TemplateSearchResult{Path: fullPath, Content: string(fileContent)}
 				results = append(results, &result{item: b, score: score})
 			}
 		}
