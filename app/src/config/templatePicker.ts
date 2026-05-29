@@ -1,11 +1,89 @@
 import {fetchPost} from "../util/fetch";
 import {escapeHtml} from "../util/escape";
 import {Dialog} from "../dialog";
+import {MenuItem} from "../menus/Menu";
 
 interface ITemplateItem {
     path: string;
     content: string;
 }
+
+const TEMPLATE_SUBMENU_ID = "newFromTemplate";
+
+const fetchTemplates = (): Promise<ITemplateItem[]> => {
+    return new Promise((resolve) => {
+        fetchPost("/api/search/searchTemplate", {k: ""}, (response) => {
+            resolve(response.data?.templates || []);
+        });
+    });
+};
+
+export const fillTemplateSubMenu = (callback: (markdown: string) => void) => {
+    const lang = window.sourceflow.config.lang;
+    const loadingLabel = lang === "zh_CN" ? "加载中..." : "Loading...";
+    const emptyLabel = lang === "zh_CN" ? "（无模板）" : "(No templates)";
+    const manageLabel = lang === "zh_CN" ? "管理模板..." : "Manage Templates...";
+
+    const container = window.sourceflow.menus.menu.element.querySelector(
+        `[data-id="${TEMPLATE_SUBMENU_ID}"] .b3-menu__submenu .b3-menu__items`,
+    );
+    if (!container) {
+        return;
+    }
+    container.innerHTML = new MenuItem({
+        id: "template-loading",
+        iconHTML: "",
+        label: loadingLabel,
+        type: "readonly",
+    })?.element?.outerHTML || "";
+
+    void fetchTemplates().then((templates) => {
+        container.innerHTML = "";
+        if (templates.length === 0) {
+            container.append(new MenuItem({
+                id: "template-empty",
+                iconHTML: "",
+                label: emptyLabel,
+                type: "readonly",
+            })?.element || "");
+        } else {
+            templates.forEach((item) => {
+                const name = item.path.split(/[\\/]/).pop() || item.path;
+                container.append(new MenuItem({
+                    id: "template-" + name,
+                    iconHTML: "",
+                    label: name,
+                    click: () => {
+                        callback(item.content);
+                    },
+                })?.element || "");
+            });
+        }
+        container.append(new MenuItem({id: "template-sep", type: "separator"})?.element || "");
+        container.append(new MenuItem({
+            id: "template-manage",
+            icon: "iconSettings",
+            label: manageLabel,
+            click: () => {
+                void import("./index").then(({openSettingTab}) => {
+                    openSettingTab(window.sourceflow.ws.app, "templateLibrary");
+                });
+            },
+        })?.element || "");
+    });
+};
+
+export const genTemplateSubMenuItems = (callback: (markdown: string) => void): IMenu[] => {
+    const lang = window.sourceflow.config.lang;
+    const loadingLabel = lang === "zh_CN" ? "加载中..." : "Loading...";
+    fillTemplateSubMenu(callback);
+    return [{
+        id: "template-placeholder",
+        iconHTML: "",
+        label: loadingLabel,
+        type: "readonly",
+    }];
+};
 
 export const openTemplatePicker = (): Promise<string> => {
     return new Promise((resolve) => {

@@ -244,6 +244,34 @@ export const avRender = async (element: Element, protyle: IProtyle, cb?: (data: 
     if (avElements.length === 0) {
         return;
     }
+    const pendingFetches: Map<number, { index: number; promise: Promise<any> }> = new Map();
+    if (!avData) {
+        for (let i = 0; i < avElements.length; i++) {
+            const e = avElements[i] as HTMLElement;
+            if (e.getAttribute("data-render") === "true" || hasClosestByClassName(e, "av__gallery-content")) {
+                continue;
+            }
+            const created = protyle.options.history?.created;
+            const snapshot = protyle.options.history?.snapshot;
+            const avPageSize = getPageSize(e);
+            const promise = fetchSyncPost(created ? "/api/av/renderHistoryAttributeView" : (snapshot ? "/api/av/renderSnapshotAttributeView" : "/api/av/renderAttributeView"), {
+                id: e.getAttribute("data-av-id"),
+                created,
+                snapshot,
+                pageSize: avPageSize.unGroupPageSize,
+                groupPaging: avPageSize.groupPageSize,
+                viewID: getAVViewAttr(e) || "",
+                query: "",
+                blockID: e.getAttribute("data-node-id"),
+                createIfNotExist: !protyle.block.action?.includes(Constants.CB_GET_AV_NO_CREATE),
+            });
+            pendingFetches.set(i, { index: i, promise });
+        }
+        const settled = await Promise.all(Array.from(pendingFetches.values()).map(p => p.promise.then(r => ({ index: p.index, data: r.data })).catch(() => ({ index: p.index, data: null }))));
+        for (const result of settled) {
+            pendingFetches.set(result.index, { index: result.index, promise: Promise.resolve({ data: result.data }) });
+        }
+    }
     for (let i = 0; i < avElements.length; i++) {
         const e = avElements[i] as HTMLElement;
         e.removeAttribute("data-rendering");
@@ -342,20 +370,44 @@ export const avRender = async (element: Element, protyle: IProtyle, cb?: (data: 
         const avPageSize = getPageSize(e);
         let data: IAV;
         if (!avData) {
-            const created = protyle.options.history?.created;
-            const snapshot = protyle.options.history?.snapshot;
-            const response = await fetchSyncPost(created ? "/api/av/renderHistoryAttributeView" : (snapshot ? "/api/av/renderSnapshotAttributeView" : "/api/av/renderAttributeView"), {
-                id: e.getAttribute("data-av-id"),
-                created,
-                snapshot,
-                pageSize: avPageSize.unGroupPageSize,
-                groupPaging: avPageSize.groupPageSize,
-                viewID: getAVViewAttr(e) || "",
-                query: resetData.query.trim(),
-                blockID: e.getAttribute("data-node-id"),
-                createIfNotExist: !protyle.block.action?.includes(Constants.CB_GET_AV_NO_CREATE),
-            });
-            data = response.data;
+            const prefetched = pendingFetches.get(i);
+            if (prefetched) {
+                const prefetchedResult = await prefetched.promise;
+                const prefetchedData = prefetchedResult.data || prefetchedResult;
+                if (prefetchedData && resetData.query.trim()) {
+                    const created = protyle.options.history?.created;
+                    const snapshot = protyle.options.history?.snapshot;
+                    const response = await fetchSyncPost(created ? "/api/av/renderHistoryAttributeView" : (snapshot ? "/api/av/renderSnapshotAttributeView" : "/api/av/renderAttributeView"), {
+                        id: e.getAttribute("data-av-id"),
+                        created,
+                        snapshot,
+                        pageSize: avPageSize.unGroupPageSize,
+                        groupPaging: avPageSize.groupPageSize,
+                        viewID: getAVViewAttr(e) || "",
+                        query: resetData.query.trim(),
+                        blockID: e.getAttribute("data-node-id"),
+                        createIfNotExist: !protyle.block.action?.includes(Constants.CB_GET_AV_NO_CREATE),
+                    });
+                    data = response.data;
+                } else {
+                    data = prefetchedData;
+                }
+            } else {
+                const created = protyle.options.history?.created;
+                const snapshot = protyle.options.history?.snapshot;
+                const response = await fetchSyncPost(created ? "/api/av/renderHistoryAttributeView" : (snapshot ? "/api/av/renderSnapshotAttributeView" : "/api/av/renderAttributeView"), {
+                    id: e.getAttribute("data-av-id"),
+                    created,
+                    snapshot,
+                    pageSize: avPageSize.unGroupPageSize,
+                    groupPaging: avPageSize.groupPageSize,
+                    viewID: getAVViewAttr(e) || "",
+                    query: resetData.query.trim(),
+                    blockID: e.getAttribute("data-node-id"),
+                    createIfNotExist: !protyle.block.action?.includes(Constants.CB_GET_AV_NO_CREATE),
+                });
+                data = response.data;
+            }
         } else {
             data = avData;
         }

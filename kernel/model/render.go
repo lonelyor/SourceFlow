@@ -371,10 +371,11 @@ func resolveEmbedR(n *ast.Node, blockEmbedMode int, luteEngine *lute.Lute, resol
 				buf := &bytes.Buffer{}
 				lines := strings.Split(md, "\n")
 				for i, line := range lines {
-					if 0 == blockEmbedMode { // 使用原始文本
+					if 0 == blockEmbedMode {
 						buf.WriteString(line)
-					} else { // 使用引述块
-						buf.WriteString("> " + line)
+					} else {
+						buf.WriteString("> ")
+						buf.WriteString(line)
 					}
 					if i < len(lines)-1 {
 						buf.WriteString("\n")
@@ -382,11 +383,23 @@ func resolveEmbedR(n *ast.Node, blockEmbedMode int, luteEngine *lute.Lute, resol
 				}
 				buf.WriteString("\n\n")
 
-				subTree = parse.Parse("", buf.Bytes(), luteEngine.ParseOptions)
 				var inserts []*ast.Node
-				for subNode := subTree.Root.FirstChild; nil != subNode; subNode = subNode.Next {
-					if ast.NodeKramdownBlockIAL != subNode.Type {
-						inserts = append(inserts, subNode)
+				if 0 == blockEmbedMode && "d" != sqlBlock.Type {
+					sourceNode := treenode.GetNodeInTree(subTree, sqlBlock.ID)
+					if sourceNode != nil {
+						for child := sourceNode.FirstChild; child != nil; child = child.Next {
+							if ast.NodeKramdownBlockIAL != child.Type {
+								inserts = append(inserts, child)
+							}
+						}
+					}
+				}
+				if 0 == len(inserts) {
+					subTree = parse.Parse("", buf.Bytes(), luteEngine.ParseOptions)
+					for subNode := subTree.Root.FirstChild; nil != subNode; subNode = subNode.Next {
+						if ast.NodeKramdownBlockIAL != subNode.Type {
+							inserts = append(inserts, subNode)
+						}
 					}
 				}
 				if 2 < len(n.KramdownIAL) && 0 < len(inserts) {

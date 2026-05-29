@@ -61,6 +61,16 @@ func FlushTxQueue() {
 	}
 }
 
+func TryFlushTxQueue(timeout time.Duration) {
+	if len(txQueue) == 0 && !isFlushing {
+		return
+	}
+	deadline := time.Now().Add(timeout)
+	for (0 < len(txQueue) || isFlushing) && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 var (
 	txQueue    = make(chan *Transaction, 7)
 	flushLock  = sync.Mutex{}

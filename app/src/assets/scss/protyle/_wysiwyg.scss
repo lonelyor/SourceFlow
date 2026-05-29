@@ -22,6 +22,7 @@
 
   [data-node-id] {
     position: relative;
+    contain: layout style;
 
     &.dragover {
       &__left::after,
@@ -1001,8 +1002,8 @@ html[data-editor-cursor-style="custom"] {
     position: relative;
     border-radius: 10px;
 
-    > :not(.protyle-action):not(.protyle-attr) {
-      filter: blur(8px);
+      > :not(.protyle-action):not(.protyle-attr) {
+      visibility: hidden;
       opacity: .16;
       user-select: none;
       pointer-events: none;

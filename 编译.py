@@ -1991,7 +1991,8 @@ def run_sourceflow_architecture_audit() -> None:
         PROJECT_ROOT / "SourceFlow工作区迁移说明.md",
         PROJECT_ROOT / "迁移旧工作区到SourceFlow.py",
     )
-    skipped_dirs = {".git", "build", "node_modules", "stage", "third_party"}
+    skipped_dirs = {".git", "build", "node_modules", "stage", "third_party", "__pycache__"}
+    skipped_prefixes = (".typecheck-",)
     allowed_files = {
         "app/electron/workspaceMigration.js",
         "迁移旧工作区到SourceFlow.py",
@@ -2027,7 +2028,7 @@ def run_sourceflow_architecture_audit() -> None:
             relative_parts = path.relative_to(PROJECT_ROOT).parts
         except ValueError:
             relative_parts = path.parts
-        return any(part in skipped_dirs for part in relative_parts)
+        return any(part in skipped_dirs or part.startswith(skipped_prefixes) for part in relative_parts)
 
     def visit(path: Path) -> None:
         if not path.exists() or should_skip(path):

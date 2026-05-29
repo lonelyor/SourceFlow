@@ -5,7 +5,7 @@ import {processRender} from "./processCode";
 import {highlightRender} from "../render/highlightRender";
 import {blockRender} from "../render/blockRender";
 import {bgFade, scrollCenter} from "../../util/highlightById";
-import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE, observeLazyRender, disconnectLazyObserver} from "./renderScheduler";
+import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE, observeLazyRender, disconnectLazyObserver, RenderTask} from "./renderScheduler";
 /// #if !MOBILE
 import {pushBack} from "../../util/backForward";
 /// #endif
@@ -237,10 +237,69 @@ const setHTML = (options: {
     const isDynamicLoad = options.action.includes(Constants.CB_GET_APPEND) || options.action.includes(Constants.CB_GET_BEFORE);
 
     if (isDynamicLoad) {
-        processRender(protyle.wysiwyg.element);
-        highlightRender(protyle.wysiwyg.element);
-        avRender(protyle.wysiwyg.element, protyle);
-        blockRender(protyle, protyle.wysiwyg.element);
+        const dynamicRenderNodes = protyle.wysiwyg.element.querySelectorAll(".render-node:not([data-render='true'])");
+        const dynamicCodeBlocks = protyle.wysiwyg.element.querySelectorAll(".code-block .hljs:not([data-render='true'])");
+        const dynamicAvBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeAttributeView"]:not([data-render="true"])');
+        const dynamicEmbedBlocks = protyle.wysiwyg.element.querySelectorAll('[data-type="NodeBlockQueryEmbed"]:not([data-render="true"])');
+
+        const { visible: visibleRenderNodes, hidden: hiddenRenderNodes } = splitByViewport(Array.from(dynamicRenderNodes), contentContainer);
+        const { visible: visibleCodeBlocks, hidden: hiddenCodeBlocks } = splitByViewport(Array.from(dynamicCodeBlocks), contentContainer);
+        const { visible: visibleAvBlocks, hidden: hiddenAvBlocks } = splitByViewport(Array.from(dynamicAvBlocks), contentContainer);
+        const { visible: visibleEmbedBlocks, hidden: hiddenEmbedBlocks } = splitByViewport(Array.from(dynamicEmbedBlocks), contentContainer);
+
+        const immediateTasks: RenderTask[] = [];
+        for (const node of visibleRenderNodes) {
+            immediateTasks.push(() => processRender(node));
+        }
+        for (const block of visibleCodeBlocks) {
+            const codeBlock = block.closest(".code-block") || block;
+            immediateTasks.push(() => highlightRender(codeBlock as Element));
+        }
+        for (const av of visibleAvBlocks) {
+            immediateTasks.push(() => avRender(av, protyle));
+        }
+        for (const embed of visibleEmbedBlocks) {
+            immediateTasks.push(() => blockRender(protyle, embed));
+        }
+        scheduleRender("dynamic-load-immediate", immediateTasks);
+
+        for (const node of hiddenRenderNodes) {
+            if (node.isConnected) {
+                observeLazyRender(node, contentContainer, () => {
+                    if (node.isConnected) {
+                        processRender(node);
+                    }
+                });
+            }
+        }
+        for (const block of hiddenCodeBlocks) {
+            if (block.isConnected) {
+                observeLazyRender(block, contentContainer, () => {
+                    if (block.isConnected) {
+                        const codeBlock = block.closest(".code-block") || block;
+                        highlightRender(codeBlock as Element);
+                    }
+                });
+            }
+        }
+        for (const av of hiddenAvBlocks) {
+            if (av.isConnected) {
+                observeLazyRender(av, contentContainer, () => {
+                    if (av.isConnected) {
+                        avRender(av, protyle);
+                    }
+                });
+            }
+        }
+        for (const embed of hiddenEmbedBlocks) {
+            if (embed.isConnected) {
+                observeLazyRender(embed, contentContainer, () => {
+                    if (embed.isConnected) {
+                        blockRender(protyle, embed);
+                    }
+                });
+            }
+        }
     } else {
         cancelScheduledRenders();
 

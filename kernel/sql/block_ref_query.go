@@ -27,7 +27,19 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
+	gcache "github.com/patrickmn/go-cache"
+	"time"
 )
+
+var rootChildrenRefCountCache = gcache.New(30*time.Second, 10*time.Second)
+
+func InvalidateRootChildrenRefCount(rootID string) {
+	rootChildrenRefCountCache.Delete(rootID)
+}
+
+func InvalidateAllRootChildrenRefCount() {
+	rootChildrenRefCountCache.Flush()
+}
 
 func GetRefDuplicatedDefRootIDs() (ret []string) {
 	rows, err := query("SELECT DISTINCT def_block_root_id FROM `refs` GROUP BY def_block_id, def_block_root_id, block_id HAVING COUNT(*) > 1")
@@ -119,6 +131,10 @@ func QueryRefCount(defIDs []string) (ret map[string]int) {
 }
 
 func QueryRootChildrenRefCount(defRootID string) (ret map[string]int) {
+	if cached, found := rootChildrenRefCountCache.Get(defRootID); found {
+		ret = cached.(map[string]int)
+		return
+	}
 	ret = map[string]int{}
 	rows, err := query("SELECT def_block_id, COUNT(*) AS ref_cnt FROM refs WHERE def_block_root_id = ? GROUP BY def_block_id", defRootID)
 	if err != nil {
@@ -134,6 +150,9 @@ func QueryRootChildrenRefCount(defRootID string) (ret map[string]int) {
 			return
 		}
 		ret[id] = cnt
+	}
+	if len(ret) > 0 {
+		rootChildrenRefCountCache.Set(defRootID, ret, gcache.DefaultExpiration)
 	}
 	return
 }

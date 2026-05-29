@@ -855,20 +855,31 @@ func ClearCustomEmojis() {
 	customEmojis.Clear()
 }
 
-func NewLute() (ret *lute.Lute) {
-	ret = util.NewLute()
-	ret.SetCodeSyntaxHighlightLineNum(Conf.Editor.CodeSyntaxHighlightLineNum)
-	ret.SetChineseParagraphBeginningSpace(Conf.Export.ParagraphBeginningSpace)
-	ret.SetProtyleMarkNetImg(Conf.Editor.DisplayNetImgMark)
-	ret.SetSpellcheck(Conf.Editor.Spellcheck)
+var lutePool = sync.Pool{
+	New: func() interface{} {
+		ret := util.NewLute()
+		ret.SetCodeSyntaxHighlightLineNum(Conf.Editor.CodeSyntaxHighlightLineNum)
+		ret.SetChineseParagraphBeginningSpace(Conf.Export.ParagraphBeginningSpace)
+		ret.SetProtyleMarkNetImg(Conf.Editor.DisplayNetImgMark)
+		ret.SetSpellcheck(Conf.Editor.Spellcheck)
+		customEmojiMap := map[string]string{}
+		customEmojis.Range(func(key, value interface{}) bool {
+			customEmojiMap[key.(string)] = value.(string)
+			return true
+		})
+		ret.PutEmojis(customEmojiMap)
+		return ret
+	},
+}
 
-	customEmojiMap := map[string]string{}
-	customEmojis.Range(func(key, value interface{}) bool {
-		customEmojiMap[key.(string)] = value.(string)
-		return true
-	})
-	ret.PutEmojis(customEmojiMap)
-	return
+func NewLute() (ret *lute.Lute) {
+	return lutePool.Get().(*lute.Lute)
+}
+
+func ReleaseLute(luteEngine *lute.Lute) {
+	if luteEngine != nil {
+		lutePool.Put(luteEngine)
+	}
 }
 
 func enableLuteInlineSyntax(luteEngine *lute.Lute) {

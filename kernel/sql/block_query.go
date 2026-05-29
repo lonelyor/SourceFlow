@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -152,10 +153,25 @@ func (block *Block) IsContainerBlock() bool {
 }
 
 func queryBlockChildrenIDs(id string) (ret []string) {
-	ret = append(ret, id)
-	childIDs := queryBlockIDByParentID(id)
-	for _, childID := range childIDs {
-		ret = append(ret, queryBlockChildrenIDs(childID)...)
+	sqlStmt := `WITH RECURSIVE children(id) AS (
+    SELECT id FROM blocks WHERE id = ?
+    UNION ALL
+    SELECT b.id FROM blocks b JOIN children c ON b.parent_id = c.id
+)
+SELECT id FROM children`
+	rows, err := query(sqlStmt, id)
+	if err != nil {
+		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
+		ret = append(ret, id)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var childID string
+		if err = rows.Scan(&childID); err != nil {
+			continue
+		}
+		ret = append(ret, childID)
 	}
 	return
 }
@@ -999,4 +1015,55 @@ func containsLimitClause(stmt string) bool {
 	return strings.Contains(strings.ToLower(stmt), " limit ") ||
 		strings.Contains(strings.ToLower(stmt), "\nlimit ") ||
 		strings.Contains(strings.ToLower(stmt), "\tlimit ")
+}
+
+func GetChildBlocksBatch(parentIDs []string) (ret []*Block) {
+	ret = []*Block{}
+	if 0 == len(parentIDs) {
+		return
+	}
+	var idClauses []string
+	for _, pid := range parentIDs {
+		idClauses = append(idClauses, fmt.Sprintf(`WITH RECURSIVE children(id) AS (
+    SELECT id FROM blocks WHERE id = "%s"
+    UNION ALL
+    SELECT b.id FROM blocks b JOIN children c ON b.parent_id = c.id
+)
+SELECT id FROM children`, pid))
+	}
+	fullSQL := strings.Join(idClauses, " UNION ALL ")
+	rows, err := query(fullSQL)
+	if err != nil {
+		logging.LogErrorf("sql query failed: %s", err)
+		return
+	}
+	defer rows.Close()
+	var allIDs []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			continue
+		}
+		allIDs = append(allIDs, id)
+	}
+	if 0 == len(allIDs) {
+		return
+	}
+	var params []string
+	for _, id := range allIDs {
+		params = append(params, `"`+id+`"`)
+	}
+	sqlStmt := "SELECT * FROM blocks WHERE id IN (" + strings.Join(params, ",") + ")"
+	blockRows, err := query(sqlStmt)
+	if err != nil {
+		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
+		return
+	}
+	defer blockRows.Close()
+	for blockRows.Next() {
+		if block := scanBlockRows(blockRows); nil != block {
+			ret = append(ret, block)
+		}
+	}
+	return
 }

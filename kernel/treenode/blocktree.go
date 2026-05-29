@@ -521,6 +521,13 @@ func RemoveBlockTree(id string) {
 
 var indexBlockTreeLock = sync.Mutex{}
 
+var blockTreeDocLocks = sync.Map{}
+
+func getDocLock(rootID string) *sync.Mutex {
+	v, _ := blockTreeDocLocks.LoadOrStore(rootID, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
+
 func IndexBlockTree(tree *parse.Tree) {
 	var changedNodes []*ast.Node
 	ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
@@ -536,8 +543,9 @@ func IndexBlockTree(tree *parse.Tree) {
 		return
 	}
 
-	indexBlockTreeLock.Lock()
-	defer indexBlockTreeLock.Unlock()
+	docLock := getDocLock(tree.ID)
+	docLock.Lock()
+	defer docLock.Unlock()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -591,8 +599,9 @@ func UpsertBlockTree(tree *parse.Tree) {
 		}
 	}
 
-	indexBlockTreeLock.Lock()
-	defer indexBlockTreeLock.Unlock()
+	docLock := getDocLock(tree.ID)
+	docLock.Lock()
+	defer docLock.Unlock()
 
 	tx, err := db.Begin()
 	if err != nil {

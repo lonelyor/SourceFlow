@@ -470,7 +470,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	//pprof.StartCPUProfile(cpuProfile)
 	//defer pprof.StopCPUProfile()
 
-	FlushTxQueue() // 写入数据时阻塞，避免获取到的数据不一致
+	TryFlushTxQueue(20 * time.Millisecond)
 
 	inputIndex := index
 	tree, err := LoadTreeByBlockID(id)
@@ -582,6 +582,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	}
 
 	blockCount = tree.DocBlockCount()
+	scroll = blockCount > Conf.Editor.DynamicLoadBlocks
 	if ast.NodeDocument == node.Type {
 		parentID = node.ID
 		parent2ID = parentID
@@ -590,7 +591,6 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 		parent2ID = parentID
 		tmp := node
 		if ast.NodeListItem == node.Type {
-			// 列表项聚焦返回和面包屑保持一致 https://github.com/lonelyor/SourceFlow/issues/4914
 			tmp = node.Parent
 		}
 		if headingParent := treenode.HeadingParent(tmp); nil != headingParent {
@@ -601,26 +601,6 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	if !isDoc {
 		typ = node.Type.String()
 	}
-
-	// 判断是否需要显示动态加载滚动条 https://github.com/lonelyor/SourceFlow/issues/7693
-	childCount := 0
-	ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
-		if !entering {
-			return ast.WalkContinue
-		}
-
-		if 1 > childCount {
-			childCount = 1
-		} else {
-			childCount += treenode.CountBlockNodes(n)
-		}
-
-		if childCount > Conf.Editor.DynamicLoadBlocks {
-			scroll = true
-			return ast.WalkStop
-		}
-		return ast.WalkContinue
-	})
 
 	var nodes []*ast.Node
 	if isBacklink {

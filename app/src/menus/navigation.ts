@@ -255,6 +255,47 @@ export const initNavigationMenu = (app: App, liElement: HTMLElement) => {
     const navigationPath = liElement.getAttribute("data-path") || "/";
     const name = getNotebookName(notebookId);
     if (!window.sourceflow.config.readonly) {
+        const lang = window.sourceflow.config.lang;
+        window.sourceflow.menus.menu.append(new MenuItem({
+            id: "newSubDoc",
+            icon: "iconFile",
+            label: lang === "zh_CN" ? "新建子文档" : "New Sub Doc",
+            click: () => {
+                newFile({
+                    app,
+                    notebookId,
+                    currentPath: navigationPath,
+                    useSavePath: false,
+                    listDocTree: true,
+                });
+            }
+        }).element);
+        const templateMenuItem = new MenuItem({
+            id: "newFromTemplate",
+            icon: "iconImage",
+            label: lang === "zh_CN" ? "从模板新建" : "New from Template",
+            type: "submenu",
+            submenu: [{
+                id: "template-placeholder",
+                iconHTML: "",
+                label: lang === "zh_CN" ? "加载中..." : "Loading...",
+                type: "readonly",
+            }],
+        });
+        window.sourceflow.menus.menu.append(templateMenuItem.element);
+        void import("../config/templatePicker").then(({fillTemplateSubMenu}) => {
+            fillTemplateSubMenu((markdown) => {
+                newFile({
+                    app,
+                    notebookId,
+                    currentPath: navigationPath,
+                    useSavePath: false,
+                    listDocTree: true,
+                    markdown,
+                });
+            });
+        });
+        window.sourceflow.menus.menu.append(new MenuItem({id: "separator_new", type: "separator"}).element);
         window.sourceflow.menus.menu.append(renameMenu({
             path: "/",
             notebookId,
@@ -585,6 +626,47 @@ export const initFileMenu = (app: App, notebookId: string, pathString: string, l
             }).element);
             window.sourceflow.menus.menu.append(new MenuItem({id: "separator_1", type: "separator"}).element);
         }
+        const lang = window.sourceflow.config.lang;
+        window.sourceflow.menus.menu.append(new MenuItem({
+            id: "newSubDoc",
+            icon: "iconFile",
+            label: lang === "zh_CN" ? "新建子文档" : "New Sub Doc",
+            click: () => {
+                newFile({
+                    app,
+                    notebookId,
+                    currentPath: pathString,
+                    useSavePath: false,
+                    listDocTree: true,
+                });
+            }
+        }).element);
+        const templateMenuItem = new MenuItem({
+            id: "newFromTemplate",
+            icon: "iconImage",
+            label: lang === "zh_CN" ? "从模板新建" : "New from Template",
+            type: "submenu",
+            submenu: [{
+                id: "template-placeholder",
+                iconHTML: "",
+                label: lang === "zh_CN" ? "加载中..." : "Loading...",
+                type: "readonly",
+            }],
+        });
+        window.sourceflow.menus.menu.append(templateMenuItem.element);
+        void import("../config/templatePicker").then(({fillTemplateSubMenu}) => {
+            fillTemplateSubMenu((markdown) => {
+                newFile({
+                    app,
+                    notebookId,
+                    currentPath: pathString,
+                    useSavePath: false,
+                    listDocTree: true,
+                    markdown,
+                });
+            });
+        });
+        window.sourceflow.menus.menu.append(new MenuItem({id: "separator_new_subdoc", type: "separator"}).element);
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "copy",
             label: window.sourceflow.languages.copy,

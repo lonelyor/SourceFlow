@@ -100,7 +100,9 @@ export class App {
                 type: "main",
                 msgCallback: (data) => {
                     this.plugins.forEach((plugin) => {
-                        plugin.eventBus.emit("ws-main", data);
+                        if (plugin.eventBus.hasListeners("ws-main")) {
+                            plugin.eventBus.emit("ws-main", data);
+                        }
                     });
                     if (data) {
                         switch (data.cmd) {

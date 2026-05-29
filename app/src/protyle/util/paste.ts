@@ -489,9 +489,9 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
     }
 
     if (protyle && protyle.app && protyle.app.plugins) {
-        for (let i = 0; i < protyle.app.plugins.length; i++) {
-            const response: IObject & { files: FileList } = await new Promise((resolve) => {
-                const emitResult = protyle.app.plugins[i].eventBus.emit("paste", {
+        const pluginResults = await Promise.all(protyle.app.plugins.map((plugin) => {
+            return new Promise<IObject & { files: FileList }>((resolve) => {
+                const emitResult = plugin.eventBus.emit("paste", {
                     protyle,
                     resolve,
                     textHTML,
@@ -503,7 +503,8 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
                     resolve(undefined);
                 }
             });
-
+        }));
+        for (const response of pluginResults) {
             if (response?.textHTML) {
                 textHTML = response.textHTML;
             }

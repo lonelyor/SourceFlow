@@ -100,7 +100,6 @@ func getGraph(c *gin.Context) {
 		"box":   boxID,
 		"reqId": arg["reqId"],
 	}
-	util.RandomSleep(200, 500)
 }
 
 func getLocalGraph(c *gin.Context) {
@@ -159,5 +158,4 @@ func getLocalGraph(c *gin.Context) {
 		"conf":  local,
 		"reqId": arg["reqId"],
 	}
-	util.RandomSleep(200, 500)
 }

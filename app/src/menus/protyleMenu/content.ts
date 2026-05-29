@@ -151,7 +151,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "copy",
             icon: "iconCopy",
-            accelerator: "?C",
+            accelerator: "⌘C",
             label: window.sourceflow.languages.copy,
             click() {
                 // range 需要重新获取。
@@ -188,7 +188,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "cut",
             icon: "iconCut",
-            accelerator: "?X",
+            accelerator: "⌘X",
             label: window.sourceflow.languages.cut,
             click() {
                 focusByRange(getEditorRange(nodeElement));
@@ -198,7 +198,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "delete",
             icon: "iconTrashcan",
-            accelerator: "?",
+            accelerator: "⌫",
             label: window.sourceflow.languages.delete,
             click() {
                 const currentRange = getEditorRange(nodeElement);
@@ -283,7 +283,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
             id: "paste",
             label: window.sourceflow.languages.paste,
             icon: "iconPaste",
-            accelerator: "?V",
+            accelerator: "⌘V",
             async click() {
                 focusByRange(getEditorRange(nodeElement));
                 if (document.queryCommandSupported("paste")) {
@@ -301,7 +301,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
         window.sourceflow.menus.menu.append(new MenuItem({
             id: "pasteAsPlainText",
             label: window.sourceflow.languages.pasteAsPlainText,
-            accelerator: "??V",
+            accelerator: "⌘⇧V",
             click() {
                 focusByRange(getEditorRange(nodeElement));
                 pasteAsPlainText(protyle);
@@ -345,7 +345,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
             id: "selectAll",
             label: window.sourceflow.languages.selectAll,
             icon: "iconSelect",
-            accelerator: "?A",
+            accelerator: "⌘A",
             click() {
                 selectAll(protyle, nodeElement, range);
             }
