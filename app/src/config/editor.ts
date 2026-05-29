@@ -85,6 +85,14 @@ export const editor = {
 </label>
 <label class="fn__flex b3-label">
     <div class="fn__flex-1">
+        ${editorText("alwaysShowGutter", "Always show block type icon")}
+        <div class="b3-label__text">${editorText("alwaysShowGutterTip", "When enabled, the block type icon persists in the left margin after hovering. When disabled, it only appears on hover.")}</div>
+    </div>
+    <span class="fn__space"></span>
+    <input class="b3-switch fn__flex-center" id="alwaysShowGutter" type="checkbox"${window.sourceflow.config.editor.alwaysShowGutter ? " checked" : ""}/>
+</label>
+<label class="fn__flex b3-label">
+    <div class="fn__flex-1">
         ${window.sourceflow.languages.md7}
         <div class="b3-label__text">${window.sourceflow.languages.md8}</div>
     </div>
@@ -574,6 +582,7 @@ export const editor = {
                 displayBookmarkIcon: (editor.element.querySelector("#displayBookmarkIcon") as HTMLInputElement).checked,
                 displayBlockLineNumber: (editor.element.querySelector("#displayBlockLineNumber") as HTMLInputElement).checked,
                 displayHeadingLevel: (editor.element.querySelector("#displayHeadingLevel") as HTMLInputElement).checked,
+                alwaysShowGutter: (editor.element.querySelector("#alwaysShowGutter") as HTMLInputElement).checked,
                 displayNetImgMark: (editor.element.querySelector("#displayNetImgMark") as HTMLInputElement).checked,
                 assetUploadProvider,
                 picgoServerURL: (editor.element.querySelector("#picgoServerURL") as HTMLInputElement).value.trim(),

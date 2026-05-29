@@ -2,7 +2,15 @@
 
 All notable changes to SourceFlow will be documented in this file.
 
-## [0.1.6] - 2026-05-28
+## [Unreleased]
+
+### Editor
+
+- **Block numbers moved to left margin** — block numbers no longer appear as inline badges mixed with content. They now display in the left margin area (similar to VSCode line numbers), right-aligned and unobtrusive. Combined block-number + heading-level labels (e.g. "42 H1") are also displayed in the margin.
+- **Always show block type icon** — new setting **Settings → Editor → Always show block type icon**. When enabled, the block type gutter icon persists in the left margin after hovering instead of disappearing on scroll or mouse leave. When disabled (default), the icon only appears on hover as before.
+- Added `testEditorStructureGuide` — automated checks for config field, type declaration, settings UI, i18n, search index, SCSS positioning, `hideElements` logic, and global event handling.
+
+## [0.1.5] - 2026-05-28
 
 ### Editor
 
@@ -28,10 +36,6 @@ All notable changes to SourceFlow will be documented in this file.
 
 - Added `testKeymapConsistency` — 21 automated checks that verify keymap key name correctness, plugin access safety, menu ordering, and link text handling. Integrated into the typecheck pipeline.
 - Comprehensive audit of all commits since v0.1.5 — verified safe property access for `config.keymap`, `config.appearance`, `languages`, and `storage`.
-
----
-
-## [0.1.5] - 2026-05-26
 
 ### AI Assistant
 

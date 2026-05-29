@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-28
+更新日期：2026-05-29
 
 ## 已确认
 
@@ -83,6 +83,10 @@
 - 语义搜索基础设施（Stage 6 MVP）已实现：后端 `assistant_embedding.go` 支持 Ollama/OpenAI 兼容 Embedding API 调用；`assistant_vector.go` 使用内存 map + JSON 文件持久化向量，支持余弦相似度搜索；API 路由注册在 `/api/assistant/embedding/` 下（config、setConfig、search、index、indexAll）；搜索面板新增"语义搜索"按钮切换语义搜索模式；AI 设置页新增 Embedding 配置区域（启用开关、服务地址、模型、API Key、索引按钮、保存按钮）。
 - 语义搜索 MVP 已通过 `go build ./...`、`go vet ./...`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 用户确认因远端 `v0.1.4` Release 已存在且 tag 不指向当前 `dev` HEAD，本次改为发布新版本 `v0.1.5`。
+- 块编号显示已从正文内联徽章改为左侧边距绝对定位：移除背景色/边框，使用 `position: absolute; right: calc(100% + 4px)` 将编号放到正文左侧空白区域，右对齐、淡色文本，类似 VSCode 行号风格。`[spellcheck]` 新增 `position: relative` 作为锚点，添加 `max-width` 和 `text-overflow: ellipsis` 防止长编号溢出。
+- 新增 `alwaysShowGutter` 编辑器配置项：开启后，鼠标悬停块时出现的块类型图标会持久显示，滚动、鼠标离开、鼠标移出编辑器不会隐藏；关闭（默认）保持原有仅悬停显示行为。配置覆盖 Go 后端 `Editor.AlwaysShowGutter`、TypeScript 类型、设置面板开关、i18n（中英文）、搜索索引。
+- `hideElements` 新增 `isGutterAlwaysShow()` 辅助函数：`gutter` 面板（硬触发）在 alwaysShow 时只清 innerHTML 不加 fn__none；`gutterOnly` 面板（软触发）在 alwaysShow 时完全跳过。`hideAllElements`、`document.body.mouseleave`、全局 `mousemove` 的 gutter 隐藏均受配置保护。
+- 编辑器结构提示与持久块类型图标已通过 `go test -vet=off ./conf -count=1 -v`、`pnpm --dir app run test:editor-structure-guide`（15 项自动化检查）、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`。
 - `v0.1.5` 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，发布说明位于 `app/changelogs/v0.1.5/`；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `c502611`，创建 `v0.1.5` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。发布脚本遗留的 `.opensource-release` 临时清理目录已确认在导出根目录内并清理完成。
 
 ## 风险

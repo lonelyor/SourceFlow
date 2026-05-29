@@ -3,25 +3,34 @@
     counter-reset: sf-block-line;
   }
 
+  &--block-lines > [data-node-id],
+  &--heading-levels [data-type="NodeHeading"] {
+    overflow: visible;
+  }
+
+  &--block-lines > [data-node-id] > [spellcheck],
+  &--heading-levels [data-type="NodeHeading"] > [spellcheck] {
+    position: relative;
+  }
+
   &--block-lines > [data-node-id] > [spellcheck]::before,
   &--heading-levels [data-type="NodeHeading"] > [spellcheck]::before {
-    align-items: center;
-    background-color: var(--b3-theme-surface-lighter);
-    border: 1px solid var(--b3-border-color);
-    border-radius: var(--b3-border-radius);
-    box-sizing: border-box;
-    color: var(--b3-theme-on-surface);
-    display: inline-flex;
+    position: absolute;
+    right: calc(100% + 4px);
+    top: 0;
+    max-width: calc(100vw - 100%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--b3-theme-on-surface-light);
+    display: block;
     font-size: 11px;
     font-weight: 500;
-    height: 16px;
-    justify-content: center;
-    line-height: 16px;
-    margin-right: 8px;
-    min-width: 22px;
-    padding: 0 5px;
+    height: calc(var(--b3-font-size-editor) * 1.625);
+    line-height: calc(var(--b3-font-size-editor) * 1.625);
+    text-align: right;
+    white-space: nowrap;
     user-select: none;
-    vertical-align: middle;
+    pointer-events: none;
   }
 
   &--block-lines > [data-node-id] > [spellcheck]::before {

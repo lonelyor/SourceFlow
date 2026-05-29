@@ -1389,6 +1389,8 @@
   "displayHeadingLevelTip": "Always show H1-H6 before headings so the level is not inferred only from font size",
   "displayBlockLineNumber": "Show block numbers",
   "displayBlockLineNumberTip": "Show stable numbers before top-level blocks for paragraph location; automatic wrapped lines are not renumbered",
+  "alwaysShowGutter": "Always show block type icon",
+  "alwaysShowGutterTip": "When enabled, the block type icon persists in the left margin after hovering. When disabled, it only appears on hover.",
   "md27": "Code block line number",
   "md28": "When enabled, the code block will display the line number (Please note that enabling may reduce editor performance)",
   "md29": "Number of Tab Spaces",

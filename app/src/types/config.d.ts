@@ -486,6 +486,10 @@ declare namespace Config {
          */
         displayHeadingLevel: boolean;
         /**
+         * Whether to always show block type gutter icons (vs. hover-only)
+         */
+        alwaysShowGutter: boolean;
+        /**
          * Whether to display the network image mark
          */
         displayNetImgMark: boolean;
