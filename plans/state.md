@@ -87,6 +87,7 @@
 - 新增 `alwaysShowGutter` 编辑器配置项：开启后，鼠标悬停块时出现的块类型图标会持久显示，滚动、鼠标离开、鼠标移出编辑器不会隐藏；关闭（默认）保持原有仅悬停显示行为。配置覆盖 Go 后端 `Editor.AlwaysShowGutter`、TypeScript 类型、设置面板开关、i18n（中英文）、搜索索引。
 - `hideElements` 新增 `isGutterAlwaysShow()` 辅助函数：`gutter` 面板（硬触发）在 alwaysShow 时只清 innerHTML 不加 fn__none；`gutterOnly` 面板（软触发）在 alwaysShow 时完全跳过。`hideAllElements`、`document.body.mouseleave`、全局 `mousemove` 的 gutter 隐藏均受配置保护。
 - 编辑器结构提示与持久块类型图标已通过 `go test -vet=off ./conf -count=1 -v`、`pnpm --dir app run test:editor-structure-guide`（15 项自动化检查）、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`。
+- v0.1.6 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `107c41a`，创建 `v0.1.6` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。
 - `v0.1.5` 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，发布说明位于 `app/changelogs/v0.1.5/`；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `c502611`，创建 `v0.1.5` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。发布脚本遗留的 `.opensource-release` 临时清理目录已确认在导出根目录内并清理完成。
 
 ## 风险

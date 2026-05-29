@@ -37,6 +37,8 @@
 - [x] 语义搜索基础设施（Stage 6 MVP）：后端 Embedding 服务 + 向量存储 + API 路由 + 搜索面板语义搜索按钮 + AI 设置 Embedding 配置 UI。
 - [x] v0.1.5 发布：更新版本号/发布说明、重新编译 Windows x64 安装包与便携包、创建新的 GitHub Release。
 
+- [x] v0.1.6 发布：版本号同步、全量编译通过、GitHub Release 创建并上传 4 资产。
+
 ## 后续
 
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。
