@@ -63,9 +63,7 @@ type Editor struct {
 	CodeLineWrap                    bool                     `json:"codeLineWrap"`                    // 代码块是否自动折行
 	CodeLigatures                   bool                     `json:"codeLigatures"`                   // 代码块是否连字
 	DisplayBookmarkIcon             bool                     `json:"displayBookmarkIcon"`             // 是否显示内容块角标
-	DisplayBlockLineNumber          bool                     `json:"displayBlockLineNumber"`          // 是否显示编辑器顶层块编号
 	DisplayHeadingLevel             bool                     `json:"displayHeadingLevel"`             // 是否显示标题层级标识
-	AlwaysShowGutter                bool                     `json:"alwaysShowGutter"`                // 是否持久显示块类型图标
 	DisplayNetImgMark               bool                     `json:"displayNetImgMark"`               // 是否显示网络图片角标
 	GenerateHistoryInterval         int                      `json:"generateHistoryInterval"`         // 生成历史时间间隔，单位：分钟
 	HistoryRetentionDays            int                      `json:"historyRetentionDays"`            // 历史保留天数
@@ -131,9 +129,7 @@ func NewEditor() *Editor {
 		CodeLineWrap:                    false,
 		CodeLigatures:                   false,
 		DisplayBookmarkIcon:             true,
-		DisplayBlockLineNumber:          false,
 		DisplayHeadingLevel:             true,
-		AlwaysShowGutter:                false,
 		DisplayNetImgMark:               true,
 		GenerateHistoryInterval:         10,
 		HistoryRetentionDays:            90,

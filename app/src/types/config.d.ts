@@ -478,17 +478,9 @@ declare namespace Config {
          */
         displayBookmarkIcon: boolean;
         /**
-         * Whether to display top-level block numbers in the editor
-         */
-        displayBlockLineNumber: boolean;
-        /**
          * Whether to display heading level markers in the editor
          */
         displayHeadingLevel: boolean;
-        /**
-         * Whether to always show block type gutter icons (vs. hover-only)
-         */
-        alwaysShowGutter: boolean;
         /**
          * Whether to display the network image mark
          */

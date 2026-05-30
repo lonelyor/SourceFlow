@@ -31,6 +31,7 @@ const setEditor = (modelMainElement: Element) => {
     window.sourceflow.config.editor.rtl = (modelMainElement.querySelector("#rtl") as HTMLInputElement).checked;
     window.sourceflow.config.editor.readOnly = (modelMainElement.querySelector("#readOnly") as HTMLInputElement).checked;
     window.sourceflow.config.editor.displayBookmarkIcon = (modelMainElement.querySelector("#displayBookmarkIcon") as HTMLInputElement).checked;
+    window.sourceflow.config.editor.displayHeadingLevel = (modelMainElement.querySelector("#displayHeadingLevel") as HTMLInputElement).checked;
     window.sourceflow.config.editor.displayNetImgMark = (modelMainElement.querySelector("#displayNetImgMark") as HTMLInputElement).checked;
     window.sourceflow.config.editor.assetUploadProvider = (modelMainElement.querySelector("#assetUploadProvider") as HTMLSelectElement).value as "local" | "picgo";
     window.sourceflow.config.editor.picgoServerURL = (modelMainElement.querySelector("#picgoServerURL") as HTMLInputElement).value.trim();
@@ -105,6 +106,14 @@ export const initEditor = () => {
     </div>
     <span class="fn__space"></span>
     <input class="b3-switch fn__flex-center" id="displayBookmarkIcon" type="checkbox"${window.sourceflow.config.editor.displayBookmarkIcon ? " checked" : ""}/>
+</label>
+<label class="fn__flex b3-label">
+    <div class="fn__flex-1">
+        ${window.sourceflow.languages.displayHeadingLevel || "Show heading level markers"}
+        <div class="b3-label__text">${window.sourceflow.languages.displayHeadingLevelTip || "Always show H1-H6 before headings"}</div>
+    </div>
+    <span class="fn__space"></span>
+    <input class="b3-switch fn__flex-center" id="displayHeadingLevel" type="checkbox"${window.sourceflow.config.editor.displayHeadingLevel !== false ? " checked" : ""}/>
 </label>
 <label class="fn__flex b3-label">
     <div class="fn__flex-1">
