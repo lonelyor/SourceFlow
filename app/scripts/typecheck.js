@@ -41,7 +41,6 @@ const shouldProcessTextFile = (filePath) => {
 const copyProcessedSourceTree = (sourceDir, targetDir, defs) => {
     for (const entry of fs.readdirSync(sourceDir, {withFileTypes: true})) {
         if (entry.name === "types" && sourceDir === srcRoot) {
-            const distDir = path.join(sourceDir, entry.name, "dist");
             const targetTypesDir = path.join(targetDir, entry.name);
             fs.mkdirSync(targetTypesDir, {recursive: true});
             for (const typeEntry of fs.readdirSync(path.join(sourceDir, entry.name), {withFileTypes: true})) {
@@ -269,6 +268,10 @@ const runFileTreeActiveDocTest = () => {
     return runNodeScript("testFileTreeActiveDoc.js");
 };
 
+const runProtyleBlockDOMPreservationTest = () => {
+    return runNodeScript("testProtyleBlockDOMPreservation.js");
+};
+
 const runTypecheck = (targetName) => {
     const tempDir = fs.mkdtempSync(path.join(appRoot, `.typecheck-${targetName}-`));
     const tempSrcDir = path.join(tempDir, "src");
@@ -486,6 +489,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] file tree active doc tracking");
 exitCode = runFileTreeActiveDocTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] protyle block dom preservation");
+exitCode = runProtyleBlockDOMPreservationTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

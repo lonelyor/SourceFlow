@@ -12,9 +12,14 @@ const paste = readSrc("protyle", "util", "paste.ts");
 
 assert(!/ALLOWED_TAGS:\s*false/.test(onGet), "onGet must not run a tag-stripping DOMPurify config");
 assert(!/ALLOWED_ATTR:\s*false/.test(onGet), "onGet must not run an attr-stripping DOMPurify config");
+assert(!/DOMPurify\.sanitize/.test(onGet), "onGet must not sanitize note BlockDOM content");
 assert(
-    !/DOMPurify\.sanitize\(options\.content/.test(onGet),
-    "onGet must not sanitize the full note BlockDOM content"
+    !/parseFromString\(options\.content/.test(onGet),
+    "onGet must not parse and rewrite the full note BlockDOM before insertion"
+);
+assert(
+    !/options\.content\s*=\s*doc\.body\.innerHTML/.test(onGet),
+    "onGet must not replace note BlockDOM with a rewritten parsed document body"
 );
 assert(
     onGet.includes("protyle.wysiwyg.element.innerHTML = options.content;"),
