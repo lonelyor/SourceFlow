@@ -28,6 +28,8 @@
 - 发布版本号由 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest 共同约束，编译前必须保持一致。
 - 发布说明存放在 `app/changelogs/v<version>/`，中文版作为默认 GitHub Release 正文。
 - `发布.py` 只消费 `编译.py` 已生成并验证的产物，不在发布阶段重新编译。
+- `编译.py` 在 WSL Linux 且仓库位于 `/mnt/*` 时，默认把源码复制到 WSL 原生临时目录执行 Linux 构建，排除 `node_modules`、构建输出和发布临时目录，成功后把 installer、portable、kernel、前端和 web clipper 产物回拷到当前仓库；需要复现旧流程时使用 `--no-wsl-native`。
+- Electron 和 electron-builder 二进制下载镜像可由环境变量覆盖；脚本默认使用 `ELECTRON_MIRROR` 与 `ELECTRON_BUILDER_BINARIES_MIRROR` 的国内镜像兜底，降低 Linux 打包下载失败概率。
 
 ## 笔记树加载稳定性
 

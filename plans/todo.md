@@ -59,6 +59,7 @@
 - [x] 文档树导航与外观微调：最近编辑/常用文档首次默认折叠，文档树字号支持 10-20px 自定义且默认保持主题字号。
 - [x] 修复 Protyle Block DOM 被安全过滤剥离：正文加载和 SourceFlow 内部粘贴保留完整笔记标签与业务属性，新增回归并接入 `typecheck:app`，防止重新引入标签/属性空白名单清洗或整段解析重写。
 - [x] v0.1.6 最新覆盖发布：补充 WSL Arch Linux x64 产物并与 Windows x64 资产一并发布，远程 Release 资产已验证。
+- [x] 编译脚本增强：WSL `/mnt/*` 工作区构建 Linux 目标时自动转入 WSL 原生临时目录，避免 Windows/WSL 共用依赖导致 Linux 打包失败，并提供 `--no-wsl-native` 退回原地构建。
 
 ## 后续
 

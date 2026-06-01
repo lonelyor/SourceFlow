@@ -35,6 +35,8 @@ WEB_CLIPPER_EXCLUDED_NAMES = {".DS_Store", "Thumbs.db"}
 WEB_CLIPPER_EXCLUDED_SUFFIXES = {".pyc"}
 IS_WINDOWS = os.name == "nt"
 SOURCEFLOW_CONFIG_DIR_ENV = "SOURCEFLOW_CONFIG_DIR"
+WSL_NATIVE_BUILD_ENV = "SOURCEFLOW_WSL_NATIVE_BUILD"
+WSL_NATIVE_BUILD_SOURCE_ENV = "SOURCEFLOW_WSL_NATIVE_BUILD_SOURCE"
 DEFAULT_GO_PROXY = "https://goproxy.cn|https://goproxy.io|https://proxy.golang.org|direct"
 GO_TRANSIENT_ERROR_MARKERS = (
     "i/o timeout",
@@ -1526,6 +1528,10 @@ def mac_installer_config_name(target: BuildTarget) -> str:
 def electron_builder_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     env = {
         "ELECTRON_MIRROR": os.environ.get("ELECTRON_MIRROR", "https://npmmirror.com/mirrors/electron/"),
+        "ELECTRON_BUILDER_BINARIES_MIRROR": os.environ.get(
+            "ELECTRON_BUILDER_BINARIES_MIRROR",
+            "https://npmmirror.com/mirrors/electron-builder-binaries/",
+        ),
         "NODE_OPTIONS": " ".join(part for part in (os.environ.get("NODE_OPTIONS", ""), "--no-deprecation") if part),
     }
     if extra:
@@ -1702,6 +1708,166 @@ def is_wsl() -> bool:
     if not version_path.is_file():
         return False
     return "microsoft" in version_path.read_text(encoding="utf-8", errors="ignore").lower()
+
+
+def is_wsl_windows_mount(path: Path) -> bool:
+    if not is_wsl():
+        return False
+    try:
+        resolved = path.resolve()
+    except OSError:
+        resolved = path.absolute()
+    parts = resolved.parts
+    return len(parts) >= 3 and parts[0] == "/" and parts[1] == "mnt" and len(parts[2]) == 1
+
+
+def path_is_or_is_under(path: Path, parent: Path) -> bool:
+    return path == parent or parent in path.parents
+
+
+def should_skip_wsl_native_copy(relative_path: Path, args: argparse.Namespace, target: BuildTarget) -> bool:
+    if not relative_path.parts:
+        return False
+    if relative_path.name in {"NUL", ".DS_Store", "Thumbs.db"}:
+        return True
+    if "__pycache__" in relative_path.parts:
+        return True
+    if relative_path.suffix in {".log", ".tmp"}:
+        return True
+
+    top_level = relative_path.parts[0]
+    if top_level in {".git", ".opensource-release", ".pnpm-store", ".tmp", "build", "dist", "node_modules", "pprof"}:
+        return True
+
+    if top_level == "app" and len(relative_path.parts) >= 2:
+        app_child = relative_path.parts[1]
+        if app_child == "node_modules":
+            return True
+        if app_child.startswith(".typecheck-app-"):
+            return True
+        if app_child in {
+            ".tmp-tscheck",
+            "build",
+            "build-linux-portable",
+            "build-linux-arm64-portable",
+            "build-darwin-portable",
+            "build-darwin-arm64-portable",
+        }:
+            return True
+        if app_child == "stage" and len(relative_path.parts) >= 3 and relative_path.parts[2] == "build":
+            return not args.skip_ui
+        if app_child == "src" and len(relative_path.parts) >= 4 and relative_path.parts[2] == "types" and relative_path.parts[3] == "dist":
+            return True
+        if app_child.startswith("kernel"):
+            if args.skip_kernel and target.portable_kernel_dir:
+                kernel_relative = target.portable_kernel_dir.relative_to(PROJECT_ROOT)
+                return not path_is_or_is_under(relative_path, kernel_relative)
+            return True
+
+    if path_is_or_is_under(relative_path, WEB_CLIPPER_RELATIVE_DIR / "dist"):
+        return True
+    if relative_path.parts[:2] == ("marketplace", "sourceflow-bazaar") and len(relative_path.parts) >= 3:
+        return relative_path.parts[2] in {"dist", "tmp-import-test"}
+    if top_level in {"plugins", "examples"} and "dist" in relative_path.parts:
+        return True
+    return False
+
+
+def wsl_native_copy_ignore(args: argparse.Namespace, target: BuildTarget):
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        directory_path = Path(directory)
+        try:
+            relative_dir = directory_path.relative_to(PROJECT_ROOT)
+        except ValueError:
+            relative_dir = Path()
+        ignored: set[str] = set()
+        for name in names:
+            if should_skip_wsl_native_copy(relative_dir / name, args, target):
+                ignored.add(name)
+        return ignored
+
+    return ignore
+
+
+def copy_directory_contents(source_dir: Path, target_dir: Path, *, replace: bool = False) -> None:
+    if not source_dir.exists():
+        return
+    if replace:
+        remove_path(target_dir)
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_dir, target_dir, symlinks=True)
+        return
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for child in source_dir.iterdir():
+        destination = target_dir / child.name
+        if child.is_dir():
+            remove_path(destination)
+            shutil.copytree(child, destination, symlinks=True)
+        elif child.is_file() or child.is_symlink():
+            shutil.copy2(child, destination)
+
+
+def copy_wsl_native_outputs(native_root: Path, target: BuildTarget, args: argparse.Namespace) -> None:
+    relative_outputs: list[Path] = [
+        target.installer_output_dir.relative_to(PROJECT_ROOT),
+        APP_DIR.relative_to(PROJECT_ROOT) / "stage" / "build",
+        WEB_CLIPPER_RELATIVE_DIR / "dist",
+    ]
+    if target.portable_output_dir:
+        relative_outputs.append(target.portable_output_dir.relative_to(PROJECT_ROOT))
+    if target.portable_kernel_dir:
+        relative_outputs.append(target.portable_kernel_dir.relative_to(PROJECT_ROOT))
+
+    for relative_output in relative_outputs:
+        copy_directory_contents(native_root / relative_output, PROJECT_ROOT / relative_output, replace=True)
+
+
+def should_use_wsl_native_workspace(args: argparse.Namespace, target: BuildTarget) -> bool:
+    if getattr(args, "no_wsl_native", False):
+        return False
+    if os.environ.get(WSL_NATIVE_BUILD_ENV) == "1":
+        return False
+    if target.platform_key != "linux":
+        return False
+    return is_wsl_windows_mount(PROJECT_ROOT)
+
+
+def filter_child_argv_for_wsl_native(raw_argv: Sequence[str]) -> list[str]:
+    return [arg for arg in raw_argv if arg != "--open-output"]
+
+
+def run_wsl_native_workspace_build(args: argparse.Namespace, target: BuildTarget, raw_argv: Sequence[str]) -> int:
+    native_root = Path(tempfile.mkdtemp(prefix="sourceflow-wsl-native-"))
+    print_step("Prepare WSL native build workspace")
+    print(f"Current workspace is on a WSL Windows mount: {PROJECT_ROOT}", flush=True)
+    print(f"Native build workspace: {native_root}", flush=True)
+    shutil.copytree(PROJECT_ROOT, native_root, dirs_exist_ok=True, symlinks=True, ignore=wsl_native_copy_ignore(args, target))
+
+    child_env = os.environ.copy()
+    child_env[WSL_NATIVE_BUILD_ENV] = "1"
+    child_env[WSL_NATIVE_BUILD_SOURCE_ENV] = str(PROJECT_ROOT)
+    child_env.setdefault("ELECTRON_MIRROR", "https://npmmirror.com/mirrors/electron/")
+    child_env.setdefault("ELECTRON_BUILDER_BINARIES_MIRROR", "https://npmmirror.com/mirrors/electron-builder-binaries/")
+    if "LIBRARY_PATH" not in child_env and Path("/usr/lib/libatomic_asneeded.a").exists():
+        child_env["LIBRARY_PATH"] = "/usr/lib"
+
+    command = [sys.executable, str(native_root / Path(__file__).name), *filter_child_argv_for_wsl_native(raw_argv)]
+    print_step("Run WSL native build")
+    print(" ".join(shlex.quote(part) for part in command), flush=True)
+    result = subprocess.run(command, cwd=native_root, env=child_env)
+    if result.returncode != 0:
+        print(f"WSL native build failed; workspace kept for diagnostics: {native_root}", flush=True)
+        return result.returncode
+
+    print_step("Copy WSL native build outputs")
+    copy_wsl_native_outputs(native_root, target, args)
+    remove_path(native_root)
+    print(f"WSL native build outputs copied back to: {PROJECT_ROOT}", flush=True)
+    if args.open_output:
+        output_dir = main_output_dir(target, (not args.skip_portable) and target.portable_supported)
+        if output_dir.exists():
+            open_directory(output_dir)
+    return 0
 
 
 FRONTEND_TARGET_ORDER = ("app", "mobile", "desktop", "export")
@@ -2876,6 +3042,7 @@ def build_parser() -> argparse.ArgumentParser:
             "\n"
             "Notes:\n"
             "  - Build on the target OS. Same-OS x64/arm64 targets are supported when the local toolchain can build them.\n"
+            "  - WSL Linux builds started from /mnt/* are copied to a native temporary workspace automatically.\n"
             "  - Windows arm64 currently builds the installer only; portable packaging is skipped automatically.\n"
             "  - Desktop targets only. Android and iOS build environments are not managed by this script."
         ),
@@ -2896,6 +3063,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-validate", action="store_true", help="Skip post-build artifact validation.")
     parser.add_argument("--stability-gate-only", action="store_true", help="Run the self-contained SourceFlow stability gate and exit without building.")
     parser.add_argument("--open-output", action="store_true", help="Open the main output directory after the build completes.")
+    parser.add_argument("--no-wsl-native", action="store_true", help="WSL Linux only. Build directly in the current workspace instead of copying /mnt/* workspaces to a native temporary directory.")
     parser.add_argument("--dynamic", action="store_true", help="Linux only. Prefer dynamic linking instead of musl static linking for the portable preparation path.")
     parser.add_argument("--signed", action="store_true", help="macOS only. Force the signed portable config instead of the unsigned fallback.")
     parser.add_argument("--cc", default="", help="Override the C compiler used for the kernel build when a platform-specific compiler is required.")
@@ -3045,6 +3213,7 @@ def ensure_build_prerequisites(target: BuildTarget) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(argv)
 
     if args.stability_gate_only and (args.fast or args.skip_quality_gate):
@@ -3062,6 +3231,8 @@ def main(argv: list[str] | None = None) -> int:
     build_portable_artifact = (not args.skip_portable) and target.portable_supported
     if args.skip_installer and not build_portable_artifact:
         raise RuntimeError("Nothing to build for this target. Remove --skip-installer or choose a portable-supported target.")
+    if should_use_wsl_native_workspace(args, target):
+        return run_wsl_native_workspace_build(args, target, raw_argv)
 
     ensure_build_prerequisites(target)
 
