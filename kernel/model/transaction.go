@@ -1969,43 +1969,47 @@ func (tx *Transaction) commit() (err error) {
 		tree     *parse.Tree
 		tmpPath  string
 		finalDir string
+		data     []byte
 	}
 	var staged []stagedWrite
-	cleanupStaged := func() {
-		for _, s := range staged {
-			os.Remove(s.tmpPath)
-		}
-	}
 
 	for _, tree := range tx.trees {
 		data, filePath, prepareErr := filesys.PrepareWriteTree(tree)
 		if prepareErr != nil {
-			cleanupStaged()
+			for _, s := range staged {
+				os.Remove(s.tmpPath)
+			}
 			err = prepareErr
 			return
 		}
 		tmpPath := filePath + ".tx.tmp"
-		if writeErr := filesys.WriteTreeToPath(tmpPath, data); writeErr != nil {
-			cleanupStaged()
+		if writeErr := os.WriteFile(tmpPath, data, 0644); writeErr != nil {
+			for _, s := range staged {
+				os.Remove(s.tmpPath)
+			}
+			os.Remove(tmpPath)
 			err = writeErr
 			return
 		}
-		staged = append(staged, stagedWrite{tree: tree, tmpPath: tmpPath, finalDir: filePath})
+		staged = append(staged, stagedWrite{tree: tree, tmpPath: tmpPath, finalDir: filePath, data: data})
 	}
 
-	for _, s := range staged {
-		if renameErr := filesys.AtomicRenameFile(s.tmpPath, s.finalDir); renameErr != nil {
+	for i, s := range staged {
+		if renameErr := os.Rename(s.tmpPath, s.finalDir); renameErr != nil {
 			logging.LogErrorf("atomic rename tx staged file failed: %s", renameErr)
+			for j := i + 1; j < len(staged); j++ {
+				os.Remove(staged[j].tmpPath)
+			}
 			err = renameErr
 			return
 		}
 	}
 
 	for _, s := range staged {
-		filesys.CacheWrittenTree(s.tree)
+		cache.SetTreeData(s.tree.ID, s.data)
 		filesys.AfterWriteTree(s.tree)
 		sql.UpsertTreeQueue(s.tree)
-		refreshDocInfoWithSize(s.tree, uint64(0))
+		refreshDocInfoWithSize(s.tree, uint64(len(s.data)))
 
 		var sources []interface{}
 		sources = append(sources, tx)

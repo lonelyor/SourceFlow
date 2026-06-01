@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lonelyor/sourceflow/kernel/cache"
 	"github.com/lonelyor/sourceflow/kernel/task"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
@@ -65,6 +66,11 @@ type dbQueueOperation struct {
 func snapshotTree(tree *parse.Tree) []byte {
 	if tree == nil {
 		return nil
+	}
+	if raw, ok := cache.GetTreeData(tree.ID); ok && len(raw) > 0 {
+		snap := make([]byte, len(raw))
+		copy(snap, raw)
+		return snap
 	}
 	luteEngine := util.NewLute()
 	renderer := render.NewJSONRenderer(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
