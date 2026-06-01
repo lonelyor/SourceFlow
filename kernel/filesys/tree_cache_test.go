@@ -2,12 +2,16 @@ package filesys
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/lonelyor/sourceflow/kernel/cache"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
 )
 
 func TestLoadTreeReturnsIndependentInstancesFromCache(t *testing.T) {
@@ -55,5 +59,48 @@ func TestLoadTreeReturnsIndependentInstancesFromCache(t *testing.T) {
 	}
 	if second.Root.IALAttr("title") == "Mutated" {
 		t.Fatal("mutating one loaded tree root must not affect another load")
+	}
+}
+
+func TestPrepareWriteTreeRefusesEmptyTreeOverExistingDocument(t *testing.T) {
+	oldDataDir := util.DataDir
+	util.DataDir = t.TempDir()
+	defer func() {
+		util.DataDir = oldDataDir
+		cache.ClearTreeCache()
+	}()
+	cache.ClearTreeCache()
+
+	const boxID = "box"
+	const docPath = "/20260601105000-abcdefg.sf"
+	filePath := filepath.Join(util.DataDir, boxID, docPath)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		t.Fatalf("create fixture dir: %s", err)
+	}
+	if err := os.WriteFile(filePath, []byte(`{"Type":"NodeDocument"}`), 0644); err != nil {
+		t.Fatalf("write existing tree fixture: %s", err)
+	}
+
+	rootID := util.GetTreeID(docPath)
+	tree := &parse.Tree{
+		ID:   rootID,
+		Box:  boxID,
+		Path: docPath,
+		Root: &ast.Node{Type: ast.NodeDocument, ID: rootID, Box: boxID, Path: docPath},
+	}
+	_, _, err := prepareWriteTree(tree)
+	if err == nil {
+		t.Fatal("prepareWriteTree must refuse to overwrite an existing document with an empty tree")
+	}
+	if !strings.Contains(err.Error(), "refuse to write empty tree") {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		t.Fatalf("read existing tree fixture: %s", readErr)
+	}
+	if string(data) != `{"Type":"NodeDocument"}` {
+		t.Fatalf("existing document changed after refused write: %s", data)
 	}
 }

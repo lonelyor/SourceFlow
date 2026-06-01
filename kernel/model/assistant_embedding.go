@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/filelock"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
 
 type AssistantEmbeddingConfig struct {
@@ -22,8 +24,16 @@ type AssistantEmbeddingConfig struct {
 	Enabled  bool   `json:"enabled"`
 }
 
+type AssistantEmbeddingConfigView struct {
+	Provider  string `json:"provider"`
+	BaseURL   string `json:"baseURL"`
+	APIKey    string `json:"apiKey"`
+	Model     string `json:"model"`
+	Enabled   bool   `json:"enabled"`
+	HasAPIKey bool   `json:"hasAPIKey"`
+}
+
 var (
-	embeddingConfigOnce  sync.Once
 	embeddingConfigCache *AssistantEmbeddingConfig
 	embeddingConfigLock  sync.Mutex
 )
@@ -32,9 +42,21 @@ func embeddingConfigPath() string {
 	return filepath.Join(util.DataDir, "storage", "assistant_embedding.json")
 }
 
+func cloneAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *AssistantEmbeddingConfig {
+	if nil == cfg {
+		return &AssistantEmbeddingConfig{}
+	}
+	ret := *cfg
+	return &ret
+}
+
 func GetAssistantEmbeddingConfig() *AssistantEmbeddingConfig {
 	embeddingConfigLock.Lock()
 	defer embeddingConfigLock.Unlock()
+	return cloneAssistantEmbeddingConfig(getAssistantEmbeddingConfigLocked())
+}
+
+func getAssistantEmbeddingConfigLocked() *AssistantEmbeddingConfig {
 	if embeddingConfigCache != nil {
 		return embeddingConfigCache
 	}
@@ -42,11 +64,27 @@ func GetAssistantEmbeddingConfig() *AssistantEmbeddingConfig {
 	p := embeddingConfigPath()
 	data, err := os.ReadFile(p)
 	if err != nil {
+		embeddingConfigCache = cfg
 		return cfg
 	}
-	_ = json.Unmarshal(data, cfg)
+	if err = json.Unmarshal(data, cfg); err != nil {
+		logging.LogWarnf("parse embedding config [%s] failed: %s", p, err)
+		cfg = &AssistantEmbeddingConfig{}
+	}
 	embeddingConfigCache = cfg
 	return cfg
+}
+
+func GetAssistantEmbeddingConfigView() *AssistantEmbeddingConfigView {
+	cfg := GetAssistantEmbeddingConfig()
+	return &AssistantEmbeddingConfigView{
+		Provider:  cfg.Provider,
+		BaseURL:   cfg.BaseURL,
+		APIKey:    "",
+		Model:     cfg.Model,
+		Enabled:   cfg.Enabled,
+		HasAPIKey: "" != cfg.APIKey,
+	}
 }
 
 func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
@@ -54,6 +92,10 @@ func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
 	defer embeddingConfigLock.Unlock()
 	if cfg == nil {
 		cfg = &AssistantEmbeddingConfig{}
+	}
+	cfg = cloneAssistantEmbeddingConfig(cfg)
+	if "" == cfg.APIKey {
+		cfg.APIKey = getAssistantEmbeddingConfigLocked().APIKey
 	}
 	dir := filepath.Dir(embeddingConfigPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -63,7 +105,7 @@ func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
 	if err != nil {
 		return fmt.Errorf("marshal embedding config: %w", err)
 	}
-	if err := os.WriteFile(embeddingConfigPath(), data, 0644); err != nil {
+	if err := filelock.WriteFile(embeddingConfigPath(), data); err != nil {
 		return fmt.Errorf("write embedding config: %w", err)
 	}
 	embeddingConfigCache = cfg

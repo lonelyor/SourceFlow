@@ -115,6 +115,9 @@ const buildStructuredAssistantPatch = (
         if (type === "set-attrs" && (!attrs || !Object.keys(attrs).length)) {
             return null;
         }
+        if (type === "replace-block" && !before) {
+            return null;
+        }
         const defaultTarget = type === "append-note" || type === "create-child-note"
             ? context.note?.rootID
             : (context.note?.currentBlockID || context.note?.rootID);

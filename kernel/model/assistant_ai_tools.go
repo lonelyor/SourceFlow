@@ -847,7 +847,7 @@ func runAssistantAITool(def *AssistantAIToolDefinition, policy *AssistantAIToolP
 		if AssistantAIToolTraceMarkdown == traceMode {
 			markdown = buildAssistantAIToolTrace(def, markdown)
 		}
-		id, createErr := CreateWithMarkdown("", notebook, hPath, markdown, "", ast.NewNodeID(), false, "")
+		id, createErr := CreateWithMarkdownSanitized("", notebook, hPath, markdown, "", ast.NewNodeID(), false, "")
 		if nil != createErr {
 			return nil, "", "", createErr
 		}
@@ -1913,7 +1913,12 @@ func dataBlockDOMForAssistant(data string, luteEngine *lute.Lute) (ret string, e
 	ret, tree := luteEngine.Md2BlockDOMTree(data, true)
 	if "" == ret {
 		blankParagraph := treenode.NewParagraph("")
-		ret = luteEngine.RenderNodeBlockDOM(blankParagraph)
+		if nil != tree && nil != tree.Root {
+			tree.Root.AppendChild(blankParagraph)
+			ret = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+		} else {
+			ret = luteEngine.RenderNodeBlockDOM(blankParagraph)
+		}
 	}
 
 	invalidID := ""
@@ -1929,6 +1934,10 @@ func dataBlockDOMForAssistant(data string, luteEngine *lute.Lute) (ret string, e
 	})
 	if "" != invalidID {
 		return "", errors.New("found invalid ID [" + invalidID + "]")
+	}
+	if nil != tree && nil != tree.Root {
+		treenode.ResetBlockIDs(tree.Root)
+		ret = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 	}
 	return ret, nil
 }
@@ -1987,7 +1996,7 @@ func createAssistantAIWorkbenchItem(def *AssistantAIToolDefinition, policy *Assi
 	if AssistantAIToolTraceMarkdown == traceMode {
 		markdown = buildAssistantAIToolTrace(def, markdown)
 	}
-	id, createErr := CreateWithMarkdown("", notebook, hPath, markdown, "", ast.NewNodeID(), false, "")
+	id, createErr := CreateWithMarkdownSanitized("", notebook, hPath, markdown, "", ast.NewNodeID(), false, "")
 	if nil != createErr {
 		return nil, "", "", createErr
 	}
@@ -2047,7 +2056,7 @@ func createAssistantAIChildNote(def *AssistantAIToolDefinition, policy *Assistan
 		markdown = buildAssistantAIToolTrace(def, markdown)
 	}
 	tags := assistantAIJoinedStringArrayValue(args, "tags")
-	id, createErr := CreateWithMarkdown(tags, contextNotebook(context), hPath, markdown, contextID(context), ast.NewNodeID(), false, "")
+	id, createErr := CreateWithMarkdownSanitized(tags, contextNotebook(context), hPath, markdown, contextID(context), ast.NewNodeID(), false, "")
 	if nil != createErr {
 		return nil, "", "", createErr
 	}

@@ -93,8 +93,18 @@
 - 审计确认 5/29 提交 `2180981` 已因稳定性问题移除 `displayBlockLineNumber` 与 `alwaysShowGutter`；plans 中仍有历史条目记录其已实现。因 plans 与当前代码状态冲突，已按当前代码与最新修复提交为准，本轮不恢复这两个功能。
 - 本轮找到新的根因：前端 patch review 接受 `delete-block` / `replace-block` 时直接调用块删除/更新 API，绕过了后端 AI 工具禁止操作根文档的保护；结构化 patch 目标漏填或指向根块时，可能删除或整体替换当前笔记。
 - 本轮已修复前端 patch apply：应用 `delete-block` 与 `replace-block` 前先确认目标不是文档根块；目标等于当前根文档、块信息查询失败或无法确认 `rootID` 时失败关闭，并补充 `test:assistant-patch-review` 回归覆盖。
+- 本轮已继续收紧前端 patch apply：所有写入型 patch 只允许作用于当前笔记范围；`replace-selection` / `replace-block` 应用前重新读取实时块 Markdown 做原文校验；AI 写入请求统一携带 `sanitizeIDs`。
 - 本轮确认更底层的笔记不稳定根因来自 5/29 `85afb24` 的 tree cache enhancement：`filesys.LoadTree` 缓存并复用 `*parse.Tree` 指针，但该结构会被调用链继续修改，导致跨加载状态污染。
-- 本轮已移除 parsed tree 指针缓存，仅保留原始 JSON 字节缓存；`LoadTree` 命中缓存时重新解析出独立 tree 实例，并新增 `TestLoadTreeReturnsIndependentInstancesFromCache` 回归测试。
+- 本轮已移除 parsed tree 指针缓存，仅保留原始 JSON 字节缓存；缓存 raw bytes 执行 copy-in/copy-out，`LoadTree` 命中缓存时重新解析出独立 tree 实例，并新增 `TestLoadTreeReturnsIndependentInstancesFromCache` / `TestTreeCacheCopiesRawData` 回归测试。
+- 用户确认不做临时修复，改为从笔记软件稳定性与安全角度做系统修复；本轮已建立 AST 所有权边界：只读渲染路径通过 `treenode.CloneNode` 处理 detached 副本，`GetDoc` 不再把源 tree 节点移动到临时渲染树。
+- 本轮已新增空树写入保护：已有非空 `.sf` 文件对应的内存 tree 若无子节点，`WriteTree` 会拒绝覆盖，避免缓存/渲染污染被持久化为真实空白笔记。
+- 本轮已恢复打开文档前等待事务队列完成，移除 `TryFlushTxQueue(20ms)`，优先保证读写一致性。
+- 本轮已移除 HPath 短期缓存和 Lute 对象池，避免父路径陈旧与可变解析器状态串扰；后续若恢复性能优化，必须先设计失效/重置边界并补回归测试。
+- 本轮已将 `GetChildBlocksBatch` 改为参数化递归查询，避免块 ID 字符串拼接 SQL。
+- 本轮已为笔记本文件路径增加统一归一化和根目录约束，`Ls`、`Stat`、`Exist`、`Mkdir`、`MkdirAll`、`Move` 和 `Remove` 等路径入口拒绝 `..`、绝对路径或卷标路径越界访问，并禁止移动/删除笔记本根目录。
+- 本轮已收紧 Embedding/语义搜索安全边界：配置 API 不回显 API Key，前端留空保留已有密钥，搜索 limit 上限为 50，向量存储使用文件锁写入，删除笔记时清理对应向量。
+- 本轮 P0/P1 稳定性修复已通过 `go test ./cache ./filesys ./treenode ./util ./sql ./conf -count=1`、`go test -vet=off ./model -run TestBox -count=1`、`go test -vet=off ./model -run '^$' -count=1`、`go test -vet=off ./model -run TestAssistantEmbedding -count=1`、`go test -vet=off ./model -run TestRemoveNoteVectors -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`go test -vet=off ./api -run TestDataBlockDOMSanitizedEmptyMarkdownKeepsBlankParagraph -count=1`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app run test:editor-structure-guide-bugfix` 和 `git diff --check`。
+- `pnpm --dir app run lint` 仍失败，当前输出为既有前端 lint 基线：`app/src/workbench/itemSettings.ts` 的 `@typescript-eslint/no-empty-object-type` 错误以及大量未使用符号问题（共 5004 个问题，8 errors / 4996 warnings）；本轮稳定性修复未扩大处理该 lint 基线。
 
 ## 风险
 

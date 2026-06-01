@@ -38,14 +38,14 @@ func GetTreeData(rootID string) (raw []byte, ok bool) {
 		return nil, false
 	}
 	e := v.(*treeCacheEntry)
-	return e.raw, true
+	return cloneTreeData(e.raw), true
 }
 
 func SetTreeData(rootID string, raw []byte) {
 	if raw == nil {
 		return
 	}
-	entry := &treeCacheEntry{raw: raw}
+	entry := &treeCacheEntry{raw: cloneTreeData(raw)}
 	treeCache.Set(rootID, entry, int64(len(raw)))
 }
 
@@ -55,4 +55,13 @@ func RemoveTreeData(rootID string) {
 
 func ClearTreeCache() {
 	treeCache.Clear()
+}
+
+func cloneTreeData(raw []byte) []byte {
+	if nil == raw {
+		return nil
+	}
+	ret := make([]byte, len(raw))
+	copy(ret, raw)
+	return ret
 }

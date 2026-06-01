@@ -98,7 +98,7 @@ func appendDailyNoteBlock(c *gin.Context) {
 	if "markdown" == dataType {
 		luteEngine := util.NewLute()
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, false)
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -151,7 +151,7 @@ func prependDailyNoteBlock(c *gin.Context) {
 	if "markdown" == dataType {
 		luteEngine := util.NewLute()
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, false)
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -401,7 +401,7 @@ func appendBlock(c *gin.Context) {
 	if "markdown" == dataType {
 		luteEngine := util.NewLute()
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(arg))
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -450,7 +450,7 @@ func batchAppendBlock(c *gin.Context) {
 		}
 		if "markdown" == dataType {
 			var err error
-			data, err = dataBlockDOM(data, luteEngine)
+			data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(blockMap))
 			if err != nil {
 				ret.Code = -1
 				ret.Msg = "data block DOM failed: " + err.Error()
@@ -494,7 +494,7 @@ func prependBlock(c *gin.Context) {
 	if "markdown" == dataType {
 		luteEngine := util.NewLute()
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(arg))
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -543,7 +543,7 @@ func batchPrependBlock(c *gin.Context) {
 		}
 		if "markdown" == dataType {
 			var err error
-			data, err = dataBlockDOM(data, luteEngine)
+			data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(blockMap))
 			if err != nil {
 				ret.Code = -1
 				ret.Msg = "data block DOM failed: " + err.Error()
@@ -603,7 +603,7 @@ func insertBlock(c *gin.Context) {
 	if "markdown" == dataType {
 		luteEngine := util.NewLute()
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(arg))
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -651,7 +651,7 @@ func updateBlock(c *gin.Context) {
 	luteEngine := util.NewLute()
 	if "markdown" == dataType {
 		var err error
-		data, err = dataBlockDOM(data, luteEngine)
+		data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(arg))
 		if err != nil {
 			ret.Code = -1
 			ret.Msg = "data block DOM failed: " + err.Error()
@@ -769,7 +769,7 @@ func batchInsertBlock(c *gin.Context) {
 
 		if "markdown" == dataType {
 			var err error
-			data, err = dataBlockDOM(data, luteEngine)
+			data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(blockMap))
 			if err != nil {
 				ret.Code = -1
 				ret.Msg = "data block DOM failed: " + err.Error()
@@ -829,7 +829,7 @@ func batchUpdateBlock(c *gin.Context) {
 		dataType := blockMap["dataType"].(string)
 		if "markdown" == dataType {
 			var err error
-			data, err = dataBlockDOM(data, luteEngine)
+			data, err = dataBlockDOM(data, luteEngine, sanitizeBlockIDs(blockMap))
 			if err != nil {
 				ret.Code = -1
 				ret.Msg = "data block DOM failed: " + err.Error()
@@ -949,14 +949,24 @@ func broadcastTransactions(transactions []*model.Transaction) {
 	util.PushEvent(evt)
 }
 
-func dataBlockDOM(data string, luteEngine *lute.Lute) (ret string, err error) {
+func sanitizeBlockIDs(arg map[string]interface{}) bool {
+	ret, _ := arg["sanitizeIDs"].(bool)
+	return ret
+}
+
+func dataBlockDOM(data string, luteEngine *lute.Lute, sanitizeIDs bool) (ret string, err error) {
 	luteEngine.SetHTMLTag2TextMark(true) // API `/api/block/**` 无法使用 `<u>foo</u>` 与 `<kbd>bar</kbd>` 插入/更新行内元素 https://github.com/lonelyor/SourceFlow/issues/6039
 
 	ret, tree := luteEngine.Md2BlockDOMTree(data, true)
 	if "" == ret {
 		// 使用 API 插入空字符串出现错误 https://github.com/lonelyor/SourceFlow/issues/3931
 		blankParagraph := treenode.NewParagraph("")
-		ret = luteEngine.RenderNodeBlockDOM(blankParagraph)
+		if sanitizeIDs && nil != tree && nil != tree.Root {
+			tree.Root.AppendChild(blankParagraph)
+			ret = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+		} else {
+			ret = luteEngine.RenderNodeBlockDOM(blankParagraph)
+		}
 	}
 
 	invalidID := ""
@@ -978,6 +988,10 @@ func dataBlockDOM(data string, luteEngine *lute.Lute) (ret string, err error) {
 		err = errors.New("found invalid ID [" + invalidID + "]")
 		ret = ""
 		return
+	}
+	if sanitizeIDs && nil != tree && nil != tree.Root {
+		treenode.ResetBlockIDs(tree.Root)
+		ret = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 	}
 	return
 }

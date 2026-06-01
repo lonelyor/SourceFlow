@@ -470,7 +470,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	//pprof.StartCPUProfile(cpuProfile)
 	//defer pprof.StopCPUProfile()
 
-	TryFlushTxQueue(20 * time.Millisecond)
+	FlushTxQueue()
 
 	inputIndex := index
 	tree, err := LoadTreeByBlockID(id)
@@ -653,8 +653,12 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 
 	existKeywords := 0 < len(keywords)
 	for _, n := range nodes {
+		renderNode := treenode.CloneNode(n)
+		if nil == renderNode {
+			continue
+		}
 		var unlinks []*ast.Node
-		ast.Walk(n, func(n *ast.Node, entering bool) ast.WalkStatus {
+		ast.Walk(renderNode, func(n *ast.Node, entering bool) ast.WalkStatus {
 			if !entering {
 				return ast.WalkContinue
 			}
@@ -726,7 +730,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 			unlink.Unlink()
 		}
 
-		subTree.Root.AppendChild(n)
+		subTree.Root.AppendChild(renderNode)
 	}
 
 	luteEngine.RenderOptions.NodeIndexStart = index
@@ -1030,6 +1034,14 @@ func CreateDocByMd(boxID, p, title, md string, sorts []string) (tree *parse.Tree
 }
 
 func CreateWithMarkdown(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string) (retID string, err error) {
+	return createWithMarkdown0(tags, boxID, hPath, md, parentID, id, withMath, clippingHref, false)
+}
+
+func CreateWithMarkdownSanitized(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string) (retID string, err error) {
+	return createWithMarkdown0(tags, boxID, hPath, md, parentID, id, withMath, clippingHref, true)
+}
+
+func createWithMarkdown0(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string, sanitizeIDs bool) (retID string, err error) {
 	createDocLock.Lock()
 	defer createDocLock.Unlock()
 
@@ -1049,7 +1061,17 @@ func CreateWithMarkdown(tags, boxID, hPath, md, parentID, id string, withMath bo
 		// 改进链滴剪藏 https://github.com/lonelyor/SourceFlow/issues/13117
 		enableLuteInlineSyntax(luteEngine)
 	}
-	dom := luteEngine.Md2BlockDOM(md, false)
+	var dom string
+	if sanitizeIDs {
+		treeDOM, tree := luteEngine.Md2BlockDOMTree(md, false)
+		dom = treeDOM
+		if nil != tree && nil != tree.Root {
+			treenode.ResetBlockIDs(tree.Root)
+			dom = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+		}
+	} else {
+		dom = luteEngine.Md2BlockDOM(md, false)
+	}
 	retID, err = createDocsByHPath(box.ID, hPath, dom, parentID, id)
 
 	nameValues := map[string]string{}
@@ -1617,11 +1639,11 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
 		"ids": removeIDs,
 	}
 	util.PushEvent(evt)
-	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir)
+	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir, allRemoveRootIDs)
 	return
 }
 
-func removeDoc0(tree *parse.Tree, childrenDir string) {
+func removeDoc0(tree *parse.Tree, childrenDir string, removeRootIDs []string) {
 	// 收集引用的定义块 ID
 	refDefIDs := getRefDefIDs(tree.Root)
 	// 推送定义节点引用计数
@@ -1633,6 +1655,7 @@ func removeDoc0(tree *parse.Tree, childrenDir string) {
 	sql.RemoveTreePathQueue(tree.Box, childrenDir)
 	cache.RemoveDocIAL(tree.Path)
 	cache.RemoveTreeData(tree.ID)
+	RemoveNoteVectors(removeRootIDs)
 	return
 }
 

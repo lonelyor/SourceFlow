@@ -951,7 +951,12 @@ func createDocWithMd(c *gin.Context) {
 		clippingHref = clippingHrefArg.(string)
 	}
 
-	id, err := model.CreateWithMarkdown(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	var err error
+	if sanitizeBlockIDs(arg) {
+		id, err = model.CreateWithMarkdownSanitized(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	} else {
+		id, err = model.CreateWithMarkdown(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	}
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()

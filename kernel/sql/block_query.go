@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -1022,17 +1021,32 @@ func GetChildBlocksBatch(parentIDs []string) (ret []*Block) {
 	if 0 == len(parentIDs) {
 		return
 	}
-	var idClauses []string
+
+	rootPlaceholders := bytes.Buffer{}
+	var rootArgs []interface{}
 	for _, pid := range parentIDs {
-		idClauses = append(idClauses, fmt.Sprintf(`WITH RECURSIVE children(id) AS (
-    SELECT id FROM blocks WHERE id = "%s"
+		if "" == pid {
+			continue
+		}
+		if 0 < rootPlaceholders.Len() {
+			rootPlaceholders.WriteByte(',')
+		}
+		rootPlaceholders.WriteString("(?)")
+		rootArgs = append(rootArgs, pid)
+	}
+	if 1 > len(rootArgs) {
+		return
+	}
+
+	fullSQL := `WITH RECURSIVE roots(id) AS (
+    VALUES ` + rootPlaceholders.String() + `
+), children(id) AS (
+    SELECT id FROM roots
     UNION ALL
     SELECT b.id FROM blocks b JOIN children c ON b.parent_id = c.id
 )
-SELECT id FROM children`, pid))
-	}
-	fullSQL := strings.Join(idClauses, " UNION ALL ")
-	rows, err := query(fullSQL)
+SELECT id FROM children`
+	rows, err := query(fullSQL, rootArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -1049,12 +1063,17 @@ SELECT id FROM children`, pid))
 	if 0 == len(allIDs) {
 		return
 	}
-	var params []string
+	blockPlaceholders := bytes.Buffer{}
+	var blockArgs []interface{}
 	for _, id := range allIDs {
-		params = append(params, `"`+id+`"`)
+		if 0 < blockPlaceholders.Len() {
+			blockPlaceholders.WriteByte(',')
+		}
+		blockPlaceholders.WriteByte('?')
+		blockArgs = append(blockArgs, id)
 	}
-	sqlStmt := "SELECT * FROM blocks WHERE id IN (" + strings.Join(params, ",") + ")"
-	blockRows, err := query(sqlStmt)
+	sqlStmt := "SELECT * FROM blocks WHERE id IN (" + blockPlaceholders.String() + ")"
+	blockRows, err := query(sqlStmt, blockArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return
