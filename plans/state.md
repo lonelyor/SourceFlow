@@ -123,6 +123,8 @@
 - 本轮新增 `test:file-tree-appearance-settings` 覆盖文档树字号配置链路、i18n/搜索索引、CSS 变量和默认折叠策略；已通过目标回归、`pnpm --dir app run typecheck:app`、`go test -vet=off ./api -run TestNormalizeAppearanceFileTreeFontSize -count=1`、`go test -vet=off ./conf -count=1` 和 `git diff --check`。
 - 2026-06-01 最新 v0.1.6 覆盖发布准备：用户确认 Linux 产物通过 WSL Arch 编译；本次发布应合并 Windows x64 与 WSL Arch Linux x64 资产后再覆盖远程 `v0.1.6`，避免 Release 只保留 Windows 资产。
 - 本轮已更新 `CHANGELOG.md` 与 `app/changelogs/v0.1.6/` 发布说明，移除已废弃的块编号/持久块图标描述，并补充文档树默认折叠、文档树字号设置与 Linux x64 发布资产说明。
+- 2026-06-01 用户确认笔记业务优先于前端全量 XSS 过滤：Protyle 正文加载与 SourceFlow 内部粘贴不再对完整 Block DOM 使用 DOMPurify 标签/属性空白名单清洗，避免标题、段落、列表、HTML 块、嵌入内容和业务属性被剥离。
+- 本轮已新增 `test:protyle-blockdom-preservation`，确保 `onGet` 和内部粘贴路径不会重新引入 `ALLOWED_TAGS:false` / `ALLOWED_ATTR:false` 或对完整笔记 Block DOM 做 DOMPurify 清洗。
 
 ## 风险
 

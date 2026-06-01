@@ -541,12 +541,7 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
         return;
     } else if (sourceflowHTML) {
         const tempElement = document.createElement("div");
-        tempElement.innerHTML = window.DOMPurify.sanitize(sourceflowHTML, {
-            ALLOWED_TAGS: false,
-            ALLOWED_ATTR: false,
-            FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "textarea", "select", "button", "style"],
-            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onsubmit", "onchange"]
-        });
+        tempElement.innerHTML = sourceflowHTML;
         if (range.toString()) {
             let types: string[] = [];
             let linkElement: HTMLElement;
