@@ -56,3 +56,65 @@ func TestBoxMoveRejectsPathTraversal(t *testing.T) {
 		t.Fatalf("source file must remain after rejected move: %s", err)
 	}
 }
+
+func TestBoxDocIALDoesNotMoveDocumentOnMissingProperties(t *testing.T) {
+	oldDataDir := util.DataDir
+	oldWorkspaceDir := util.WorkspaceDir
+	util.DataDir = t.TempDir()
+	util.WorkspaceDir = t.TempDir()
+	defer func() {
+		util.DataDir = oldDataDir
+		util.WorkspaceDir = oldWorkspaceDir
+	}()
+
+	box := &Box{ID: "box", Name: "box"}
+	docPath := "20260601123000-abcdefg.sf"
+	absPath := filepath.Join(util.DataDir, box.ID, docPath)
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		t.Fatalf("create doc dir: %s", err)
+	}
+	if err := os.WriteFile(absPath, []byte(`{"Type":"NodeDocument"}`), 0644); err != nil {
+		t.Fatalf("write malformed doc fixture: %s", err)
+	}
+
+	if ial := box.docIAL(docPath); ial != nil {
+		t.Fatalf("expected no IAL for malformed document, got %v", ial)
+	}
+	if _, err := os.Stat(absPath); err != nil {
+		t.Fatalf("malformed document must remain in place after read: %s", err)
+	}
+}
+
+func TestDocFromFileInfoFallsBackToPathID(t *testing.T) {
+	oldConf := Conf
+	oldTimeLangs := util.TimeLangs
+	Conf = &AppConf{Lang: "zh_CN"}
+	util.TimeLangs = map[string]map[string]interface{}{
+		"zh_CN": {
+			"albl": "", "blbl": "", "now": "now", "1s": "1s", "xs": "%ds", "1m": "1m", "xm": "%dm",
+			"1h": "1h", "xh": "%dh", "1d": "1d", "xd": "%dd", "1w": "1w", "xw": "%dw",
+			"1M": "1M", "xM": "%dM", "1y": "1y", "2y": "2y", "xy": "%dy", "max": "max",
+		},
+	}
+	defer func() {
+		Conf = oldConf
+		util.TimeLangs = oldTimeLangs
+	}()
+
+	box := &Box{ID: "box", Name: "box"}
+	docID := "20260601124000-abcdefg"
+	doc := box.docFromFileInfo(&FileInfo{
+		path: "/" + docID + ".sf",
+		name: docID + ".sf",
+		size: 32,
+	}, map[string]string{
+		"title": "Bad IAL",
+	})
+
+	if doc.ID != docID {
+		t.Fatalf("doc ID = %q, want fallback path ID %q", doc.ID, docID)
+	}
+	if doc.CTime == 0 {
+		t.Fatal("doc creation time should be derived from fallback path ID")
+	}
+}

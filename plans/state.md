@@ -104,7 +104,10 @@
 - 本轮已为笔记本文件路径增加统一归一化和根目录约束，`Ls`、`Stat`、`Exist`、`Mkdir`、`MkdirAll`、`Move` 和 `Remove` 等路径入口拒绝 `..`、绝对路径或卷标路径越界访问，并禁止移动/删除笔记本根目录。
 - 本轮已收紧 Embedding/语义搜索安全边界：配置 API 不回显 API Key，前端留空保留已有密钥，搜索 limit 上限为 50，向量存储使用文件锁写入，删除笔记时清理对应向量。
 - 本轮 P0/P1 稳定性修复已通过 `go test ./cache ./filesys ./treenode ./util ./sql ./conf -count=1`、`go test -vet=off ./model -run TestBox -count=1`、`go test -vet=off ./model -run '^$' -count=1`、`go test -vet=off ./model -run TestAssistantEmbedding -count=1`、`go test -vet=off ./model -run TestRemoveNoteVectors -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`go test -vet=off ./api -run TestDataBlockDOMSanitizedEmptyMarkdownKeepsBlankParagraph -count=1`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app run test:editor-structure-guide-bugfix` 和 `git diff --check`。
+- 2026-06-01 第二轮笔记安全稳定性修复阶段 1 已完成：`WriteTree` 移除 mmap/truncate 原文件路径，统一走临时文件安全写入；文档列表读取 IAL 失败不再自动移动/删除 `.sf`；索引修复遇到非法 `.sf` 文件名只警告跳过；列表 IAL `id` 不合法时回退文件名 ID，避免坏 IAL 触发 panic。
+- 阶段 1 已通过 `go test ./filesys -count=1`、`go test -vet=off ./model -run TestBox -count=1`、`go test -vet=off ./model -run TestBoxDocIALDoesNotMoveDocumentOnMissingProperties -count=1` 和 `go test -vet=off ./model -run TestDocFromFileInfoFallsBackToPathID -count=1`。
 - `pnpm --dir app run lint` 仍失败，当前输出为既有前端 lint 基线：`app/src/workbench/itemSettings.ts` 的 `@typescript-eslint/no-empty-object-type` 错误以及大量未使用符号问题（共 5004 个问题，8 errors / 4996 warnings）；本轮稳定性修复未扩大处理该 lint 基线。
+- 本轮已单独修复前端 lint 阻断 error：`ICaptureAutomationData` / `IWorkbenchItemAutomationData` 改为 type alias，插件 sandbox 中一次赋值变量改为 `const` / 引用容器；`pnpm --dir app run lint` 预计只剩大量既有 unused warning 基线。
 
 ## 风险
 

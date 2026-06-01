@@ -184,7 +184,6 @@ func resetDuplicateBlocksOnFileSys() {
 
 			if !ast.IsNodeIDPattern(strings.TrimSuffix(d.Name(), ".sf")) {
 				logging.LogWarnf("invalid .sf file name [%s]", path)
-				box.moveCorruptedData(path)
 				return nil
 			}
 

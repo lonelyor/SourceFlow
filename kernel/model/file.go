@@ -82,11 +82,14 @@ func (box *Box) docFromFileInfo(fileInfo *FileInfo, ial map[string]string) (ret 
 	ret.Name = ial["title"] + ".sf"
 	ret.Icon = ial["icon"]
 	ret.ID = ial["id"]
+	if !ast.IsNodeIDPattern(ret.ID) {
+		ret.ID = util.GetTreeID(fileInfo.path)
+	}
 	ret.Name1 = ial["name"]
 	ret.Alias = ial["alias"]
 	ret.Memo = ial["memo"]
 	ret.Bookmark = ial["bookmark"]
-	t, _ := time.ParseInLocation("20060102150405", ret.ID[:14], time.Local)
+	t, _ := time.ParseInLocation("20060102150405", util.TimeFromID(ret.ID), time.Local)
 	ret.CTime = t.Unix()
 	ret.HCtime = t.Format("2006-01-02 15:04:05") + ", " + util.HumanizeTime(t, Conf.Lang)
 	ret.HSize = humanize.BytesCustomCeil(ret.Size, 2)
@@ -118,7 +121,6 @@ func (box *Box) docIAL(p string) (ret map[string]string) {
 	ret = filesys.DocIAL(filePath)
 	if 1 > len(ret) {
 		logging.LogWarnf("properties not found in file [%s]", filePath)
-		box.moveCorruptedData(filePath)
 		return nil
 	}
 	cache.PutDocIAL(p, ret)

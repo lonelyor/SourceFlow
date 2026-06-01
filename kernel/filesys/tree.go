@@ -27,7 +27,6 @@ import (
 	"strings"
 	"sync"
 
-	mmap "github.com/edsrzf/mmap-go"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/lonelyor/sourceflow/kernel/cache"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
@@ -261,10 +260,8 @@ func WriteTree(tree *parse.Tree) (size uint64, err error) {
 		return
 	}
 
-	if err = writeTreeByMmap(filePath, data); nil != err {
-		if err = writeTreeByWriteFile(filePath, data); nil != err {
-			return
-		}
+	if err = writeTreeByWriteFile(filePath, data); nil != err {
+		return
 	}
 
 	if util.ExceedLargeFileWarningSize(len(data)) {
@@ -281,39 +278,6 @@ func WriteTree(tree *parse.Tree) (size uint64, err error) {
 func writeTreeByWriteFile(filePath string, data []byte) (err error) {
 	if err = filelock.WriteFile(filePath, data); err != nil {
 		msg := fmt.Sprintf("write data [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-	return
-}
-
-func writeTreeByMmap(filePath string, data []byte) (err error) {
-	f, err := filelock.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return
-	}
-	defer filelock.CloseFile(f)
-
-	if err = f.Truncate(int64(len(data))); err != nil {
-		msg := fmt.Sprintf("truncate file [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-
-	m, err := mmap.Map(f, mmap.RDWR, 0)
-	if err != nil {
-		msg := fmt.Sprintf("map file [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-	defer m.Unmap()
-
-	copy(m, data)
-	if err = m.Flush(); err != nil {
-		msg := fmt.Sprintf("flush data [%s] failed: %s", filePath, err)
 		logging.LogErrorf("%s", msg)
 		err = errors.New(msg)
 		return
