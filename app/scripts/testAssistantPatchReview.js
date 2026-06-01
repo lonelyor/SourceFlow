@@ -157,6 +157,27 @@ const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
     "../../util/fetch": {
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
+            if (url === "/api/block/getBlockInfo") {
+                if (payload.id === "block-1") {
+                    return {code: 0, data: {rootID: "root-1"}};
+                }
+                if (payload.id === "empty-block") {
+                    return {code: 0, data: {rootID: "root-1"}};
+                }
+                if (payload.id === "unknown-block") {
+                    return {code: 0, data: {}};
+                }
+                return {code: 0, data: {rootID: payload.id}};
+            }
+            if (url === "/api/block/getBlockKramdown") {
+                if (payload.id === "block-1") {
+                    return {code: 0, data: {kramdown: "重复。重复。"}};
+                }
+                if (payload.id === "empty-block") {
+                    return {code: 0, data: {kramdown: ""}};
+                }
+                return {code: -1};
+            }
             if (url === "/api/filetree/createDocWithMd") {
                 return {code: 0, data: "doc-created"};
             }
@@ -199,6 +220,17 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     status: "pending",
 }, applyContext).then((ok) => {
     assert.strictEqual(ok, false, "duplicate selection should not be auto replaced");
+    return applyModule.applyAssistantPatchOperation(replacePatch, {
+        id: "stale-selection",
+        type: "replace-selection",
+        targetId: "empty-block",
+        before: "重复。",
+        after: "改写。",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, false, "selection replace must use live block markdown instead of stale context");
+    assert(!fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "empty-block"));
     return applyModule.applyAssistantPatchOperation(attrsPatch, attrsPatch.operations[0], applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "attrs patch should apply");
@@ -222,6 +254,78 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     assert.strictEqual(ok, true, "create-note patch should apply");
     assert(fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
     assert(fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd" && item.payload.path === "/AI/新笔记"));
+    return applyModule.applyAssistantPatchOperation({
+        id: "safe-replace-block",
+        source: "skill",
+        target: "block",
+        risk: "L3",
+        summary: "替换块",
+        operations: [],
+        createdAt: Date.now(),
+    }, {
+        id: "safe-replace-block-op",
+        type: "replace-block",
+        targetId: "block-1",
+        before: "重复。重复。",
+        after: "替换后的块",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, true, "replace-block should still update non-root blocks");
+    assert(fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "block-1"));
+    return applyModule.applyAssistantPatchOperation({
+        id: "unsafe-delete-root",
+        source: "skill",
+        target: "note",
+        risk: "L3",
+        summary: "危险删除",
+        operations: [],
+        createdAt: Date.now(),
+    }, {
+        id: "unsafe-delete-root-op",
+        type: "delete-block",
+        targetId: "root-1",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, false, "delete-block must not delete the root document");
+    assert(!fetchCalls.some((item) => item.url === "/api/block/deleteBlock" && item.payload.id === "root-1"));
+    return applyModule.applyAssistantPatchOperation({
+        id: "unsafe-delete-unknown",
+        source: "skill",
+        target: "note",
+        risk: "L3",
+        summary: "未知删除",
+        operations: [],
+        createdAt: Date.now(),
+    }, {
+        id: "unsafe-delete-unknown-op",
+        type: "delete-block",
+        targetId: "unknown-block",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, false, "delete-block must fail closed when root status cannot be verified");
+    assert(!fetchCalls.some((item) => item.url === "/api/block/deleteBlock" && item.payload.id === "unknown-block"));
+    return applyModule.applyAssistantPatchOperation({
+        id: "unsafe-replace-root",
+        source: "skill",
+        target: "note",
+        risk: "L3",
+        summary: "危险替换",
+        operations: [],
+        createdAt: Date.now(),
+    }, {
+        id: "unsafe-replace-root-op",
+        type: "replace-block",
+        targetId: "root-1",
+        before: "原文",
+        after: "整篇笔记被替换",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, false, "replace-block must not replace the root document");
+    assert(!fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "root-1"));
     console.log("[assistant-patch-review] ok");
 }).catch((error) => {
     console.error(error);

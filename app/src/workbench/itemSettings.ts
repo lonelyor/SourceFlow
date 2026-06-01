@@ -15,8 +15,7 @@ export interface IWorkbenchItemSettings {
     eventTemplate: string;
 }
 
-export interface IWorkbenchItemAutomationData extends IWorkbenchItemSettings {
-}
+export type IWorkbenchItemAutomationData = IWorkbenchItemSettings;
 
 type ILegacyCaptureSettings = Partial<{
     notebook: string;

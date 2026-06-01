@@ -17,6 +17,9 @@
 package util
 
 import (
+	"sync"
+	"time"
+
 	ginSessions "github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
@@ -24,6 +27,60 @@ import (
 )
 
 var WrongAuthCount int
+
+type ipAuthEntry struct {
+	count    int
+	lastTime time.Time
+}
+
+var (
+	ipAuthMu   sync.Mutex
+	ipAuthMap  = map[string]*ipAuthEntry{}
+)
+
+func RecordFailedAuth(ip string) {
+	ipAuthMu.Lock()
+	defer ipAuthMu.Unlock()
+	WrongAuthCount++
+	entry, ok := ipAuthMap[ip]
+	if !ok {
+		entry = &ipAuthEntry{}
+		ipAuthMap[ip] = entry
+	}
+	entry.count++
+	entry.lastTime = time.Now()
+}
+
+func ResetFailedAuth(ip string) {
+	ipAuthMu.Lock()
+	defer ipAuthMu.Unlock()
+	delete(ipAuthMap, ip)
+}
+
+func IsIPRateLimited(ip string) bool {
+	ipAuthMu.Lock()
+	defer ipAuthMu.Unlock()
+	entry, ok := ipAuthMap[ip]
+	if !ok {
+		return false
+	}
+	if time.Since(entry.lastTime) > 15*time.Minute {
+		delete(ipAuthMap, ip)
+		return false
+	}
+	return entry.count >= 10
+}
+
+func CleanExpiredIPAuthEntries() {
+	ipAuthMu.Lock()
+	defer ipAuthMu.Unlock()
+	now := time.Now()
+	for ip, entry := range ipAuthMap {
+		if now.Sub(entry.lastTime) > 15*time.Minute {
+			delete(ipAuthMap, ip)
+		}
+	}
+}
 
 func NeedCaptcha() bool {
 	return 3 < WrongAuthCount

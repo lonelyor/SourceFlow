@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -55,9 +56,22 @@ func IsMoveOutlineHeading(transactions *[]*Transaction) bool {
 }
 
 func FlushTxQueue() {
+	FlushTxQueueWithTimeout(30 * time.Second)
+}
+
+func FlushTxQueueWithTimeout(timeout time.Duration) {
 	time.Sleep(time.Duration(50) * time.Millisecond)
-	for 0 < len(txQueue) || isFlushing {
+	deadline := time.Now().Add(timeout)
+	warnLogged := false
+	for (0 < len(txQueue) || isFlushing) && time.Now().Before(deadline) {
+		if !warnLogged && time.Since(deadline.Add(-timeout)) > 10*time.Second {
+			logging.LogWarnf("FlushTxQueue still waiting after 10s, queue=%d, flushing=%v\n%s", len(txQueue), isFlushing, logging.ShortStack())
+			warnLogged = true
+		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if 0 < len(txQueue) || isFlushing {
+		logging.LogErrorf("FlushTxQueue timed out after %v, queue=%d, flushing=%v", timeout, len(txQueue), isFlushing)
 	}
 }
 
@@ -176,8 +190,15 @@ func performTx(tx *Transaction) (ret *TxErr) {
 		}
 	}()
 
-	isLargeInsert := tx.processLargeInsert()
-	tx.processLargeDelete()
+	isLargeInsert, ret := tx.processLargeInsert()
+	if nil != ret {
+		tx.rollback()
+		return
+	}
+	if ret = tx.processLargeDelete(); nil != ret {
+		tx.rollback()
+		return
+	}
 	if !isLargeInsert {
 		for _, op := range tx.DoOperations {
 			switch op.Action {
@@ -347,10 +368,10 @@ func performTx(tx *Transaction) (ret *TxErr) {
 	return
 }
 
-func (tx *Transaction) processLargeDelete() bool {
+func (tx *Transaction) processLargeDelete() (ret *TxErr) {
 	opSize := len(tx.DoOperations)
 	if 32 > opSize {
-		return false
+		return
 	}
 
 	var deleteOps []*Operation
@@ -358,7 +379,7 @@ func (tx *Transaction) processLargeDelete() bool {
 	for i, op := range tx.DoOperations {
 		if "delete" != op.Action {
 			if i != opSize-1 {
-				return false
+				return
 			}
 
 			lastOp = op
@@ -369,20 +390,22 @@ func (tx *Transaction) processLargeDelete() bool {
 	}
 
 	if 1 > len(deleteOps) {
-		return false
+		return
 	}
 
-	tx.doLargeDelete(deleteOps)
+	if ret = tx.doLargeDelete(deleteOps); nil != ret {
+		return
+	}
 	if nil != lastOp {
 		tx.DoOperations = []*Operation{lastOp}
 	}
-	return true
+	return
 }
 
-func (tx *Transaction) processLargeInsert() bool {
+func (tx *Transaction) processLargeInsert() (processed bool, ret *TxErr) {
 	opSize := len(tx.DoOperations)
 	if 32 > opSize {
-		return false
+		return
 	}
 
 	var insertOps []*Operation
@@ -390,7 +413,7 @@ func (tx *Transaction) processLargeInsert() bool {
 	for i, op := range tx.DoOperations {
 		if "insert" != op.Action {
 			if 0 != i && i != opSize-1 {
-				return false
+				return
 			}
 
 			if "delete" == op.Action {
@@ -407,17 +430,23 @@ func (tx *Transaction) processLargeInsert() bool {
 	}
 
 	if 1 > len(insertOps) {
-		return false
+		return
 	}
 
 	if nil != firstDeleteOp {
-		tx.doDelete(firstDeleteOp)
+		if ret = tx.doDelete(firstDeleteOp); nil != ret {
+			return true, ret
+		}
 	}
-	tx.doLargeInsert(insertOps)
+	if ret = tx.doLargeInsert(insertOps); nil != ret {
+		return true, ret
+	}
 	if nil != lastDeleteOp {
-		tx.doDelete(lastDeleteOp)
+		if ret = tx.doDelete(lastDeleteOp); nil != ret {
+			return true, ret
+		}
 	}
-	return true
+	return true, nil
 }
 
 func (tx *Transaction) doMove(operation *Operation) (ret *TxErr) {
@@ -920,11 +949,18 @@ func (tx *Transaction) doAppend(operation *Operation) (ret *TxErr) {
 	return
 }
 
-func (tx *Transaction) doLargeDelete(operations []*Operation) {
+func (tx *Transaction) doLargeDelete(operations []*Operation) (ret *TxErr) {
 	tree, err := tx.loadTree(operations[0].ID)
 	if err != nil {
 		logging.LogErrorf("load tree [%s] failed: %s", operations[0].ID, err)
-		return
+		return &TxErr{code: TxErrCodeBlockNotFound, id: operations[0].ID}
+	}
+
+	for _, operation := range operations {
+		if nil == treenode.GetNodeInTree(tree, operation.ID) {
+			logging.LogErrorf("get node [%s] in tree [%s] failed", operation.ID, tree.Root.ID)
+			return &TxErr{code: TxErrCodeBlockNotFound, id: operation.ID}
+		}
 	}
 
 	var ids []string
@@ -934,6 +970,7 @@ func (tx *Transaction) doLargeDelete(operations []*Operation) {
 	}
 	treenode.RemoveBlockTreesByIDs(ids)
 	tx.writeTree(tree)
+	return
 }
 
 func (tx *Transaction) doDelete(operation *Operation) (ret *TxErr) {
@@ -1147,7 +1184,7 @@ func deleteAttrView(n *ast.Node, changedAvIDs []string) []string {
 	return changedAvIDs
 }
 
-func (tx *Transaction) doLargeInsert(operations []*Operation) {
+func (tx *Transaction) doLargeInsert(operations []*Operation) (ret *TxErr) {
 	tree, _ := tx.loadTree(operations[0].ID)
 	if nil == tree {
 		tree, _ = tx.loadTree(operations[0].PreviousID)
@@ -1161,16 +1198,17 @@ func (tx *Transaction) doLargeInsert(operations []*Operation) {
 
 	if nil == tree {
 		logging.LogErrorf("load tree [%s] failed", operations[0].ID)
-		return
+		return &TxErr{code: TxErrCodeBlockNotFound, id: operations[0].ID}
 	}
 
 	for _, operation := range operations {
 		if txErr := tx.doInsert0(operation, tree); nil != txErr {
-			return
+			return txErr
 		}
 	}
 
 	tx.writeTree(tree)
+	return
 }
 
 func (tx *Transaction) doInsert(operation *Operation) (ret *TxErr) {
@@ -1895,12 +1933,25 @@ func (tx *Transaction) GetChangedRootIDs() (ret []string) {
 }
 
 func (tx *Transaction) WaitForCommit() {
+	tx.WaitForCommitWithTimeout(30 * time.Second)
+}
+
+func (tx *Transaction) WaitForCommitWithTimeout(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	warnLogged := false
 	for {
-		if 1 == tx.state.Load() {
-			time.Sleep(10 * time.Millisecond)
-			continue
+		if 1 != tx.state.Load() {
+			return
 		}
-		return
+		if time.Now().After(deadline) {
+			logging.LogErrorf("WaitForCommit timed out after %v, tx state=%d\n%s", timeout, tx.state.Load(), logging.ShortStack())
+			return
+		}
+		if !warnLogged && time.Until(deadline) < timeout-10*time.Second {
+			logging.LogWarnf("WaitForCommit still waiting after 10s, tx state=%d", tx.state.Load())
+			warnLogged = true
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -1914,16 +1965,57 @@ func (tx *Transaction) begin() (err error) {
 }
 
 func (tx *Transaction) commit() (err error) {
+	type stagedWrite struct {
+		tree     *parse.Tree
+		tmpPath  string
+		finalDir string
+		data     []byte
+	}
+	var staged []stagedWrite
+
 	for _, tree := range tx.trees {
-		if err = writeTreeUpsertQueue(tree); err != nil {
+		data, filePath, prepareErr := filesys.PrepareWriteTree(tree)
+		if prepareErr != nil {
+			for _, s := range staged {
+				os.Remove(s.tmpPath)
+			}
+			err = prepareErr
 			return
 		}
+		tmpPath := filePath + ".tx.tmp"
+		if writeErr := os.WriteFile(tmpPath, data, 0644); writeErr != nil {
+			for _, s := range staged {
+				os.Remove(s.tmpPath)
+			}
+			os.Remove(tmpPath)
+			err = writeErr
+			return
+		}
+		staged = append(staged, stagedWrite{tree: tree, tmpPath: tmpPath, finalDir: filePath, data: data})
+	}
+
+	for i, s := range staged {
+		if renameErr := os.Rename(s.tmpPath, s.finalDir); renameErr != nil {
+			logging.LogErrorf("atomic rename tx staged file failed: %s", renameErr)
+			for j := i + 1; j < len(staged); j++ {
+				os.Remove(staged[j].tmpPath)
+			}
+			err = renameErr
+			return
+		}
+	}
+
+	for _, s := range staged {
+		cache.SetTreeData(s.tree.ID, s.data)
+		filesys.AfterWriteTree(s.tree)
+		sql.UpsertTreeQueue(s.tree)
+		refreshDocInfoWithSize(s.tree, uint64(len(s.data)))
 
 		var sources []interface{}
 		sources = append(sources, tx)
-		util.PushSaveDoc(tree.ID, "tx", sources)
+		util.PushSaveDoc(s.tree.ID, "tx", sources)
 
-		checkUpsertInUserGuide(tree)
+		checkUpsertInUserGuide(s.tree)
 	}
 	tx.changedRootIDs = refreshDynamicRefTexts(tx.nodes, tx.trees)
 
@@ -1971,6 +2063,10 @@ func (tx *Transaction) loadTreeByBlockTree(bt *treenode.BlockTree) (ret *parse.T
 }
 
 func (tx *Transaction) loadTree(id string) (ret *parse.Tree, err error) {
+	if !ast.IsNodeIDPattern(id) {
+		return nil, ErrBlockNotFound
+	}
+
 	var rootID, box, p string
 	bt := treenode.GetBlockTree(id)
 	if nil == bt {

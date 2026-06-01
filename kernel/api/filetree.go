@@ -104,8 +104,12 @@ func listDocTree(c *gin.Context) {
 	}
 
 	p := arg["path"].(string)
-	p = strings.TrimSuffix(p, ".sf")
-	root := filepath.Join(util.WorkspaceDir, "data", notebook, p)
+	root, err := resolveDocTreeRoot(filepath.Join(util.DataDir, notebook), p)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
 	countOnly := false
 	if countOnlyArg := arg["countOnly"]; nil != countOnlyArg {
 		countOnly = countOnlyArg.(bool)
@@ -169,6 +173,10 @@ func listDocTree(c *gin.Context) {
 	ret.Data = map[string]interface{}{
 		"tree": doctree,
 	}
+}
+
+func resolveDocTreeRoot(boxRoot, p string) (string, error) {
+	return util.ResolvePathUnder(boxRoot, strings.TrimSuffix(p, ".sf"))
 }
 
 func countDocTree(p string) (ret int, err error) {
@@ -248,7 +256,16 @@ func walkDocTree(p string, docFile *DocFile, ids map[string]bool) (err error) {
 				return
 			}
 		} else {
-			doc := &DocFile{ID: strings.TrimSuffix(entry.Name(), ".sf")}
+			if !strings.HasSuffix(entry.Name(), ".sf") {
+				continue
+			}
+
+			id := strings.TrimSuffix(entry.Name(), ".sf")
+			if !ast.IsNodeIDPattern(id) {
+				continue
+			}
+
+			doc := &DocFile{ID: id}
 			if !ids[doc.ID] {
 				docFile.Children = append(docFile.Children, doc)
 			}
@@ -951,7 +968,12 @@ func createDocWithMd(c *gin.Context) {
 		clippingHref = clippingHrefArg.(string)
 	}
 
-	id, err := model.CreateWithMarkdown(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	var err error
+	if sanitizeBlockIDs(arg) {
+		id, err = model.CreateWithMarkdownSanitized(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	} else {
+		id, err = model.CreateWithMarkdown(tags, notebook, hPath, markdown, parentID, id, withMath, clippingHref)
+	}
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -1433,7 +1455,7 @@ func authFilePublishAccess(c *gin.Context) {
 	publishAccess := model.GetPublishAccess()
 	for _, item := range publishAccess {
 		if item.ID == ID {
-			if item.Password == password {
+			if item.CheckPassword(password) {
 				model.SetPublishAuthCookie(c, ID, password)
 			} else {
 				ret.Msg = model.Conf.Language(285)

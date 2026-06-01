@@ -27,12 +27,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lonelyor/sourceflow/kernel/cache"
 	"github.com/lonelyor/sourceflow/kernel/task"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/dataparser"
 	"github.com/lonelyor/sourceflow/third_party/go/eventbus"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
+	"github.com/lonelyor/sourceflow/third_party/go/lute/render"
 )
 
 var (
@@ -44,17 +47,49 @@ var (
 
 type dbQueueOperation struct {
 	inQueueTime                   time.Time
-	action                        string      // upsert/delete/delete_id/rename/rename_sub_tree/delete_box/delete_box_refs/index/delete_ids/update_block_content/delete_assets
-	indexTree                     *parse.Tree // index
-	upsertTree                    *parse.Tree // upsert/update_refs/delete_refs
-	removeTreeBox, removeTreePath string      // delete
-	removeTreeID                  string      // delete_id
-	removeTreeIDs                 []string    // delete_ids
-	box                           string      // delete_box/delete_box_refs/index
-	renameTree                    *parse.Tree // rename/rename_sub_tree
-	block                         *Block      // update_block_content
-	id                            string      // index_node
-	removeAssetHashes             []string    // delete_assets
+	action                        string // upsert/delete/delete_id/rename/rename_sub_tree/delete_box/delete_box_refs/index/delete_ids/update_block_content/delete_assets
+	indexTree                     *parse.Tree
+	upsertTree                    *parse.Tree
+	removeTreeBox, removeTreePath string
+	removeTreeID                  string
+	removeTreeIDs                 []string
+	box                           string
+	renameTree                    *parse.Tree
+	block                         *Block
+	id                            string
+	removeAssetHashes             []string
+	upsertTreeBytes               []byte
+	renameTreeBytes               []byte
+	indexTreeBytes                []byte
+}
+
+func snapshotTree(tree *parse.Tree) []byte {
+	if tree == nil {
+		return nil
+	}
+	if raw, ok := cache.GetTreeData(tree.ID); ok && len(raw) > 0 {
+		snap := make([]byte, len(raw))
+		copy(snap, raw)
+		return snap
+	}
+	luteEngine := util.NewLute()
+	renderer := render.NewJSONRenderer(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+	return renderer.Render()
+}
+
+func restoreTree(data []byte, boxID, treePath string) *parse.Tree {
+	if data == nil {
+		return nil
+	}
+	luteEngine := util.NewLute()
+	tree, err := dataparser.ParseJSONWithoutFix(data, luteEngine.ParseOptions)
+	if err != nil {
+		logging.LogErrorf("restore tree from queue snapshot failed: %s", err)
+		return nil
+	}
+	tree.Box = boxID
+	tree.Path = treePath
+	return tree
 }
 
 func FlushTxJob() {
@@ -62,18 +97,21 @@ func FlushTxJob() {
 }
 
 func WaitFlushTx() {
+	WaitFlushTxWithTimeout(120 * time.Second)
+}
+
+func WaitFlushTxWithTimeout(timeout time.Duration) {
 	dbQueueLock.Lock()
 	defer dbQueueLock.Unlock()
 
 	var printLog, lastPrintLog bool
 	var i int
+	deadline := time.Now().Add(timeout)
 
-	for len(operationQueue) > 0 || flushingTx.Load() {
+	for (len(operationQueue) > 0 || flushingTx.Load()) && time.Now().Before(deadline) {
 		if i == 0 {
-			// 第一次等待时使用较短的超时
 			dbQueueCond.Wait()
 		} else {
-			// 后续等待添加超时检测，用于打印警告日志
 			timer := time.AfterFunc(50*time.Millisecond, func() {
 				dbQueueCond.Broadcast()
 			})
@@ -82,14 +120,18 @@ func WaitFlushTx() {
 		}
 
 		i++
-		if 200 < i && !printLog { // 10s 后打日志
+		if 200 < i && !printLog {
 			logging.LogWarnf("database is writing: \n%s", logging.ShortStack())
 			printLog = true
 		}
-		if 1200 < i && !lastPrintLog { // 60s 后打日志
+		if 1200 < i && !lastPrintLog {
 			logging.LogWarnf("database is still writing")
 			lastPrintLog = true
 		}
+	}
+
+	if len(operationQueue) > 0 || flushingTx.Load() {
+		logging.LogErrorf("WaitFlushTx timed out after %v, queue=%d, flushing=%v", timeout, len(operationQueue), flushingTx.Load())
 	}
 }
 
@@ -208,9 +250,23 @@ func FlushQueue() {
 func execOp(op *dbQueueOperation, tx *sql.Tx, context map[string]interface{}) (err error) {
 	switch op.action {
 	case "index":
-		err = indexTree(tx, op.indexTree, context)
+		tree := op.indexTree
+		if op.indexTreeBytes != nil {
+			tree = restoreTree(op.indexTreeBytes, op.indexTree.Box, op.indexTree.Path)
+			if tree == nil {
+				tree = op.indexTree
+			}
+		}
+		err = indexTree(tx, tree, context)
 	case "upsert":
-		err = upsertTree(tx, op.upsertTree, context)
+		tree := op.upsertTree
+		if op.upsertTreeBytes != nil {
+			tree = restoreTree(op.upsertTreeBytes, op.upsertTree.Box, op.upsertTree.Path)
+			if tree == nil {
+				tree = op.upsertTree
+			}
+		}
+		err = upsertTree(tx, tree, context)
 	case "delete":
 		err = batchDeleteByPathPrefix(tx, op.removeTreeBox, op.removeTreePath)
 	case "delete_id":
@@ -218,21 +274,49 @@ func execOp(op *dbQueueOperation, tx *sql.Tx, context map[string]interface{}) (e
 	case "delete_ids":
 		err = batchDeleteByRootIDs(tx, op.removeTreeIDs, context)
 	case "rename":
-		err = batchUpdateHPath(tx, op.renameTree, context)
+		tree := op.renameTree
+		if op.renameTreeBytes != nil {
+			tree = restoreTree(op.renameTreeBytes, op.renameTree.Box, op.renameTree.Path)
+			if tree == nil {
+				tree = op.renameTree
+			}
+		}
+		err = batchUpdateHPath(tx, tree, context)
 		if err != nil {
 			break
 		}
-		err = updateRootContent(tx, path.Base(op.renameTree.HPath), op.renameTree.Root.IALAttr("updated"), op.renameTree.ID)
+		err = updateRootContent(tx, path.Base(tree.HPath), tree.Root.IALAttr("updated"), tree.ID)
 	case "rename_sub_tree":
-		err = batchUpdatePath(tx, op.renameTree, context)
+		tree := op.renameTree
+		if op.renameTreeBytes != nil {
+			tree = restoreTree(op.renameTreeBytes, op.renameTree.Box, op.renameTree.Path)
+			if tree == nil {
+				tree = op.renameTree
+			}
+		}
+		err = batchUpdatePath(tx, tree, context)
 	case "delete_box":
 		err = deleteByBoxTx(tx, op.box)
 	case "delete_box_refs":
 		err = deleteRefsByBoxTx(tx, op.box)
 	case "update_refs":
-		err = upsertRefs(tx, op.upsertTree)
+		tree := op.upsertTree
+		if op.upsertTreeBytes != nil {
+			tree = restoreTree(op.upsertTreeBytes, op.upsertTree.Box, op.upsertTree.Path)
+			if tree == nil {
+				tree = op.upsertTree
+			}
+		}
+		err = upsertRefs(tx, tree)
 	case "delete_refs":
-		err = deleteRefs(tx, op.upsertTree)
+		tree := op.upsertTree
+		if op.upsertTreeBytes != nil {
+			tree = restoreTree(op.upsertTreeBytes, op.upsertTree.Box, op.upsertTree.Path)
+			if tree == nil {
+				tree = op.upsertTree
+			}
+		}
+		err = deleteRefs(tx, tree)
 	case "update_block_content":
 		err = updateBlockContent(tx, op.block)
 	case "delete_assets":
@@ -347,9 +431,10 @@ func IndexTreeQueue(tree *parse.Tree) {
 	dbQueueLock.Lock()
 	defer dbQueueLock.Unlock()
 
-	newOp := &dbQueueOperation{indexTree: tree, inQueueTime: time.Now(), action: "index"}
+	snap := snapshotTree(tree)
+	newOp := &dbQueueOperation{indexTree: tree, indexTreeBytes: snap, inQueueTime: time.Now(), action: "index"}
 	for i, op := range operationQueue {
-		if "index" == op.action && op.indexTree.ID == tree.ID { // 相同树则覆盖
+		if "index" == op.action && op.indexTree.ID == tree.ID {
 			operationQueue[i] = newOp
 			return
 		}
@@ -361,9 +446,10 @@ func UpsertTreeQueue(tree *parse.Tree) {
 	dbQueueLock.Lock()
 	defer dbQueueLock.Unlock()
 
-	newOp := &dbQueueOperation{upsertTree: tree, inQueueTime: time.Now(), action: "upsert"}
+	snap := snapshotTree(tree)
+	newOp := &dbQueueOperation{upsertTree: tree, upsertTreeBytes: snap, inQueueTime: time.Now(), action: "upsert"}
 	for i, op := range operationQueue {
-		if "upsert" == op.action && op.upsertTree.ID == tree.ID { // 相同树则覆盖
+		if "upsert" == op.action && op.upsertTree.ID == tree.ID {
 			operationQueue[i] = newOp
 			return
 		}
@@ -375,13 +461,15 @@ func RenameTreeQueue(tree *parse.Tree) {
 	dbQueueLock.Lock()
 	defer dbQueueLock.Unlock()
 
+	snap := snapshotTree(tree)
 	newOp := &dbQueueOperation{
-		renameTree:  tree,
-		inQueueTime: time.Now(),
-		action:      "rename",
+		renameTree:      tree,
+		renameTreeBytes: snap,
+		inQueueTime:     time.Now(),
+		action:          "rename",
 	}
 	for i, op := range operationQueue {
-		if "rename" == op.action && op.renameTree.ID == tree.ID { // 相同树则覆盖
+		if "rename" == op.action && op.renameTree.ID == tree.ID {
 			operationQueue[i] = newOp
 			return
 		}
@@ -393,13 +481,15 @@ func RenameSubTreeQueue(tree *parse.Tree) {
 	dbQueueLock.Lock()
 	defer dbQueueLock.Unlock()
 
+	snap := snapshotTree(tree)
 	newOp := &dbQueueOperation{
-		renameTree:  tree,
-		inQueueTime: time.Now(),
-		action:      "rename_sub_tree",
+		renameTree:      tree,
+		renameTreeBytes: snap,
+		inQueueTime:     time.Now(),
+		action:          "rename_sub_tree",
 	}
 	for i, op := range operationQueue {
-		if "rename_sub_tree" == op.action && op.renameTree.ID == tree.ID { // 相同树则覆盖
+		if "rename_sub_tree" == op.action && op.renameTree.ID == tree.ID {
 			operationQueue[i] = newOp
 			return
 		}

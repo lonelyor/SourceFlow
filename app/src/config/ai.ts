@@ -14,6 +14,7 @@ type TAssistantEmbeddingConfig = {
     apiKey: string;
     model: string;
     enabled: boolean;
+    hasAPIKey?: boolean;
 };
 
 let panel: TAssistantAIProfilesPanelLike | null = null;
@@ -26,7 +27,7 @@ const embeddingSectionHTML = () => {
     <div class="fn__flex config__item">
         <div class="fn__flex-1">
             ${escapeHTML(assistantText("语义搜索", "Semantic Search"))}
-            <div class="b3-label__text">${escapeHTML(assistantText("配置 Embedding 服务以启用语义搜索。支持 Ollama 本地模型或 OpenAI 兼容接口。", "Configure an embedding service for semantic search. Supports Ollama or OpenAI-compatible APIs."))}</div>
+            <div class="b3-label__text">${escapeHTML(assistantText("配置 Embedding 服务以启用语义搜索；索引会把笔记正文发送给所配置服务。", "Configure an embedding service for semantic search; indexing sends note content to the configured service."))}</div>
         </div>
         <span class="fn__space"></span>
         <input type="checkbox" id="embeddingEnabled" class="b3-switch fn__flex-center"${cfg.enabled ? " checked" : ""}>
@@ -47,7 +48,7 @@ const embeddingSectionHTML = () => {
     <div class="fn__flex config__item">
         <div class="fn__flex-center fn__flex-1">${escapeHTML(assistantText("API Key（可选）", "API Key (optional)"))}</div>
         <span class="fn__space"></span>
-        <input type="password" class="b3-text-field fn__flex-center fn__size200" id="embeddingApiKey" placeholder="sk-..." value="${escapeAttr(cfg.apiKey || "")}">
+        <input type="password" class="b3-text-field fn__flex-center fn__size200" id="embeddingApiKey" placeholder="${escapeAttr(cfg.hasAPIKey ? assistantText("留空保持已有密钥", "Leave blank to keep existing key") : "sk-...")}" value="">
     </div>
     <div class="fn__hr"></div>
     <div class="fn__flex config__item">
@@ -98,9 +99,11 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
                 model,
                 enabled,
             };
-            fetchPost("/api/assistant/embedding/setConfig", {config}, (response: {code: number; msg?: string}) => {
+            fetchPost("/api/assistant/embedding/setConfig", {config}, (response: {code: number; msg?: string; data?: TAssistantEmbeddingConfig}) => {
                 if (response.code === 0) {
-                    embeddingConfig = config;
+                    embeddingConfig = response.data || {...config, apiKey: "", hasAPIKey: !!apiKey || !!embeddingConfig?.hasAPIKey};
+                    renderEmbeddingSection(container);
+                    bindEmbeddingEvents(container);
                     showMessage(assistantText("Embedding 配置已保存", "Embedding config saved"));
                 } else {
                     showMessage(response.msg || assistantText("保存失败", "Save failed"), 5000, "error");

@@ -2,16 +2,16 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 
-	"fmt"
-
 	"github.com/lonelyor/sourceflow/kernel/sql"
 	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/filelock"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
 
@@ -30,6 +30,7 @@ var (
 )
 
 const vectorFileMaxLen = 2000
+const vectorSearchMaxLimit = 50
 
 func vectorFilePath() string {
 	return filepath.Join(util.DataDir, "storage", "assistant_vectors.json")
@@ -59,7 +60,7 @@ func LoadVectors() {
 	logging.LogInfof("loaded %d note vectors", len(vectorStore))
 }
 
-func persistVectors() {
+func persistVectorsLocked() {
 	p := vectorFilePath()
 	data, err := json.Marshal(vectorStore)
 	if err != nil {
@@ -67,41 +68,78 @@ func persistVectors() {
 		return
 	}
 	dir := filepath.Dir(p)
-	_ = os.MkdirAll(dir, 0755)
-	if err := os.WriteFile(p, data, 0644); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		logging.LogErrorf("create vectors dir [%s] failed: %s", dir, err)
+		return
+	}
+	if err := filelock.WriteFile(p, data); err != nil {
 		logging.LogErrorf("write vectors file: %s", err)
 	}
 }
 
 func StoreNoteVector(rootID string, vector []float64, title, hPath string) {
+	LoadVectors()
+
 	vectorStoreLock.Lock()
 	defer vectorStoreLock.Unlock()
 
 	vectorStore[rootID] = &AssistantNoteVector{
 		RootID:    rootID,
-		Vector:    vector,
+		Vector:    cloneVector(vector),
 		UpdatedAt: util.CurrentTimeMillis(),
 		Title:     title,
 		HPath:     hPath,
 	}
-	persistVectors()
+	persistVectorsLocked()
+}
+
+func RemoveNoteVectors(rootIDs []string) {
+	if 1 > len(rootIDs) {
+		return
+	}
+
+	LoadVectors()
+
+	vectorStoreLock.Lock()
+	defer vectorStoreLock.Unlock()
+
+	changed := false
+	for _, rootID := range rootIDs {
+		if "" == rootID {
+			continue
+		}
+		if _, ok := vectorStore[rootID]; ok {
+			delete(vectorStore, rootID)
+			changed = true
+		}
+	}
+	if changed {
+		persistVectorsLocked()
+	}
 }
 
 func SearchSimilarNotes(queryVector []float64, limit int) []*AssistantNoteVector {
+	LoadVectors()
+
 	vectorStoreLock.RLock()
 	defer vectorStoreLock.RUnlock()
 
 	if limit <= 0 {
 		limit = 10
+	} else if vectorSearchMaxLimit < limit {
+		limit = vectorSearchMaxLimit
 	}
 
 	type scored struct {
-		vec  *AssistantNoteVector
+		vec   *AssistantNoteVector
 		score float64
 	}
 	var results []scored
 	for _, nv := range vectorStore {
 		if len(nv.Vector) == 0 {
+			continue
+		}
+		if nil == sql.GetBlock(nv.RootID) {
 			continue
 		}
 		sim := cosineSimilarity(queryVector, nv.Vector)
@@ -201,9 +239,20 @@ func IndexAllNotes() (indexed int, total int, err error) {
 }
 
 func GetVectorCount() int {
+	LoadVectors()
+
 	vectorStoreLock.RLock()
 	defer vectorStoreLock.RUnlock()
 	return len(vectorStore)
+}
+
+func cloneVector(vector []float64) []float64 {
+	if nil == vector {
+		return nil
+	}
+	ret := make([]float64, len(vector))
+	copy(ret, vector)
+	return ret
 }
 
 func fmtEmbeddingDisabled() error {

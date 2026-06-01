@@ -6,6 +6,29 @@ import (
 	"testing"
 )
 
+func TestResolveDocTreeRootRejectsTraversal(t *testing.T) {
+	root := t.TempDir()
+
+	for _, unsafePath := range []string{"/../outside.sf", `..\outside.sf`, `C:\outside.sf`} {
+		if _, err := resolveDocTreeRoot(root, unsafePath); err == nil {
+			t.Fatalf("resolveDocTreeRoot(%q) must reject traversal", unsafePath)
+		}
+	}
+}
+
+func TestResolveDocTreeRootAllowsRootRelativeDocPath(t *testing.T) {
+	root := t.TempDir()
+	got, err := resolveDocTreeRoot(root, "/20260601120000-abcdefg.sf")
+	if err != nil {
+		t.Fatalf("resolveDocTreeRoot returned error: %s", err)
+	}
+
+	want := filepath.Join(root, "20260601120000-abcdefg")
+	if filepath.Clean(got) != filepath.Clean(want) {
+		t.Fatalf("resolveDocTreeRoot = %q, want %q", got, want)
+	}
+}
+
 func TestCountDocTreeCountsNestedDocsOnce(t *testing.T) {
 	root := t.TempDir()
 	parentID := "20260522120000-abcdefg"

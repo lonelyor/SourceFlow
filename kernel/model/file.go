@@ -82,11 +82,14 @@ func (box *Box) docFromFileInfo(fileInfo *FileInfo, ial map[string]string) (ret 
 	ret.Name = ial["title"] + ".sf"
 	ret.Icon = ial["icon"]
 	ret.ID = ial["id"]
+	if !ast.IsNodeIDPattern(ret.ID) {
+		ret.ID = util.GetTreeID(fileInfo.path)
+	}
 	ret.Name1 = ial["name"]
 	ret.Alias = ial["alias"]
 	ret.Memo = ial["memo"]
 	ret.Bookmark = ial["bookmark"]
-	t, _ := time.ParseInLocation("20060102150405", ret.ID[:14], time.Local)
+	t, _ := time.ParseInLocation("20060102150405", util.TimeFromID(ret.ID), time.Local)
 	ret.CTime = t.Unix()
 	ret.HCtime = t.Format("2006-01-02 15:04:05") + ", " + util.HumanizeTime(t, Conf.Lang)
 	ret.HSize = humanize.BytesCustomCeil(ret.Size, 2)
@@ -118,7 +121,6 @@ func (box *Box) docIAL(p string) (ret map[string]string) {
 	ret = filesys.DocIAL(filePath)
 	if 1 > len(ret) {
 		logging.LogWarnf("properties not found in file [%s]", filePath)
-		box.moveCorruptedData(filePath)
 		return nil
 	}
 	cache.PutDocIAL(p, ret)
@@ -168,7 +170,7 @@ func SearchDocs(keyword string, flashcard bool, excludeIDs []string) (ret []map[
 
 	var rootBlocks []*sql.Block
 	if ast.IsNodeIDPattern(keyword) {
-		rootBlocks = sql.QueryRootBlockByCondition("id='"+keyword+"'", 1)
+		rootBlocks = sql.QueryRootBlockByID(keyword, 1)
 	} else {
 		keywords := strings.Fields(keyword)
 		if 0 < len(keywords) {
@@ -185,23 +187,7 @@ func SearchDocs(keyword string, flashcard bool, excludeIDs []string) (ret []map[
 				}
 			}
 
-			var condition string
-			for i, k := range keywords {
-				condition += "(hpath LIKE '%" + k + "%'"
-				namCondition := Conf.Search.NAMFilter(k)
-				condition += " " + namCondition
-				condition += ")"
-
-				if i < len(keywords)-1 {
-					condition += " AND "
-				}
-			}
-
-			for _, excludeID := range excludeIDs {
-				condition += fmt.Sprintf(" AND path NOT LIKE '%%%s%%' ", excludeID)
-			}
-
-			rootBlocks = sql.QueryRootBlockByCondition(condition, Conf.Search.Limit)
+			rootBlocks = sql.QueryRootBlocksByDocSearch(keywords, Conf.Search.Name, Conf.Search.Alias, Conf.Search.Memo, excludeIDs, Conf.Search.Limit)
 		} else {
 			for _, box := range boxes {
 				if flashcard {
@@ -470,7 +456,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	//pprof.StartCPUProfile(cpuProfile)
 	//defer pprof.StopCPUProfile()
 
-	TryFlushTxQueue(20 * time.Millisecond)
+	FlushTxQueue()
 
 	inputIndex := index
 	tree, err := LoadTreeByBlockID(id)
@@ -653,8 +639,12 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 
 	existKeywords := 0 < len(keywords)
 	for _, n := range nodes {
+		renderNode := treenode.CloneNode(n)
+		if nil == renderNode {
+			continue
+		}
 		var unlinks []*ast.Node
-		ast.Walk(n, func(n *ast.Node, entering bool) ast.WalkStatus {
+		ast.Walk(renderNode, func(n *ast.Node, entering bool) ast.WalkStatus {
 			if !entering {
 				return ast.WalkContinue
 			}
@@ -726,7 +716,7 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 			unlink.Unlink()
 		}
 
-		subTree.Root.AppendChild(n)
+		subTree.Root.AppendChild(renderNode)
 	}
 
 	luteEngine.RenderOptions.NodeIndexStart = index
@@ -1030,6 +1020,14 @@ func CreateDocByMd(boxID, p, title, md string, sorts []string) (tree *parse.Tree
 }
 
 func CreateWithMarkdown(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string) (retID string, err error) {
+	return createWithMarkdown0(tags, boxID, hPath, md, parentID, id, withMath, clippingHref, false)
+}
+
+func CreateWithMarkdownSanitized(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string) (retID string, err error) {
+	return createWithMarkdown0(tags, boxID, hPath, md, parentID, id, withMath, clippingHref, true)
+}
+
+func createWithMarkdown0(tags, boxID, hPath, md, parentID, id string, withMath bool, clippingHref string, sanitizeIDs bool) (retID string, err error) {
 	createDocLock.Lock()
 	defer createDocLock.Unlock()
 
@@ -1049,7 +1047,17 @@ func CreateWithMarkdown(tags, boxID, hPath, md, parentID, id string, withMath bo
 		// 改进链滴剪藏 https://github.com/lonelyor/SourceFlow/issues/13117
 		enableLuteInlineSyntax(luteEngine)
 	}
-	dom := luteEngine.Md2BlockDOM(md, false)
+	var dom string
+	if sanitizeIDs {
+		treeDOM, tree := luteEngine.Md2BlockDOMTree(md, false)
+		dom = treeDOM
+		if nil != tree && nil != tree.Root {
+			treenode.ResetBlockIDs(tree.Root)
+			dom = luteEngine.Tree2BlockDOM(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+		}
+	} else {
+		dom = luteEngine.Md2BlockDOM(md, false)
+	}
 	retID, err = createDocsByHPath(box.ID, hPath, dom, parentID, id)
 
 	nameValues := map[string]string{}
@@ -1617,11 +1625,11 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
 		"ids": removeIDs,
 	}
 	util.PushEvent(evt)
-	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir)
+	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir, allRemoveRootIDs)
 	return
 }
 
-func removeDoc0(tree *parse.Tree, childrenDir string) {
+func removeDoc0(tree *parse.Tree, childrenDir string, removeRootIDs []string) {
 	// 收集引用的定义块 ID
 	refDefIDs := getRefDefIDs(tree.Root)
 	// 推送定义节点引用计数
@@ -1633,6 +1641,7 @@ func removeDoc0(tree *parse.Tree, childrenDir string) {
 	sql.RemoveTreePathQueue(tree.Box, childrenDir)
 	cache.RemoveDocIAL(tree.Path)
 	cache.RemoveTreeData(tree.ID)
+	RemoveNoteVectors(removeRootIDs)
 	return
 }
 

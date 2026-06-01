@@ -31,6 +31,12 @@ const getCreatedDocIDFromResponse = (response: { data?: string | { id?: string }
     return `${typeof response?.data === "string" ? response.data : response?.data?.id || ""}`.trim();
 };
 
+interface IPatchTargetInfo {
+    box?: string;
+    path?: string;
+    rootID?: string;
+}
+
 const highlightPatchTarget = (context: IAssistantSkillContext, blockID?: string) => {
     if (!context.protyle || !blockID) {
         return;
@@ -45,8 +51,55 @@ const updateBlockMarkdown = async (blockID: string, markdown: string) => {
         id: blockID,
         data: normalizeMarkdown(markdown),
         dataType: "markdown",
+        sanitizeIDs: true,
     });
     return response.code === 0;
+};
+
+const getPatchTargetInfo = async (blockID: string): Promise<IPatchTargetInfo | null> => {
+    const targetId = `${blockID || ""}`.trim();
+    if (!targetId) {
+        return null;
+    }
+    const response = await fetchSyncPost("/api/block/getBlockInfo", {id: targetId});
+    if (response.code !== 0) {
+        return null;
+    }
+    return {
+        box: `${response.data?.box || ""}`.trim(),
+        path: `${response.data?.path || ""}`.trim(),
+        rootID: `${response.data?.rootID || ""}`.trim(),
+    };
+};
+
+const getLiveBlockMarkdown = async (blockID: string) => {
+    const targetId = `${blockID || ""}`.trim();
+    if (!targetId) {
+        return null;
+    }
+    const response = await fetchSyncPost("/api/block/getBlockKramdown", {id: targetId});
+    if (response.code !== 0) {
+        return null;
+    }
+    return `${response.data?.kramdown ?? response.data ?? ""}`;
+};
+
+const ensureTargetInCurrentNote = async (note: ICurrentNoteContext, blockID: string) => {
+    const targetId = `${blockID || ""}`.trim();
+    if (!targetId) {
+        return {ok: false, isRoot: false};
+    }
+    if (targetId === note.rootID) {
+        return {ok: true, isRoot: true};
+    }
+    const info = await getPatchTargetInfo(targetId);
+    const sameNote = !!info?.rootID && info.rootID === note.rootID;
+    const sameNotebook = !note.notebook || !info?.box || info.box === note.notebook;
+    if (!sameNote || !sameNotebook) {
+        showMessage(assistantText("补丁目标不属于当前笔记，已停止应用。", "The patch target is outside the current note, so it was not applied."), 5000, "error");
+        return {ok: false, isRoot: false};
+    }
+    return {ok: true, isRoot: false};
 };
 
 const insertAfterBlock = async (note: ICurrentNoteContext, operation: IAssistantPatchOperation) => {
@@ -55,16 +108,22 @@ const insertAfterBlock = async (note: ICurrentNoteContext, operation: IAssistant
     if (!targetId || !markdown) {
         return {ok: false, blockID: ""};
     }
+    const scope = await ensureTargetInCurrentNote(note, targetId);
+    if (!scope.ok) {
+        return {ok: false, blockID: ""};
+    }
     const response = targetId && targetId !== note.rootID
         ? await fetchSyncPost("/api/block/insertBlock", {
             previousID: targetId,
             data: markdown,
             dataType: "markdown",
+            sanitizeIDs: true,
         })
         : await fetchSyncPost("/api/block/appendBlock", {
             parentID: note.rootID,
             data: markdown,
             dataType: "markdown",
+            sanitizeIDs: true,
         });
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -84,6 +143,7 @@ const appendNote = async (note: ICurrentNoteContext, operation: IAssistantPatchO
         parentID: note.rootID,
         data: markdown,
         dataType: "markdown",
+        sanitizeIDs: true,
     });
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -99,11 +159,19 @@ const replaceSelection = async (context: IAssistantSkillContext, operation: IAss
     const targetId = `${operation.targetId || note?.currentBlockID || ""}`.trim();
     const before = `${operation.before || ""}`;
     const after = normalizeMarkdown(operation.after || "");
-    const blockMarkdown = `${note?.currentBlockMarkdown || ""}`;
     if (!note || !targetId || !before.trim() || !after) {
         return {ok: false, blockID: ""};
     }
-    const occurrences = countTextOccurrences(blockMarkdown, before);
+    const scope = await ensureTargetInCurrentNote(note, targetId);
+    if (!scope.ok || scope.isRoot) {
+        return {ok: false, blockID: ""};
+    }
+    const liveMarkdown = await getLiveBlockMarkdown(targetId);
+    if (null === liveMarkdown) {
+        showMessage(assistantText("无法确认当前块内容，已停止自动替换。", "The current block content could not be verified, so automatic replacement was stopped."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
+    const occurrences = countTextOccurrences(liveMarkdown, before);
     if (occurrences !== 1) {
         showMessage(occurrences > 1
             ? assistantText("选区原文在当前块中出现多次，已停止自动替换以避免误改。", "The selected source appears multiple times in the block, so automatic replacement was stopped.")
@@ -111,7 +179,7 @@ const replaceSelection = async (context: IAssistantSkillContext, operation: IAss
         5000, "error");
         return {ok: false, blockID: ""};
     }
-    const nextMarkdown = blockMarkdown.replace(before, after);
+    const nextMarkdown = liveMarkdown.replace(before, after);
     const ok = await updateBlockMarkdown(targetId, nextMarkdown);
     if (ok) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -125,11 +193,17 @@ const createNote = async (note: ICurrentNoteContext, operation: IAssistantPatchO
     if (!note.notebook || !markdown) {
         return {ok: false, blockID: ""};
     }
+    const parentID = `${operation.targetId || note.rootID}`.trim();
+    if (child && parentID !== note.rootID) {
+        showMessage(assistantText("创建子文档补丁只能挂到当前笔记下。", "A create-child-note patch can only target the current note."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
     const response = await fetchSyncPost("/api/filetree/createDocWithMd", {
         notebook: note.notebook,
         path: child ? `/${title}` : `/AI/${title}`,
-        parentID: child ? `${operation.targetId || note.rootID}`.trim() : "",
+        parentID: child ? parentID : "",
         markdown,
+        sanitizeIDs: true,
     });
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -145,6 +219,14 @@ const deleteBlock = async (note: ICurrentNoteContext, operation: IAssistantPatch
     if (!targetId) {
         return {ok: false, blockID: ""};
     }
+    const scope = await ensureTargetInCurrentNote(note, targetId);
+    if (!scope.ok) {
+        return {ok: false, blockID: ""};
+    }
+    if (scope.isRoot) {
+        showMessage(assistantText("不能通过删除块补丁删除整篇笔记。", "A delete-block patch cannot delete an entire note."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
     const response = await fetchSyncPost("/api/block/deleteBlock", {id: targetId});
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -155,7 +237,8 @@ const deleteBlock = async (note: ICurrentNoteContext, operation: IAssistantPatch
 const renameNote = async (note: ICurrentNoteContext, operation: IAssistantPatchOperation) => {
     const targetId = `${operation.targetId || note.rootID}`.trim();
     const title = sanitizeDocName(operation.after || operation.targetLabel || "");
-    if (!targetId || !title) {
+    if (!targetId || !title || targetId !== note.rootID) {
+        showMessage(assistantText("重命名补丁只能作用于当前笔记。", "A rename-note patch can only target the current note."), 5000, "error");
         return {ok: false, blockID: ""};
     }
     const response = await fetchSyncPost("/api/filetree/renameDocByID", {id: targetId, title});
@@ -178,6 +261,10 @@ const setAttrs = async (note: ICurrentNoteContext, operation: IAssistantPatchOpe
     if (!targetId || !Object.keys(attrs).length) {
         return {ok: false, blockID: ""};
     }
+    const scope = await ensureTargetInCurrentNote(note, targetId);
+    if (!scope.ok) {
+        return {ok: false, blockID: ""};
+    }
     const response = await fetchSyncPost("/api/attr/setBlockAttrs", {id: targetId, attrs});
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -189,7 +276,22 @@ const replaceBlock = async (context: IAssistantSkillContext, operation: IAssista
     const note = context.note;
     const targetId = `${operation.targetId || note?.currentBlockID || ""}`.trim();
     const after = normalizeMarkdown(operation.after || "");
-    if (!note || !targetId || !after) {
+    const before = `${operation.before || ""}`.trim();
+    if (!note || !targetId || !before || !after) {
+        showMessage(assistantText("替换块补丁缺少可校验的原文，已停止应用。", "The replace-block patch is missing verifiable source text, so it was not applied."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
+    const scope = await ensureTargetInCurrentNote(note, targetId);
+    if (!scope.ok) {
+        return {ok: false, blockID: ""};
+    }
+    if (scope.isRoot) {
+        showMessage(assistantText("不能通过替换块补丁整体替换整篇笔记。", "A replace-block patch cannot replace an entire note."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
+    const liveMarkdown = await getLiveBlockMarkdown(targetId);
+    if (null === liveMarkdown || normalizeMarkdown(liveMarkdown) !== before) {
+        showMessage(assistantText("目标块已变化，已停止替换以避免覆盖用户修改。", "The target block changed, so replacement was stopped to avoid overwriting user edits."), 5000, "error");
         return {ok: false, blockID: ""};
     }
     const ok = await updateBlockMarkdown(targetId, after);

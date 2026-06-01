@@ -18,6 +18,7 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 	"io/fs"
 	"net/url"
 	"os"
@@ -51,6 +52,51 @@ func GetTreeID(treePath string) string {
 		return strings.TrimSuffix(filepath.Base(treePath), ".sf")
 	}
 	return strings.TrimSuffix(path.Base(treePath), ".sf")
+}
+
+func CleanRelativePath(p string) (ret string, err error) {
+	p = strings.TrimSpace(strings.ReplaceAll(p, "\\", "/"))
+	if "" == p || "." == p || "/" == p {
+		return "", nil
+	}
+	if strings.HasPrefix(p, "//") || "" != filepath.VolumeName(p) || strings.Contains(p, ":") {
+		return "", fmt.Errorf("unsafe relative path [%s]", p)
+	}
+
+	p = strings.TrimLeft(p, "/")
+	parts := strings.Split(p, "/")
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			return "", fmt.Errorf("unsafe relative path [%s]", p)
+		default:
+			cleanParts = append(cleanParts, part)
+		}
+	}
+	if 1 > len(cleanParts) {
+		return "", nil
+	}
+	ret = path.Join(cleanParts...)
+	if ret == ".." || strings.HasPrefix(ret, "../") {
+		return "", fmt.Errorf("unsafe relative path [%s]", p)
+	}
+	return ret, nil
+}
+
+func ResolvePathUnder(root, p string) (ret string, err error) {
+	root = filepath.Clean(root)
+	rel, err := CleanRelativePath(p)
+	if nil != err {
+		return "", err
+	}
+	ret = filepath.Clean(filepath.Join(root, filepath.FromSlash(rel)))
+	if ret != root && !IsSubPath(root, ret) {
+		return "", fmt.Errorf("unsafe path [%s] outside [%s]", ret, root)
+	}
+	return ret, nil
 }
 
 func ShortPathForBootingDisplay(p string) string {

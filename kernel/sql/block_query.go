@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -72,8 +71,67 @@ func queryBlockHashes(tx *sql.Tx, rootID string) (ret map[string]string) {
 }
 
 func QueryRootBlockByCondition(condition string, limit int) (ret []*Block) {
+	return queryRootBlocksByCondition(condition, limit)
+}
+
+func QueryRootBlockByID(id string, limit int) (ret []*Block) {
+	return queryRootBlocksByCondition("id = ?", limit, id)
+}
+
+func QueryRootBlocksByDocSearch(keywords []string, name, alias, memo bool, excludeIDs []string, limit int) (ret []*Block) {
+	condition, args := buildRootBlockDocSearchCondition(keywords, name, alias, memo, excludeIDs)
+	if "" == condition {
+		return
+	}
+	return queryRootBlocksByCondition(condition, limit, args...)
+}
+
+func buildRootBlockDocSearchCondition(keywords []string, name, alias, memo bool, excludeIDs []string) (condition string, args []interface{}) {
+	conditions := make([]string, 0, len(keywords)+len(excludeIDs))
+	for _, keyword := range keywords {
+		keyword = strings.TrimSpace(keyword)
+		if "" == keyword {
+			continue
+		}
+
+		likes := []string{"hpath LIKE ?"}
+		args = append(args, "%"+keyword+"%")
+		if name {
+			likes = append(likes, "name LIKE ?")
+			args = append(args, "%"+keyword+"%")
+		}
+		if alias {
+			likes = append(likes, "alias LIKE ?")
+			args = append(args, "%"+keyword+"%")
+		}
+		if memo {
+			likes = append(likes, "memo LIKE ?")
+			args = append(args, "%"+keyword+"%")
+		}
+		conditions = append(conditions, "("+strings.Join(likes, " OR ")+")")
+	}
+	if 1 > len(conditions) {
+		return
+	}
+
+	for _, excludeID := range excludeIDs {
+		excludeID = strings.TrimSpace(excludeID)
+		if "" == excludeID {
+			continue
+		}
+		conditions = append(conditions, "path NOT LIKE ?")
+		args = append(args, "%"+excludeID+"%")
+	}
+	condition = strings.Join(conditions, " AND ")
+	return
+}
+
+func queryRootBlocksByCondition(condition string, limit int, args ...interface{}) (ret []*Block) {
+	if 1 > limit {
+		limit = 1
+	}
 	sqlStmt := "SELECT *, length(hpath) - length(replace(hpath, '/', '')) AS lv FROM blocks WHERE type = 'd' AND " + condition + " ORDER BY box DESC,lv ASC LIMIT " + strconv.Itoa(limit)
-	rows, err := query(sqlStmt)
+	rows, err := query(sqlStmt, args...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return
@@ -713,6 +771,78 @@ func SelectBlocksRawStmt(stmt string, page, limit int) (ret []*Block) {
 	return
 }
 
+func SelectBlocksRawStmtWithArgs(stmt string, args []any, page, limit int) (ret []*Block) {
+	parsedStmt, err := sqlparser.Parse(stmt)
+	if err != nil {
+		return selectBlocksRawStmtWithArgs(stmt, args, limit)
+	}
+
+	switch parsedStmt.(type) {
+	case *sqlparser.Select:
+		slct := parsedStmt.(*sqlparser.Select)
+		if nil == slct.Limit {
+			slct.Limit = &sqlparser.Limit{
+				Rowcount: &sqlparser.SQLVal{
+					Type: sqlparser.IntVal,
+					Val:  []byte(strconv.Itoa(limit)),
+				},
+			}
+			slct.Limit.Offset = &sqlparser.SQLVal{
+				Type: sqlparser.IntVal,
+				Val:  []byte(strconv.Itoa((page - 1) * limit)),
+			}
+		}
+		stmt = sqlparser.String(slct)
+	case *sqlparser.Union:
+		union := parsedStmt.(*sqlparser.Union)
+		if nil == union.Limit {
+			union.Limit = &sqlparser.Limit{
+				Rowcount: &sqlparser.SQLVal{
+					Type: sqlparser.IntVal,
+					Val:  []byte(strconv.Itoa(limit)),
+				},
+			}
+		}
+		stmt = sqlparser.String(union)
+	default:
+		return
+	}
+
+	stmt = strings.ReplaceAll(stmt, "\\'", "''")
+	stmt = strings.ReplaceAll(stmt, "\\\"", "\"")
+	stmt = strings.ReplaceAll(stmt, "\\\\*", "\\*")
+	stmt = strings.ReplaceAll(stmt, "from dual", "")
+	rows, err := query(stmt, args...)
+	if err != nil {
+		if strings.Contains(err.Error(), "syntax error") {
+			return
+		}
+		logging.LogWarnf("sql query [%s] failed: %s", stmt, err)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if block := scanBlockRows(rows); nil != block {
+			ret = append(ret, block)
+		}
+	}
+	return
+}
+
+func selectBlocksRawStmtWithArgs(stmt string, args []any, limit int) (ret []*Block) {
+	rows, err := query(stmt, args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if block := scanBlockRows(rows); nil != block {
+			ret = append(ret, block)
+		}
+	}
+	return
+}
+
 func SelectBlocksRegex(stmt string, exp *regexp.Regexp, name, alias, memo, ial bool, page, pageSize int) (ret []*Block) {
 	rows, err := query(stmt)
 	if err != nil {
@@ -1022,17 +1152,32 @@ func GetChildBlocksBatch(parentIDs []string) (ret []*Block) {
 	if 0 == len(parentIDs) {
 		return
 	}
-	var idClauses []string
+
+	rootPlaceholders := bytes.Buffer{}
+	var rootArgs []interface{}
 	for _, pid := range parentIDs {
-		idClauses = append(idClauses, fmt.Sprintf(`WITH RECURSIVE children(id) AS (
-    SELECT id FROM blocks WHERE id = "%s"
+		if "" == pid {
+			continue
+		}
+		if 0 < rootPlaceholders.Len() {
+			rootPlaceholders.WriteByte(',')
+		}
+		rootPlaceholders.WriteString("(?)")
+		rootArgs = append(rootArgs, pid)
+	}
+	if 1 > len(rootArgs) {
+		return
+	}
+
+	fullSQL := `WITH RECURSIVE roots(id) AS (
+    VALUES ` + rootPlaceholders.String() + `
+), children(id) AS (
+    SELECT id FROM roots
     UNION ALL
     SELECT b.id FROM blocks b JOIN children c ON b.parent_id = c.id
 )
-SELECT id FROM children`, pid))
-	}
-	fullSQL := strings.Join(idClauses, " UNION ALL ")
-	rows, err := query(fullSQL)
+SELECT id FROM children`
+	rows, err := query(fullSQL, rootArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -1049,12 +1194,17 @@ SELECT id FROM children`, pid))
 	if 0 == len(allIDs) {
 		return
 	}
-	var params []string
+	blockPlaceholders := bytes.Buffer{}
+	var blockArgs []interface{}
 	for _, id := range allIDs {
-		params = append(params, `"`+id+`"`)
+		if 0 < blockPlaceholders.Len() {
+			blockPlaceholders.WriteByte(',')
+		}
+		blockPlaceholders.WriteByte('?')
+		blockArgs = append(blockArgs, id)
 	}
-	sqlStmt := "SELECT * FROM blocks WHERE id IN (" + strings.Join(params, ",") + ")"
-	blockRows, err := query(sqlStmt)
+	sqlStmt := "SELECT * FROM blocks WHERE id IN (" + blockPlaceholders.String() + ")"
+	blockRows, err := query(sqlStmt, blockArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return

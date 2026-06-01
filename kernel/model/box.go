@@ -61,6 +61,29 @@ type Box struct {
 	FlashcardCount    int `json:"flashcardCount"`
 }
 
+func boxDisplayPath(rel string) string {
+	if "" == rel {
+		return "/"
+	}
+	return "/" + filepath.ToSlash(rel)
+}
+
+func (box *Box) resolvePath(p string) (absPath, cleanPath string, err error) {
+	if nil == box {
+		return "", "", errors.New("box is nil")
+	}
+	rel, err := util.CleanRelativePath(p)
+	if nil != err {
+		return "", "", err
+	}
+	root := filepath.Join(util.DataDir, box.ID)
+	absPath, err = util.ResolvePathUnder(root, rel)
+	if nil != err {
+		return "", "", err
+	}
+	return absPath, boxDisplayPath(rel), nil
+}
+
 func StatJob() {
 
 	Conf.m.Lock()
@@ -244,18 +267,26 @@ func (box *Box) saveConf0(data []byte) {
 }
 
 func (box *Box) Ls(p string) (ret []*FileInfo, totals int, err error) {
-	boxLocalPath := filepath.Join(util.DataDir, box.ID)
+	absPath, cleanPath, err := box.resolvePath(p)
+	if nil != err {
+		return
+	}
 	if strings.HasSuffix(p, ".sf") {
 		dir := strings.TrimSuffix(p, ".sf")
-		absDir := filepath.Join(boxLocalPath, dir)
+		absDir, cleanDir, resolveErr := box.resolvePath(dir)
+		if nil != resolveErr {
+			err = resolveErr
+			return
+		}
 		if gulu.File.IsDir(absDir) {
-			p = dir
+			absPath = absDir
+			cleanPath = cleanDir
 		} else {
 			return
 		}
 	}
 
-	entries, err := os.ReadDir(filepath.Join(util.DataDir, box.ID, p))
+	entries, err := os.ReadDir(absPath)
 	if err != nil {
 		return
 	}
@@ -273,7 +304,7 @@ func (box *Box) Ls(p string) (ret []*FileInfo, totals int, err error) {
 		}
 		if strings.HasSuffix(name, ".tmp") {
 			// 移除写入失败时产生的并且早于 30 分钟前的临时文件，近期创建的临时文件可能正在写入中
-			removePath := filepath.Join(util.DataDir, box.ID, p, name)
+			removePath := filepath.Join(absPath, name)
 			if info.ModTime().Before(time.Now().Add(-30 * time.Minute)) {
 				if removeErr := os.Remove(removePath); nil != removeErr {
 					logging.LogWarnf("remove tmp file [%s] failed: %s", removePath, removeErr)
@@ -287,7 +318,7 @@ func (box *Box) Ls(p string) (ret []*FileInfo, totals int, err error) {
 		fi.name = name
 		fi.isdir = f.IsDir()
 		fi.size = info.Size()
-		fPath := path.Join(p, name)
+		fPath := path.Join(cleanPath, name)
 		if f.IsDir() {
 			fPath += "/"
 		}
@@ -298,7 +329,11 @@ func (box *Box) Ls(p string) (ret []*FileInfo, totals int, err error) {
 }
 
 func (box *Box) Stat(p string) (ret *FileInfo) {
-	absPath := filepath.Join(util.DataDir, box.ID, p)
+	absPath, cleanPath, err := box.resolvePath(p)
+	if nil != err {
+		logging.LogWarnf("resolve stat path [%s] in box [%s] failed: %s", p, box.ID, err)
+		return
+	}
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -307,7 +342,7 @@ func (box *Box) Stat(p string) (ret *FileInfo) {
 		return
 	}
 	ret = &FileInfo{
-		path:  p,
+		path:  cleanPath,
 		name:  info.Name(),
 		size:  info.Size(),
 		isdir: info.IsDir(),
@@ -316,11 +351,20 @@ func (box *Box) Stat(p string) (ret *FileInfo) {
 }
 
 func (box *Box) Exist(p string) bool {
-	return filelock.IsExist(filepath.Join(util.DataDir, box.ID, p))
+	absPath, _, err := box.resolvePath(p)
+	if nil != err {
+		logging.LogWarnf("resolve exist path [%s] in box [%s] failed: %s", p, box.ID, err)
+		return false
+	}
+	return filelock.IsExist(absPath)
 }
 
 func (box *Box) Mkdir(path string) error {
-	if err := os.Mkdir(filepath.Join(util.DataDir, box.ID, path), 0755); err != nil {
+	absPath, _, resolveErr := box.resolvePath(path)
+	if nil != resolveErr {
+		return resolveErr
+	}
+	if err := os.Mkdir(absPath, 0755); err != nil {
 		msg := fmt.Sprintf(Conf.Language(6), box.Name, path, err)
 		logging.LogErrorf("mkdir [path=%s] in box [%s] failed: %s", path, box.ID, err)
 		return errors.New(msg)
@@ -330,7 +374,11 @@ func (box *Box) Mkdir(path string) error {
 }
 
 func (box *Box) MkdirAll(path string) error {
-	if err := os.MkdirAll(filepath.Join(util.DataDir, box.ID, path), 0755); err != nil {
+	absPath, _, resolveErr := box.resolvePath(path)
+	if nil != resolveErr {
+		return resolveErr
+	}
+	if err := os.MkdirAll(absPath, 0755); err != nil {
 		msg := fmt.Sprintf(Conf.Language(6), box.Name, path, err)
 		logging.LogErrorf("mkdir all [path=%s] in box [%s] failed: %s", path, box.ID, err)
 		return errors.New(msg)
@@ -340,9 +388,17 @@ func (box *Box) MkdirAll(path string) error {
 }
 
 func (box *Box) Move(oldPath, newPath string) error {
-	boxLocalPath := filepath.Join(util.DataDir, box.ID)
-	fromPath := filepath.Join(boxLocalPath, oldPath)
-	toPath := filepath.Join(boxLocalPath, newPath)
+	fromPath, oldCleanPath, resolveErr := box.resolvePath(oldPath)
+	if nil != resolveErr {
+		return resolveErr
+	}
+	toPath, _, resolveErr := box.resolvePath(newPath)
+	if nil != resolveErr {
+		return resolveErr
+	}
+	if "/" == oldCleanPath {
+		return errors.New("refuse to move notebook root")
+	}
 
 	if err := filelock.Rename(fromPath, toPath); err != nil {
 		msg := fmt.Sprintf(Conf.Language(5), box.Name, fromPath, err)
@@ -350,8 +406,11 @@ func (box *Box) Move(oldPath, newPath string) error {
 		return errors.New(msg)
 	}
 
-	if oldDir := path.Dir(oldPath); ast.IsNodeIDPattern(path.Base(oldDir)) {
-		fromDir := filepath.Join(boxLocalPath, oldDir)
+	if oldDir := path.Dir(oldCleanPath); ast.IsNodeIDPattern(path.Base(oldDir)) {
+		fromDir, _, resolveErr := box.resolvePath(oldDir)
+		if nil != resolveErr {
+			return resolveErr
+		}
 		if util.IsEmptyDir(fromDir) {
 			filelock.Remove(fromDir)
 		}
@@ -361,8 +420,13 @@ func (box *Box) Move(oldPath, newPath string) error {
 }
 
 func (box *Box) Remove(path string) error {
-	boxLocalPath := filepath.Join(util.DataDir, box.ID)
-	filePath := filepath.Join(boxLocalPath, path)
+	filePath, cleanPath, resolveErr := box.resolvePath(path)
+	if nil != resolveErr {
+		return resolveErr
+	}
+	if "/" == cleanPath {
+		return errors.New("refuse to remove notebook root")
+	}
 	if err := filelock.Remove(filePath); err != nil {
 		msg := fmt.Sprintf(Conf.Language(7), box.Name, path, err)
 		logging.LogErrorf("remove [path=%s] in box [%s] failed: %s", path, box.ID, err)

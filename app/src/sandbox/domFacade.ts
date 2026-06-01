@@ -20,7 +20,7 @@ const classListFacadeCache = new WeakMap<DOMTokenList, unknown>();
 const styleFacadeCache = new WeakMap<CSSStyleDeclaration, unknown>();
 const datasetFacadeCache = new WeakMap<DOMStringMap, unknown>();
 const eventFacadeCache = new WeakMap<Event, unknown>();
-const listenerFacadeCache = new WeakMap<EventTarget, WeakMap<Function, Map<string, EventListener>>>();
+const listenerFacadeCache = new WeakMap<EventTarget, WeakMap<EventListener, Map<string, EventListener>>>();
 
 const createArrayFacade = <T>(items: T[]) => {
     const values = items.slice();
@@ -191,10 +191,10 @@ const createEventFacade = (event: Event, currentTarget?: Element) => {
     return facade;
 };
 
-const getListenerWrapper = (target: EventTarget, handler: Function, type: string, element: Element) => {
+const getListenerWrapper = (target: EventTarget, handler: EventListener, type: string, element: Element) => {
     let targetMap = listenerFacadeCache.get(target);
     if (!targetMap) {
-        targetMap = new WeakMap<Function, Map<string, EventListener>>();
+        targetMap = new WeakMap<EventListener, Map<string, EventListener>>();
         listenerFacadeCache.set(target, targetMap);
     }
     let handlerMap = targetMap.get(handler);

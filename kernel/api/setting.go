@@ -1331,6 +1331,11 @@ func setPublish(c *gin.Context) {
 	}
 
 	model.Conf.Publish = publish
+	if publish.Auth != nil {
+		for _, acc := range publish.Auth.Accounts {
+			acc.HashPasswordIfPlain()
+		}
+	}
 	model.Conf.Save()
 
 	port, err := proxy.InitPublishService()
@@ -1356,9 +1361,18 @@ func getPublish(c *gin.Context) {
 		ret.Code = -1
 		ret.Msg = err.Error()
 	} else {
+		publishData, _ := gulu.JSON.MarshalJSON(model.Conf.Publish)
+		publishCloned := &conf.Publish{}
+		if err := gulu.JSON.UnmarshalJSON(publishData, publishCloned); err == nil {
+			if publishCloned.Auth != nil {
+				for _, acc := range publishCloned.Auth.Accounts {
+					acc.Password = ""
+				}
+			}
+		}
 		ret.Data = map[string]any{
 			"port":    port,
-			"publish": model.Conf.Publish,
+			"publish": publishCloned,
 		}
 	}
 }

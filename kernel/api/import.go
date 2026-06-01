@@ -19,6 +19,7 @@ package api
 import (
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,6 +31,40 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
+
+func saveImportUpload(file *multipart.FileHeader, writePath, label string) error {
+	if file.Size < 0 {
+		return fmt.Errorf("%s upload size is invalid: %d", label, file.Size)
+	}
+	if file.Size > gulu.MaxZipTotalUncompressedSize {
+		return fmt.Errorf("%s upload exceeds size limit (%d > %d)", label, file.Size, gulu.MaxZipTotalUncompressedSize)
+	}
+
+	reader, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	writer, err := os.OpenFile(writePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+
+	copied, copyErr := io.Copy(writer, io.LimitReader(reader, gulu.MaxZipTotalUncompressedSize+1))
+	closeErr := writer.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if copied > gulu.MaxZipTotalUncompressedSize {
+		_ = os.Remove(writePath)
+		return fmt.Errorf("%s upload exceeds size limit (%d > %d)", label, copied, gulu.MaxZipTotalUncompressedSize)
+	}
+	return nil
+}
 
 func importSY(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
@@ -72,55 +107,19 @@ func importSY(c *gin.Context) {
 
 	defer os.RemoveAll(writePath)
 
-	var reader io.ReadCloser
-	var writer *os.File
-	defer func() {
-		if writer != nil {
-			_ = writer.Close()
-		}
-		if reader != nil {
-			_ = reader.Close()
-		}
-	}()
-
-	reader, err = file.Open()
-	if err != nil {
-		logging.LogErrorf("read import .sf.zip failed: %s", err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-
-	writer, err = os.OpenFile(writePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		logging.LogErrorf("open import .sf.zip [%s] failed: %s", writePath, err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	if _, err = io.Copy(writer, reader); err != nil {
+	if err = saveImportUpload(file, writePath, ".sf.zip"); err != nil {
 		logging.LogErrorf("write import .sf.zip failed: %s", err)
 		ret.Code = -1
 		ret.Msg = err.Error()
 		return
 	}
-	if err = writer.Close(); err != nil {
-		logging.LogErrorf("close import .sf.zip [%s] failed: %s", writePath, err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	writer = nil
-	if err = reader.Close(); err != nil {
-		logging.LogErrorf("close import upload reader failed: %s", err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	reader = nil
 
 	notebook := form.Value["notebook"][0]
 	toPath := form.Value["toPath"][0]
+
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
 
 	model.TryCreateProtectionSnapshot("import-sy")
 
@@ -236,6 +235,10 @@ func importStdMd(c *gin.Context) {
 	localPath := arg["localPath"].(string)
 	toPath := arg["toPath"].(string)
 
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
+
 	if util.IsSubPath(util.WorkingDir, localPath) {
 		msg := fmt.Sprintf("import from local path [%s] failed: local path is sub path of working dir", localPath)
 		logging.LogErrorf("%s", msg)
@@ -303,55 +306,19 @@ func importZipMd(c *gin.Context) {
 
 	defer os.RemoveAll(writePath)
 
-	var reader io.ReadCloser
-	var writer *os.File
-	defer func() {
-		if writer != nil {
-			_ = writer.Close()
-		}
-		if reader != nil {
-			_ = reader.Close()
-		}
-	}()
-
-	reader, err = file.Open()
-	if err != nil {
-		logging.LogErrorf("read import .zip failed: %s", err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-
-	writer, err = os.OpenFile(writePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		logging.LogErrorf("open import .zip [%s] failed: %s", writePath, err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	if _, err = io.Copy(writer, reader); err != nil {
+	if err = saveImportUpload(file, writePath, ".zip"); err != nil {
 		logging.LogErrorf("write import .zip failed: %s", err)
 		ret.Code = -1
 		ret.Msg = err.Error()
 		return
 	}
-	if err = writer.Close(); err != nil {
-		logging.LogErrorf("close import .zip [%s] failed: %s", writePath, err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	writer = nil
-	if err = reader.Close(); err != nil {
-		logging.LogErrorf("close import upload reader failed: %s", err)
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-	reader = nil
 
 	notebook := form.Value["notebook"][0]
 	toPath := form.Value["toPath"][0]
+
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
 
 	// 准备解压路径
 	filenameMain := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))

@@ -8,9 +8,26 @@ import {Constants} from "../constants";
 
 export const deleteFile = (notebookId: string, pathString: string) => {
     if (window.sourceflow.config.fileTree.removeDocWithoutConfirm) {
-        fetchPost("/api/filetree/removeDoc", {
-            notebook: notebookId,
-            path: pathString
+        fetchPost("/api/block/getDocInfo", {
+            id: getDisplayName(pathString, true, true)
+        }, (response) => {
+            if (response.data && response.data.subFileCount > 0) {
+                const fileName = escapeHtml(response.data.name);
+                const tip = `${window.sourceflow.languages.andSubFile.replace("${x}", fileName).replace("${y}", response.data.subFileCount)}
+<div class="fn__hr"></div>
+<div class="ft__smaller ft__on-surface">${window.sourceflow.languages.rollbackTip.replace("${x}", window.sourceflow.config.editor.historyRetentionDays)}</div>`;
+                confirmDialog(window.sourceflow.languages.deleteOpConfirm, tip, () => {
+                    fetchPost("/api/filetree/removeDoc", {
+                        notebook: notebookId,
+                        path: pathString
+                    });
+                }, undefined, true);
+                return;
+            }
+            fetchPost("/api/filetree/removeDoc", {
+                notebook: notebookId,
+                path: pathString
+            });
         });
         return;
     }

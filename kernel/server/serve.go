@@ -741,8 +741,9 @@ func serveWebSocket(ginServer *gin.Engine) {
 		}
 
 		if !authOk {
-			// 用于授权页保持连接，避免非常驻内存内核自动退出 https://github.com/lonelyor/SourceFlow/issues/1099
-			authOk = strings.Contains(s.Request.RequestURI, "/ws?app=sourceflow") && strings.Contains(s.Request.RequestURI, "&id=auth&type=auth")
+			authOk = s.Request.URL.Query().Get("app") == "sourceflow" &&
+				s.Request.URL.Query().Get("type") == "auth" &&
+				s.Request.URL.Query().Get("id") == "auth"
 		}
 
 		if !authOk {
@@ -972,8 +973,13 @@ func corsMiddleware() gin.HandlerFunc {
 	allowCardDavMethods := strings.Join(CardDavMethods, ", ")
 
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+		if "" == origin {
+			origin = "*"
+		}
+		c.Header("Access-Control-Allow-Origin", origin)
 		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Vary", "Origin")
 		c.Header("Access-Control-Allow-Headers", "origin, Content-Length, Content-Type, Authorization")
 		c.Header("Access-Control-Allow-Private-Network", "false")
 

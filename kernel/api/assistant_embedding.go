@@ -25,7 +25,7 @@ type embeddingIndexRequest struct {
 func ServeEmbeddingConfig(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)
-	ret.Data = model.GetAssistantEmbeddingConfig()
+	ret.Data = model.GetAssistantEmbeddingConfigView()
 }
 
 func ServeSetEmbeddingConfig(c *gin.Context) {
@@ -44,7 +44,7 @@ func ServeSetEmbeddingConfig(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = model.GetAssistantEmbeddingConfig()
+	ret.Data = model.GetAssistantEmbeddingConfigView()
 }
 
 func ServeSemanticSearch(c *gin.Context) {
@@ -66,6 +66,8 @@ func ServeSemanticSearch(c *gin.Context) {
 
 	if req.Limit <= 0 {
 		req.Limit = 10
+	} else if req.Limit > 50 {
+		req.Limit = 50
 	}
 
 	cfg := model.GetAssistantEmbeddingConfig()

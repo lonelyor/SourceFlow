@@ -27,7 +27,6 @@ import (
 	"strings"
 	"sync"
 
-	mmap "github.com/edsrzf/mmap-go"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/lonelyor/sourceflow/kernel/cache"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
@@ -41,11 +40,7 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/render"
 	"github.com/panjf2000/ants/v2"
-	gcache "github.com/patrickmn/go-cache"
-	"time"
 )
-
-var hpathCache = gcache.New(5*time.Minute, 1*time.Minute)
 
 func LoadTrees(ids []string) (ret map[string]*parse.Tree) {
 	ret = map[string]*parse.Tree{}
@@ -118,101 +113,114 @@ func batchLoadTrees(boxIDs, paths []string, luteEngine *lute.Lute) (ret []*parse
 }
 
 func LoadTree(boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err error) {
-	rootID := util.GetTreeID(p)
-
-	if cached := cache.GetParsedTree(rootID); nil != cached {
-		ret = cached
-		ret.Path = p
-		ret.Root.Path = p
+	cleanPath, err := util.CleanRelativePath(p)
+	if nil != err {
+		logging.LogErrorf("resolve tree [%s] failed: %s", p, err)
 		return
 	}
+	if "" == cleanPath || !strings.HasSuffix(cleanPath, ".sf") {
+		err = fmt.Errorf("invalid tree path [%s]", p)
+		logging.LogErrorf("%s", err)
+		return
+	}
+	treePath := "/" + cleanPath
+	rootID := util.GetTreeID(cleanPath)
 
 	if raw, ok := cache.GetTreeData(rootID); ok {
-		ret, err = LoadTreeByData(raw, boxID, p, luteEngine)
-		if nil == err {
-			cache.SetParsedTree(rootID, ret)
-		}
-		return
+		return LoadTreeByData(raw, boxID, treePath, luteEngine)
 	}
 
-	filePath := filepath.Join(util.DataDir, boxID, p)
+	filePath, err := util.ResolvePathUnder(filepath.Join(util.DataDir, boxID), cleanPath)
+	if nil != err {
+		logging.LogErrorf("resolve tree [%s] failed: %s", p, err)
+		return
+	}
 	data, err := filelock.ReadFile(filePath)
 	if nil != err {
 		logging.LogErrorf("load tree [%s] failed: %s", p, err)
 		return
 	}
 
-	data, err = correctTreeJSONData(boxID, p, data, luteEngine)
+	data, err = correctTreeJSONData(boxID, treePath, data, luteEngine)
 	if nil != err {
 		return
 	}
 
-	ret, err = LoadTreeByData(data, boxID, p, luteEngine)
+	ret, err = LoadTreeByData(data, boxID, treePath, luteEngine)
 	if nil == err {
 		cache.SetTreeData(rootID, data)
-		cache.SetParsedTree(rootID, ret)
 	}
 	return
 }
 
 func LoadTreeByData(data []byte, boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err error) {
-	ret, err = parseJSON2Tree(boxID, p, data, luteEngine)
+	cleanPath, err := util.CleanRelativePath(p)
+	if nil != err {
+		logging.LogErrorf("resolve tree data path [%s] failed: %s", p, err)
+		return
+	}
+	if "" == cleanPath || !strings.HasSuffix(cleanPath, ".sf") {
+		err = fmt.Errorf("invalid tree path [%s]", p)
+		logging.LogErrorf("%s", err)
+		return
+	}
+
+	treePath := "/" + cleanPath
+	ret, err = parseJSON2Tree(boxID, treePath, data, luteEngine)
 	if nil != err {
 		logging.LogErrorf("parse tree [%s] failed: %s", p, err)
 		return
 	}
-	ret.Path = p
-	ret.Root.Path = p
+	ret.Path = treePath
+	ret.Root.Path = treePath
 
-	parts := strings.Split(p, "/")
-	parts = parts[1 : len(parts)-1]
+	parts := strings.Split(cleanPath, "/")
+	parts = parts[:len(parts)-1]
 	if 1 > len(parts) {
 		ret.HPath = "/" + ret.Root.IALAttr("title")
 		ret.Hash = treenode.NodeHash(ret.Root, ret, luteEngine)
 		return
 	}
 
-	cacheKey := boxID + p
-	if cached, found := hpathCache.Get(cacheKey); found {
-		ret.HPath = cached.(string)
-	} else {
-		hPathBuilder := bytes.Buffer{}
-		hPathBuilder.WriteString("/")
-		for i := range parts {
-			var parentAbsPath string
-			if 0 < i {
-				parentAbsPath = strings.Join(parts[:i+1], "/")
-			} else {
-				parentAbsPath = parts[0]
-			}
-			parentAbsPath += ".sf"
-			parentPath := parentAbsPath
-			parentAbsPath = filepath.Join(util.DataDir, boxID, parentAbsPath)
-
-			parentDocIAL := DocIAL(parentAbsPath)
-			if 1 > len(parentDocIAL) {
-				parentTree := treenode.NewTree(boxID, parentPath, hPathBuilder.String()+"Untitled", "Untitled")
-				if _, writeErr := WriteTree(parentTree); nil != writeErr {
-					logging.LogErrorf("rebuild parent tree [%s] failed: %s", parentAbsPath, writeErr)
-				} else {
-					logging.LogInfof("rebuilt parent tree [%s]", parentAbsPath)
-					treenode.UpsertBlockTree(parentTree)
-				}
-				hPathBuilder.WriteString("Untitled/")
-				continue
-			}
-
-			title := parentDocIAL["title"]
-			if "" == title {
-				title = "Untitled"
-			}
-			hPathBuilder.WriteString(util.UnescapeHTML(title))
-			hPathBuilder.WriteString("/")
+	hPathBuilder := bytes.Buffer{}
+	hPathBuilder.WriteString("/")
+	for i := range parts {
+		var parentAbsPath string
+		if 0 < i {
+			parentAbsPath = strings.Join(parts[:i+1], "/")
+		} else {
+			parentAbsPath = parts[0]
 		}
-		hPathBuilder.WriteString(ret.Root.IALAttr("title"))
-		ret.HPath = hPathBuilder.String()
-		hpathCache.Set(cacheKey, ret.HPath, gcache.DefaultExpiration)
+		parentAbsPath += ".sf"
+		parentPath := parentAbsPath
+		parentAbsPath, err = util.ResolvePathUnder(filepath.Join(util.DataDir, boxID), parentPath)
+		if nil != err {
+			logging.LogErrorf("resolve parent tree [%s] failed: %s", parentPath, err)
+			return
+		}
+
+		parentDocIAL := DocIAL(parentAbsPath)
+		if 1 > len(parentDocIAL) {
+			parentTree := treenode.NewTree(boxID, parentPath, hPathBuilder.String()+"Untitled", "Untitled")
+			if _, writeErr := WriteTree(parentTree); nil != writeErr {
+				logging.LogErrorf("rebuild parent tree [%s] failed: %s", parentAbsPath, writeErr)
+			} else {
+				logging.LogInfof("rebuilt parent tree [%s]", parentAbsPath)
+				treenode.UpsertBlockTree(parentTree)
+			}
+			hPathBuilder.WriteString("Untitled/")
+			continue
+		}
+
+		title := parentDocIAL["title"]
+		if "" == title {
+			title = "Untitled"
+		}
+		hPathBuilder.WriteString(util.UnescapeHTML(title))
+		hPathBuilder.WriteString("/")
 	}
+	hPathBuilder.WriteString(ret.Root.IALAttr("title"))
+	ret.HPath = hPathBuilder.String()
 	ret.Hash = treenode.NodeHash(ret.Root, ret, luteEngine)
 	return
 }
@@ -252,10 +260,8 @@ func WriteTree(tree *parse.Tree) (size uint64, err error) {
 		return
 	}
 
-	if err = writeTreeByMmap(filePath, data); nil != err {
-		if err = writeTreeByWriteFile(filePath, data); nil != err {
-			return
-		}
+	if err = writeTreeByWriteFile(filePath, data); nil != err {
+		return
 	}
 
 	if util.ExceedLargeFileWarningSize(len(data)) {
@@ -269,6 +275,14 @@ func WriteTree(tree *parse.Tree) (size uint64, err error) {
 	return
 }
 
+func PrepareWriteTree(tree *parse.Tree) (data []byte, filePath string, err error) {
+	return prepareWriteTree(tree)
+}
+
+func AfterWriteTree(tree *parse.Tree) {
+	afterWriteTree(tree)
+}
+
 func writeTreeByWriteFile(filePath string, data []byte) (err error) {
 	if err = filelock.WriteFile(filePath, data); err != nil {
 		msg := fmt.Sprintf("write data [%s] failed: %s", filePath, err)
@@ -279,43 +293,31 @@ func writeTreeByWriteFile(filePath string, data []byte) (err error) {
 	return
 }
 
-func writeTreeByMmap(filePath string, data []byte) (err error) {
-	f, err := filelock.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return
-	}
-	defer filelock.CloseFile(f)
-
-	if err = f.Truncate(int64(len(data))); err != nil {
-		msg := fmt.Sprintf("truncate file [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-
-	m, err := mmap.Map(f, mmap.RDWR, 0)
-	if err != nil {
-		msg := fmt.Sprintf("map file [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-	defer m.Unmap()
-
-	copy(m, data)
-	if err = m.Flush(); err != nil {
-		msg := fmt.Sprintf("flush data [%s] failed: %s", filePath, err)
-		logging.LogErrorf("%s", msg)
-		err = errors.New(msg)
-		return
-	}
-	return
-}
-
 func prepareWriteTree(tree *parse.Tree) (data []byte, filePath string, err error) {
 	luteEngine := util.NewLute() // 不关注用户的自定义解析渲染选项
 
+	if nil == tree || nil == tree.Root {
+		err = errors.New("invalid empty tree")
+		return
+	}
+
+	filePath, err = util.ResolvePathUnder(filepath.Join(util.DataDir, tree.Box), tree.Path)
+	if nil != err {
+		logging.LogErrorf("resolve tree write path [%s] failed: %s", tree.Path, err)
+		return
+	}
 	if nil == tree.Root.FirstChild {
+		info, statErr := os.Stat(filePath)
+		if nil == statErr && 0 < info.Size() {
+			err = fmt.Errorf("refuse to write empty tree over existing document [%s]", filePath)
+			logging.LogErrorf("%s", err)
+			return
+		}
+		if nil != statErr && !os.IsNotExist(statErr) {
+			err = fmt.Errorf("check tree file [%s] failed: %w", filePath, statErr)
+			logging.LogErrorf("%s", err)
+			return
+		}
 		newP := treenode.NewParagraph("")
 		tree.Root.AppendChild(newP)
 		tree.Root.SetIALAttr("updated", util.TimeFromID(newP.ID))
@@ -324,7 +326,6 @@ func prepareWriteTree(tree *parse.Tree) (data []byte, filePath string, err error
 
 	treenode.UpgradeSpec(tree)
 
-	filePath = filepath.Join(util.DataDir, tree.Box, tree.Path)
 	tree.Root.SetIALAttr("type", "doc")
 	renderer := render.NewJSONRenderer(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 	data = renderer.Render()
@@ -451,7 +452,10 @@ func correctTreeJSONData(boxID, p string, jsonData []byte, luteEngine *lute.Lute
 		data = buf.Bytes()
 	}
 
-	filePath := filepath.Join(util.DataDir, ret.Box, ret.Path)
+	filePath, err := util.ResolvePathUnder(filepath.Join(util.DataDir, ret.Box), ret.Path)
+	if nil != err {
+		return nil, err
+	}
 	if err = os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return nil, err
 	}

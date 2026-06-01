@@ -69,17 +69,15 @@ const promiseTransaction = () => {
     const protyle = window.sourceflow.transactions[0].protyle;
     const doOperations = window.sourceflow.transactions[0].doOperations;
     const undoOperations = window.sourceflow.transactions[0].undoOperations;
-    // 1. * ;2. * ;3. a
-    // 第一步请求没有返回前在 transaction 中会合并1、2步，此时第一步请求返回将被以下代码删除，在输入a时，就会出现 block not found，因此以下代码不能放入请求回调中
-    window.sourceflow.transactions.splice(0, 1);
     fetchPost("/api/transactions", {
         session: protyle.id,
         app: Constants.SOURCEFLOW_APPID,
         transactions: [{
             doOperations,
-            undoOperations // 目前用于 ws 推送更新大纲
+            undoOperations
         }]
     }, (response) => {
+        window.sourceflow.transactions.splice(0, 1);
         if (window.sourceflow.transactions.length === 0) {
             countBlockWord([], protyle.block.rootID, true);
         } else {
