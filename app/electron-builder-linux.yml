@@ -18,6 +18,7 @@ extraFiles:
 linux:
   icon: "src/assets/icon.png"
   category: "Utility"
+  maintainer: "By lonelyor <23398106+lonelyor@users.noreply.github.com>"
   executableName: "sourceflow"
   desktop: {
     entry: {
