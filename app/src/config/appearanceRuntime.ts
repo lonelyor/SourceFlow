@@ -93,7 +93,8 @@ import {
     applyFileTreeHighlightColor,
     getFileTreeAppearanceTexts,
     getFileTreeDensityOptions,
-    normalizeFileTreeDensity
+    normalizeFileTreeDensity,
+    normalizeFileTreeFontSize
 } from "../appearance/fileTreeAppearance";
 import {refreshAllFileTreeTotalCounts} from "../layout/dock/fileTreeCounts";
 import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
@@ -199,6 +200,7 @@ export const appearance = {
         const fileTreeAppearanceTexts = getFileTreeAppearanceTexts();
         const fileTreeDensity = normalizeFileTreeDensity(window.sourceflow.config.appearance.fileTreeDensity);
         const fileTreeDensityOptionsHTML = getFileTreeDensityOptions().map((item) => `<option value="${item.name}" ${fileTreeDensity === item.name ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("");
+        const fileTreeFontSize = normalizeFileTreeFontSize(window.sourceflow.config.appearance.fileTreeFontSize);
         return `<div class="fn__flex b3-label config__item">
     <div class="fn__flex-1">
         ${window.sourceflow.languages.appearance4}
@@ -352,6 +354,13 @@ export const appearance = {
             <select class="b3-select fn__flex-center fn__size200" id="fileTreeDensity">${fileTreeDensityOptionsHTML}</select>
         </div>
         <div class="b3-label__text">${fileTreeAppearanceTexts.densityTip}</div>
+        <div class="fn__hr"></div>
+        <div class="fn__flex config__item">
+            <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.fontSize}</div>
+            <span class="fn__space"></span>
+            <input class="b3-text-field fn__flex-center fn__size200" id="fileTreeFontSize" type="number" min="10" max="20" step="1" placeholder="${escapeAttr(window.sourceflow.languages.fileTreeDensityDefault || "Default")}" value="${fileTreeFontSize > 0 ? fileTreeFontSize : ""}">
+        </div>
+        <div class="b3-label__text">${fileTreeAppearanceTexts.fontSizeTip}</div>
         <div class="fn__hr"></div>
         <div class="fn__flex config__item">
             <div class="fn__flex-center fn__flex-1 ft__on-surface">${fileTreeAppearanceTexts.highlightColor}</div>
@@ -789,6 +798,7 @@ export const appearance = {
         const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
         const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
         const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+        const fileTreeFontSizeElement = appearance.element.querySelector("#fileTreeFontSize") as HTMLInputElement;
         const fileTreeHighlightColorEl = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
         fetchPost("/api/setting/setAppearance", Object.assign({}, window.sourceflow.config.appearance, {
             icon: (appearance.element.querySelector("#icon") as HTMLSelectElement).value,
@@ -819,6 +829,7 @@ export const appearance = {
             fileTreeDocCount: fileTreeDocCountElement?.checked ?? !!window.sourceflow.config.appearance.fileTreeDocCount,
             fileTreeTotalCount: fileTreeTotalCountElement?.checked ?? (window.sourceflow.config.appearance.fileTreeTotalCount !== false),
             fileTreeDensity: normalizeFileTreeDensity(fileTreeDensityElement?.value || window.sourceflow.config.appearance.fileTreeDensity),
+            fileTreeFontSize: normalizeFileTreeFontSize(fileTreeFontSizeElement ? fileTreeFontSizeElement.value : window.sourceflow.config.appearance.fileTreeFontSize),
             fileTreeHighlightColor: fileTreeHighlightColorEl?.value || window.sourceflow.config.appearance.fileTreeHighlightColor || "",
             accentColor: window.sourceflow.config.appearance.accentColor || "",
             statusBar: {
@@ -862,6 +873,9 @@ export const appearance = {
             }
             window.sourceflow.config.appearance.fileTreeHighlightColor = "";
             applyFileTreeHighlightColor("");
+            appearance._send();
+        });
+        appearance.element.querySelector("#fileTreeFontSize")?.addEventListener("change", () => {
             appearance._send();
         });
         appearance.element.querySelector("#resetLayout").addEventListener("click", () => {
@@ -1336,8 +1350,9 @@ export const appearance = {
             const fileTreeGuidesElement = appearance.element.querySelector("#fileTreeGuides") as HTMLInputElement;
             const fileTreeDocCountElement = appearance.element.querySelector("#fileTreeDocCount") as HTMLInputElement;
             const fileTreeTotalCountElement = appearance.element.querySelector("#fileTreeTotalCount") as HTMLInputElement;
-        const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
-        const fileTreeHighlightColorElement = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
+            const fileTreeDensityElement = appearance.element.querySelector("#fileTreeDensity") as HTMLSelectElement;
+            const fileTreeFontSizeElement = appearance.element.querySelector("#fileTreeFontSize") as HTMLInputElement;
+            const fileTreeHighlightColorElement = appearance.element.querySelector("#fileTreeHighlightColor") as HTMLInputElement;
             if (fileTreeGuidesElement) {
                 fileTreeGuidesElement.checked = !!data.fileTreeGuides;
             }
@@ -1349,6 +1364,10 @@ export const appearance = {
             }
             if (fileTreeDensityElement) {
                 fileTreeDensityElement.value = normalizeFileTreeDensity(data.fileTreeDensity);
+            }
+            if (fileTreeFontSizeElement) {
+                const fontSize = normalizeFileTreeFontSize(data.fileTreeFontSize);
+                fileTreeFontSizeElement.value = fontSize > 0 ? `${fontSize}` : "";
             }
             if (fileTreeHighlightColorElement) {
                 fileTreeHighlightColorElement.value = data.fileTreeHighlightColor || "#3575f0";

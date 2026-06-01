@@ -34,3 +34,18 @@ func TestNormalizeAppearanceFileTreeDensity(t *testing.T) {
 		t.Fatalf("normalizeAppearanceFileTreeDensity() = %q, want default", got)
 	}
 }
+
+func TestNormalizeAppearanceFileTreeFontSize(t *testing.T) {
+	if got := normalizeAppearanceFileTreeFontSize(0); 0 != got {
+		t.Fatalf("normalizeAppearanceFileTreeFontSize() = %d, want 0", got)
+	}
+	if got := normalizeAppearanceFileTreeFontSize(8); 10 != got {
+		t.Fatalf("normalizeAppearanceFileTreeFontSize() = %d, want 10", got)
+	}
+	if got := normalizeAppearanceFileTreeFontSize(16); 16 != got {
+		t.Fatalf("normalizeAppearanceFileTreeFontSize() = %d, want 16", got)
+	}
+	if got := normalizeAppearanceFileTreeFontSize(40); 20 != got {
+		t.Fatalf("normalizeAppearanceFileTreeFontSize() = %d, want 20", got)
+	}
+}

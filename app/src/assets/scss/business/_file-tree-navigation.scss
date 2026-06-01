@@ -11,6 +11,7 @@
     height: 28px;
 
     .b3-text-field {
+      font-size: var(--sf-file-tree-font-size, inherit);
       height: 28px;
       line-height: 28px;
     }
@@ -25,7 +26,7 @@
     color: var(--b3-theme-on-surface);
     cursor: pointer;
     display: flex;
-    font-size: 12px;
+    font-size: var(--sf-file-tree-font-size, 12px);
     height: 24px;
     margin-top: 4px;
     max-width: 100%;
@@ -73,7 +74,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    font-size: 12px;
+    font-size: var(--sf-file-tree-font-size, 12px);
     gap: 2px;
     line-height: 20px;
     padding: 0 6px;
@@ -97,7 +98,7 @@
 
   .file-tree__nav-empty {
     color: var(--b3-theme-on-surface-light);
-    font-size: 12px;
+    font-size: var(--sf-file-tree-font-size, 12px);
     line-height: 24px;
     padding: 0 6px;
   }

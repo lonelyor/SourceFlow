@@ -74,6 +74,7 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
             "theme2", "theme11", "theme12", "fileTreeAppearance", "fileTreeAppearanceTip", "fileTreeGuides", "fileTreeGuidesTip",
             "fileTreeDocCount", "fileTreeDocCountTip", "fileTreeTotalCount", "fileTreeTotalCountTip",
             "fileTreeDensity", "fileTreeDensityTip", "fileTreeDensityCompact", "fileTreeDensityDefault", "fileTreeDensityLoose",
+            "fileTreeFontSize", "fileTreeFontSizeTip",
             "customEmoji", "customEmojiTip", "refresh"]),
 
         // 集市

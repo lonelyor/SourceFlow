@@ -67,12 +67,13 @@
 - 拖拽落点提示、当前路径/选中项/拖拽目标状态区分、可展开目标等待反馈默认启用。
 - 文档树层级引导线作为外观配置提供，默认关闭。
 - 文档树密度作为外观配置提供，取值为紧凑、默认、宽松；默认保持当前行距。
+- 文档树字号作为外观配置提供，`0` 表示使用主题默认字号；用户可在设置页输入 `10-20px`，前端和后端都会做边界归一化。
 - 文档树子文档数量作为外观配置提供，默认关闭；开启后仅在有子文档的条目右侧显示弱化数字，`0` 不显示。
 - 文档树全部笔记总数作为外观配置提供，默认开启；顶部标题栏右侧以轻量胶囊显示已打开笔记本下的文档总数。
 - 文档树空白区域右键复用顶部“更多”菜单，作为新建笔记、重建索引、排序和发布权限等全局文档树操作的低成本入口；该入口不改变文档行、笔记本根行和多选文档的既有右键菜单语义。
 - 设置入口放在“设置 > 外观 > 文档树”，配置写入外观配置，不引入独立配置文件。
-- 外观配置字段为 `appearance.fileTreeGuides`、`appearance.fileTreeDensity`、`appearance.fileTreeDocCount` 与 `appearance.fileTreeTotalCount`，后端对密度做 `compact/default/loose` 归一化。
-- 文档树面板通过 `file-tree--guides`、`file-tree--density-*`、`file-tree--doc-count`、`file-tree--total-count` 和 `file-tree__item--current` 等类表达外观状态；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
+- 外观配置字段为 `appearance.fileTreeGuides`、`appearance.fileTreeDensity`、`appearance.fileTreeFontSize`、`appearance.fileTreeDocCount` 与 `appearance.fileTreeTotalCount`，后端对密度和字号做归一化。
+- 文档树面板通过 `file-tree--guides`、`file-tree--density-*`、`file-tree--doc-count`、`file-tree--total-count`、`file-tree__item--current` 与 `--sf-file-tree-font-size` 等状态表达外观；拖拽落点提示通过 `data-drop-label` 和 `data-drag-expand` 表达。
 
 ## 编辑器结构提示
 
@@ -93,6 +94,7 @@
 - 文档树状态标识第一阶段仅使用已有低成本数据：书签、子文档、引用数；附件/任务状态需要可靠数据源时再扩展。
 - 最近编辑入口优先复用已有 recent-doc 存储与 `/api/storage/getRecentDocs`，不新建独立历史数据结构。
 - 常用文档入口第一阶段使用最近浏览记录作为轻量口径，不新增频次统计表。
+- 最近编辑与常用文档快捷分组首次展示默认折叠；一旦本地存在 `file-tree-nav-collapsed` 用户状态，必须以用户状态为准。
 - 正文定位增强不改变标题块数据和折叠事务语义；滚动时仅根据当前可见标题同步大纲焦点和正文视觉状态。
 - Sticky 当前标题作为编辑器内容区内的只读浮层展示，不写入文档内容；标题折叠增强仅增加视觉提示，不改变 `fold`/`heading-fold` 数据。
 - 空文档和重名文档提示只作为当前编辑器的被动整理提示，不自动改名、不自动移动、不创建清理任务；孤立文档仍不处理。

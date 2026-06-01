@@ -38,6 +38,7 @@ const MAX_FILTER_RESULTS = 24;
 const MAX_SHORTCUT_ITEMS = 5;
 const FILTER_DELAY = 180;
 const COLLAPSED_STORAGE_KEY = "file-tree-nav-collapsed";
+const DEFAULT_COLLAPSED_NAV_GROUPS = ["recent-edited", "frequent"];
 
 const language = (key: string, fallback: string) => {
     return window.sourceflow.languages[key] || fallback;
@@ -331,11 +332,12 @@ export class FileTreeNavigation {
     }
 
     private restoreCollapsedState() {
-        let collapsed: string[] = [];
+        let collapsed = DEFAULT_COLLAPSED_NAV_GROUPS;
         try {
             const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
-            if (raw) {
-                collapsed = JSON.parse(raw);
+            if (raw !== null) {
+                const parsed = JSON.parse(raw);
+                collapsed = Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
             }
         } catch { /* ignore */ }
         if (!collapsed.length) {

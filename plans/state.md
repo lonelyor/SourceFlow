@@ -119,6 +119,8 @@
 - 2026-06-01 v0.1.6 覆盖发布准备：已修正 `app/changelogs/v0.1.6/` 发布说明，移除已废弃的块编号/持久块图标描述，改为记录本轮笔记安全、事务回滚、路径/SQL、导入上传限制和编译修复；`python 编译.py` 已通过并验证 Windows x64 安装包与便携包。
 - 此前 `pnpm --dir app run lint` 失败源于前端 lint 阻断 error 与大量未使用符号 warning 基线。
 - 本轮已单独修复前端 lint 阻断 error：`ICaptureAutomationData` / `IWorkbenchItemAutomationData` 改为 type alias，插件 sandbox 中一次赋值变量改为 `const` / 引用容器，控制字符正则改为字符码判断，sandbox 事件监听缓存不再使用宽泛 `Function` 类型；`pnpm --dir app run lint` 已通过，剩余 4995 个 unused warning 作为历史基线后续分模块清理。
+- 2026-06-01 文档树导航与外观微调已完成：最近编辑与常用文档快捷分组在没有本地用户状态时默认折叠，已有 `file-tree-nav-collapsed` 状态会完整保留；新增 `appearance.fileTreeFontSize`，`0` 表示沿用主题默认，设置页支持输入 `10-20px` 并由前后端归一化。
+- 本轮新增 `test:file-tree-appearance-settings` 覆盖文档树字号配置链路、i18n/搜索索引、CSS 变量和默认折叠策略；已通过目标回归、`pnpm --dir app run typecheck:app`、`go test -vet=off ./api -run TestNormalizeAppearanceFileTreeFontSize -count=1`、`go test -vet=off ./conf -count=1` 和 `git diff --check`。
 
 ## 风险
 

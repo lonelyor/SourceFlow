@@ -204,6 +204,7 @@ func InitConf() {
 		fileTreeTotalCount := true
 		Conf.Appearance.FileTreeTotalCount = &fileTreeTotalCount
 	}
+	Conf.Appearance.FileTreeFontSize = conf.NormalizeFileTreeFontSize(Conf.Appearance.FileTreeFontSize)
 	util.StatusBarCfg = Conf.Appearance.StatusBar
 	if nil == Conf.FileTree {
 		Conf.FileTree = conf.NewFileTree()

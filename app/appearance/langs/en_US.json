@@ -1442,6 +1442,8 @@
   "fileTreeDensityCompact": "Compact",
   "fileTreeDensityDefault": "Default",
   "fileTreeDensityLoose": "Loose",
+  "fileTreeFontSize": "Doc tree font size",
+  "fileTreeFontSizeTip": "Leave empty to use the theme default; enter a size from 10 to 20 px.",
   "fileTreeHighlightColor": "Active doc highlight",
   "fileTreeHighlightColorTip": "Customize the highlight color for the currently open document in the doc tree. Leave empty for theme default.",
   "fileTreeDropIntoDoc": "Move under this doc",

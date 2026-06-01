@@ -1442,6 +1442,8 @@
   "fileTreeDensityCompact": "紧凑",
   "fileTreeDensityDefault": "默认",
   "fileTreeDensityLoose": "宽松",
+  "fileTreeFontSize": "文档树字号",
+  "fileTreeFontSizeTip": "留空使用主题默认字号；输入 10-20 px 之间的字号。",
   "fileTreeHighlightColor": "当前文档高亮",
   "fileTreeHighlightColorTip": "自定义文档树中当前打开文档的高亮颜色，留空使用主题默认色。",
   "fileTreeDropIntoDoc": "移入此文档下",
