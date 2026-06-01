@@ -147,7 +147,8 @@ func FormatNode(node *ast.Node, luteEngine *lute.Lute) string {
 	markdown, err := lute.FormatNodeSync(node, luteEngine.ParseOptions, luteEngine.RenderOptions)
 	if err != nil {
 		root := TreeRoot(node)
-		logging.LogFatalf(logging.ExitCodeFatal, "format node [%s] in tree [%s] failed: %s", node.ID, root.ID, err)
+		logging.LogErrorf("format node [%s] in tree [%s] failed: %s", node.ID, root.ID, err)
+		return ""
 	}
 	return markdown
 }
@@ -156,7 +157,8 @@ func ExportNodeStdMd(node *ast.Node, luteEngine *lute.Lute) string {
 	markdown, err := lute.ProtyleExportMdNodeSync(node, luteEngine.ParseOptions, luteEngine.RenderOptions)
 	if err != nil {
 		root := TreeRoot(node)
-		logging.LogFatalf(logging.ExitCodeFatal, "export markdown for node [%s] in tree [%s] failed: %s", node.ID, root.ID, err)
+		logging.LogErrorf("export markdown for node [%s] in tree [%s] failed: %s", node.ID, root.ID, err)
+		return ""
 	}
 	return markdown
 }

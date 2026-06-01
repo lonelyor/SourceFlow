@@ -108,6 +108,8 @@
 - 阶段 1 已通过 `go test ./filesys -count=1`、`go test -vet=off ./model -run TestBox -count=1`、`go test -vet=off ./model -run TestBoxDocIALDoesNotMoveDocumentOnMissingProperties -count=1` 和 `go test -vet=off ./model -run TestDocFromFileInfoFallsBackToPathID -count=1`。
 - 2026-06-01 第二轮笔记安全稳定性修复阶段 2 已完成：事务 large insert/delete 快路径不再吞掉失败，加载目标树、插入、删除失败会向 `performTx` 返回 `TxErr` 并触发回滚；非法块 ID 在查询块树前失败关闭，避免未初始化 DB 或异常 ID 造成 panic。
 - 阶段 2 已通过 `go test -vet=off ./model -run TestPerformTxLargeInsertFailureRollsBack -count=1`、`go test -vet=off ./model -run TestPerformTxLargeDeleteFailureRollsBack -count=1`、`go test -vet=off ./model -run '^$' -count=1` 和 `go test -vet=off ./model -run TestPerformTxLarge -count=1`。
+- 2026-06-01 第二轮笔记安全稳定性修复阶段 3 已完成：`/api/filetree/listDocTree` 入口路径改为通过笔记本根目录下的 `ResolvePathUnder` 解析，拒绝 `..`、绝对路径和卷标路径；递归文档树扫描跳过非法非 `.sf` 文件名；`SearchDocs` 改为通过参数化 SQL 查询 root block，搜索词和 exclude ID 不再拼接进 SQL 字符串。
+- 阶段 3 已通过 `go test -vet=off ./api -run TestResolveDocTreeRoot -count=1`、`go test -vet=off ./api -run TestCountDocTreeCountsNestedDocsOnce -count=1`、`go test ./sql -run TestBuildRootBlockDocSearchCondition -count=1` 和 `go test -vet=off ./model -run '^$' -count=1`。
 - 此前 `pnpm --dir app run lint` 失败源于前端 lint 阻断 error 与大量未使用符号 warning 基线。
 - 本轮已单独修复前端 lint 阻断 error：`ICaptureAutomationData` / `IWorkbenchItemAutomationData` 改为 type alias，插件 sandbox 中一次赋值变量改为 `const` / 引用容器，控制字符正则改为字符码判断，sandbox 事件监听缓存不再使用宽泛 `Function` 类型；`pnpm --dir app run lint` 已通过，剩余 4995 个 unused warning 作为历史基线后续分模块清理。
 

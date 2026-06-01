@@ -97,13 +97,12 @@ func initDBConnection() {
 
 	util.LogDatabaseSize(util.BlockTreeDBPath)
 	dsn := util.BlockTreeDBPath + "?_journal_mode=WAL" +
-		"&_synchronous=OFF" +
+		"&_synchronous=NORMAL" +
 		"&_mmap_size=2684354560" +
 		"&_secure_delete=OFF" +
 		"&_cache_size=-20480" +
 		"&_page_size=32768" +
 		"&_busy_timeout=7000" +
-		"&_ignore_check_constraints=ON" +
 		"&_temp_store=MEMORY" +
 		"&_case_sensitive_like=OFF"
 	var err error
@@ -304,10 +303,20 @@ func ExistBlockTrees(ids []string) (ret map[string]bool) {
 		ret[id] = false
 	}
 
-	sqlStmt := "SELECT id FROM blocktrees WHERE id IN ('" + strings.Join(ids, "','") + "')"
-	rows, err := query(sqlStmt)
+	var stmtBuf bytes.Buffer
+	stmtBuf.WriteString("SELECT id FROM blocktrees WHERE id IN (")
+	var args []any
+	for i := range ids {
+		stmtBuf.WriteString("?")
+		if i < len(ids)-1 {
+			stmtBuf.WriteString(",")
+		}
+		args = append(args, ids[i])
+	}
+	stmtBuf.WriteString(")")
+	rows, err := query(stmtBuf.String(), args...)
 	if err != nil {
-		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
+		logging.LogErrorf("sql query failed: %s", err)
 		return
 	}
 	defer rows.Close()
@@ -502,10 +511,20 @@ func RemoveBlockTreesByIDs(ids []string) {
 		return
 	}
 
-	sqlStmt := "DELETE FROM blocktrees WHERE id IN ('" + strings.Join(ids, "','") + "')"
-	_, err := exec(sqlStmt)
+	var stmtBuf bytes.Buffer
+	stmtBuf.WriteString("DELETE FROM blocktrees WHERE id IN (")
+	var args []any
+	for i := range ids {
+		stmtBuf.WriteString("?")
+		if i < len(ids)-1 {
+			stmtBuf.WriteString(",")
+		}
+		args = append(args, ids[i])
+	}
+	stmtBuf.WriteString(")")
+	_, err := exec(stmtBuf.String(), args...)
 	if err != nil {
-		logging.LogErrorf("sql exec [%s] failed: %s", sqlStmt, err)
+		logging.LogErrorf("sql exec failed: %s", err)
 		return
 	}
 }
@@ -589,15 +608,17 @@ func UpsertBlockTree(tree *parse.Tree) {
 		return
 	}
 
-	ids := bytes.Buffer{}
+	var deleteArgs []any
+	var stmtBuf bytes.Buffer
+	stmtBuf.WriteString("DELETE FROM blocktrees WHERE id IN (")
 	for i, n := range changedNodes {
-		ids.WriteString("'")
-		ids.WriteString(n.ID)
-		ids.WriteString("'")
+		stmtBuf.WriteString("?")
 		if i < len(changedNodes)-1 {
-			ids.WriteString(",")
+			stmtBuf.WriteString(",")
 		}
+		deleteArgs = append(deleteArgs, n.ID)
 	}
+	stmtBuf.WriteString(")")
 
 	docLock := getDocLock(tree.ID)
 	docLock.Lock()
@@ -609,11 +630,10 @@ func UpsertBlockTree(tree *parse.Tree) {
 		return
 	}
 
-	sqlStmt := "DELETE FROM blocktrees WHERE id IN (" + ids.String() + ")"
-	_, err = tx.Exec(sqlStmt)
+	_, err = tx.Exec(stmtBuf.String(), deleteArgs...)
 	if err != nil {
 		tx.Rollback()
-		logging.LogErrorf("sql exec [%s] failed: %s", sqlStmt, err)
+		logging.LogErrorf("sql exec failed: %s", err)
 		return
 	}
 

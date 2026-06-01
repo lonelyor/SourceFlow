@@ -125,6 +125,9 @@ export class Undo {
         this.undoStack.push({undoOperations, doOperations});
         if (this.undoStack.length > Constants.SIZE_UNDO) {
             this.undoStack.shift();
+            if (this.undoStack.length === Constants.SIZE_UNDO) {
+                console.warn(`Undo stack reached max size (${Constants.SIZE_UNDO}), oldest states discarded`);
+            }
         }
         if (this.hasUndo) {
             this.redoStack = [];

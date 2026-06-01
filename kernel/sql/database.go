@@ -246,13 +246,12 @@ func initDBConnection() {
 
 	util.LogDatabaseSize(util.DBPath)
 	dsn := util.DBPath + "?_journal_mode=WAL" +
-		"&_synchronous=OFF" +
+		"&_synchronous=NORMAL" +
 		"&_mmap_size=2684354560" +
 		"&_secure_delete=OFF" +
 		"&_cache_size=-20480" +
 		"&_page_size=32768" +
 		"&_busy_timeout=7000" +
-		"&_ignore_check_constraints=ON" +
 		"&_temp_store=MEMORY" +
 		"&_case_sensitive_like=OFF"
 	var err error
@@ -302,13 +301,12 @@ func initHistoryDBConnection() {
 
 	util.LogDatabaseSize(util.HistoryDBPath)
 	dsn := util.HistoryDBPath + "?_journal_mode=WAL" +
-		"&_synchronous=OFF" +
+		"&_synchronous=NORMAL" +
 		"&_mmap_size=2684354560" +
 		"&_secure_delete=OFF" +
 		"&_cache_size=-20480" +
 		"&_page_size=32768" +
 		"&_busy_timeout=7000" +
-		"&_ignore_check_constraints=ON" +
 		"&_temp_store=MEMORY" +
 		"&_case_sensitive_like=OFF"
 	var err error
@@ -366,13 +364,12 @@ func initAssetContentDBConnection() {
 
 	util.LogDatabaseSize(util.AssetContentDBPath)
 	dsn := util.AssetContentDBPath + "?_journal_mode=WAL" +
-		"&_synchronous=OFF" +
+		"&_synchronous=NORMAL" +
 		"&_mmap_size=2684354560" +
 		"&_secure_delete=OFF" +
 		"&_cache_size=-20480" +
 		"&_page_size=32768" +
 		"&_busy_timeout=7000" +
-		"&_ignore_check_constraints=ON" +
 		"&_temp_store=MEMORY" +
 		"&_case_sensitive_like=OFF"
 	var err error
@@ -994,15 +991,24 @@ func deleteBlocksByIDs(tx *sql.Tx, ids []string) (err error) {
 		return
 	}
 
-	var ftsIDs []string
 	for _, id := range ids {
 		removeBlockCache(id)
-		ftsIDs = append(ftsIDs, "\""+id+"\"")
 	}
 
+	var stmtBuf strings.Builder
+	var selectArgs []any
+	stmtBuf.WriteString("SELECT ROWID FROM blocks WHERE id IN (")
+	for i := range ids {
+		stmtBuf.WriteString("?")
+		if i < len(ids)-1 {
+			stmtBuf.WriteString(",")
+		}
+		selectArgs = append(selectArgs, ids[i])
+	}
+	stmtBuf.WriteString(")")
+
 	var rowIDs []string
-	stmt := "SELECT ROWID FROM blocks WHERE id IN (" + strings.Join(ftsIDs, ",") + ")"
-	rows, err := tx.Query(stmt)
+	rows, err := tx.Query(stmtBuf.String(), selectArgs...)
 	if err != nil {
 		logging.LogErrorf("query block rowIDs failed: %s", err)
 		return
@@ -1022,18 +1028,19 @@ func deleteBlocksByIDs(tx *sql.Tx, ids []string) (err error) {
 		return
 	}
 
-	stmt = "DELETE FROM blocks WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
+	rowIDStr := strings.Join(rowIDs, ",")
+	stmt := "DELETE FROM blocks WHERE ROWID IN (" + rowIDStr + ")"
 	if err = execStmtTx(tx, stmt); err != nil {
 		return
 	}
 
-	stmt = "DELETE FROM blocks_fts WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
+	stmt = "DELETE FROM blocks_fts WHERE ROWID IN (" + rowIDStr + ")"
 	if err = execStmtTx(tx, stmt); err != nil {
 		return
 	}
 
 	if !caseSensitive {
-		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
+		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE ROWID IN (" + rowIDStr + ")"
 		if err = execStmtTx(tx, stmt); err != nil {
 			return
 		}
@@ -1185,41 +1192,31 @@ func batchDeleteByRootIDs(tx *sql.Tx, rootIDs []string, context map[string]inter
 		return
 	}
 
-	ids := strings.Join(rootIDs, "','")
-	ids = "('" + ids + "')"
-	stmt := "DELETE FROM blocks WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
+	var phBuf strings.Builder
+	var args []any
+	phBuf.WriteString("(")
+	for i := range rootIDs {
+		phBuf.WriteString("?")
+		if i < len(rootIDs)-1 {
+			phBuf.WriteString(",")
+		}
+		args = append(args, rootIDs[i])
 	}
-	stmt = "DELETE FROM blocks_fts WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	if !caseSensitive {
-		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE root_id IN " + ids
-		if err = execStmtTx(tx, stmt); err != nil {
+	phBuf.WriteString(")")
+	ph := phBuf.String()
+
+	tables := []string{"blocks", "blocks_fts", "spans", "assets", "refs", "file_annotation_refs", "attributes"}
+	for _, table := range tables {
+		stmt := "DELETE FROM " + table + " WHERE root_id IN " + ph
+		if err = execStmtTx(tx, stmt, args...); err != nil {
 			return
 		}
 	}
-	stmt = "DELETE FROM spans WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	stmt = "DELETE FROM assets WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	stmt = "DELETE FROM refs WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	stmt = "DELETE FROM file_annotation_refs WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	stmt = "DELETE FROM attributes WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
+	if !caseSensitive {
+		stmt := "DELETE FROM blocks_fts_case_insensitive WHERE root_id IN " + ph
+		if err = execStmtTx(tx, stmt, args...); err != nil {
+			return
+		}
 	}
 	ClearCache()
 	eventbus.Publish(eventbus.EvtSQLDeleteBlocks, context, fmt.Sprintf("%d", len(rootIDs)))
@@ -1635,10 +1632,11 @@ func closeDatabase() {
 
 func SQLTemplateFuncs(templateFuncMap *template.FuncMap) {
 	(*templateFuncMap)["queryBlocks"] = func(stmt string, args ...string) (retBlocks []*Block) {
-		for _, arg := range args {
-			stmt = strings.Replace(stmt, "?", arg, 1)
+		parsedArgs := make([]any, len(args))
+		for i, a := range args {
+			parsedArgs[i] = a
 		}
-		retBlocks = SelectBlocksRawStmt(stmt, 1, 512)
+		retBlocks = SelectBlocksRawStmtWithArgs(stmt, parsedArgs, 1, 512)
 		return
 	}
 	(*templateFuncMap)["getBlock"] = func(arg any) (retBlock *Block) {
@@ -1653,10 +1651,11 @@ func SQLTemplateFuncs(templateFuncMap *template.FuncMap) {
 		return
 	}
 	(*templateFuncMap)["querySpans"] = func(stmt string, args ...string) (retSpans []*Span) {
-		for _, arg := range args {
-			stmt = strings.Replace(stmt, "?", arg, 1)
+		parsedArgs := make([]any, len(args))
+		for i, a := range args {
+			parsedArgs[i] = a
 		}
-		retSpans = SelectSpansRawStmt(stmt, 512)
+		retSpans = SelectSpansRawStmtWithArgs(stmt, parsedArgs, 512)
 		return
 	}
 	(*templateFuncMap)["querySQL"] = func(stmt string) (ret []map[string]interface{}) {

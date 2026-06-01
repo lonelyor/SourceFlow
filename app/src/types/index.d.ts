@@ -169,7 +169,7 @@ interface VideoFrame {
 
 interface Window {
     DOMPurify: {
-        sanitize(dirty: string): string;
+        sanitize(dirty: string, config?: { ALLOWED_TAGS?: boolean; ALLOWED_ATTR?: boolean; FORBID_TAGS?: string[]; FORBID_ATTR?: string[]; [key: string]: any }): string;
     };
     requestIdleCallback: (callback: (deadline: IdleDeadline) => void, options?: IdleRequestOptions) => number;
     cancelIdleCallback: (handle: number) => void;

@@ -38,13 +38,35 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type PublishAccessItem struct {
 	ID       string `json:"id"`
-	Visible  bool   `json:"visible"`  // 是否发布可见
-	Password string `json:"password"` // 密码，为空字符串时表示无密码
-	Disable  bool   `json:"disable"`  // 是否禁止发布
+	Visible  bool   `json:"visible"`
+	Password string `json:"password"`
+	Disable  bool   `json:"disable"`
+}
+
+func (item *PublishAccessItem) CheckPassword(plain string) bool {
+	if plain == "" && item.Password == "" {
+		return true
+	}
+	if item.Password == "" {
+		return false
+	}
+	if strings.HasPrefix(item.Password, "$2a$") || strings.HasPrefix(item.Password, "$2b$") {
+		return bcrypt.CompareHashAndPassword([]byte(item.Password), []byte(plain)) == nil
+	}
+	return item.Password == plain
+}
+
+func (item *PublishAccessItem) HashPasswordIfPlain() {
+	if item.Password != "" && !strings.HasPrefix(item.Password, "$2a$") && !strings.HasPrefix(item.Password, "$2b$") {
+		if hash, err := bcrypt.GenerateFromPassword([]byte(item.Password), bcrypt.DefaultCost); err == nil {
+			item.Password = string(hash)
+		}
+	}
 }
 
 type PublishAccess []*PublishAccessItem
@@ -96,6 +118,10 @@ func SetPublishAccess(inputPublishAccess PublishAccess) (err error) {
 	publishAccessLock.Lock()
 	defer publishAccessLock.Unlock()
 	publishAccessLastModified = now
+
+	for _, item := range inputPublishAccess {
+		item.HashPasswordIfPlain()
+	}
 	publishAccess = inputPublishAccess
 
 	publishAccessPath := util.HiddenDataPath(util.DataDir, "publishAccess.json")

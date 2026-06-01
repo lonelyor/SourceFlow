@@ -18,6 +18,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lonelyor/sourceflow/kernel/model"
@@ -48,6 +49,15 @@ func SQL(c *gin.Context) {
 	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("stmt", true, &stmt)) {
 		return
 	}
+
+	upper := strings.ToUpper(strings.TrimSpace(stmt))
+	isSelect := strings.HasPrefix(upper, "SELECT") || strings.HasPrefix(upper, "(SELECT") || strings.HasPrefix(upper, "WITH")
+	if !isSelect {
+		ret.Code = -1
+		ret.Msg = "Only SELECT statements are allowed"
+		return
+	}
+
 	result, err := sql.Query(stmt, model.Conf.Search.Limit)
 	if err != nil {
 		ret.Code = 1

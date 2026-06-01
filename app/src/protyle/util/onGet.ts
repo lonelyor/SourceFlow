@@ -206,7 +206,12 @@ const setHTML = (options: {
             hideElements(["toolbar"], protyle);
         }
     } else {
-        protyle.wysiwyg.element.innerHTML = options.content;
+        protyle.wysiwyg.element.innerHTML = window.DOMPurify.sanitize(options.content, {
+            ALLOWED_TAGS: false,
+            ALLOWED_ATTR: false,
+            FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
+            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onsubmit"]
+        });
     }
 
     /// #if MOBILE

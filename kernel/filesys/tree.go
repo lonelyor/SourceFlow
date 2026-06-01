@@ -275,6 +275,43 @@ func WriteTree(tree *parse.Tree) (size uint64, err error) {
 	return
 }
 
+func PrepareWriteTree(tree *parse.Tree) (data []byte, filePath string, err error) {
+	return prepareWriteTree(tree)
+}
+
+func WriteTreeToPath(filePath string, data []byte) (err error) {
+	return writeTreeByWriteFile(filePath, data)
+}
+
+func AtomicRenameFile(tmpPath, targetPath string) (err error) {
+	filelock.Lock(targetPath)
+	defer filelock.Unlock(targetPath)
+	if renameErr := os.Rename(tmpPath, targetPath); renameErr != nil {
+		if runtime.GOOS == "windows" {
+			if removeErr := os.Remove(targetPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				logging.LogWarnf("remove target before rename [%s] failed: %s", targetPath, removeErr)
+			}
+			if renameErr2 := os.Rename(tmpPath, targetPath); renameErr2 != nil {
+				return renameErr2
+			}
+			return nil
+		}
+		return renameErr
+	}
+	return nil
+}
+
+func CacheWrittenTree(tree *parse.Tree) {
+	luteEngine := util.NewLute()
+	renderer := render.NewJSONRenderer(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
+	data := renderer.Render()
+	cache.SetTreeData(tree.ID, data)
+}
+
+func AfterWriteTree(tree *parse.Tree) {
+	afterWriteTree(tree)
+}
+
 func writeTreeByWriteFile(filePath string, data []byte) (err error) {
 	if err = filelock.WriteFile(filePath, data); err != nil {
 		msg := fmt.Sprintf("write data [%s] failed: %s", filePath, err)

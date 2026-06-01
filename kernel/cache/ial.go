@@ -70,7 +70,11 @@ func GetBlockIAL(id string) (ret map[string]string) {
 	if nil == ial {
 		return
 	}
-	return ial.(map[string]string)
+	ret = map[string]string{}
+	for k, v := range ial.(map[string]string) {
+		ret[k] = v
+	}
+	return
 }
 
 func RemoveBlockIAL(id string) {

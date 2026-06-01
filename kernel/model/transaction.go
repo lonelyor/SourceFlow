@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -55,9 +56,22 @@ func IsMoveOutlineHeading(transactions *[]*Transaction) bool {
 }
 
 func FlushTxQueue() {
+	FlushTxQueueWithTimeout(30 * time.Second)
+}
+
+func FlushTxQueueWithTimeout(timeout time.Duration) {
 	time.Sleep(time.Duration(50) * time.Millisecond)
-	for 0 < len(txQueue) || isFlushing {
+	deadline := time.Now().Add(timeout)
+	warnLogged := false
+	for (0 < len(txQueue) || isFlushing) && time.Now().Before(deadline) {
+		if !warnLogged && time.Since(deadline.Add(-timeout)) > 10*time.Second {
+			logging.LogWarnf("FlushTxQueue still waiting after 10s, queue=%d, flushing=%v\n%s", len(txQueue), isFlushing, logging.ShortStack())
+			warnLogged = true
+		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if 0 < len(txQueue) || isFlushing {
+		logging.LogErrorf("FlushTxQueue timed out after %v, queue=%d, flushing=%v", timeout, len(txQueue), isFlushing)
 	}
 }
 
@@ -1919,12 +1933,25 @@ func (tx *Transaction) GetChangedRootIDs() (ret []string) {
 }
 
 func (tx *Transaction) WaitForCommit() {
+	tx.WaitForCommitWithTimeout(30 * time.Second)
+}
+
+func (tx *Transaction) WaitForCommitWithTimeout(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	warnLogged := false
 	for {
-		if 1 == tx.state.Load() {
-			time.Sleep(10 * time.Millisecond)
-			continue
+		if 1 != tx.state.Load() {
+			return
 		}
-		return
+		if time.Now().After(deadline) {
+			logging.LogErrorf("WaitForCommit timed out after %v, tx state=%d\n%s", timeout, tx.state.Load(), logging.ShortStack())
+			return
+		}
+		if !warnLogged && time.Until(deadline) < timeout-10*time.Second {
+			logging.LogWarnf("WaitForCommit still waiting after 10s, tx state=%d", tx.state.Load())
+			warnLogged = true
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -1938,16 +1965,53 @@ func (tx *Transaction) begin() (err error) {
 }
 
 func (tx *Transaction) commit() (err error) {
+	type stagedWrite struct {
+		tree     *parse.Tree
+		tmpPath  string
+		finalDir string
+	}
+	var staged []stagedWrite
+	cleanupStaged := func() {
+		for _, s := range staged {
+			os.Remove(s.tmpPath)
+		}
+	}
+
 	for _, tree := range tx.trees {
-		if err = writeTreeUpsertQueue(tree); err != nil {
+		data, filePath, prepareErr := filesys.PrepareWriteTree(tree)
+		if prepareErr != nil {
+			cleanupStaged()
+			err = prepareErr
 			return
 		}
+		tmpPath := filePath + ".tx.tmp"
+		if writeErr := filesys.WriteTreeToPath(tmpPath, data); writeErr != nil {
+			cleanupStaged()
+			err = writeErr
+			return
+		}
+		staged = append(staged, stagedWrite{tree: tree, tmpPath: tmpPath, finalDir: filePath})
+	}
+
+	for _, s := range staged {
+		if renameErr := filesys.AtomicRenameFile(s.tmpPath, s.finalDir); renameErr != nil {
+			logging.LogErrorf("atomic rename tx staged file failed: %s", renameErr)
+			err = renameErr
+			return
+		}
+	}
+
+	for _, s := range staged {
+		filesys.CacheWrittenTree(s.tree)
+		filesys.AfterWriteTree(s.tree)
+		sql.UpsertTreeQueue(s.tree)
+		refreshDocInfoWithSize(s.tree, uint64(0))
 
 		var sources []interface{}
 		sources = append(sources, tx)
-		util.PushSaveDoc(tree.ID, "tx", sources)
+		util.PushSaveDoc(s.tree.ID, "tx", sources)
 
-		checkUpsertInUserGuide(tree)
+		checkUpsertInUserGuide(s.tree)
 	}
 	tx.changedRootIDs = refreshDynamicRefTexts(tx.nodes, tx.trees)
 

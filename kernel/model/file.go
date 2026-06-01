@@ -170,7 +170,7 @@ func SearchDocs(keyword string, flashcard bool, excludeIDs []string) (ret []map[
 
 	var rootBlocks []*sql.Block
 	if ast.IsNodeIDPattern(keyword) {
-		rootBlocks = sql.QueryRootBlockByCondition("id='"+keyword+"'", 1)
+		rootBlocks = sql.QueryRootBlockByID(keyword, 1)
 	} else {
 		keywords := strings.Fields(keyword)
 		if 0 < len(keywords) {
@@ -187,23 +187,7 @@ func SearchDocs(keyword string, flashcard bool, excludeIDs []string) (ret []map[
 				}
 			}
 
-			var condition string
-			for i, k := range keywords {
-				condition += "(hpath LIKE '%" + k + "%'"
-				namCondition := Conf.Search.NAMFilter(k)
-				condition += " " + namCondition
-				condition += ")"
-
-				if i < len(keywords)-1 {
-					condition += " AND "
-				}
-			}
-
-			for _, excludeID := range excludeIDs {
-				condition += fmt.Sprintf(" AND path NOT LIKE '%%%s%%' ", excludeID)
-			}
-
-			rootBlocks = sql.QueryRootBlockByCondition(condition, Conf.Search.Limit)
+			rootBlocks = sql.QueryRootBlocksByDocSearch(keywords, Conf.Search.Name, Conf.Search.Alias, Conf.Search.Memo, excludeIDs, Conf.Search.Limit)
 		} else {
 			for _, box := range boxes {
 				if flashcard {

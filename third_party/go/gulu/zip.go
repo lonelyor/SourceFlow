@@ -24,6 +24,13 @@ import (
 	"golang.org/x/text/transform"
 )
 
+const (
+	MaxZipTotalUncompressedSize int64 = 2 * 1024 * 1024 * 1024 // 2 GB
+	MaxZipSingleFileSize        int64 = 512 * 1024 * 1024      // 512 MB
+	MaxZipFileCount             int   = 100000
+	MaxZipCompressionRatio      int64 = 1000
+)
+
 // ZipFile represents a zip file.
 type ZipFile struct {
 	zipFile *os.File
@@ -130,6 +137,27 @@ func (*GuluZip) Unzip(zipFilePath, destination string, callback ...func(filename
 		return err
 	}
 	defer r.Close()
+
+	if len(r.File) > MaxZipFileCount {
+		return fmt.Errorf("zip archive contains too many files (%d > %d)", len(r.File), MaxZipFileCount)
+	}
+
+	var totalUncompressed int64
+	var compressedSize int64
+	for _, f := range r.File {
+		compressedSize += int64(f.CompressedSize64)
+		us := int64(f.UncompressedSize64)
+		if us > MaxZipSingleFileSize {
+			return fmt.Errorf("zip entry [%s] exceeds single file size limit (%d > %d)", f.Name, us, MaxZipSingleFileSize)
+		}
+		totalUncompressed += us
+		if totalUncompressed > MaxZipTotalUncompressedSize {
+			return fmt.Errorf("zip archive total uncompressed size exceeds limit (%d > %d)", totalUncompressed, MaxZipTotalUncompressedSize)
+		}
+	}
+	if compressedSize > 0 && totalUncompressed/compressedSize > MaxZipCompressionRatio {
+		return fmt.Errorf("zip archive compression ratio too high (possible zip bomb: %d/%d)", totalUncompressed, compressedSize)
+	}
 
 	var cb func(string)
 	if 0 < len(callback) {

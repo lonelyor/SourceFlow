@@ -122,6 +122,10 @@ func importSY(c *gin.Context) {
 	notebook := form.Value["notebook"][0]
 	toPath := form.Value["toPath"][0]
 
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
+
 	model.TryCreateProtectionSnapshot("import-sy")
 
 	err = model.ImportSY(writePath, notebook, toPath)
@@ -235,6 +239,10 @@ func importStdMd(c *gin.Context) {
 	notebook := arg["notebook"].(string)
 	localPath := arg["localPath"].(string)
 	toPath := arg["toPath"].(string)
+
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
 
 	if util.IsSubPath(util.WorkingDir, localPath) {
 		msg := fmt.Sprintf("import from local path [%s] failed: local path is sub path of working dir", localPath)
@@ -352,6 +360,10 @@ func importZipMd(c *gin.Context) {
 
 	notebook := form.Value["notebook"][0]
 	toPath := form.Value["toPath"][0]
+
+	if util.InvalidIDPattern(notebook, ret) {
+		return
+	}
 
 	// 准备解压路径
 	filenameMain := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))

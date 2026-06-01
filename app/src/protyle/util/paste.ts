@@ -540,9 +540,13 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
         insertHTML(removeZWJ(textPlain).replace(/```/g, "\u200D```"), protyle);
         return;
     } else if (sourceflowHTML) {
-        // 编辑器内部粘贴
         const tempElement = document.createElement("div");
-        tempElement.innerHTML = sourceflowHTML;
+        tempElement.innerHTML = window.DOMPurify.sanitize(sourceflowHTML, {
+            ALLOWED_TAGS: false,
+            ALLOWED_ATTR: false,
+            FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "textarea", "select", "button", "style"],
+            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onsubmit", "onchange"]
+        });
         if (range.toString()) {
             let types: string[] = [];
             let linkElement: HTMLElement;

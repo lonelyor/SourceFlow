@@ -113,10 +113,17 @@ func LoginAuth(c *gin.Context) {
 		ret.Msg = Conf.Language(83)
 		logging.LogWarnf("invalid auth code [ip=%s]", util.GetRemoteAddr(c.Request))
 
-		util.WrongAuthCount++
+		clientIP := util.GetRemoteAddr(c.Request)
+		util.RecordFailedAuth(clientIP)
+		if util.IsIPRateLimited(clientIP) {
+			ret.Code = 2
+			ret.Msg = "Too many failed attempts, please try again later"
+			return
+		}
 		workspaceSession.Captcha = gulu.Rand.String(7)
+		util.WrongAuthCount++
 		if util.NeedCaptcha() {
-			ret.Code = 1 // 需要渲染验证码
+			ret.Code = 1
 		}
 
 		if err := session.Save(c); err != nil {
@@ -131,6 +138,7 @@ func LoginAuth(c *gin.Context) {
 
 	workspaceSession.AccessAuthCode = authCode
 	util.WrongAuthCount = 0
+	util.ResetFailedAuth(util.GetRemoteAddr(c.Request))
 	workspaceSession.Captcha = gulu.Rand.String(7)
 
 	maxAge := 0 // Default session expiration (browser session)
@@ -251,8 +259,9 @@ func CheckAuth(c *gin.Context) {
 		}
 	}
 
-	// 通过 API token (query-params: token)
+	// 通过 API token (query-params: token) — 已废弃，仅保留向后兼容
 	if token := c.Query("token"); "" != token {
+		logging.LogWarnf("API token passed via query parameter is deprecated, use Authorization header instead [%s]", c.Request.RequestURI)
 		if Conf.Api.Token == token {
 			c.Set(RoleContextKey, RoleAdministrator)
 			c.Next()

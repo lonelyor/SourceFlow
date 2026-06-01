@@ -16,21 +16,43 @@
 
 package conf
 
+import (
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
 type Publish struct {
-	Enable bool       `json:"enable"` // 是否启用发布服务
-	Port   uint16     `json:"port"`   // 发布服务端口
-	Auth   *BasicAuth `json:"auth"`   // Basic 认证
+	Enable bool       `json:"enable"`
+	Port   uint16     `json:"port"`
+	Auth   *BasicAuth `json:"auth"`
 }
 
 type BasicAuth struct {
-	Enable   bool                `json:"enable"`   // 是否启用基础认证
-	Accounts []*BasicAuthAccount `json:"accounts"` // 账户列表
+	Enable   bool                `json:"enable"`
+	Accounts []*BasicAuthAccount `json:"accounts"`
 }
 
 type BasicAuthAccount struct {
-	Username string `json:"username"` // 用户名
-	Password string `json:"password"` // 密码
-	Memo     string `json:"memo"`     // 备注
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Memo     string `json:"memo"`
+}
+
+func (a *BasicAuthAccount) HashPasswordIfPlain() {
+	if a.Password != "" && !strings.HasPrefix(a.Password, "$2a$") && !strings.HasPrefix(a.Password, "$2b$") {
+		hash, err := bcrypt.GenerateFromPassword([]byte(a.Password), bcrypt.DefaultCost)
+		if err == nil {
+			a.Password = string(hash)
+		}
+	}
+}
+
+func (a *BasicAuthAccount) CheckPassword(plain string) bool {
+	if strings.HasPrefix(a.Password, "$2a$") || strings.HasPrefix(a.Password, "$2b$") {
+		return bcrypt.CompareHashAndPassword([]byte(a.Password), []byte(plain)) == nil
+	}
+	return a.Password == plain
 }
 
 func NewPublish() *Publish {
