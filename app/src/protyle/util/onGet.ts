@@ -147,16 +147,6 @@ const setHTML = (options: {
         return;
     }
 
-    // XSS in inline memo elements https://github.com/lonelyor/SourceFlow/issues/15280
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(options.content, "text/html");
-    doc.querySelectorAll("[data-inline-memo-content]").forEach(item => {
-        const content = item.getAttribute("data-inline-memo-content");
-        if (content) {
-            item.setAttribute("data-inline-memo-content", window.DOMPurify.sanitize(content));
-        }
-    });
-    options.content = doc.body.innerHTML;
     const REMOVED_OVER_HEIGHT = protyle.contentElement.clientHeight * 8;
     const updateReadonly = typeof options.updateReadonly === "undefined" ? protyle.wysiwyg.element.innerHTML === "" : options.updateReadonly;
     if (options.action.includes(Constants.CB_GET_APPEND)) {
@@ -206,12 +196,7 @@ const setHTML = (options: {
             hideElements(["toolbar"], protyle);
         }
     } else {
-        protyle.wysiwyg.element.innerHTML = window.DOMPurify.sanitize(options.content, {
-            ALLOWED_TAGS: false,
-            ALLOWED_ATTR: false,
-            FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
-            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onsubmit"]
-        });
+        protyle.wysiwyg.element.innerHTML = options.content;
     }
 
     /// #if MOBILE

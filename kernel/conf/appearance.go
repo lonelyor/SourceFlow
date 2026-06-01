@@ -21,43 +21,47 @@ import "github.com/lonelyor/sourceflow/kernel/util"
 const (
 	DefaultStartupPageImage = "/appearance/boot/startup-logo.png"
 	DefaultFileTreeDensity  = "default"
+	DefaultFileTreeFontSize = 0
+	MinFileTreeFontSize     = 10
+	MaxFileTreeFontSize     = 20
 )
 
 type Appearance struct {
-	Mode                int                `json:"mode"`                // 模式：0：明亮，1：暗黑
-	ModeOS              bool               `json:"modeOS"`              // 模式是否跟随系统
-	DarkThemes          []*AppearanceTheme `json:"darkThemes"`          // 暗黑模式外观主题列表
-	LightThemes         []*AppearanceTheme `json:"lightThemes"`         // 明亮模式外观主题列表
-	ThemeDark           string             `json:"themeDark"`           // 选择的暗黑模式外观主题
-	ThemeLight          string             `json:"themeLight"`          // 选择的明亮模式外观主题
-	ThemeVer            string             `json:"themeVer"`            // 选择的主题版本
-	Icons               []string           `json:"icons"`               // 图标列表
-	Icon                string             `json:"icon"`                // 选择的图标
-	IconVer             string             `json:"iconVer"`             // 选择的图标版本
-	CodeBlockThemeLight string             `json:"codeBlockThemeLight"` // 明亮模式下代码块主题
-	CodeBlockThemeDark  string             `json:"codeBlockThemeDark"`  // 暗黑模式下代码块主题
-	CodeBlockSkinLight  string             `json:"codeBlockSkinLight"`  // 明亮模式下代码块皮肤
-	CodeBlockSkinDark   string             `json:"codeBlockSkinDark"`   // 暗黑模式下代码块皮肤
-	Lang                string             `json:"lang"`                // 选择的界面语言，同 AppConf.Lang
-	ThemeJS             bool               `json:"themeJS"`             // 是否启用了主题 JavaScript
-	CloseButtonBehavior int                `json:"closeButtonBehavior"` // 关闭按钮行为，0：退出，1：最小化到托盘
-	HideStatusBar       bool               `json:"hideStatusBar"`       // 是否隐藏底部状态栏
-	StartupPageImage    string             `json:"startupPageImage"`    // 启动页背景图（data URL 或远程地址）
-	StartupPageOpacity  int                `json:"startupPageOpacity"`  // 启动页背景图透明度，单位：%
-	StartupPageBlur     int                `json:"startupPageBlur"`     // 启动页背景图模糊度，单位：px
-	MascotEnabled       bool               `json:"mascotEnabled"`       // 是否启用看板娘
-	MascotImage         string             `json:"mascotImage"`         // 看板娘图片（data URL 或远程地址）
-	MascotPosition      string             `json:"mascotPosition"`      // 看板娘位置：left/right
-	MascotEffect        string             `json:"mascotEffect"`        // 看板娘特效：float/sway/pulse/none
-	MascotOpacity       int                `json:"mascotOpacity"`       // 看板娘透明度，单位：%
-	MascotScale         int                `json:"mascotScale"`         // 看板娘缩放，单位：%
-	FileTreeGuides      bool               `json:"fileTreeGuides"`      // 是否显示文档树层级引导线
-	FileTreeDensity     string             `json:"fileTreeDensity"`     // 文档树行距密度：compact/default/loose
-	FileTreeDocCount    bool               `json:"fileTreeDocCount"`    // 是否显示文档树子文档数量
-	FileTreeTotalCount  *bool              `json:"fileTreeTotalCount"`  // 是否显示文档树全部笔记总数
-	AccentColor             string          `json:"accentColor"`             // 自定义强调色
-	FileTreeHighlightColor  string          `json:"fileTreeHighlightColor"`  // 文档树当前文档高亮色
-	StatusBar           *util.StatusBar    `json:"statusBar"`           // 底部状态栏配置
+	Mode                   int                `json:"mode"`                   // 模式：0：明亮，1：暗黑
+	ModeOS                 bool               `json:"modeOS"`                 // 模式是否跟随系统
+	DarkThemes             []*AppearanceTheme `json:"darkThemes"`             // 暗黑模式外观主题列表
+	LightThemes            []*AppearanceTheme `json:"lightThemes"`            // 明亮模式外观主题列表
+	ThemeDark              string             `json:"themeDark"`              // 选择的暗黑模式外观主题
+	ThemeLight             string             `json:"themeLight"`             // 选择的明亮模式外观主题
+	ThemeVer               string             `json:"themeVer"`               // 选择的主题版本
+	Icons                  []string           `json:"icons"`                  // 图标列表
+	Icon                   string             `json:"icon"`                   // 选择的图标
+	IconVer                string             `json:"iconVer"`                // 选择的图标版本
+	CodeBlockThemeLight    string             `json:"codeBlockThemeLight"`    // 明亮模式下代码块主题
+	CodeBlockThemeDark     string             `json:"codeBlockThemeDark"`     // 暗黑模式下代码块主题
+	CodeBlockSkinLight     string             `json:"codeBlockSkinLight"`     // 明亮模式下代码块皮肤
+	CodeBlockSkinDark      string             `json:"codeBlockSkinDark"`      // 暗黑模式下代码块皮肤
+	Lang                   string             `json:"lang"`                   // 选择的界面语言，同 AppConf.Lang
+	ThemeJS                bool               `json:"themeJS"`                // 是否启用了主题 JavaScript
+	CloseButtonBehavior    int                `json:"closeButtonBehavior"`    // 关闭按钮行为，0：退出，1：最小化到托盘
+	HideStatusBar          bool               `json:"hideStatusBar"`          // 是否隐藏底部状态栏
+	StartupPageImage       string             `json:"startupPageImage"`       // 启动页背景图（data URL 或远程地址）
+	StartupPageOpacity     int                `json:"startupPageOpacity"`     // 启动页背景图透明度，单位：%
+	StartupPageBlur        int                `json:"startupPageBlur"`        // 启动页背景图模糊度，单位：px
+	MascotEnabled          bool               `json:"mascotEnabled"`          // 是否启用看板娘
+	MascotImage            string             `json:"mascotImage"`            // 看板娘图片（data URL 或远程地址）
+	MascotPosition         string             `json:"mascotPosition"`         // 看板娘位置：left/right
+	MascotEffect           string             `json:"mascotEffect"`           // 看板娘特效：float/sway/pulse/none
+	MascotOpacity          int                `json:"mascotOpacity"`          // 看板娘透明度，单位：%
+	MascotScale            int                `json:"mascotScale"`            // 看板娘缩放，单位：%
+	FileTreeGuides         bool               `json:"fileTreeGuides"`         // 是否显示文档树层级引导线
+	FileTreeDensity        string             `json:"fileTreeDensity"`        // 文档树行距密度：compact/default/loose
+	FileTreeFontSize       int                `json:"fileTreeFontSize"`       // 文档树字号，0 表示使用主题默认
+	FileTreeDocCount       bool               `json:"fileTreeDocCount"`       // 是否显示文档树子文档数量
+	FileTreeTotalCount     *bool              `json:"fileTreeTotalCount"`     // 是否显示文档树全部笔记总数
+	AccentColor            string             `json:"accentColor"`            // 自定义强调色
+	FileTreeHighlightColor string             `json:"fileTreeHighlightColor"` // 文档树当前文档高亮色
+	StatusBar              *util.StatusBar    `json:"statusBar"`              // 底部状态栏配置
 }
 
 func NewAppearance() *Appearance {
@@ -85,10 +89,24 @@ func NewAppearance() *Appearance {
 		MascotScale:         100,
 		FileTreeGuides:      false,
 		FileTreeDensity:     DefaultFileTreeDensity,
+		FileTreeFontSize:    DefaultFileTreeFontSize,
 		FileTreeDocCount:    false,
 		FileTreeTotalCount:  func() *bool { v := true; return &v }(),
 		StatusBar:           &util.StatusBar{},
 	}
+}
+
+func NormalizeFileTreeFontSize(value int) int {
+	if value <= DefaultFileTreeFontSize {
+		return DefaultFileTreeFontSize
+	}
+	if value < MinFileTreeFontSize {
+		return MinFileTreeFontSize
+	}
+	if value > MaxFileTreeFontSize {
+		return MaxFileTreeFontSize
+	}
+	return value
 }
 
 type AppearanceTheme struct {

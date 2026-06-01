@@ -293,6 +293,10 @@ declare namespace Config {
          */
         fileTreeDensity: "compact" | "default" | "loose";
         /**
+         * Doc tree font size in px. 0 means theme default.
+         */
+        fileTreeFontSize: number;
+        /**
          * Whether to show child doc counts in the doc tree
          */
         fileTreeDocCount: boolean;

@@ -62,6 +62,8 @@
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:editor-structure-guide": "node ./scripts/testEditorStructureGuide.js",
     "test:editor-structure-guide-bugfix": "node ./scripts/testStructureGuideBugfix.js",
+    "test:protyle-blockdom-preservation": "node ./scripts/testProtyleBlockDOMPreservation.js",
+    "test:file-tree-appearance-settings": "node ./scripts/testFileTreeAppearanceSettings.js",
     "test:export-runtime": "node ./scripts/testExportRuntimeElectron.js",
     "gen:types": "tsc -p tsconfig.types.json",
     "start": "NODE_ENV=development electron ./electron/main.js",

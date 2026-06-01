@@ -52,6 +52,9 @@ func TestNewAppearanceUsesDefaultStartupLogo(t *testing.T) {
 	if appearance.FileTreeDensity != conf.DefaultFileTreeDensity {
 		t.Fatalf("conf.NewAppearance().FileTreeDensity = %q, want %q", appearance.FileTreeDensity, conf.DefaultFileTreeDensity)
 	}
+	if appearance.FileTreeFontSize != conf.DefaultFileTreeFontSize {
+		t.Fatalf("conf.NewAppearance().FileTreeFontSize = %d, want %d", appearance.FileTreeFontSize, conf.DefaultFileTreeFontSize)
+	}
 	if appearance.FileTreeGuides {
 		t.Fatalf("conf.NewAppearance().FileTreeGuides = true, want false")
 	}
