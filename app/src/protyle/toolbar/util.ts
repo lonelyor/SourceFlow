@@ -233,7 +233,7 @@ export const genLinkText = (href: string, stripScheme: boolean = true, _decodeUR
             : href;
         if (text.length > Constants.SIZE_LINK_TEXT_MAX) {
             const truncated = text.substring(0, Constants.SIZE_LINK_TEXT_MAX);
-            if (truncated.endsWith("%") || /[^\x00-\x7F]$/.test(truncated)) {
+            if (truncated.endsWith("%") || truncated.charCodeAt(truncated.length - 1) > 0x7F) {
                 text = truncated.substring(0, truncated.length - 1) + "...";
             } else if (/%[0-9A-Fa-f]$/.test(truncated)) {
                 text = truncated.substring(0, truncated.length - 2) + "...";

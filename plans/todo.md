@@ -20,7 +20,7 @@
 - [x] AI 写入安全加固：patch apply 限定当前笔记范围、实时校验原文、写入外部 Markdown 时重新生成块 ID。
 - [x] Embedding/语义搜索安全加固：API Key 不回显、空密码保留已有密钥、搜索 limit 封顶、删除笔记清理向量。
 - [x] 新增回归测试：`LoadTree` 缓存独立实例、raw bytes 缓存拷贝、空树拒绝覆盖已有文档、`CloneNode` 不污染源节点、外部 Markdown ID 重建、路径越界拒绝、Embedding 密钥保护、向量删除持久化。
-- [x] 前端 lint 阻断项清零：修复 `no-empty-object-type` 和 `prefer-const` error；大量 unused warning 作为历史基线后续分模块清理。
+- [x] 前端 lint 阻断项清零：修复 `no-empty-object-type`、`prefer-const`、`no-control-regex` 和 `no-unsafe-function-type` error；`pnpm --dir app run lint` 已通过，大量 unused warning 作为历史基线后续分模块清理。
 
 - [x] 历史记录：块编号从内联徽章改为左侧边距绝对定位（已在 `2180981` 因稳定性问题移除，不作为当前可用功能）。
 - [x] 历史记录：新增 `alwaysShowGutter` 配置（已在 `2180981` 因稳定性问题移除，不作为当前可用功能）。

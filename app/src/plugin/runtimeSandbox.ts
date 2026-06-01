@@ -192,8 +192,7 @@ const createPluginWindowProxy = (item: IPluginData, scopedAPI: TPluginScopedAPI,
         "Worker", "SharedWorker", "BroadcastChannel", "MessageChannel", "MessagePort",
         "require", "process", "Function", "eval",
     ]);
-    let sandboxWindow: Window & typeof globalThis;
-    sandboxWindow = new Proxy(window, {
+    const sandboxWindow = new Proxy(window, {
         get(target, property, receiver) {
             if (!blockedSetProperties.has(property) && shadowValues.has(property)) {
                 return shadowValues.get(property);
@@ -305,9 +304,11 @@ const createPluginRequire = (item: IPluginData, scopedAPI: TPluginScopedAPI) => 
 };
 
 export const executePluginModule = (item: IPluginData, scopedAPI: TPluginScopedAPI, moduleObj: {exports: Record<string, any>}, exportsObj: Record<string, any>) => {
-    let sandboxDocument: Document;
-    const sandboxWindow = createPluginWindowProxy(item, scopedAPI, () => sandboxDocument);
-    sandboxDocument = createPluginDocumentProxy(item, () => sandboxWindow);
+    const sandboxRefs: {document?: Document; window?: Window & typeof globalThis} = {};
+    const sandboxWindow = createPluginWindowProxy(item, scopedAPI, () => sandboxRefs.document as Document);
+    const sandboxDocument = createPluginDocumentProxy(item, () => sandboxRefs.window as Window & typeof globalThis);
+    sandboxRefs.window = sandboxWindow;
+    sandboxRefs.document = sandboxDocument;
     runSandboxedScript<void>({
         label: `plugin:${item.name}`,
         source: item.js,

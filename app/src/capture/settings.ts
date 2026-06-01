@@ -10,8 +10,7 @@ export interface ICaptureSettings {
     openAfterSave: boolean;
 }
 
-export interface ICaptureAutomationData extends ICaptureSettings {
-}
+export type ICaptureAutomationData = ICaptureSettings;
 
 type ILegacyCaptureSettings = Partial<ICaptureSettings> & {
     tags?: string;
