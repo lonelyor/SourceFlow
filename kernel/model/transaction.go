@@ -176,8 +176,15 @@ func performTx(tx *Transaction) (ret *TxErr) {
 		}
 	}()
 
-	isLargeInsert := tx.processLargeInsert()
-	tx.processLargeDelete()
+	isLargeInsert, ret := tx.processLargeInsert()
+	if nil != ret {
+		tx.rollback()
+		return
+	}
+	if ret = tx.processLargeDelete(); nil != ret {
+		tx.rollback()
+		return
+	}
 	if !isLargeInsert {
 		for _, op := range tx.DoOperations {
 			switch op.Action {
@@ -347,10 +354,10 @@ func performTx(tx *Transaction) (ret *TxErr) {
 	return
 }
 
-func (tx *Transaction) processLargeDelete() bool {
+func (tx *Transaction) processLargeDelete() (ret *TxErr) {
 	opSize := len(tx.DoOperations)
 	if 32 > opSize {
-		return false
+		return
 	}
 
 	var deleteOps []*Operation
@@ -358,7 +365,7 @@ func (tx *Transaction) processLargeDelete() bool {
 	for i, op := range tx.DoOperations {
 		if "delete" != op.Action {
 			if i != opSize-1 {
-				return false
+				return
 			}
 
 			lastOp = op
@@ -369,20 +376,22 @@ func (tx *Transaction) processLargeDelete() bool {
 	}
 
 	if 1 > len(deleteOps) {
-		return false
+		return
 	}
 
-	tx.doLargeDelete(deleteOps)
+	if ret = tx.doLargeDelete(deleteOps); nil != ret {
+		return
+	}
 	if nil != lastOp {
 		tx.DoOperations = []*Operation{lastOp}
 	}
-	return true
+	return
 }
 
-func (tx *Transaction) processLargeInsert() bool {
+func (tx *Transaction) processLargeInsert() (processed bool, ret *TxErr) {
 	opSize := len(tx.DoOperations)
 	if 32 > opSize {
-		return false
+		return
 	}
 
 	var insertOps []*Operation
@@ -390,7 +399,7 @@ func (tx *Transaction) processLargeInsert() bool {
 	for i, op := range tx.DoOperations {
 		if "insert" != op.Action {
 			if 0 != i && i != opSize-1 {
-				return false
+				return
 			}
 
 			if "delete" == op.Action {
@@ -407,17 +416,23 @@ func (tx *Transaction) processLargeInsert() bool {
 	}
 
 	if 1 > len(insertOps) {
-		return false
+		return
 	}
 
 	if nil != firstDeleteOp {
-		tx.doDelete(firstDeleteOp)
+		if ret = tx.doDelete(firstDeleteOp); nil != ret {
+			return true, ret
+		}
 	}
-	tx.doLargeInsert(insertOps)
+	if ret = tx.doLargeInsert(insertOps); nil != ret {
+		return true, ret
+	}
 	if nil != lastDeleteOp {
-		tx.doDelete(lastDeleteOp)
+		if ret = tx.doDelete(lastDeleteOp); nil != ret {
+			return true, ret
+		}
 	}
-	return true
+	return true, nil
 }
 
 func (tx *Transaction) doMove(operation *Operation) (ret *TxErr) {
@@ -920,11 +935,18 @@ func (tx *Transaction) doAppend(operation *Operation) (ret *TxErr) {
 	return
 }
 
-func (tx *Transaction) doLargeDelete(operations []*Operation) {
+func (tx *Transaction) doLargeDelete(operations []*Operation) (ret *TxErr) {
 	tree, err := tx.loadTree(operations[0].ID)
 	if err != nil {
 		logging.LogErrorf("load tree [%s] failed: %s", operations[0].ID, err)
-		return
+		return &TxErr{code: TxErrCodeBlockNotFound, id: operations[0].ID}
+	}
+
+	for _, operation := range operations {
+		if nil == treenode.GetNodeInTree(tree, operation.ID) {
+			logging.LogErrorf("get node [%s] in tree [%s] failed", operation.ID, tree.Root.ID)
+			return &TxErr{code: TxErrCodeBlockNotFound, id: operation.ID}
+		}
 	}
 
 	var ids []string
@@ -934,6 +956,7 @@ func (tx *Transaction) doLargeDelete(operations []*Operation) {
 	}
 	treenode.RemoveBlockTreesByIDs(ids)
 	tx.writeTree(tree)
+	return
 }
 
 func (tx *Transaction) doDelete(operation *Operation) (ret *TxErr) {
@@ -1147,7 +1170,7 @@ func deleteAttrView(n *ast.Node, changedAvIDs []string) []string {
 	return changedAvIDs
 }
 
-func (tx *Transaction) doLargeInsert(operations []*Operation) {
+func (tx *Transaction) doLargeInsert(operations []*Operation) (ret *TxErr) {
 	tree, _ := tx.loadTree(operations[0].ID)
 	if nil == tree {
 		tree, _ = tx.loadTree(operations[0].PreviousID)
@@ -1161,16 +1184,17 @@ func (tx *Transaction) doLargeInsert(operations []*Operation) {
 
 	if nil == tree {
 		logging.LogErrorf("load tree [%s] failed", operations[0].ID)
-		return
+		return &TxErr{code: TxErrCodeBlockNotFound, id: operations[0].ID}
 	}
 
 	for _, operation := range operations {
 		if txErr := tx.doInsert0(operation, tree); nil != txErr {
-			return
+			return txErr
 		}
 	}
 
 	tx.writeTree(tree)
+	return
 }
 
 func (tx *Transaction) doInsert(operation *Operation) (ret *TxErr) {
@@ -1971,6 +1995,10 @@ func (tx *Transaction) loadTreeByBlockTree(bt *treenode.BlockTree) (ret *parse.T
 }
 
 func (tx *Transaction) loadTree(id string) (ret *parse.Tree, err error) {
+	if !ast.IsNodeIDPattern(id) {
+		return nil, ErrBlockNotFound
+	}
+
 	var rootID, box, p string
 	bt := treenode.GetBlockTree(id)
 	if nil == bt {
