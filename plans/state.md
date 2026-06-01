@@ -110,6 +110,10 @@
 - 阶段 2 已通过 `go test -vet=off ./model -run TestPerformTxLargeInsertFailureRollsBack -count=1`、`go test -vet=off ./model -run TestPerformTxLargeDeleteFailureRollsBack -count=1`、`go test -vet=off ./model -run '^$' -count=1` 和 `go test -vet=off ./model -run TestPerformTxLarge -count=1`。
 - 2026-06-01 第二轮笔记安全稳定性修复阶段 3 已完成：`/api/filetree/listDocTree` 入口路径改为通过笔记本根目录下的 `ResolvePathUnder` 解析，拒绝 `..`、绝对路径和卷标路径；递归文档树扫描跳过非法非 `.sf` 文件名；`SearchDocs` 改为通过参数化 SQL 查询 root block，搜索词和 exclude ID 不再拼接进 SQL 字符串。
 - 阶段 3 已通过 `go test -vet=off ./api -run TestResolveDocTreeRoot -count=1`、`go test -vet=off ./api -run TestCountDocTreeCountsNestedDocsOnce -count=1`、`go test ./sql -run TestBuildRootBlockDocSearchCondition -count=1` 和 `go test -vet=off ./model -run '^$' -count=1`。
+- 2026-06-01 第二轮笔记安全稳定性修复阶段 4 已完成：导入 `.sf.zip` / `.zip` / 本地 Markdown 前校验 notebook ID；导入上传写临时 zip 前增加大小上限和 `LimitReader` 双重保护；zip 解压增加文件数量、单文件、总解压大小、压缩比和路径穿越限制；普通资源上传增加文件数量、单文件大小和总大小限制。
+- 阶段 4 已通过 `go test -vet=off ./api -run TestSaveImportUploadRejectsOversizedFile -count=1`、`go test -vet=off ./model -run TestValidateUploadFileHeaders -count=1`、`go test -vet=off ./api -run '^$' -count=1` 和 `go test -vet=off ./model -run '^$' -count=1`。
+- 2026-06-01 第二轮笔记安全稳定性修复阶段 5 已完成：`FlushTxQueue`、`WaitForCommit` 和 SQL `WaitFlushTx` 改为带超时等待，长时间等待输出诊断日志，超时后记录队列长度、flushing 状态和调用栈。
+- 阶段 5 已通过 `go test -vet=off ./api -run '^$' -count=1`、`go test -vet=off ./model -run '^$' -count=1` 和 `go test -vet=off ./sql -run '^$' -count=1`。
 - 此前 `pnpm --dir app run lint` 失败源于前端 lint 阻断 error 与大量未使用符号 warning 基线。
 - 本轮已单独修复前端 lint 阻断 error：`ICaptureAutomationData` / `IWorkbenchItemAutomationData` 改为 type alias，插件 sandbox 中一次赋值变量改为 `const` / 引用容器，控制字符正则改为字符码判断，sandbox 事件监听缓存不再使用宽泛 `Function` 类型；`pnpm --dir app run lint` 已通过，剩余 4995 个 unused warning 作为历史基线后续分模块清理。
 

@@ -47,6 +47,33 @@ type picGoUploadResponse struct {
 	Message string          `json:"message"`
 }
 
+const (
+	maxUploadFileCount      = 1024
+	maxUploadSingleFileSize = gulu.MaxZipSingleFileSize
+	maxUploadTotalFileSize  = gulu.MaxZipTotalUncompressedSize
+)
+
+func validateUploadFileHeaders(files []*multipart.FileHeader) error {
+	if len(files) > maxUploadFileCount {
+		return fmt.Errorf("upload contains too many files (%d > %d)", len(files), maxUploadFileCount)
+	}
+
+	var total int64
+	for _, file := range files {
+		if file.Size < 0 {
+			return fmt.Errorf("upload file [%s] has invalid size: %d", file.Filename, file.Size)
+		}
+		if file.Size > maxUploadSingleFileSize {
+			return fmt.Errorf("upload file [%s] exceeds single file size limit (%d > %d)", file.Filename, file.Size, maxUploadSingleFileSize)
+		}
+		if file.Size > maxUploadTotalFileSize-total {
+			return fmt.Errorf("upload total size exceeds limit (%d > %d)", total+file.Size, maxUploadTotalFileSize)
+		}
+		total += file.Size
+	}
+	return nil
+}
+
 func InsertLocalAssets(id string, assetAbsPaths []string, isUpload bool, copyAsAssetArg ...bool) (succMap map[string]interface{}, err error) {
 	succMap = map[string]interface{}{}
 	copyAsAsset := 0 < len(copyAsAssetArg) && copyAsAssetArg[0]
@@ -215,6 +242,11 @@ func Upload(c *gin.Context) {
 	var errFiles []string
 	succMap := map[string]interface{}{}
 	files := form.File["file[]"]
+	if err = validateUploadFileHeaders(files); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
 	skipIfDuplicated := false // 默认不跳过重复文件，但是有的场景需要跳过，比如上传 PDF 标注图片 https://github.com/lonelyor/SourceFlow/issues/10666
 	if nil != form.Value["skipIfDuplicated"] {
 		skipIfDuplicated = "true" == form.Value["skipIfDuplicated"][0]
@@ -259,6 +291,10 @@ func Upload(c *gin.Context) {
 
 func uploadFileHeadersToAssets(files []*multipart.FileHeader, assetsDirPath, relAssetsDirPath string, skipIfDuplicated bool) (errFiles []string, succMap map[string]interface{}, msg string) {
 	succMap = map[string]interface{}{}
+	if err := validateUploadFileHeaders(files); err != nil {
+		msg = err.Error()
+		return
+	}
 
 	for _, file := range files {
 		baseName := file.Filename
