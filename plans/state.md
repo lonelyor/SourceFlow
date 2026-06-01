@@ -131,6 +131,7 @@
 - 2026-06-01 编译脚本增强：`编译.py` 在 WSL Linux 且项目位于 `/mnt/*` 时默认复制到 WSL 原生临时目录构建，排除 Windows/WSL 易冲突的 `node_modules` 与历史产物，成功后把 Linux installer 合并回 `app/build`，并同步 portable、kernel、前端与 web clipper 产物；可通过 `--no-wsl-native` 保持原地构建。
 - 2026-06-01 双端打包验证发现 WSL Arch Linux `.deb` 阶段会因 electron-builder fpm 依赖 `libcrypt.so.1` 失败；已增强 `编译.py` 在缺少系统兼容库时临时解压 `libxcrypt-compat` 并注入 `LD_LIBRARY_PATH`，避免要求用户安装系统包。
 - 2026-06-01 双端打包最终验证已通过：Windows x64 `python 编译.py` 完成质量门、installer 和 portable 校验；WSL Arch Linux x64 `python3 编译.py --platform linux --arch x64` 自动转入原生临时目录并完成 AppImage、deb、tar.gz 和 portable tar.gz 打包，回拷后 Windows 与 Linux installer 同时保留在 `app/build`。
+- 2026-06-01 最新 v0.1.6 双端已覆盖发布：`发布.py --reuse-release-assets` 同步 8 个远程资产（Windows installer/portable、Linux AppImage/deb/tar.gz/portable、web clipper、SHA256SUMS），公开仓库 `main` 与 `v0.1.6^{}` 均指向 `51f2e2e`；发布残留的 `.opensource-release/.cleanup-*` 临时目录已确认在仓库内并清理完成。
 
 ## 风险
 

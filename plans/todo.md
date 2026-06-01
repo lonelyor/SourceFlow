@@ -62,6 +62,7 @@
 - [x] 编译脚本增强：WSL `/mnt/*` 工作区构建 Linux 目标时自动转入 WSL 原生临时目录，避免 Windows/WSL 共用依赖导致 Linux 打包失败，并提供 `--no-wsl-native` 退回原地构建。
 - [x] 双端打包验证修正：WSL Arch Linux `.deb` 打包缺少 `libcrypt.so.1` 时，临时解压 `libxcrypt-compat` 供 electron-builder fpm 使用，不要求修改系统环境。
 - [x] 双端打包最终验证：Windows x64 安装包/便携包与 WSL Arch Linux x64 AppImage/deb/tar.gz/portable 均已完整打包通过。
+- [x] v0.1.6 双端覆盖发布：远程 Release 已同步 Windows x64 与 Linux x64 全部 8 个资产。
 
 ## 后续
 
