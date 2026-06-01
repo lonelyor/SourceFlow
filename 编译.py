@@ -1808,8 +1808,10 @@ def copy_directory_contents(source_dir: Path, target_dir: Path, *, replace: bool
 
 
 def copy_wsl_native_outputs(native_root: Path, target: BuildTarget, args: argparse.Namespace) -> None:
+    installer_output = target.installer_output_dir.relative_to(PROJECT_ROOT)
+    copy_directory_contents(native_root / installer_output, PROJECT_ROOT / installer_output)
+
     relative_outputs: list[Path] = [
-        target.installer_output_dir.relative_to(PROJECT_ROOT),
         APP_DIR.relative_to(PROJECT_ROOT) / "stage" / "build",
         WEB_CLIPPER_RELATIVE_DIR / "dist",
     ]

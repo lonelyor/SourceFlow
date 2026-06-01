@@ -128,7 +128,7 @@
 - 2026-06-01 最新 v0.1.6 发布说明已补充 Protyle Block DOM 保真修复，避免远程 Release 说明遗漏“笔记被压平成一行/格式丢失”的重大修复。
 - 2026-06-01 Linux `.deb` 打包补充 electron-builder `linux.maintainer` 元数据，满足新版 electron-builder 对 Debian maintainer email 的强制要求；仅影响 Linux 包元数据，不改变应用运行逻辑。
 - 2026-06-01 最新 v0.1.6 已覆盖远程发布：公开仓库 `main` 推送到 `51f2e2e`，`v0.1.6` tag 已重建并指向该提交；GitHub Release 已同步并验证 8 个资产：Windows installer/portable、Linux AppImage/deb/tar.gz/portable、web clipper 和 `SHA256SUMS.txt`。
-- 2026-06-01 编译脚本增强：`编译.py` 在 WSL Linux 且项目位于 `/mnt/*` 时默认复制到 WSL 原生临时目录构建，排除 Windows/WSL 易冲突的 `node_modules` 与历史产物，成功后把 Linux installer、portable、kernel、前端与 web clipper 产物同步回当前仓库；可通过 `--no-wsl-native` 保持原地构建。
+- 2026-06-01 编译脚本增强：`编译.py` 在 WSL Linux 且项目位于 `/mnt/*` 时默认复制到 WSL 原生临时目录构建，排除 Windows/WSL 易冲突的 `node_modules` 与历史产物，成功后把 Linux installer 合并回 `app/build`，并同步 portable、kernel、前端与 web clipper 产物；可通过 `--no-wsl-native` 保持原地构建。
 
 ## 风险
 
