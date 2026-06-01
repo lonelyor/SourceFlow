@@ -114,6 +114,8 @@
 - 阶段 4 已通过 `go test -vet=off ./api -run TestSaveImportUploadRejectsOversizedFile -count=1`、`go test -vet=off ./model -run TestValidateUploadFileHeaders -count=1`、`go test -vet=off ./api -run '^$' -count=1` 和 `go test -vet=off ./model -run '^$' -count=1`。
 - 2026-06-01 第二轮笔记安全稳定性修复阶段 5 已完成：`FlushTxQueue`、`WaitForCommit` 和 SQL `WaitFlushTx` 改为带超时等待，长时间等待输出诊断日志，超时后记录队列长度、flushing 状态和调用栈。
 - 阶段 5 已通过 `go test -vet=off ./api -run '^$' -count=1`、`go test -vet=off ./model -run '^$' -count=1` 和 `go test -vet=off ./sql -run '^$' -count=1`。
+- 2026-06-01 编译修复：`IProtyle.background` 类型导入路径统一为真实文件大小写 `../protyle/header/Background`，避免 Linux/WSL typecheck 将 `Background.ts` 与 `background` 识别为不同模块。
+- 编译修复已通过 `pnpm --dir app run typecheck:app`。
 - 此前 `pnpm --dir app run lint` 失败源于前端 lint 阻断 error 与大量未使用符号 warning 基线。
 - 本轮已单独修复前端 lint 阻断 error：`ICaptureAutomationData` / `IWorkbenchItemAutomationData` 改为 type alias，插件 sandbox 中一次赋值变量改为 `const` / 引用容器，控制字符正则改为字符码判断，sandbox 事件监听缓存不再使用宽泛 `Function` 类型；`pnpm --dir app run lint` 已通过，剩余 4995 个 unused warning 作为历史基线后续分模块清理。
 
