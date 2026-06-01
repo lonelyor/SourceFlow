@@ -127,6 +127,7 @@
 - 本轮已新增 `test:protyle-blockdom-preservation` 并接入 `pnpm --dir app run typecheck:app` 默认链路，确保 `onGet` 和内部粘贴路径不会重新引入 `ALLOWED_TAGS:false` / `ALLOWED_ATTR:false`、整段 DOMPurify 清洗，或通过 `DOMParser.parseFromString(options.content)` 解析重写完整笔记 Block DOM。
 - 2026-06-01 最新 v0.1.6 发布说明已补充 Protyle Block DOM 保真修复，避免远程 Release 说明遗漏“笔记被压平成一行/格式丢失”的重大修复。
 - 2026-06-01 Linux `.deb` 打包补充 electron-builder `linux.maintainer` 元数据，满足新版 electron-builder 对 Debian maintainer email 的强制要求；仅影响 Linux 包元数据，不改变应用运行逻辑。
+- 2026-06-01 最新 v0.1.6 已覆盖远程发布：公开仓库 `main` 推送到 `51f2e2e`，`v0.1.6` tag 已重建并指向该提交；GitHub Release 已同步并验证 8 个资产：Windows installer/portable、Linux AppImage/deb/tar.gz/portable、web clipper 和 `SHA256SUMS.txt`。
 
 ## 风险
 
