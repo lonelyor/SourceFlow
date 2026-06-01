@@ -30,6 +30,7 @@
 - `发布.py` 只消费 `编译.py` 已生成并验证的产物，不在发布阶段重新编译。
 - `编译.py` 在 WSL Linux 且仓库位于 `/mnt/*` 时，默认把源码复制到 WSL 原生临时目录执行 Linux 构建，排除 `node_modules`、构建输出和发布临时目录，成功后把 installer 合并回 `app/build`，并把 portable、kernel、前端和 web clipper 产物回拷到当前仓库；需要复现旧流程时使用 `--no-wsl-native`。
 - Electron 和 electron-builder 二进制下载镜像可由环境变量覆盖；脚本默认使用 `ELECTRON_MIRROR` 与 `ELECTRON_BUILDER_BINARIES_MIRROR` 的国内镜像兜底，降低 Linux 打包下载失败概率。
+- Arch/WSL 等缺少 `libcrypt.so.1` 的 Linux 环境打包 `.deb` 时，`编译.py` 可临时解压 `libxcrypt-compat` 到 `.tmp/linux-fpm-compat` 并通过 `LD_LIBRARY_PATH` 供 electron-builder 内置 fpm 使用；不得要求用户手动污染系统环境。
 
 ## 笔记树加载稳定性
 

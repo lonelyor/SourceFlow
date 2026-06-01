@@ -37,6 +37,7 @@ IS_WINDOWS = os.name == "nt"
 SOURCEFLOW_CONFIG_DIR_ENV = "SOURCEFLOW_CONFIG_DIR"
 WSL_NATIVE_BUILD_ENV = "SOURCEFLOW_WSL_NATIVE_BUILD"
 WSL_NATIVE_BUILD_SOURCE_ENV = "SOURCEFLOW_WSL_NATIVE_BUILD_SOURCE"
+LINUX_FPM_COMPAT_DIR = PROJECT_ROOT / ".tmp" / "linux-fpm-compat"
 DEFAULT_GO_PROXY = "https://goproxy.cn|https://goproxy.io|https://proxy.golang.org|direct"
 GO_TRANSIENT_ERROR_MARKERS = (
     "i/o timeout",
@@ -1525,6 +1526,78 @@ def mac_installer_config_name(target: BuildTarget) -> str:
     return "electron-builder-darwin.yml"
 
 
+def system_library_exists(names: Sequence[str]) -> bool:
+    search_dirs = (
+        Path("/usr/lib"),
+        Path("/usr/lib64"),
+        Path("/lib"),
+        Path("/lib64"),
+        Path("/lib/x86_64-linux-gnu"),
+        Path("/lib/aarch64-linux-gnu"),
+        Path("/usr/lib/x86_64-linux-gnu"),
+        Path("/usr/lib/aarch64-linux-gnu"),
+    )
+    return any((directory / name).exists() for directory in search_dirs for name in names)
+
+
+def first_http_line(text: str) -> str:
+    for line in text.splitlines():
+        candidate = line.strip()
+        if candidate.startswith(("http://", "https://")):
+            return candidate
+    return ""
+
+
+def prepare_linux_fpm_libcrypt_compat() -> Path | None:
+    if not is_linux() or system_library_exists(("libcrypt.so.1",)):
+        return None
+
+    compat_lib_dir = LINUX_FPM_COMPAT_DIR / "usr" / "lib"
+    if (compat_lib_dir / "libcrypt.so.1").exists():
+        return compat_lib_dir
+
+    pacman_path = resolve_command_path("pacman")
+    curl_path = resolve_command_path("curl")
+    bsdtar_path = resolve_command_path("bsdtar") or resolve_command_path("tar")
+    if not pacman_path or not curl_path or not bsdtar_path:
+        return None
+
+    print_step("Prepare Linux fpm libcrypt compatibility")
+    package_url_result = run(
+        [pacman_path, "-Sp", "--noconfirm", "libxcrypt-compat"],
+        capture_output=True,
+        check=False,
+    )
+    if package_url_result.returncode != 0:
+        return None
+
+    package_url = first_http_line(package_url_result.stdout)
+    if not package_url:
+        return None
+
+    remove_path(LINUX_FPM_COMPAT_DIR)
+    LINUX_FPM_COMPAT_DIR.mkdir(parents=True, exist_ok=True)
+    package_path = LINUX_FPM_COMPAT_DIR / "libxcrypt-compat.pkg.tar.zst"
+    run([curl_path, "-L", "--fail", "--retry", "3", "-o", package_path, package_url])
+    run([bsdtar_path, "-xf", package_path, "-C", LINUX_FPM_COMPAT_DIR])
+
+    if not (compat_lib_dir / "libcrypt.so.1").exists():
+        raise RuntimeError("libxcrypt-compat was downloaded, but libcrypt.so.1 was not found in the extracted package.")
+    print(f"Using temporary libcrypt compatibility directory: {compat_lib_dir}", flush=True)
+    return compat_lib_dir
+
+
+def prepend_env_path(env: dict[str, str], key: str, path: Path) -> None:
+    path_text = str(path)
+    current = env.get(key, "")
+    if not current:
+        env[key] = path_text
+        return
+    entries = current.split(os.pathsep)
+    if path_text not in entries:
+        env[key] = os.pathsep.join([path_text, current])
+
+
 def electron_builder_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     env = {
         "ELECTRON_MIRROR": os.environ.get("ELECTRON_MIRROR", "https://npmmirror.com/mirrors/electron/"),
@@ -1536,6 +1609,9 @@ def electron_builder_env(extra: Mapping[str, str] | None = None) -> dict[str, st
     }
     if extra:
         env.update({key: str(value) for key, value in extra.items()})
+    compat_dir = prepare_linux_fpm_libcrypt_compat()
+    if compat_dir:
+        prepend_env_path(env, "LD_LIBRARY_PATH", compat_dir)
     return env
 
 
