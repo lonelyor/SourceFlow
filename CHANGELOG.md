@@ -2,24 +2,35 @@
 
 All notable changes to SourceFlow will be documented in this file.
 
-## [0.1.6] - 2026-05-29
+## [0.1.6] - 2026-06-01
 
-### Editor
+### Stability And Safety
 
-- **Block numbers moved to left margin** — block numbers no longer appear as inline badges mixed with content. They now display in the left margin area (similar to VSCode line numbers), right-aligned and unobtrusive. Combined block-number + heading-level labels (e.g. "42 H1") are also displayed in the margin.
-- **Always show block type icon** — new setting **Settings → Editor → Always show block type icon**. When enabled, the block type gutter icon persists in the left margin after hovering instead of disappearing on scroll or mouse leave. When disabled (default), the icon only appears on hover as before.
+- `.sf` persistence now uses safe writes instead of truncating the original file before writing.
+- Read, index, and document-list paths no longer move or delete note files automatically when IAL data or filenames look abnormal.
+- Document tree cache no longer reuses mutable AST instances, avoiding cross-load contamination during indexing and rendering.
+- Existing non-empty notes cannot be overwritten by an empty AST.
+- Large insert/delete transaction failures now roll back and return errors instead of partially writing note state.
+- Transaction queue waits, per-transaction waits, and SQL write queue waits now have timeout diagnostics.
 
-### Platform
+### Security
 
-- Kernel block query and tree cache optimization
-- AV table runtime and highlight render improvements
-- Template picker, navigation menu, EventBus refactor
-- File tree dock and protyle menu enhancements
-- Render scheduler and paste utility updates
+- `/api/filetree/listDocTree` paths are constrained to the target notebook root.
+- Document search uses parameterized SQL for keywords and excluded IDs.
+- `.sf.zip`, `.zip`, and local Markdown imports validate notebook IDs before import.
+- Zip extraction limits file count, single-file size, total uncompressed size, compression ratio, and path traversal.
+- Regular asset uploads limit per-request file count, single-file size, and total upload size.
+- AI patch writes cannot delete or replace the current note root, and external Markdown writes regenerate block IDs.
 
-### Test & Quality
+### File Tree
 
-- Added `testEditorStructureGuide` — 15 automated checks covering config, types, UI, i18n, SCSS, hideElements logic, and global events.
+- Recently edited and frequent document shortcut groups start collapsed on first use while preserving saved local collapse state.
+- Added **Settings -> Appearance -> Doc tree appearance -> Doc tree font size**. Leaving it empty keeps the current theme default; custom values are clamped to 10-20 px.
+
+### Build And Release
+
+- Fixed a case-sensitive Protyle background import mismatch that broke Linux/WSL typecheck builds.
+- Release assets now include Windows x64 installer/portable outputs and WSL Arch Linux x64 outputs.
 
 ## [0.1.5] - 2026-05-28
 
