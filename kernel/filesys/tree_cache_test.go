@@ -1,0 +1,59 @@
+package filesys
+
+import (
+	"os"
+	"testing"
+	"time"
+
+	"github.com/lonelyor/sourceflow/kernel/cache"
+	"github.com/lonelyor/sourceflow/kernel/treenode"
+	"github.com/lonelyor/sourceflow/kernel/util"
+)
+
+func TestLoadTreeReturnsIndependentInstancesFromCache(t *testing.T) {
+	oldDataDir := util.DataDir
+	util.DataDir = t.TempDir()
+	defer func() {
+		util.DataDir = oldDataDir
+		cache.ClearTreeCache()
+	}()
+	cache.ClearTreeCache()
+
+	const boxID = "box"
+	const docPath = "/20260601104000-abcdefg.sf"
+	tree := treenode.NewTree(boxID, docPath, "/Note", "Note")
+	raw, filePath, err := prepareWriteTree(tree)
+	if err != nil {
+		t.Fatalf("prepare tree: %s", err)
+	}
+	if err = os.WriteFile(filePath, raw, 0644); err != nil {
+		t.Fatalf("write tree fixture: %s", err)
+	}
+	cache.ClearTreeCache()
+
+	luteEngine := util.NewLute()
+	first, err := LoadTree(boxID, docPath, luteEngine)
+	if err != nil {
+		t.Fatalf("load first tree: %s", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	second, err := LoadTree(boxID, docPath, luteEngine)
+	if err != nil {
+		t.Fatalf("load second tree: %s", err)
+	}
+	if first == second {
+		t.Fatal("LoadTree must not return the same mutable tree instance from cache")
+	}
+	if first.Root == second.Root {
+		t.Fatal("LoadTree must not return the same mutable root node from cache")
+	}
+
+	first.Path = "/mutated.sf"
+	first.Root.SetIALAttr("title", "Mutated")
+	if second.Path == first.Path {
+		t.Fatal("mutating one loaded tree path must not affect another load")
+	}
+	if second.Root.IALAttr("title") == "Mutated" {
+		t.Fatal("mutating one loaded tree root must not affect another load")
+	}
+}

@@ -49,6 +49,19 @@ const updateBlockMarkdown = async (blockID: string, markdown: string) => {
     return response.code === 0;
 };
 
+const isRootDocumentBlock = async (blockID: string, note: ICurrentNoteContext) => {
+    const targetId = `${blockID || ""}`.trim();
+    if (!targetId || targetId === note.rootID) {
+        return true;
+    }
+    const response = await fetchSyncPost("/api/block/getBlockInfo", {id: targetId});
+    if (response.code !== 0) {
+        return true;
+    }
+    const rootID = `${response.data?.rootID || ""}`.trim();
+    return !rootID || rootID === targetId;
+};
+
 const insertAfterBlock = async (note: ICurrentNoteContext, operation: IAssistantPatchOperation) => {
     const markdown = normalizeMarkdown(operation.after || "");
     const targetId = `${operation.targetId || note.currentBlockID || note.rootID}`.trim();
@@ -145,6 +158,10 @@ const deleteBlock = async (note: ICurrentNoteContext, operation: IAssistantPatch
     if (!targetId) {
         return {ok: false, blockID: ""};
     }
+    if (await isRootDocumentBlock(targetId, note)) {
+        showMessage(assistantText("不能通过删除块补丁删除整篇笔记。", "A delete-block patch cannot delete an entire note."), 5000, "error");
+        return {ok: false, blockID: ""};
+    }
     const response = await fetchSyncPost("/api/block/deleteBlock", {id: targetId});
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(note.rootID);
@@ -190,6 +207,10 @@ const replaceBlock = async (context: IAssistantSkillContext, operation: IAssista
     const targetId = `${operation.targetId || note?.currentBlockID || ""}`.trim();
     const after = normalizeMarkdown(operation.after || "");
     if (!note || !targetId || !after) {
+        return {ok: false, blockID: ""};
+    }
+    if (await isRootDocumentBlock(targetId, note)) {
+        showMessage(assistantText("不能通过替换块补丁整体替换整篇笔记。", "A replace-block patch cannot replace an entire note."), 5000, "error");
         return {ok: false, blockID: ""};
     }
     const ok = await updateBlockMarkdown(targetId, after);

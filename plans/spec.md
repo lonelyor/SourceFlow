@@ -1,6 +1,6 @@
 # SourceFlow 架构与设计摘要
 
-更新日期：2026-05-27
+更新日期：2026-06-01
 
 ## AI 助手
 
@@ -19,12 +19,18 @@
 - AI 操作历史先采用本地持久化审计模型，记录 patch、session/profile、目标、状态、应用结果和失败原因；低风险回滚覆盖追加/插入块以及 AI 创建的新笔记，后端审计表留待确认存储边界后再引入。
 - Provider 配置列表应返回默认 baseURL、默认模型和推荐参数，前端 ProfilesPanel 使用这些字段初始化新 profile；模型列表失败必须向用户展示后端错误原因。
 - AI 助手验收必须提供不依赖外部服务的 `fake` Provider：默认 baseURL 为 `sourceflow://fake`，默认模型为 `sourceflow-fake-chat`，不要求 API Key，支持配置连通测试、静态模型列表、确定性普通回复、mock stream，以及工具 dry-run patch 预览。该 Provider 仅用于本地测试和产品验收，不应作为真实生产模型接入。
+- 前端 patch apply 必须复用后端 AI 写工具的安全边界：`delete-block` 和 `replace-block` 只能作用于非根内容块；无法确认目标块根文档关系时必须失败关闭，禁止直接删除或整体替换笔记根文档。
 
 ## 发布约束
 
 - 发布版本号由 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest 共同约束，编译前必须保持一致。
 - 发布说明存放在 `app/changelogs/v<version>/`，中文版作为默认 GitHub Release 正文。
 - `发布.py` 只消费 `编译.py` 已生成并验证的产物，不在发布阶段重新编译。
+
+## 笔记树加载稳定性
+
+- `filesys.LoadTree` 可以复用原始 JSON 字节缓存，但每次调用必须重新解析并返回独立的 `*parse.Tree` 实例。
+- 禁止缓存并复用可变的 parsed tree 指针；调用方会在加载、渲染、索引和事务过程中修改 tree/root 字段，复用实例会造成跨笔记加载状态污染。
 
 ## 文档树拖拽
 
@@ -52,11 +58,11 @@
 ## 编辑器结构提示
 
 - 笔记编辑页结构提示只改善阅读与定位，不写入文档内容，不改变块数据、Markdown 导入导出或编辑事务语义。
-- 本轮不实现真实视觉换行号；编辑区提供顶层块编号，用于段落/块定位，自动换行不重新编号。
 - 标题层级通过标题文字左侧常驻 `H1` - `H6` 标识表达，覆盖编辑区内可见标题，避免只依赖字号判断标题层级。
-- 配置字段为 `editor.displayBlockLineNumber` 与 `editor.displayHeadingLevel`。
-- `displayBlockLineNumber` 默认关闭，避免突然提高所有文档视觉密度；`displayHeadingLevel` 默认开启，满足标题层级默认可见。
+- 当前稳定版本只保留配置字段 `editor.displayHeadingLevel`。
+- `displayHeadingLevel` 默认开启，满足标题层级默认可见。
 - 前端通过 Protyle WYSIWYG 容器类控制显示，样式使用伪元素渲染结构提示，不参与编辑内容保存。
+- `displayBlockLineNumber` 与 `alwaysShowGutter` 已因稳定性问题移除，后续若恢复必须重新评估异常边界并补足回归测试。
 
 ## 易用性增强路线
 

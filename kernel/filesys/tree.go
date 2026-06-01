@@ -120,19 +120,8 @@ func batchLoadTrees(boxIDs, paths []string, luteEngine *lute.Lute) (ret []*parse
 func LoadTree(boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err error) {
 	rootID := util.GetTreeID(p)
 
-	if cached := cache.GetParsedTree(rootID); nil != cached {
-		ret = cached
-		ret.Path = p
-		ret.Root.Path = p
-		return
-	}
-
 	if raw, ok := cache.GetTreeData(rootID); ok {
-		ret, err = LoadTreeByData(raw, boxID, p, luteEngine)
-		if nil == err {
-			cache.SetParsedTree(rootID, ret)
-		}
-		return
+		return LoadTreeByData(raw, boxID, p, luteEngine)
 	}
 
 	filePath := filepath.Join(util.DataDir, boxID, p)
@@ -150,7 +139,6 @@ func LoadTree(boxID, p string, luteEngine *lute.Lute) (ret *parse.Tree, err erro
 	ret, err = LoadTreeByData(data, boxID, p, luteEngine)
 	if nil == err {
 		cache.SetTreeData(rootID, data)
-		cache.SetParsedTree(rootID, ret)
 	}
 	return
 }

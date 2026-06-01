@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-05-29
+更新日期：2026-06-01
 
 ## 已确认
 
@@ -14,9 +14,9 @@
 - 文档树外观增强已实现：设置页新增文档树外观配置，层级引导线默认关，密度默认 `default`，拖拽落点显示右侧提示，延迟展开显示“将展开”，当前打开项、选中项和拖拽目标使用不同视觉状态。
 - 文档树外观增强已通过 `pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`、SCSS 编译、语言 JSON 校验，以及 Go 归一化/默认值目标测试。
 - 为满足全量测试通过要求，已修复 `kernel/api/file.go` 与 `kernel/api/import.go` 中阻断 `go test ./api` 的既有日志格式串 vet 问题；修复仅调整日志调用格式，不改变业务语义。
-- 用户提出笔记编辑页缺少行号和明确标题层级提示；本轮已确认按“顶层块编号 + 标题 H1-H6 常驻标识”实现，不做真实视觉换行号。
-- 编辑器结构提示设计为显示增强：`displayHeadingLevel` 默认开启，`displayBlockLineNumber` 默认关闭，提示不写入文档内容。
-- 编辑器结构提示已实现：设置页新增标题层级标识和块编号开关，Protyle 编辑区按配置挂载显示类，标题标识覆盖编辑区内可见标题，块编号仅编号顶层块。
+- 用户曾提出笔记编辑页缺少行号和明确标题层级提示；当前稳定版本只保留标题 `H1`-`H6` 常驻标识，不做块编号或真实视觉换行号。
+- 编辑器结构提示设计为显示增强：`displayHeadingLevel` 默认开启，提示不写入文档内容。
+- 编辑器结构提示已实现：设置页新增标题层级标识开关，Protyle 编辑区按配置挂载显示类，标题标识覆盖编辑区内可见标题。
 - 编辑器结构提示已通过 TypeScript 编译、SCSS 编译、语言 JSON 语法校验、`go test ./conf` 和 `go test ./api`。
 - 用户确认继续增强文档树外观：新增子文档数量开关和全部笔记总数开关。
 - 本轮文档数量显示设计为外观增强，不改变文档移动、排序或数据语义；子文档数量默认关闭，顶部全部笔记总数默认开启。
@@ -83,12 +83,18 @@
 - 语义搜索基础设施（Stage 6 MVP）已实现：后端 `assistant_embedding.go` 支持 Ollama/OpenAI 兼容 Embedding API 调用；`assistant_vector.go` 使用内存 map + JSON 文件持久化向量，支持余弦相似度搜索；API 路由注册在 `/api/assistant/embedding/` 下（config、setConfig、search、index、indexAll）；搜索面板新增"语义搜索"按钮切换语义搜索模式；AI 设置页新增 Embedding 配置区域（启用开关、服务地址、模型、API Key、索引按钮、保存按钮）。
 - 语义搜索 MVP 已通过 `go build ./...`、`go vet ./...`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 用户确认因远端 `v0.1.4` Release 已存在且 tag 不指向当前 `dev` HEAD，本次改为发布新版本 `v0.1.5`。
-- 块编号显示已从正文内联徽章改为左侧边距绝对定位：移除背景色/边框，使用 `position: absolute; right: calc(100% + 4px)` 将编号放到正文左侧空白区域，右对齐、淡色文本，类似 VSCode 行号风格。`[spellcheck]` 新增 `position: relative` 作为锚点，添加 `max-width` 和 `text-overflow: ellipsis` 防止长编号溢出。
-- 新增 `alwaysShowGutter` 编辑器配置项：开启后，鼠标悬停块时出现的块类型图标会持久显示，滚动、鼠标离开、鼠标移出编辑器不会隐藏；关闭（默认）保持原有仅悬停显示行为。配置覆盖 Go 后端 `Editor.AlwaysShowGutter`、TypeScript 类型、设置面板开关、i18n（中英文）、搜索索引。
-- `hideElements` 新增 `isGutterAlwaysShow()` 辅助函数：`gutter` 面板（硬触发）在 alwaysShow 时只清 innerHTML 不加 fn__none；`gutterOnly` 面板（软触发）在 alwaysShow 时完全跳过。`hideAllElements`、`document.body.mouseleave`、全局 `mousemove` 的 gutter 隐藏均受配置保护。
-- 编辑器结构提示与持久块类型图标已通过 `go test -vet=off ./conf -count=1 -v`、`pnpm --dir app run test:editor-structure-guide`（15 项自动化检查）、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`。
+- 历史记录：块编号显示曾改为左侧边距绝对定位，后续已在 `2180981` 因稳定性问题移除。
+- 历史记录：`alwaysShowGutter` 编辑器配置项曾实现持久显示块类型图标，后续已在 `2180981` 因稳定性问题移除。
+- 历史记录：`hideElements` 曾新增 `isGutterAlwaysShow()` 辅助函数保护持久块类型图标，后续随 `alwaysShowGutter` 一并移除。
+- 历史记录：编辑器结构提示与持久块类型图标曾通过 `go test -vet=off ./conf -count=1 -v`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false`；当前稳定版本仅保留标题层级提示。
 - v0.1.6 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `107c41a`，创建 `v0.1.6` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。
 - `v0.1.5` 已成功发布到 GitHub Release：版本号已同步到 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest，发布说明位于 `app/changelogs/v0.1.5/`；`python 编译.py` 已通过并生成/校验 Windows x64 安装包与便携包；`发布.py` 已推送公开导出仓库 `main` 到 `c502611`，创建 `v0.1.5` tag，并上传 4 个资产（win 安装包、win 便携包、page-saver 插件、SHA256SUMS）。发布脚本遗留的 `.opensource-release` 临时清理目录已确认在导出根目录内并清理完成。
+- 2026-06-01 最近一周功能稳定性审计已完成第一轮高风险排查：编辑器结构提示/块标、AI patch 写入、语义搜索索引、文档树/右键菜单与模板/样式入口是主要笔记稳定性影响面。
+- 审计确认 5/29 提交 `2180981` 已因稳定性问题移除 `displayBlockLineNumber` 与 `alwaysShowGutter`；plans 中仍有历史条目记录其已实现。因 plans 与当前代码状态冲突，已按当前代码与最新修复提交为准，本轮不恢复这两个功能。
+- 本轮找到新的根因：前端 patch review 接受 `delete-block` / `replace-block` 时直接调用块删除/更新 API，绕过了后端 AI 工具禁止操作根文档的保护；结构化 patch 目标漏填或指向根块时，可能删除或整体替换当前笔记。
+- 本轮已修复前端 patch apply：应用 `delete-block` 与 `replace-block` 前先确认目标不是文档根块；目标等于当前根文档、块信息查询失败或无法确认 `rootID` 时失败关闭，并补充 `test:assistant-patch-review` 回归覆盖。
+- 本轮确认更底层的笔记不稳定根因来自 5/29 `85afb24` 的 tree cache enhancement：`filesys.LoadTree` 缓存并复用 `*parse.Tree` 指针，但该结构会被调用链继续修改，导致跨加载状态污染。
+- 本轮已移除 parsed tree 指针缓存，仅保留原始 JSON 字节缓存；`LoadTree` 命中缓存时重新解析出独立 tree 实例，并新增 `TestLoadTreeReturnsIndependentInstancesFromCache` 回归测试。
 
 ## 风险
 
