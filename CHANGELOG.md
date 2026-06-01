@@ -7,6 +7,7 @@ All notable changes to SourceFlow will be documented in this file.
 ### Stability And Safety
 
 - `.sf` persistence now uses safe writes instead of truncating the original file before writing.
+- Protyle document loading and internal SourceFlow paste now preserve the original note Block DOM, preventing frontend filtering from flattening notes or stripping formatting.
 - Read, index, and document-list paths no longer move or delete note files automatically when IAL data or filenames look abnormal.
 - Document tree cache no longer reuses mutable AST instances, avoiding cross-load contamination during indexing and rendering.
 - Existing non-empty notes cannot be overwritten by an empty AST.

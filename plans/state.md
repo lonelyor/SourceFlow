@@ -125,6 +125,7 @@
 - 本轮已更新 `CHANGELOG.md` 与 `app/changelogs/v0.1.6/` 发布说明，移除已废弃的块编号/持久块图标描述，并补充文档树默认折叠、文档树字号设置与 Linux x64 发布资产说明。
 - 2026-06-01 用户确认笔记业务优先于前端全量 XSS 过滤：Protyle 正文加载与 SourceFlow 内部粘贴不再对完整 Block DOM 使用 DOMPurify 标签/属性空白名单清洗，避免标题、段落、列表、HTML 块、嵌入内容和业务属性被剥离。
 - 本轮已新增 `test:protyle-blockdom-preservation` 并接入 `pnpm --dir app run typecheck:app` 默认链路，确保 `onGet` 和内部粘贴路径不会重新引入 `ALLOWED_TAGS:false` / `ALLOWED_ATTR:false`、整段 DOMPurify 清洗，或通过 `DOMParser.parseFromString(options.content)` 解析重写完整笔记 Block DOM。
+- 2026-06-01 最新 v0.1.6 发布说明已补充 Protyle Block DOM 保真修复，避免远程 Release 说明遗漏“笔记被压平成一行/格式丢失”的重大修复。
 
 ## 风险
 
