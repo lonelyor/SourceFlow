@@ -20,7 +20,7 @@ export const renderAIDockSessions = (ctx: TAssistantAIDockRenderRuntime) => {
         return `<div class="assistant-ai__sessions-head">
     <div class="assistant-ai__sessions-title">${assistantText("会话", "Sessions")}</div>
     ${headActionsHTML()}
-</div>${panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("先配置提供商，再开始多轮对话。", "Configure a provider first, then start chatting."), assistantText("打开配置", "Open Profiles"), "configure-profile")}`;
+</div>${panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("请先配置真实提供商和模型，再开始多轮对话。", "Configure a real provider and model before chatting."), assistantText("打开 AI 配置", "Open AI settings"), "configure-profile")}`;
     }
     if (!ctx.sessions.length) {
         return `<div class="assistant-ai__sessions-head">

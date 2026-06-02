@@ -52,6 +52,7 @@
     "test:av-runtime-modules": "node ./scripts/testAVRuntimeModules.js",
     "test:av-runtime-coverage": "node ./scripts/testAVRuntimeCoverage.js",
     "test:system-runtime-modules": "node ./scripts/testSystemRuntimeModules.js",
+    "test:ai-dock-entry-state": "node ./scripts/testAIDockEntryState.js",
     "test:ai-dock-runtime": "node ./scripts/testAIDockRuntimeBehavior.js",
     "test:assistant-skill-context": "node ./scripts/testAssistantSkillContext.js",
     "test:assistant-patch-review": "node ./scripts/testAssistantPatchReview.js",

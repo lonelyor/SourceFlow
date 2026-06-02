@@ -9,6 +9,14 @@ export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
     if (ctx.loading && !ctx.messages.length) {
         return `<div class="assistant-ai__loading">${assistantText("加载消息中...", "Loading messages...")}</div>`;
     }
+    if (!ctx.profiles.length && !ctx.messages.length) {
+        return `<div class="assistant-ai__empty-state">
+    <div class="assistant-ai__empty-kicker">${assistantText("AI 配置", "AI Setup")}</div>
+    <div class="assistant-ai__empty-title">${assistantText("请先配置 AI 提供商", "Configure an AI provider first")}</div>
+    <div class="assistant-ai__empty-detail">${assistantText("配置真实提供商和模型后，即可在这里开始独立对话，并在对话中引用笔记上下文。", "Configure a real provider and model, then start a standalone chat here with note context.")}</div>
+    <button type="button" class="b3-button b3-button--outline" data-action="configure-profile">${escapeHTML(assistantText("打开 AI 配置", "Open AI settings"))}</button>
+</div>`;
+    }
     if (!ctx.messages.length) {
         return `<div class="assistant-ai__empty-state">
     <div class="assistant-ai__empty-kicker">${assistantText("第二大脑", "Second Brain")}</div>

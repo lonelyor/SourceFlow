@@ -13,6 +13,8 @@
 - 2026-06-02 已将工作台稳定化与 AI 原生笔记安全设计输出到 `plans/20260602-工作台稳定化与AI原生笔记安全设计.md`，并填充 `plans/AI原生笔记代理开发计划.md`。
 - 2026-06-02 工作台稳定化阶段已完成：工作台默认固定到侧边栏活动栏；`openWorkbenchDialog` 打开时先显示 loading；查询或渲染失败时显示可重试错误页并记录错误；工作台查询 API 和关联块搜索失败不再被当成空结果吞掉。
 - 工作台稳定化阶段已新增 `test:workbench-stability`，并通过 `pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app` 和 `git diff --check`。
+- 2026-06-02 AI 原生笔记助手阶段 1 已完成：AI Dock 默认固定侧边栏保持不变；未配置 profile 时主消息区、模型入口、会话空状态和输入区统一要求配置真实 AI 提供商/模型；配置按钮统一进入 AI 设置页；未配置时禁用输入、附件和发送，避免表现成可直接对话。
+- AI 阶段 1 明确不暴露测试用 fake provider 或“本地体验模型”入口；新增 `test:ai-dock-entry-state` 防止入口文案和配置状态回归，并通过目标回归、`test:ai-dock-runtime`、`typecheck:app`、文件范围 eslint 与 `git diff --check`。
 - 用户确认文档树拖拽应先做移动功能增强，让任意排序模式下都能拖拽移动；排序后续作为独立逻辑与移动拆分。
 - 当前文档树拖拽实现中，移动和自定义排序共用 `dragover/drop` 手势，常见目录空白区、子列表末尾等移动落点不够完整。
 - 本轮按两阶段推进：阶段一增强拖拽移动可用性，并让普通文档树拖拽只走移动；阶段二再设计排序独立入口。

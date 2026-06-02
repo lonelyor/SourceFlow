@@ -47,8 +47,8 @@ export const renderAIDockAttachmentList = (ctx: TAssistantAIDockRenderRuntime, a
 
 export const renderAIDockModelLauncher = (ctx: TAssistantAIDockRenderRuntime, profile?: IAssistantAIProfile) => {
     if (!profile) {
-        const setupHint = assistantText("还没有模型，点击配置", "No model yet. Click to set one up");
-        return `<button type="button" class="assistant-ai__model-button" data-action="open-profiles" aria-label="${escapeAttr(setupHint)}" title="${escapeAttr(setupHint)}">
+        const setupHint = assistantText("还没有模型，请先配置真实提供商", "No model yet. Configure a real provider first");
+        return `<button type="button" class="assistant-ai__model-button" data-action="configure-profile" aria-label="${escapeAttr(setupHint)}" title="${escapeAttr(setupHint)}">
     <span class="assistant-ai__model-plus"><svg><use xlink:href="#iconAdd"></use></svg></span>
     <span class="assistant-ai__model-copy">
         <span class="assistant-ai__model-name">${assistantText("配置模型", "Set up a model")}</span>
