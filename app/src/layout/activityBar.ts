@@ -54,6 +54,7 @@ const ACTIVITY_BAR_FIXED_ACTION_KEYS = new Set(["action:backup", "action:config"
 const ACTIVITY_BAR_RAIL_PIN_KEYS = new Set([
     "dock:outline",
     "action:command",
+    "action:workbench",
     `dock:${ASSISTANT_TERMINAL_DOCK_TYPE}`,
     `dock:${ASSISTANT_AI_DOCK_TYPE}`,
 ]);
@@ -348,7 +349,7 @@ const getDefaultActionButtons = (): IActivityActionButton[] => [
         hotkey: "",
         source: "left",
         sortKey: "action:workbench",
-        defaultGroup: "more",
+        defaultGroup: "rail",
     },
     {
         action: "capture",

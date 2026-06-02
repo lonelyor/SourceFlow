@@ -256,6 +256,9 @@ export const fetchRelatedBlocks = async (query: string, pageSize = 12) => {
         page: 1,
         pageSize,
     });
+    if (typeof response.code === "number" && response.code < 0) {
+        throw new Error(response.msg || "fullTextSearchBlock failed");
+    }
     return response.data?.blocks as IWorkbenchSearchBlock[] || [];
 };
 
@@ -400,6 +403,9 @@ export const fetchWorkbenchData = async (state: IWorkbenchState, limit = 2048): 
             sortBy: state.sortBy,
             sortOrder: state.sortOrder,
         });
+        if (typeof response.code === "number" && response.code < 0) {
+            throw new Error(response.msg || "queryWorkbenchItems failed");
+        }
         const items = response.data?.allItems as IWorkbenchItem[] || [];
         const visibleItems = response.data?.items as IWorkbenchItem[] || [];
         const data = {
