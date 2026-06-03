@@ -1,0 +1,138 @@
+package model
+
+import (
+	"testing"
+)
+
+func TestNewAISecurityConfigDefaults(t *testing.T) {
+	cfg := NewAISecurityConfig()
+	if cfg.DefaultMode != AISecurityModeDefault {
+		t.Errorf("DefaultMode = %s, want default", cfg.DefaultMode)
+	}
+	if cfg.BatchThreshold != 10 {
+		t.Errorf("BatchThreshold = %d, want 10", cfg.BatchThreshold)
+	}
+	if !cfg.Capabilities.Read {
+		t.Error("Capabilities.Read should be true")
+	}
+	if !cfg.Capabilities.Write {
+		t.Error("Capabilities.Write should be true")
+	}
+	if cfg.Capabilities.Execute {
+		t.Error("Capabilities.Execute should be false")
+	}
+	if cfg.Capabilities.DeleteNote {
+		t.Error("Capabilities.DeleteNote should be false")
+	}
+	if cfg.Capabilities.Move {
+		t.Error("Capabilities.Move should be false")
+	}
+}
+
+func TestCheckAISecurityHardBanned(t *testing.T) {
+	result := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL6, "note", []string{"id1"}, 0)
+	if result.Decision != AISecurityDeny {
+		t.Errorf("L6 should always be denied, got %s", result.Decision)
+	}
+}
+
+func TestCheckAISecurityWorkspaceWrite(t *testing.T) {
+	result := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL3, "workspace", []string{"ws"}, 0)
+	if result.Decision != AISecurityDeny {
+		t.Errorf("write on workspace should be denied, got %s", result.Decision)
+	}
+}
+
+func TestCheckAISecurityDefaultMode(t *testing.T) {
+	l1 := CheckAISecurityPermission(AISecurityModeDefault, AISecurityRiskL1, "note", []string{"id1"}, 0)
+	if l1.Decision != AISecurityAllow {
+		t.Errorf("default mode L1 should allow, got %s", l1.Decision)
+	}
+
+	l3 := CheckAISecurityPermission(AISecurityModeDefault, AISecurityRiskL3, "note", []string{"id1"}, 0)
+	if l3.Decision != AISecurityDeny {
+		t.Errorf("default mode L3 should deny, got %s", l3.Decision)
+	}
+}
+
+func TestCheckAISecurityAutoReviewMode(t *testing.T) {
+	l3 := CheckAISecurityPermission(AISecurityModeAutoReview, AISecurityRiskL3, "note", []string{"id1"}, 0)
+	if l3.Decision != AISecurityConfirm {
+		t.Errorf("autoReview L3 should confirm, got %s", l3.Decision)
+	}
+
+	l5 := CheckAISecurityPermission(AISecurityModeAutoReview, AISecurityRiskL5, "note", []string{"id1"}, 0)
+	if l5.Decision != AISecurityConfirm {
+		t.Errorf("autoReview L5 should confirm, got %s", l5.Decision)
+	}
+}
+
+func TestCheckAISecurityFullAccessMode(t *testing.T) {
+	l4 := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL4, "note", []string{"id1"}, 0)
+	if l4.Decision != AISecurityAllow {
+		t.Errorf("fullAccess L4 should allow, got %s", l4.Decision)
+	}
+
+	l5 := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL5, "note", []string{"id1"}, 0)
+	if l5.Decision != AISecurityConfirm {
+		t.Errorf("fullAccess L5 should confirm, got %s", l5.Decision)
+	}
+}
+
+func TestCheckAISecurityBatchThreshold(t *testing.T) {
+	ids := make([]string, 12)
+	for i := range ids {
+		ids[i] = "id"
+	}
+	result := CheckAISecurityPermission(AISecurityModeAutoReview, AISecurityRiskL3, "note", ids, 12)
+	if result.Decision != AISecurityConfirm {
+		t.Errorf("batch >= 10 should confirm, got %s", result.Decision)
+	}
+	if result.Reason == "" {
+		t.Error("batch confirm should have reason")
+	}
+}
+
+func TestCheckAISecurityBlacklist(t *testing.T) {
+	original := GetAISecurityConfig()
+	defer SetAISecurityConfig(original)
+
+	cfg := NewAISecurityConfig()
+	cfg.Blacklist = []AISecurityRule{{Type: AISecurityRuleNotebook, ID: "blocked-notebook"}}
+	SetAISecurityConfig(cfg)
+
+	result := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL1, "note", []string{"blocked-notebook"}, 0)
+	if result.Decision != AISecurityDeny {
+		t.Errorf("blacklisted target should be denied, got %s", result.Decision)
+	}
+}
+
+func TestPermissionByModeAndRiskMatrix(t *testing.T) {
+	tests := []struct {
+		mode     AISecurityMode
+		risk     AISecurityRiskLevel
+		expected AISecurityDecision
+	}{
+		{AISecurityModeDefault, AISecurityRiskL1, AISecurityAllow},
+		{AISecurityModeDefault, AISecurityRiskL2, AISecurityAllow},
+		{AISecurityModeDefault, AISecurityRiskL3, AISecurityDeny},
+		{AISecurityModeDefault, AISecurityRiskL4, AISecurityDeny},
+		{AISecurityModeDefault, AISecurityRiskL5, AISecurityDeny},
+		{AISecurityModeAutoReview, AISecurityRiskL1, AISecurityAllow},
+		{AISecurityModeAutoReview, AISecurityRiskL2, AISecurityAllow},
+		{AISecurityModeAutoReview, AISecurityRiskL3, AISecurityConfirm},
+		{AISecurityModeAutoReview, AISecurityRiskL4, AISecurityConfirm},
+		{AISecurityModeAutoReview, AISecurityRiskL5, AISecurityConfirm},
+		{AISecurityModeFullAccess, AISecurityRiskL1, AISecurityAllow},
+		{AISecurityModeFullAccess, AISecurityRiskL2, AISecurityAllow},
+		{AISecurityModeFullAccess, AISecurityRiskL3, AISecurityAllow},
+		{AISecurityModeFullAccess, AISecurityRiskL4, AISecurityAllow},
+		{AISecurityModeFullAccess, AISecurityRiskL5, AISecurityConfirm},
+	}
+	for _, tt := range tests {
+		result := permissionByModeAndRisk(tt.mode, tt.risk)
+		if result != tt.expected {
+			t.Errorf("permissionByModeAndRisk(%s, %s) = %s, want %s", tt.mode, tt.risk, result, tt.expected)
+		}
+	}
+}

@@ -503,6 +503,23 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		}
 	}()
 
+	securityResult := checkToolSecurity(def, args)
+	if securityResult.Decision == AISecurityDeny {
+		ret.Error = securityResult.Reason
+		ret.Summary = ret.Error
+		audit.Status = "blocked_security"
+		return ret, nil
+	}
+	if securityResult.Decision == AISecurityConfirm && !allowConfirm {
+		if securityResult.AffectedItems != nil {
+			ret.Data["securityAffectedItems"] = securityResult.AffectedItems
+		}
+		ret.Error = securityResult.Reason
+		ret.Summary = ret.Error
+		audit.Status = "blocked_security"
+		return ret, nil
+	}
+
 	if assistantAIToolDryRunRequested(args) {
 		if preview := buildAssistantAIToolPreviewPatch(def, context, args); nil != preview {
 			ret.Data["previewPatch"] = preview

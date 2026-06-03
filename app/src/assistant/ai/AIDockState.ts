@@ -23,9 +23,21 @@ import {
     listAssistantAIToolAudits,
     renameAssistantAISession,
     saveAssistantAIProfile,
+    setAssistantAISessionPinned,
 } from "./api";
 import type {IAssistantAIDockRuntime, IAssistantAINotePreview, TAssistantAIToolPolicyPreset} from "./AIDockContract";
 import {cloneProfileToolSettings, cloneToolModes} from "./AIDockShared";
+
+const sortAIDockSessions = (sessions: IAssistantAISession[]) => {
+    return [...sessions].sort((left, right) => {
+        const leftPinned = left.pinnedAt || 0;
+        const rightPinned = right.pinnedAt || 0;
+        if (leftPinned || rightPinned) {
+            return rightPinned - leftPinned;
+        }
+        return (right.updatedAt || right.createdAt) - (left.updatedAt || left.createdAt);
+    });
+};
 
 export const resolveAIDockMessageContext = async (ctx: IAssistantAIDockRuntime): Promise<IAssistantAINotePreview | null> => {
     if (!ctx.includeCurrentNote) {
@@ -246,7 +258,7 @@ export const refreshAIDock = async (ctx: IAssistantAIDockRuntime, loadMessages: 
         ]);
         ctx.providers = providers;
         ctx.profiles = profiles;
-        ctx.sessions = sessions;
+        ctx.sessions = sortAIDockSessions(sessions);
         ctx.ensureSelection();
         await Promise.all([
             ctx.refreshToolCatalog(ctx.selectedProfileId),
@@ -445,26 +457,47 @@ export const clearCurrentAIDockSession = async (ctx: IAssistantAIDockRuntime) =>
 };
 
 export const deleteCurrentAIDockSession = async (ctx: IAssistantAIDockRuntime) => {
-    const session = ctx.getSelectedSession();
+    await deleteAIDockSession(ctx, ctx.selectedSessionId);
+};
+
+export const deleteAIDockSession = async (ctx: IAssistantAIDockRuntime, sessionId: string) => {
+    const normalizedID = `${sessionId || ""}`.trim();
+    const session = ctx.sessions.find((item) => item.id === normalizedID) || (!normalizedID ? ctx.getSelectedSession() : undefined);
     if (!session) {
         return;
     }
     confirmDialog(
         window.sourceflow.languages.deleteOpConfirm || assistantText("删除", "Delete"),
-        assistantText("删除当前会话及其全部消息？", "Delete the current session and all messages?"),
+        assistantText("删除该会话及其全部消息？", "Delete this session and all messages?"),
         async () => {
             try {
                 await deleteAssistantAISession(session.id);
-                ctx.selectedSessionId = "";
-                ctx.clearEditingMessage(false);
-                ctx.messages = [];
-                await ctx.refresh(false);
+                const deletingSelected = session.id === ctx.selectedSessionId;
+                if (deletingSelected) {
+                    ctx.selectedSessionId = "";
+                    ctx.clearEditingMessage(false);
+                    ctx.messages = [];
+                }
+                await ctx.refresh(deletingSelected);
             } catch (error) {
                 showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
             }
         },
         true,
     );
+};
+
+export const setAIDockSessionPinned = async (ctx: IAssistantAIDockRuntime, sessionId: string, pinned: boolean) => {
+    const normalizedID = `${sessionId || ""}`.trim();
+    if (!normalizedID) {
+        return;
+    }
+    try {
+        await setAssistantAISessionPinned(normalizedID, pinned);
+        await ctx.refresh(false);
+    } catch (error) {
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+    }
 };
 
 export const clearAllAIDockSessions = async (ctx: IAssistantAIDockRuntime) => {
@@ -492,5 +525,5 @@ export const clearAllAIDockSessions = async (ctx: IAssistantAIDockRuntime) => {
 export const upsertAIDockSession = (ctx: IAssistantAIDockRuntime, session: IAssistantAISession) => {
     const nextSessions = ctx.sessions.filter((item) => item.id !== session.id);
     nextSessions.unshift(session);
-    ctx.sessions = nextSessions.sort((left, right) => (right.updatedAt || right.createdAt) - (left.updatedAt || left.createdAt));
+    ctx.sessions = sortAIDockSessions(nextSessions);
 };

@@ -13,6 +13,7 @@ import {
     streamAssistantAI,
 } from "./api";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
+import {buildIncludedContextText} from "../mentions/contextBuilder";
 import {
     assistantAIComposerAttachmentLimit,
     assistantAIComposerAttachmentMaxBytes,
@@ -331,6 +332,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     });
     ctx.draftMessage = "";
     ctx.attachments = [];
+    const sourcesSnapshot = [...ctx.sources];
+    ctx.clearSources();
     if (isEditing) {
         const editingIndex = previousMessages.findIndex((item) => item.id === editingMessageId);
         ctx.messages = [...previousMessages.slice(0, editingIndex), optimisticUser, optimisticAssistant];
@@ -347,6 +350,16 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             currentNote = await ctx.resolveMessageContext();
             if (currentNote) {
                 system = buildAssistantNoteContext(currentNote);
+            }
+        }
+        if (sourcesSnapshot.length) {
+            const sourceContext = buildIncludedContextText(sourcesSnapshot);
+            if (sourceContext) {
+                const sourceBlock = `\n\n---\n${assistantText(
+                "用户引用了以下来源，回答时请基于这些来源，并在相关段落末尾标注来源笔记标题（格式：[📄 笔记标题]）：",
+                "The user referenced the following sources. Answer based on these sources, and cite the source note title at the end of relevant paragraphs (format: [📄 Note Title]):"
+            )}\n\n${sourceContext}`;
+                system += sourceBlock;
             }
         }
         let partialReply = "";

@@ -36,6 +36,11 @@ type assistantAISessionRenameRequest struct {
 	Title string `json:"title"`
 }
 
+type assistantAISessionPinRequest struct {
+	ID     string `json:"id"`
+	Pinned bool   `json:"pinned"`
+}
+
 type assistantAISessionMessagesRequest struct {
 	SessionID string `json:"sessionId"`
 }
@@ -194,6 +199,23 @@ func assistantAISessionRename(c *gin.Context) {
 	}
 
 	if err := model.RenameAssistantAISession(req.ID, req.Title); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+	}
+}
+
+func assistantAISessionPin(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &assistantAISessionPinRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ret.Code = -1
+		ret.Msg = "parses request failed"
+		return
+	}
+
+	if err := model.SetAssistantAISessionPinned(req.ID, req.Pinned); err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
 	}

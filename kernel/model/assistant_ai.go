@@ -40,6 +40,10 @@ const (
 	assistantAIDefaultContextMessages  = 24
 	assistantAIDefaultContextTokens    = 256 * 1024
 	assistantAIDefaultAnthropicVersion = "2023-06-01"
+	assistantAISessionPinnedAtColumn   = "pinned_at"
+	assistantAISessionSelectClause     = `s.id, s.profile_id, s.mode, s.title, s.summary, s.` + assistantAISessionPinnedAtColumn + `, s.created_at, s.updated_at,
+        COALESCE(st.message_count, 0), COALESCE(st.user_message_count, 0), COALESCE(st.assistant_message_count, 0), COALESCE(st.last_message_at, 0)`
+	assistantAISessionOrderClause = `CASE WHEN s.` + assistantAISessionPinnedAtColumn + ` > 0 THEN 0 ELSE 1 END, s.` + assistantAISessionPinnedAtColumn + ` DESC, s.updated_at DESC, s.created_at DESC`
 )
 
 var (
@@ -80,11 +84,11 @@ var assistantAIProviderBaseURLs = map[string]string{
 }
 
 type AssistantAIProviderType struct {
-	ID                   string                 `json:"id"`
-	Name                 string                 `json:"name"`
-	BaseURL              string                 `json:"baseURL"`
-	DefaultModel         string                 `json:"defaultModel"`
-	RecommendedSettings  map[string]interface{} `json:"recommendedSettings"`
+	ID                  string                 `json:"id"`
+	Name                string                 `json:"name"`
+	BaseURL             string                 `json:"baseURL"`
+	DefaultModel        string                 `json:"defaultModel"`
+	RecommendedSettings map[string]interface{} `json:"recommendedSettings"`
 }
 
 type AssistantAIProfile struct {
@@ -109,6 +113,7 @@ type AssistantAISession struct {
 	Mode                  string `json:"mode"`
 	Title                 string `json:"title"`
 	Summary               string `json:"summary"`
+	PinnedAt              int64  `json:"pinnedAt"`
 	MessageCount          int    `json:"messageCount"`
 	UserMessageCount      int    `json:"userMessageCount"`
 	AssistantMessageCount int    `json:"assistantMessageCount"`
@@ -379,11 +384,10 @@ func ListAssistantAISessions() (ret []*AssistantAISession, err error) {
 		return nil, err
 	}
 
-	rows, err := db.Query(`SELECT s.id, s.profile_id, s.mode, s.title, s.summary, s.created_at, s.updated_at,
-        COALESCE(st.message_count, 0), COALESCE(st.user_message_count, 0), COALESCE(st.assistant_message_count, 0), COALESCE(st.last_message_at, 0)
+	rows, err := db.Query(`SELECT ` + assistantAISessionSelectClause + `
         FROM ai_sessions s
         LEFT JOIN ai_session_stats st ON st.session_id = s.id
-        ORDER BY s.updated_at DESC, s.created_at DESC`)
+        ORDER BY ` + assistantAISessionOrderClause)
 	if err != nil {
 		return nil, err
 	}
@@ -431,6 +435,38 @@ func RenameAssistantAISession(id, title string) (err error) {
 	}
 	_, err = db.Exec(`UPDATE ai_sessions SET title = ?, updated_at = ? WHERE id = ?`, title, time.Now().UnixMilli(), id)
 	return err
+}
+
+func SetAssistantAISessionPinned(id string, pinned bool) (err error) {
+	id = strings.TrimSpace(id)
+	if "" == id {
+		return fmt.Errorf("assistant AI session ID is required")
+	}
+
+	db, err := getAssistantAIDB()
+	if err != nil {
+		return err
+	}
+	pinnedAt := int64(0)
+	query := `UPDATE ai_sessions SET pinned_at = ? WHERE id = ?`
+	args := []interface{}{pinnedAt, id}
+	if pinned {
+		pinnedAt = time.Now().UnixMilli()
+		query = `UPDATE ai_sessions SET pinned_at = CASE WHEN pinned_at > 0 THEN pinned_at ELSE ? END WHERE id = ?`
+		args[0] = pinnedAt
+	}
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("assistant AI session not found")
+	}
+	return nil
 }
 
 func DeleteAssistantAISession(id string) (err error) {
@@ -1293,6 +1329,7 @@ func initAssistantAIDBTables(db *dbsql.DB) (err error) {
             mode TEXT NOT NULL DEFAULT 'chat',
             title TEXT NOT NULL,
             summary TEXT NOT NULL DEFAULT '',
+            pinned_at INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             FOREIGN KEY(profile_id) REFERENCES ai_profiles(id) ON DELETE SET DEFAULT
@@ -1342,7 +1379,41 @@ func initAssistantAIDBTables(db *dbsql.DB) (err error) {
 			return err
 		}
 	}
+	if err = ensureAssistantAISessionPinnedAtColumn(db); err != nil {
+		return err
+	}
+	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_ai_sessions_pinned_at ON ai_sessions(` + assistantAISessionPinnedAtColumn + ` DESC, updated_at DESC)`); err != nil {
+		return err
+	}
 	return nil
+}
+
+func ensureAssistantAISessionPinnedAtColumn(db *dbsql.DB) (err error) {
+	rows, err := db.Query(`PRAGMA table_info(ai_sessions)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue interface{}
+		var pk int
+		if err = rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == assistantAISessionPinnedAtColumn {
+			return rows.Err()
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	_, err = db.Exec(`ALTER TABLE ai_sessions ADD COLUMN ` + assistantAISessionPinnedAtColumn + ` INTEGER NOT NULL DEFAULT 0`)
+	return err
 }
 
 func bootstrapAssistantAILegacyProfile(db *dbsql.DB) (err error) {
@@ -1482,8 +1553,7 @@ func getAssistantAIProfile0(db *dbsql.DB, id string) (ret *AssistantAIProfile, e
 }
 
 func getAssistantAISession0(db *dbsql.DB, id string) (ret *AssistantAISession, err error) {
-	row := db.QueryRow(`SELECT s.id, s.profile_id, s.mode, s.title, s.summary, s.created_at, s.updated_at,
-        COALESCE(st.message_count, 0), COALESCE(st.user_message_count, 0), COALESCE(st.assistant_message_count, 0), COALESCE(st.last_message_at, 0)
+	row := db.QueryRow(`SELECT `+assistantAISessionSelectClause+`
         FROM ai_sessions s LEFT JOIN ai_session_stats st ON st.session_id = s.id WHERE s.id = ? LIMIT 1`, id)
 	ret, err = scanAssistantAISession(row)
 	if err == dbsql.ErrNoRows {
@@ -1995,7 +2065,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 			FinishReason string `json:"finishReason"`
 			Content      struct {
 				Parts []struct {
-					Text         string          `json:"text"`
+					Text         string `json:"text"`
 					FunctionCall *struct {
 						Name string          `json:"name"`
 						Args json.RawMessage `json:"args"`
@@ -2354,7 +2424,7 @@ func scanAssistantAISession(scanner interface {
 	Scan(dest ...interface{}) error
 }) (ret *AssistantAISession, err error) {
 	ret = &AssistantAISession{}
-	err = scanner.Scan(&ret.ID, &ret.ProfileID, &ret.Mode, &ret.Title, &ret.Summary, &ret.CreatedAt, &ret.UpdatedAt, &ret.MessageCount, &ret.UserMessageCount, &ret.AssistantMessageCount, &ret.LastMessageAt)
+	err = scanner.Scan(&ret.ID, &ret.ProfileID, &ret.Mode, &ret.Title, &ret.Summary, &ret.PinnedAt, &ret.CreatedAt, &ret.UpdatedAt, &ret.MessageCount, &ret.UserMessageCount, &ret.AssistantMessageCount, &ret.LastMessageAt)
 	return ret, err
 }
 

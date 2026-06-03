@@ -30,6 +30,7 @@ export interface IAssistantAISession {
     mode: string;
     title: string;
     summary: string;
+    pinnedAt: number;
     messageCount: number;
     userMessageCount: number;
     assistantMessageCount: number;
@@ -237,6 +238,10 @@ export const createAssistantAISession = async (profileId = "", mode = "chat", ti
 
 export const renameAssistantAISession = async (id: string, title: string) => {
     ensureOK(await fetchSyncPost("/api/assistant/ai/session/rename", {id, title}));
+};
+
+export const setAssistantAISessionPinned = async (id: string, pinned: boolean) => {
+    ensureOK(await fetchSyncPost("/api/assistant/ai/session/pin", {id, pinned}));
 };
 
 export const deleteAssistantAISession = async (id: string) => {

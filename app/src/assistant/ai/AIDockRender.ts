@@ -2,6 +2,12 @@ import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {IAssistantAIInputAttachment, IAssistantAIMessage, IAssistantAIProfile, IAssistantAISession, IAssistantAIToolAudit, IAssistantAIToolDefinition, IAssistantAIToolPolicy} from "./api";
 import type {IAssistantAINotePreview} from "./AIDockContract";
+import type {IMentionSource} from "../mentions/types";
+import type {IMentionTriggerState} from "../mentions/trigger";
+import type {TSecurityMode} from "../security/types";
+import {renderMentionPopover} from "../mentions/trigger";
+import {renderSourcesPanel} from "../sources/panel";
+import {renderSecurityModeSwitcher, renderSecurityModeDropdown} from "../security/modeSwitcher";
 import {TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
 import {
     buildAIDockHoverHint,
@@ -68,6 +74,11 @@ export interface IAssistantAIDockRenderContext {
     sending: boolean;
     savingProfile: boolean;
     editingMessageId: string;
+    sources: IMentionSource[];
+    sourcesPanelVisible: boolean;
+    mentionState: IMentionTriggerState;
+    securityMode: TSecurityMode;
+    securityDropdownVisible: boolean;
     getSelectedProfile(): IAssistantAIProfile | undefined;
     getSelectedSession(): IAssistantAISession | undefined;
     getMessageById(messageId: string): TAssistantAIMessageItem | undefined;
@@ -182,7 +193,13 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
             <div class="assistant-ai__conversation">
                 <div class="assistant-ai__conversation-title">${escapeHTML(truncateText(sessionTitle, 58))}</div>
             </div>
-            <div class="assistant-ai__conversation-actions">${ctx.renderSessionActions(session)}</div>
+            <div class="assistant-ai__conversation-actions">
+                <div class="assistant-ai__security-mode-wrap">
+                    ${renderSecurityModeSwitcher(ctx.securityMode)}
+                    ${renderSecurityModeDropdown(ctx.securityMode, ctx.securityDropdownVisible)}
+                </div>
+                ${ctx.renderSessionActions(session)}
+            </div>
         </div>
         <div class="assistant-ai__toolbar">
             ${ctx.renderQuickActions()}
@@ -200,8 +217,10 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                         <button type="button" class="assistant-ai__composer-edit-action" data-action="cancel-edit-message">${escapeHTML(assistantText("取消编辑", "Cancel"))}</button>
                     </div>` : ""}
                     ${ctx.renderComposerAttachments()}
+                    ${ctx.sourcesPanelVisible ? renderSourcesPanel(ctx.sources) : ""}
                     <div class="assistant-ai__composer-hint">${escapeHTML(composerHint)}</div>
                     <textarea class="b3-text-field assistant-ai__textarea" data-role="message" placeholder="${escapeAttr(composerPlaceholder)}"${hasProfile ? "" : " disabled"}>${escapeAttr(ctx.draftMessage)}</textarea>
+                    ${renderMentionPopover(ctx.mentionState)}
                     <div class="assistant-ai__composer-bottom">
                         <div class="assistant-ai__launcher-group">
                             ${ctx.renderModelLauncher(profile)}

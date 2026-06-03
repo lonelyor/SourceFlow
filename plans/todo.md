@@ -67,10 +67,40 @@
 - [x] 双端打包最终验证：Windows x64 安装包/便携包与 WSL Arch Linux x64 AppImage/deb/tar.gz/portable 均已完整打包通过。
 - [x] v0.1.6 双端覆盖发布：远程 Release 已同步 Windows x64 与 Linux x64 全部 8 个资产。
 
-## 后续
+## 后续（AI 原生笔记助手 v2，2026-06-02 定稿）
 
-- [x] AI 原生笔记助手阶段 1：默认固定 AI 侧边栏入口，保证独立对话可用，空配置明确要求配置真实 AI 提供商/模型，多 AI profile 继续由既有配置和切换面板选择。
-- [ ] AI 原生笔记助手阶段 2：实现 `@` 引用当前笔记、选区、笔记、文件夹，文件夹引用先生成有界上下文包并支持来源展示。
-- [ ] AI 原生笔记助手阶段 3：实现默认权限、自动审查、完全访问权限，可读/可写/可执行能力开关和黑白名单。
-- [ ] AI 原生笔记助手阶段 4：实现硬禁止、`>= 10` 篇批量确认阈值、绕过护栏检测和影响清单，所有工具调用和 patch apply 前强制校验。
+详细设计见 `plans/20260602-AI原生笔记助手架构设计.md`。
+
+- [x] AI 原生笔记助手阶段 0：默认固定 AI 侧边栏入口，保证独立对话可用，空配置明确要求配置真实 AI 提供商/模型，多 AI profile 继续由既有配置和切换面板选择。
+- [x] AI 原生笔记助手阶段 1：`@` 引用引擎 + 来源面板 + AI 回答来源标注
+  - [x] 前端 `assistant/mentions/` — `@` 触发搜索、引用标签渲染、上下文构建
+  - [x] 前端 `assistant/sources/` — 来源面板（勾选/排除/展开）、文件夹展开、token 估算
+  - [x] Dock Composer 输入框支持 `@` 触发和 inline chip 渲染
+  - [x] `sendAssistantMessage` 携带来源列表而非全文
+  - [x] AI 回答标注来源（段落末尾 `[📄 笔记标题]` 标签，可点击跳转）
+  - [x] 后端 `/api/assistant/context/buildContextPack` — 文件夹/批量笔记摘要生成
+  - [x] 后端 `/api/assistant/context/search` — 面向 `@` 引用的轻量搜索（id+标题+摘要）
+  - [x] 引用类型覆盖：笔记、选区、文件夹（摘要包+按需细读）、附件、搜索结果
+  - [x] 验收：TypeScript 编译通过 + Go 测试通过 + `git diff --check` 通过
+- [x] AI 原生笔记助手阶段 2：权限模式 + 黑白名单 + 安全内核
+  - [x] Dock 顶部权限模式三态切换器（默认权限/自动审查/完全访问）
+  - [x] 单次操作提权弹窗（本次允许/提升模式/拒绝）
+  - [x] `kernel/model/assistant_security.go` — 安全内核四层检查
+  - [x] 安全配置独立存储 `storage/ai_security.json`
+  - [x] `/api/assistant/security/` — 权限配置 API（getConfig/setConfig/checkPermission）
+  - [x] 前端 `assistant/security/` — 权限模式切换器 + 提权弹窗
+  - [x] 所有工具调用前强制经过安全内核
+  - [x] 验收：Go 测试通过 + TypeScript 编译通过 + git diff --check 通过
+- [x] AI 原生笔记助手阶段 3：编辑器入口统一 + 来源感知回答
+  - [x] Ctrl+I / Ctrl+J / 选区浮条走统一安全内核和 patch 审阅
+  - [x] 编辑器右键菜单 AI 入口统一
+  - [x] 文档树右键"AI 分析此文件夹"
+  - [x] AI 回答来源引用标签渲染（`[📄 笔记标题]` → 可点击标签）
+  - [x] 验收：TypeScript 编译通过 + Go 测试通过
+- [x] AI 原生笔记助手阶段 4：Agent 增强 + 自动化基础
+  - [x] Agent 批量任务支持 `@` 引用来源作为上下文
+  - [x] Agent 任务系统 prompt 注入来源上下文和来源标注指令
+  - [x] 验收：TypeScript 编译通过
+- [x] AI 助手生产细节修复：历史会话单条删除、置顶/取消置顶，置顶状态持久化且重复置顶幂等；输入单独 `@` 不再请求后端空 query；文档树节点与空白菜单统一 `@AI` 来源入口；目标笔记未固定时跟随当前活动笔记；AI 设置页 Embedding/安全分区样式修复。
+  - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、会话置顶 Go 回归、API 编译、`go build ./...` 与 `git diff --check` 通过。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

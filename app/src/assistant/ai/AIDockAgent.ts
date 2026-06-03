@@ -1,6 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {assistantText, buildAssistantNoteContext} from "../constants";
 import type {ICurrentNoteContext} from "../common/note";
+import {buildIncludedContextText} from "../mentions/contextBuilder";
 import {
     abortRunningAssistantAgentTask,
     cancelPendingAssistantAgentItems,
@@ -223,13 +224,23 @@ export const runAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: s
                 throw new Error(assistantText("任务项缺少目标笔记上下文", "Task item has no target note context"));
             }
             const note = toNoteContext(context);
+            let system = buildAgentSystemPrompt(note);
+            if (ctx.sources.length) {
+                const sourceContext = buildIncludedContextText(ctx.sources);
+                if (sourceContext) {
+                    system += `\n\n---\n${assistantText(
+                        "用户引用了以下来源，回答时请基于这些来源，并在相关段落末尾标注来源笔记标题（格式：[📄 笔记标题]）：",
+                        "The user referenced the following sources. Answer based on these sources, and cite the source note title at the end of relevant paragraphs (format: [📄 Note Title]):"
+                    )}\n\n${sourceContext}`;
+                }
+            }
             const result = await chatAssistantAI({
                 profileId: profile.id,
                 sessionId: ctx.selectedSessionId,
                 mode: "agent",
                 title: runContext.task.title,
                 message: item.title,
-                system: buildAgentSystemPrompt(note),
+                system,
                 enableTools: ctx.enableTools,
                 context,
                 attachments: [],

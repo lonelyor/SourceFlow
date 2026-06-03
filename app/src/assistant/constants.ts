@@ -7,6 +7,7 @@ export const ASSISTANT_TERMINAL_DOCK_KEY = "terminal";
 export const ASSISTANT_AI_DOCK_TYPE = `${ASSISTANT_PLUGIN_NAME}${ASSISTANT_AI_DOCK_KEY}`;
 export const ASSISTANT_RESULTS_DOCK_TYPE = `${ASSISTANT_PLUGIN_NAME}${ASSISTANT_RESULTS_DOCK_KEY}`;
 export const ASSISTANT_TERMINAL_DOCK_TYPE = `${ASSISTANT_PLUGIN_NAME}${ASSISTANT_TERMINAL_DOCK_KEY}`;
+export const ASSISTANT_AT_AI_LABEL = "@AI";
 
 export const assistantText = (zh: string, en: string) => {
     const lang = `${window.sourceflow?.config?.lang || navigator.language || ""}`.toLowerCase();

@@ -5,6 +5,15 @@ import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
 import {renderAssistantPatchHTML} from "../patch/format";
 import type {IAssistantEditPatch} from "../patch/types";
 
+const SOURCE_CITATION_RE = /\[📄\s*([^\]]+)\]/g;
+
+const renderSourceCitations = (html: string): string => {
+    return html.replace(SOURCE_CITATION_RE, (_, title: string) => {
+        const escaped = escapeAttr(title);
+        return `<span class="assistant-ai__source-citation" data-action="open-source-note" data-note-title="${escaped}" title="${escaped}">📄 ${escapeHTML(title)}</span>`;
+    });
+};
+
 export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
     if (ctx.loading && !ctx.messages.length) {
         return `<div class="assistant-ai__loading">${assistantText("加载消息中...", "Loading messages...")}</div>`;
@@ -48,7 +57,7 @@ export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
             </div>
         </div>
     </div>
-    ${displayContent ? `<div class="assistant-ai__message-content">${nl2br(displayContent)}</div>` : ""}
+    ${displayContent ? `<div class="assistant-ai__message-content">${renderSourceCitations(nl2br(displayContent))}</div>` : ""}
     ${ctx.renderAttachmentList(attachments)}
     ${ctx.renderMessageToolResults(item)}
 </div>`;
