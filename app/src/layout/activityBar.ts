@@ -718,8 +718,8 @@ export const refreshActivityBar = () => {
 <div class="activity-bar__rail">
     <div class="activity-bar__section activity-bar__section--rail" data-sort-group="rail">
         ${railBeforeOutline}
-        ${moreButtonMarkup}
         ${railAfterOutline}
+        ${moreButtonMarkup}
     </div>
     <div class="activity-bar__section activity-bar__section--fixed">
         <div class="activity-bar__divider"></div>

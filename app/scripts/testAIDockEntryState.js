@@ -16,6 +16,11 @@ const events = read("src/assistant/ai/AIDockEvents.ts");
 
 assert.ok(activityBar.includes("`dock:${ASSISTANT_AI_DOCK_TYPE}`"), "AI dock must be pinned to the sidebar rail by default");
 assert.ok(activityBar.includes("\"action:workbench\""), "Workbench must stay pinned to the sidebar rail by default");
+assert.ok(
+    activityBar.indexOf("${railAfterOutline}") > activityBar.indexOf("${railBeforeOutline}") &&
+    activityBar.indexOf("${moreButtonMarkup}") > activityBar.indexOf("${railAfterOutline}"),
+    "More button must render after all rail items in the activity bar",
+);
 
 assert.ok(messages.includes("请先配置 AI 提供商"), "No-profile message empty state must require AI provider setup");
 assert.ok(messages.includes("data-action=\"configure-profile\""), "No-profile message empty state must open AI configuration");
