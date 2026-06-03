@@ -40,7 +40,10 @@ type AssistantContextPackItem struct {
 }
 
 type AssistantContextPack struct {
-	Items []AssistantContextPackEntry `json:"items"`
+	Items     []AssistantContextPackEntry       `json:"items"`
+	Dropped   []AssistantContextPackDroppedItem `json:"dropped,omitempty"`
+	Truncated bool                              `json:"truncated,omitempty"`
+	MaxChars  int                               `json:"maxChars,omitempty"`
 }
 
 type AssistantContextPackEntry struct {
@@ -54,9 +57,17 @@ type AssistantContextPackEntry struct {
 	Children []AssistantContextPackEntry `json:"children,omitempty"`
 }
 
+type AssistantContextPackDroppedItem struct {
+	Type   AssistantContextItemType `json:"type"`
+	ID     string                   `json:"id,omitempty"`
+	Title  string                   `json:"title,omitempty"`
+	Reason string                   `json:"reason"`
+}
+
 const contextSummaryMaxLen = 2000
 const contextFolderChildSummaryMaxLen = 200
 const contextPackMaxChildren = 100
+const contextPackMaxSummaryChars = 60000
 
 func SearchAssistantContextItems(query string, limit int, mode AISecurityMode) []*AssistantContextSearchResult {
 	var results []*AssistantContextSearchResult
@@ -137,52 +148,132 @@ func SearchAssistantContextItems(query string, limit int, mode AISecurityMode) [
 }
 
 func BuildAssistantContextPack(items []AssistantContextPackItem, mode AISecurityMode) (*AssistantContextPack, error) {
-	pack := &AssistantContextPack{}
+	pack := &AssistantContextPack{MaxChars: contextPackMaxSummaryChars}
 	mode = NormalizeAISecurityMode(mode, GetAISecurityConfig().DefaultMode)
+	remainingChars := contextPackMaxSummaryChars
 
 	for _, item := range items {
 		switch item.Type {
 		case AssistantContextNote:
 			if ok, reason := canReadAssistantContext(mode, "note", []string{item.ID}); !ok {
 				logging.LogWarnf("skip context note %s: %s", item.ID, reason)
+				addAssistantContextDropped(pack, item.Type, item.ID, "", reason)
 				continue
 			}
 			entry, err := buildNoteContextEntry(item.ID, item.Notebook, item.Path)
 			if err != nil {
 				logging.LogWarnf("skip context item %s: %s", item.ID, err)
+				addAssistantContextDropped(pack, item.Type, item.ID, "", err.Error())
 				continue
 			}
-			pack.Items = append(pack.Items, *entry)
+			appendAssistantContextPackEntry(pack, *entry, &remainingChars, item)
 
 		case AssistantContextFolder:
 			if ok, reason := canReadAssistantFolderContext(mode, item); !ok {
 				logging.LogWarnf("skip context folder %s: %s", firstAssistantAINonEmpty(item.ID, item.Notebook), reason)
+				addAssistantContextDropped(pack, item.Type, firstAssistantAINonEmpty(item.ID, item.Notebook), "", reason)
 				continue
 			}
-			entries := buildFolderContextEntries(item.ID, item.Notebook, item.Path, mode)
+			entries := buildFolderContextEntries(item.ID, item.Notebook, item.Path, mode, pack)
 			if len(entries) > 0 {
-				pack.Items = append(pack.Items, entries...)
+				for _, entry := range entries {
+					appendAssistantContextPackEntry(pack, entry, &remainingChars, item)
+				}
 			}
 
 		case AssistantContextSelection:
-			pack.Items = append(pack.Items, AssistantContextPackEntry{
+			appendAssistantContextPackEntry(pack, AssistantContextPackEntry{
 				Type:    AssistantContextSelection,
 				ID:      item.ID,
 				Title:   "选区",
 				Summary: truncateText(item.Content, contextSummaryMaxLen),
-			})
+			}, &remainingChars, item)
 
 		case AssistantContextAsset:
-			pack.Items = append(pack.Items, AssistantContextPackEntry{
+			appendAssistantContextPackEntry(pack, AssistantContextPackEntry{
 				Type:    AssistantContextAsset,
 				ID:      item.ID,
 				Title:   item.ID,
 				Summary: truncateText(item.Content, contextSummaryMaxLen),
-			})
+			}, &remainingChars, item)
 		}
 	}
 
 	return pack, nil
+}
+
+func addAssistantContextDropped(pack *AssistantContextPack, itemType AssistantContextItemType, id, title, reason string) {
+	if nil == pack {
+		return
+	}
+	reason = strings.TrimSpace(reason)
+	if "" == reason {
+		reason = "context item was not included"
+	}
+	pack.Dropped = append(pack.Dropped, AssistantContextPackDroppedItem{
+		Type:   itemType,
+		ID:     strings.TrimSpace(id),
+		Title:  strings.TrimSpace(title),
+		Reason: reason,
+	})
+}
+
+func appendAssistantContextPackEntry(pack *AssistantContextPack, entry AssistantContextPackEntry, remainingChars *int, source AssistantContextPackItem) {
+	if nil == pack || nil == remainingChars {
+		return
+	}
+	if *remainingChars <= 0 && assistantContextEntrySummaryChars(entry) > 0 {
+		pack.Truncated = true
+		addAssistantContextDropped(pack, source.Type, firstAssistantAINonEmpty(source.ID, source.Notebook), entry.Title, "context pack budget exceeded")
+		return
+	}
+	fitted, truncated := fitAssistantContextEntryBudget(entry, remainingChars)
+	if truncated {
+		pack.Truncated = true
+	}
+	pack.Items = append(pack.Items, fitted)
+}
+
+func fitAssistantContextEntryBudget(entry AssistantContextPackEntry, remainingChars *int) (AssistantContextPackEntry, bool) {
+	truncated := false
+	if "" != entry.Summary {
+		used := utf8.RuneCountInString(entry.Summary)
+		if used > *remainingChars {
+			entry.Summary = truncateText(entry.Summary, *remainingChars)
+			*remainingChars = 0
+			truncated = true
+		} else {
+			*remainingChars -= used
+		}
+	}
+	if len(entry.Children) < 1 {
+		return entry, truncated
+	}
+	children := make([]AssistantContextPackEntry, 0, len(entry.Children))
+	for _, child := range entry.Children {
+		if *remainingChars <= 0 && assistantContextEntrySummaryChars(child) > 0 {
+			truncated = true
+			break
+		}
+		fittedChild, childTruncated := fitAssistantContextEntryBudget(child, remainingChars)
+		if childTruncated {
+			truncated = true
+		}
+		children = append(children, fittedChild)
+		if *remainingChars <= 0 {
+			break
+		}
+	}
+	entry.Children = children
+	return entry, truncated
+}
+
+func assistantContextEntrySummaryChars(entry AssistantContextPackEntry) int {
+	total := utf8.RuneCountInString(entry.Summary)
+	for _, child := range entry.Children {
+		total += assistantContextEntrySummaryChars(child)
+	}
+	return total
 }
 
 func canReadAssistantContext(mode AISecurityMode, targetType string, targetIDs []string) (bool, string) {
@@ -241,7 +332,7 @@ func buildNoteContextEntry(rootID, notebook, docPath string) (*AssistantContextP
 	}, nil
 }
 
-func buildFolderContextEntries(rootID, notebook, docPath string, mode AISecurityMode) []AssistantContextPackEntry {
+func buildFolderContextEntries(rootID, notebook, docPath string, mode AISecurityMode, pack *AssistantContextPack) []AssistantContextPackEntry {
 	rootID = strings.TrimSpace(rootID)
 	notebook = strings.TrimSpace(notebook)
 	docPath = strings.TrimSpace(docPath)
@@ -301,6 +392,7 @@ func buildFolderContextEntries(rootID, notebook, docPath string, mode AISecurity
 		}
 		if ok, reason := canReadAssistantContext(mode, "note", []string{child.RootID}); !ok {
 			logging.LogWarnf("skip context child %s: %s", child.RootID, reason)
+			addAssistantContextDropped(pack, AssistantContextNote, child.RootID, extractTitleFromHPath(child.HPath), reason)
 			continue
 		}
 		childTitle := extractTitleFromHPath(child.HPath)
@@ -375,6 +467,9 @@ func truncateText(text string, maxLen int) string {
 		return ""
 	}
 	cleaned := strings.TrimSpace(text)
+	if maxLen <= 0 {
+		return ""
+	}
 	if utf8.RuneCountInString(cleaned) <= maxLen {
 		return cleaned
 	}

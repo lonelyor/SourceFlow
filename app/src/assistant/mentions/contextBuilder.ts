@@ -1,6 +1,8 @@
 import {buildContextPack} from "./api";
 import type {IMentionSource, IContextPackItem, IContextPackEntry} from "./types";
 import type {TSecurityMode} from "../security/types";
+import {showMessage} from "../../dialog/message";
+import {assistantText} from "../constants";
 
 export interface IAssistantSourceCitation {
     id: string;
@@ -143,8 +145,15 @@ export const resolveAndBuildPack = async (sources: IMentionSource[], securityMod
     const items = buildPackItemsFromSources(sources);
     if (!items.length) return sources;
 
-    const entries = await buildContextPack(items, securityMode);
-    const resolvedSources = buildSourcesFromPackEntries(entries);
+    const pack = await buildContextPack(items, securityMode);
+    if (pack.dropped?.length || pack.truncated) {
+        const droppedCount = pack.dropped?.length || 0;
+        const message = droppedCount > 0
+            ? assistantText(`有 ${droppedCount} 个来源未纳入上下文`, `${droppedCount} source(s) were not included in context`)
+            : assistantText("来源上下文已按预算截断", "Source context was truncated to fit the budget");
+        showMessage(message, 5000, "info");
+    }
+    const resolvedSources = buildSourcesFromPackEntries(pack.items || []);
 
     const sourceStateMap = new Map<string, {included: boolean; children: Map<string, boolean>}>();
     for (const source of sources) {

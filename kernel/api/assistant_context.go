@@ -31,8 +31,10 @@ func assistantContextSearch(c *gin.Context) {
 	}
 
 	if req.Query == "" {
-		ret.Code = -1
-		ret.Msg = "query is required"
+		ret.Data = map[string]interface{}{
+			"results": []*model.AssistantContextSearchResult{},
+			"count":   0,
+		}
 		return
 	}
 

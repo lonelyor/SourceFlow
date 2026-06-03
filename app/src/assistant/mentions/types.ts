@@ -42,3 +42,17 @@ export interface IContextPackEntry {
     summary?: string;
     children?: IContextPackEntry[];
 }
+
+export interface IContextPackDroppedItem {
+    type: TMentionItemType;
+    id?: string;
+    title?: string;
+    reason: string;
+}
+
+export interface IContextPackResponse {
+    items: IContextPackEntry[];
+    dropped?: IContextPackDroppedItem[];
+    truncated?: boolean;
+    maxChars?: number;
+}

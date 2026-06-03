@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -131,5 +132,39 @@ func TestBuildAssistantContextPackInvalidNote(t *testing.T) {
 	}
 	if len(pack.Items) != 0 {
 		t.Errorf("expected 0 items for invalid note, got %d", len(pack.Items))
+	}
+	if len(pack.Dropped) != 1 {
+		t.Fatalf("expected 1 dropped item for invalid note, got %d", len(pack.Dropped))
+	}
+	if pack.Dropped[0].ID != "nonexistent-id-12345" {
+		t.Fatalf("dropped id = %q, want nonexistent-id-12345", pack.Dropped[0].ID)
+	}
+}
+
+func TestBuildAssistantContextPackGlobalBudget(t *testing.T) {
+	items := []AssistantContextPackItem{}
+	for i := 0; i < 40; i++ {
+		items = append(items, AssistantContextPackItem{
+			Type:    AssistantContextSelection,
+			ID:      "sel-budget",
+			Content: strings.Repeat("A", contextSummaryMaxLen),
+		})
+	}
+	pack, err := BuildAssistantContextPack(items, AISecurityModeDefault)
+	if err != nil {
+		t.Fatalf("BuildAssistantContextPack error: %v", err)
+	}
+	if !pack.Truncated {
+		t.Fatal("expected context pack to be truncated")
+	}
+	if len(pack.Dropped) == 0 {
+		t.Fatal("expected dropped items after budget exceeded")
+	}
+	total := 0
+	for _, item := range pack.Items {
+		total += assistantContextEntrySummaryChars(item)
+	}
+	if total > contextPackMaxSummaryChars {
+		t.Fatalf("summary chars = %d, want <= %d", total, contextPackMaxSummaryChars)
 	}
 }

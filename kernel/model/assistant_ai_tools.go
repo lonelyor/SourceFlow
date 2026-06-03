@@ -522,6 +522,9 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		ret.Data["securityEscalatable"] = securityResult.Escalatable
 		ret.Data["securityTargetType"] = targetType
 		ret.Data["securityTargetIDs"] = targetIDs
+		if preview := buildAssistantAIToolPreviewPatch(def, context, args); nil != preview {
+			ret.Data["previewPatch"] = preview
+		}
 		ret.Error = securityResult.Reason
 		ret.Summary = ret.Error
 		audit.Status = "blocked_security"
@@ -535,6 +538,17 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		ret.Summary = "已生成工具预览，未执行真实写入"
 		audit.Status = "preview"
 		return ret, nil
+	}
+
+	if assistantAIToolIsWrite(def) && !assistantAIToolDirectWriteRequested(args) {
+		if preview := buildAssistantAIToolPreviewPatch(def, context, args); nil != preview {
+			ret.Data["previewPatch"] = preview
+			ret.Decision = AssistantAIToolModeConfirm
+			ret.RequiresConfirm = false
+			ret.Summary = "已生成修改预览，请审阅补丁后应用"
+			audit.Status = "preview"
+			return ret, nil
+		}
 	}
 
 	switch decision {
@@ -568,6 +582,34 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 	audit.Status = "executed"
 	audit.TargetID = targetID
 	return ret, nil
+}
+
+func assistantAIToolIsWrite(def *AssistantAIToolDefinition) bool {
+	return nil != def && "write" == strings.TrimSpace(def.Category)
+}
+
+func assistantAIToolDirectWriteRequested(args map[string]interface{}) bool {
+	if nil == args {
+		return false
+	}
+	for _, key := range []string{"executeWrite", "directWrite"} {
+		raw, ok := args[key]
+		if !ok || nil == raw {
+			continue
+		}
+		switch value := raw.(type) {
+		case bool:
+			if value {
+				return true
+			}
+		case string:
+			normalized := strings.ToLower(strings.TrimSpace(value))
+			if "true" == normalized || "1" == normalized || "yes" == normalized {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func countAssistantAIToolSessionBatch(db *dbsql.DB, sessionID string, def *AssistantAIToolDefinition, targetIDs []string) int {

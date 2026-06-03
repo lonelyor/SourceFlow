@@ -165,31 +165,23 @@ const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
         },
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
-            if (url === "/api/block/getBlockInfo") {
-                if (payload.id === "block-1") {
-                    return {code: 0, data: {rootID: "root-1"}};
+            if (url === "/api/assistant/patch/apply") {
+                const operation = payload.operation || {};
+                if (operation.id === "dup") {
+                    return {code: -1, msg: "selected source appears multiple times in the target block"};
                 }
-                if (payload.id === "empty-block") {
-                    return {code: 0, data: {rootID: "root-1"}};
+                if (operation.id === "stale-selection") {
+                    return {code: -1, msg: "selected source no longer exists in the target block"};
                 }
-                if (payload.id === "unknown-block") {
-                    return {code: 0, data: {}};
+                if (operation.targetId === "root-1" && (operation.type === "delete-block" || operation.type === "replace-block")) {
+                    return {code: -1, msg: "patch operation cannot modify the whole note root"};
                 }
-                return {code: 0, data: {rootID: payload.id}};
+                if (operation.targetId === "unknown-block") {
+                    return {code: -1, msg: "patch target block was not found"};
+                }
+                return {code: 0, data: {appliedTargetId: operation.type === "create-note" ? "doc-created" : operation.targetId || "block-created"}};
             }
-            if (url === "/api/block/getBlockKramdown") {
-                if (payload.id === "block-1") {
-                    return {code: 0, data: {kramdown: "重复。重复。"}};
-                }
-                if (payload.id === "empty-block") {
-                    return {code: 0, data: {kramdown: ""}};
-                }
-                return {code: -1};
-            }
-            if (url === "/api/filetree/createDocWithMd") {
-                return {code: 0, data: "doc-created"};
-            }
-            return {code: 0, data: [{doOperations: [{id: "block-created"}]}]};
+            return {code: -1, msg: `unexpected legacy patch endpoint: ${url}`};
         },
     },
     "../../util/highlightById": {
@@ -242,6 +234,7 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     return applyModule.applyAssistantPatchOperation(attrsPatch, attrsPatch.operations[0], applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "attrs patch should apply");
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "set-attrs"));
     return applyModule.applyAssistantPatchOperation({
         ...insertPatch,
         operations: [{
@@ -260,8 +253,9 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     }, applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "create-note patch should apply");
-    assert(fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
-    assert(fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd" && item.payload.path === "/AI/新笔记"));
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "create-note"));
+    assert(!fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
+    assert(!fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd"));
     return applyModule.applyAssistantPatchOperation({
         id: "safe-replace-block",
         source: "skill",
@@ -280,7 +274,8 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     }, applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "replace-block should still update non-root blocks");
-    assert(fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "block-1"));
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "replace-block" && item.payload.operation.targetId === "block-1"));
+    assert(!fetchCalls.some((item) => item.url === "/api/block/updateBlock"));
     return applyModule.applyAssistantPatchOperation({
         id: "unsafe-delete-root",
         source: "skill",

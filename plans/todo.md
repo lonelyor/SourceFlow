@@ -111,4 +111,8 @@
 - [x] AI 安全闭环补齐：以当前实现 `storage/ai_security.json` 为唯一存储真相源；白名单和能力开关由后端安全内核决策；patch review 接受前统一调用后端安全检查；单次提权接入真实操作流程；前端移除安全默认能力矩阵复制。
   - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、AI 安全 Go 目标测试和 API 编译通过。
 - [x] AI/Embedding 密钥保存语义显式化：后端响应只暴露 `hasAPIKey`，前端用掩码表示已有密钥，请求用 `apiKeyAction=keep|replace|clear` 区分保留、替换和清空，避免空字符串多义。
+- [x] AI 助手生产级加固阶段 A：后端化 patch apply，前端接受 patch 不再直调普通块/文件树写接口。
+- [x] AI 助手生产级加固阶段 B：写工具默认只返回 `previewPatch`，Dock 默认路径不执行真实写入。
+- [x] AI 助手生产级加固阶段 C：来源上下文返回 dropped/errors，并加入全局预算；`@` 空 query 后端返回空结果。
+- [ ] AI 助手生产级后续阶段：AI Profile 彻底收敛到 `ai_profiles` 唯一真相源，Agent 队列/历史迁移到后端持久审计与执行锁。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

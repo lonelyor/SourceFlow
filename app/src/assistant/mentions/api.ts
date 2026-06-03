@@ -1,5 +1,5 @@
 import {fetchPost} from "../../util/fetch";
-import type {IMentionSearchResult, IContextPackItem, IContextPackEntry} from "./types";
+import type {IMentionSearchResult, IContextPackItem, IContextPackResponse} from "./types";
 import type {TSecurityMode} from "../security/types";
 
 export const searchMentionItems = (query: string, limit = 10, securityMode: TSecurityMode = "default"): Promise<IMentionSearchResult[]> => {
@@ -18,11 +18,16 @@ export const searchMentionItems = (query: string, limit = 10, securityMode: TSec
     });
 };
 
-export const buildContextPack = (items: IContextPackItem[], securityMode: TSecurityMode = "default"): Promise<IContextPackEntry[]> => {
+export const buildContextPack = (items: IContextPackItem[], securityMode: TSecurityMode = "default"): Promise<IContextPackResponse> => {
     return new Promise((resolve, reject) => {
         fetchPost("/api/assistant/context/buildContextPack", {items, securityMode}, (response: any) => {
-            if (response.code === 0 && response.data?.items) {
-                resolve(response.data.items);
+            if (response.code === 0 && response.data) {
+                resolve({
+                    items: Array.isArray(response.data.items) ? response.data.items : [],
+                    dropped: response.data.dropped || [],
+                    truncated: !!response.data.truncated,
+                    maxChars: response.data.maxChars,
+                });
             } else {
                 reject(new Error(response.msg || "Failed to build assistant context"));
             }
