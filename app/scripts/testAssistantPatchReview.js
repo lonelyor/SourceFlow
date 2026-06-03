@@ -155,6 +155,14 @@ const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
         showMessage: (message) => fetchCalls.push({url: "message", payload: message}),
     },
     "../../util/fetch": {
+        fetchPost: (url, payload, cb) => {
+            fetchCalls.push({url, payload});
+            if (url === "/api/assistant/security/checkPermission") {
+                cb({code: 0, data: {decision: "allow"}});
+                return;
+            }
+            cb({code: 0, data: {}});
+        },
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
             if (url === "/api/block/getBlockInfo") {

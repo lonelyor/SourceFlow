@@ -132,7 +132,7 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
                 } else {
                     showMessage(response.msg || assistantText("索引失败", "Indexing failed"), 5000, "error");
                 }
-            }, undefined, undefined, () => {
+            }, undefined, () => {
                 btn.disabled = false;
                 btn.textContent = assistantText("开始索引", "Start Indexing");
                 showMessage(assistantText("索引失败", "Indexing failed"), 5000, "error");

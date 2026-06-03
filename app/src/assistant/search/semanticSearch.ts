@@ -96,6 +96,9 @@ export const openSemanticSearchPanel = (app: App, parentElement: HTMLElement) =>
                 }
                 const results = response.data?.results || [];
                 renderSemanticSearchResults(results, resultsContainer, app);
+            }, undefined, (response: { msg?: string }) => {
+                loading.classList.add("fn__none");
+                resultsContainer.innerHTML = `<div class="b3-list__empty">${escapeHTML(response.msg || assistantText("搜索失败", "Search failed"))}</div>`;
             });
         };
 

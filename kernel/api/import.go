@@ -163,54 +163,14 @@ func importData(c *gin.Context) {
 	dataZipPath := filepath.Join(importDir, util.CurrentTimeSecondsStr()+".zip")
 	defer os.RemoveAll(dataZipPath)
 
-	var dataZipFile *os.File
-	var fileReader io.ReadCloser
-	defer func() {
-		if dataZipFile != nil {
-			_ = dataZipFile.Close()
-		}
-		if fileReader != nil {
-			_ = fileReader.Close()
-		}
-	}()
-
-	dataZipFile, err = os.Create(dataZipPath)
-	if err != nil {
-		logging.LogErrorf("create temp file failed: %s", err)
-		ret.Code = -1
-		ret.Msg = "create temp file failed"
-		return
-	}
 	file := form.File["file"][0]
 	logging.LogInfof("import data [name=%s, size=%d]", file.Filename, file.Size)
-	fileReader, err = file.Open()
-	if err != nil {
-		logging.LogErrorf("open upload file failed: %s", err)
+	if err = saveImportUpload(file, dataZipPath, ".zip"); err != nil {
+		logging.LogErrorf("write import data .zip failed: %s", err)
 		ret.Code = -1
-		ret.Msg = "open file failed"
+		ret.Msg = err.Error()
 		return
 	}
-	_, err = io.Copy(dataZipFile, fileReader)
-	if err != nil {
-		logging.LogErrorf("read upload file failed: %s", err)
-		ret.Code = -1
-		ret.Msg = "read file failed"
-		return
-	}
-	if err = dataZipFile.Close(); err != nil {
-		logging.LogErrorf("close file failed: %s", err)
-		ret.Code = -1
-		ret.Msg = "close file failed"
-		return
-	}
-	dataZipFile = nil
-	if err = fileReader.Close(); err != nil {
-		logging.LogErrorf("close upload reader failed: %s", err)
-		ret.Code = -1
-		ret.Msg = "close file failed"
-		return
-	}
-	fileReader = nil
 
 	model.TryCreateProtectionSnapshot("import-data")
 

@@ -69,6 +69,8 @@
 - [x] 按 `plans/rules.md` 完成 AI 安全/来源审计修复：安全配置归一化、`securityMode` 全链路透传、来源读权限检查、批量阈值会话累计、来源引用 ID metadata 与点击跳转、来源解析竞态和发送失败回滚。
 - [x] 完成审计衍生边界修复：AI 安全测试隔离 `DataDir` 并清理运行时残留；Embedding/流式错误响应限制读取大小；向量索引按 rune 截断；SQL ID/hash 列表查询改用占位符 helper，搜索 box/path 过滤器做空值过滤和字面量转义。
 - [x] 本轮验证：`go test -vet=off ./model -count=1`、`go test -vet=off ./sql -run Test -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run typecheck:app`、`git diff --check`。
+- [x] 四性审计第一批低风险修复：`putFile` 有界流式写入并释放上传句柄，`importData` 复用统一上传限制，失败写入临时文件自动清理，同步间隔输入做前后端归一化，Embedding 索引和语义搜索失败后恢复 UI 状态，patch review 测试补齐安全检查 mock。
+- [x] 本批验证：`go test -vet=off ./model -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:assistant-patch-review`、`git diff --check`。
 
 ## 后续（AI 原生笔记助手 v2，2026-06-02 定稿）
 

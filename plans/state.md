@@ -29,6 +29,9 @@
 - 2026-06-03 AI 安全闭环继续补齐：`/api/assistant/security/checkPermission` 接受 capability/toolId 并返回 `escalatable`；默认权限导致的写入拒绝可由用户单次提权，硬禁止、黑名单和能力关闭不可提权；patch review 和 Agent/tool patch 接受前统一调用后端安全内核；前端 AI 安全设置页移除复制的默认能力矩阵，加载失败时不构造本地默认配置。
 - 2026-06-03 本轮同时完成资源与 SQL 边界加固：Embedding/Anthropic/Gemini 响应体读取增加上限，Embedding 配置读写做 trim 归一化，向量索引文本按 rune 截断；`kernel/sql` 新增 ID 列表占位符 helper，修复资产 hash 删除、子块/引用/标题排除等直接 ID 列表拼接点；搜索框 box/path 过滤空值并转义 SQL 字面量。
 - 2026-06-03 本轮验证已通过 `go test -vet=off ./model -count=1`、`go test -vet=off ./sql -run Test -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run typecheck:app` 和 `git diff --check`。
+- 2026-06-03 四性审计第一批低风险修复完成：`/api/file/putFile` 改为有界流式写入并关闭上传句柄；`/api/import/importData` 复用 `saveImportUpload` 的统一上传限制；`WriteFileSaferByReader` 失败路径会关闭并清理临时文件；同步间隔前后端拒绝/修正非法数值；Embedding 全量索引和语义搜索在失败回调中恢复按钮/loading；`test:assistant-patch-review` 补齐安全检查 mock。
+- 2026-06-03 本批核对：AI/security 关键修复（能力开关全关幂等、Profile API Key 脱敏与空值保留、HTTP client timeout 缓存按 profile timeout 区分、BlockTree recover 防 panic）已存在于当前 HEAD；本批未提交 diff 仅包含资源边界、错误恢复和测试 mock。
+- 2026-06-03 本批验证已通过 `go test -vet=off ./model -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:assistant-patch-review` 和 `git diff --check`。
 - 2026-06-02 工作台稳定化阶段已完成：工作台默认固定到侧边栏活动栏；`openWorkbenchDialog` 打开时先显示 loading；查询或渲染失败时显示可重试错误页并记录错误；工作台查询 API 和关联块搜索失败不再被当成空结果吞掉。
 - 工作台稳定化阶段已新增 `test:workbench-stability`，并通过 `pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app` 和 `git diff --check`。
 - 2026-06-02 AI 原生笔记助手阶段 1 已完成：AI Dock 默认固定侧边栏保持不变；未配置 profile 时主消息区、模型入口、会话空状态和输入区统一要求配置真实 AI 提供商/模型；配置按钮统一进入 AI 设置页；未配置时禁用输入、附件和发送，避免表现成可直接对话。
