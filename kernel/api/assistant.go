@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lonelyor/sourceflow/kernel/model"
@@ -18,6 +19,7 @@ type assistantAIIDRequest struct {
 }
 
 type assistantAIProfileTestRequest struct {
+	ID        string `json:"id"`
 	Provider  string `json:"provider"`
 	BaseURL   string `json:"baseURL"`
 	APIKey    string `json:"apiKey"`
@@ -89,7 +91,7 @@ func assistantAIProfileList(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+	ret.Data = model.SanitizeAssistantAIProfiles(data)
 }
 
 func assistantAIProfileSave(c *gin.Context) {
@@ -109,7 +111,7 @@ func assistantAIProfileSave(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+	ret.Data = model.SanitizeAssistantAIProfile(data)
 }
 
 func assistantAIProfileDelete(c *gin.Context) {
@@ -139,7 +141,7 @@ func assistantAIProfileTest(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
+	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, assistantAIProfileRequestAPIKey(req), req.Proxy, req.UserAgent)
 }
 
 func assistantAIProfileModels(c *gin.Context) {
@@ -152,7 +154,21 @@ func assistantAIProfileModels(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
+	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, assistantAIProfileRequestAPIKey(req), req.Proxy, req.UserAgent)
+}
+
+func assistantAIProfileRequestAPIKey(req *assistantAIProfileTestRequest) string {
+	if nil == req || "" != strings.TrimSpace(req.APIKey) || "" == strings.TrimSpace(req.ID) {
+		if nil == req {
+			return ""
+		}
+		return req.APIKey
+	}
+	profile, err := model.GetAssistantAIProfile(req.ID)
+	if nil != err || nil == profile {
+		return req.APIKey
+	}
+	return profile.APIKey
 }
 
 func assistantAISessionList(c *gin.Context) {

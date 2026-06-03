@@ -118,7 +118,8 @@ const createDraft = (providers: IAssistantAIProviderType[], profile?: IAssistant
         name: profile?.name || "",
         provider,
         baseURL: profile?.baseURL || providerInfo?.baseURL || "",
-        apiKey: profile?.apiKey || "",
+        apiKey: "",
+        hasAPIKey: !!profile?.hasAPIKey,
         model,
         userAgent: profile?.userAgent || "",
         proxy: profile?.proxy || "",
@@ -262,7 +263,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 </label>
                 <label class="fn__flex-column assistant-profiles__field">
                     <span>API Key</span>
-                    <input type="password" class="b3-text-field" data-field="apiKey" value="${escapeAttr(state.draft.apiKey || "")}" placeholder="sk-...">
+                    <input type="password" class="b3-text-field" data-field="apiKey" value="${escapeAttr(state.draft.apiKey || "")}" placeholder="${escapeAttr(state.draft.hasAPIKey ? assistantText("留空保持已有密钥", "Leave blank to keep existing key") : "sk-...")}">
                 </label>
             </div>
             <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
@@ -744,6 +745,7 @@ export class AssistantAIProfilesPanel {
         this.render();
         try {
             const result = await testAssistantAIConnection({
+                id: this.state.draft.id || "",
                 provider: this.state.draft.provider || "",
                 baseURL: this.state.draft.baseURL || "",
                 apiKey: this.state.draft.apiKey || "",
@@ -765,6 +767,7 @@ export class AssistantAIProfilesPanel {
         this.render();
         try {
             const data = await listAssistantAIModels({
+                id: this.state.draft.id || "",
                 provider: this.state.draft.provider || "",
                 baseURL: this.state.draft.baseURL || "",
                 apiKey: this.state.draft.apiKey || "",

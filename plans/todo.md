@@ -106,4 +106,6 @@
   - [x] 验收：TypeScript 编译通过
 - [x] AI 助手生产细节修复：历史会话单条删除、置顶/取消置顶，置顶状态持久化且重复置顶幂等；输入单独 `@` 不再请求后端空 query；文档树节点与空白菜单统一 `@AI` 来源入口；目标笔记未固定时跟随当前活动笔记；AI 设置页 Embedding/安全分区样式修复。
   - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、会话置顶 Go 回归、API 编译、`go build ./...` 与 `git diff --check` 通过。
+- [x] AI 安全闭环补齐：以当前实现 `storage/ai_security.json` 为唯一存储真相源；白名单和能力开关由后端安全内核决策；patch review 接受前统一调用后端安全检查；单次提权接入真实操作流程；前端移除安全默认能力矩阵复制。
+  - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、AI 安全 Go 目标测试和 API 编译通过。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

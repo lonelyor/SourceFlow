@@ -5,6 +5,9 @@ import {assistantText} from "../constants";
 import {ICurrentNoteContext, invalidateAssistantNoteContextCache} from "../common/note";
 import type {IAssistantSkillContext} from "../skills/types";
 import type {IAssistantEditPatch, IAssistantPatchOperation} from "./types";
+import {checkPermission} from "../security/api";
+import {requestSecurityEscalation, securityEscalationRejectedMessage} from "../security/escalation";
+import type {TSecurityCapability, TSecurityMode, TSecurityRisk} from "../security/types";
 
 const normalizeMarkdown = (value: string) => `${value || ""}`.trim();
 
@@ -36,6 +39,101 @@ interface IPatchTargetInfo {
     path?: string;
     rootID?: string;
 }
+
+interface IAssistantPatchApplyOptions {
+    securityMode?: TSecurityMode;
+    onSecurityModeChange?: (mode: TSecurityMode) => Promise<void> | void;
+}
+
+const patchRiskOrder: Record<TSecurityRisk, number> = {
+    L1: 1,
+    L2: 2,
+    L3: 3,
+    L4: 4,
+    L5: 5,
+    L6: 6,
+};
+
+const normalizePatchRisk = (risk: string | undefined): TSecurityRisk => {
+    switch (`${risk || ""}`.trim()) {
+        case "L1":
+            return "L1";
+        case "L2":
+            return "L2";
+        case "L4":
+            return "L4";
+        case "L5":
+            return "L5";
+        case "L6":
+            return "L6";
+        default:
+            return "L3";
+    }
+};
+
+const patchOperationSecurityRisk = (patch: IAssistantEditPatch, operation: IAssistantPatchOperation): TSecurityRisk => {
+    const operationRisk = operation.type === "replace-block" || operation.type === "delete-block" || operation.type === "replace-selection" || operation.type === "rename-note"
+        ? "L3"
+        : "L2";
+    const patchRisk = normalizePatchRisk(patch.risk);
+    return patchRiskOrder[patchRisk] > patchRiskOrder[operationRisk] ? patchRisk : operationRisk;
+};
+
+const patchOperationCapability = (operation: IAssistantPatchOperation): TSecurityCapability => {
+    switch (operation.type) {
+        case "create-note":
+        case "create-child-note":
+            return "create";
+        case "delete-block":
+            return "deleteBlock";
+        default:
+            return "write";
+    }
+};
+
+const ensurePatchOperationSecurity = async (
+    patch: IAssistantEditPatch,
+    operation: IAssistantPatchOperation,
+    context: IAssistantSkillContext,
+    options: IAssistantPatchApplyOptions = {},
+) => {
+    const note = context.note;
+    if (!note?.rootID) {
+        return false;
+    }
+    const risk = patchOperationSecurityRisk(patch, operation);
+    const target = note.title || operation.targetLabel || note.rootID;
+    const result = await checkPermission({
+        mode: options.securityMode,
+        risk,
+        targetType: "note",
+        targetIds: [note.rootID],
+        sessionBatchCount: patch.operations.filter((item) => (item.status || "pending") === "pending").length || 1,
+        capability: patchOperationCapability(operation),
+    });
+    if (result.decision === "allow") {
+        return true;
+    }
+    if (result.decision === "deny" && !result.escalatable) {
+        showMessage(result.reason || assistantText("当前安全配置禁止该 AI 操作", "The current security config blocks this AI operation"), 5000, "error");
+        return false;
+    }
+    const action = await requestSecurityEscalation({
+        currentMode: options.securityMode || "default",
+        risk,
+        target,
+        reason: result.reason,
+        allowUpgrade: !!options.onSecurityModeChange,
+    });
+    if (action === "reject") {
+        showMessage(securityEscalationRejectedMessage(), 4000, "error");
+        return false;
+    }
+    if (action === "upgrade-auto") {
+        await options.onSecurityModeChange?.("autoReview");
+    }
+    return true;
+};
 
 const highlightPatchTarget = (context: IAssistantSkillContext, blockID?: string) => {
     if (!context.protyle || !blockID) {
@@ -305,9 +403,13 @@ export const applyAssistantPatchOperation = async (
     patch: IAssistantEditPatch,
     operation: IAssistantPatchOperation,
     context: IAssistantSkillContext,
+    options: IAssistantPatchApplyOptions = {},
 ) => {
     if (!context.note) {
         showMessage(assistantText("当前没有可用的笔记上下文", "The current note context is unavailable"), 4000, "error");
+        return false;
+    }
+    if (!await ensurePatchOperationSecurity(patch, operation, context, options)) {
         return false;
     }
     let result = {ok: false, blockID: ""};
@@ -346,12 +448,12 @@ export const applyAssistantPatchOperation = async (
     return true;
 };
 
-export const applyAssistantPatch = async (patch: IAssistantEditPatch, context: IAssistantSkillContext) => {
+export const applyAssistantPatch = async (patch: IAssistantEditPatch, context: IAssistantSkillContext, options: IAssistantPatchApplyOptions = {}) => {
     for (const operation of patch.operations) {
         if ((operation.status || "pending") !== "pending") {
             continue;
         }
-        const ok = await applyAssistantPatchOperation(patch, operation, context);
+        const ok = await applyAssistantPatchOperation(patch, operation, context, options);
         if (!ok) {
             return false;
         }

@@ -52,6 +52,9 @@
 - 不与 `conf/assistant.json` 合并，避免安全配置变更频率与 AI 模型配置互相影响。
 - 配置读写必须经过 `NormalizeAISecurityConfig`，统一补默认值、裁剪批量阈值、归一化权限模式和黑白名单条目。
 - Dock 聊天、流式聊天、编辑、工具确认、`@` 来源搜索和上下文包构建都必须透传当前 `securityMode`，后端缺省时回落到安全配置默认模式。
+- Patch review 接受 `append-note`、`insert-after-block`、`replace-selection`、`replace-block`、`create-note`、`create-child-note`、`delete-block`、`rename-note`、`set-attrs` 前必须调用后端安全检查 API；后端返回硬禁止、黑名单或能力关闭时不得进入一次性提权。
+- 单次提权只允许处理后端标记为 `escalatable` 的权限模式/人工确认结果；“本次允许”只放行当前 tool 或 patch operation，“提升为自动审查”必须同步更新当前 Dock 会话安全模式。
+- 前端不得复制 AI 安全配置默认能力矩阵；设置页和 Dock 只能使用后端 `getConfig` 返回的归一化配置，加载失败时失败关闭或保留当前会话状态。
 - 来源引用发送时只持久化 ID、类型、标题、路径等定位元数据；正文摘要仅作为当次 system prompt 上下文，不写入消息 metadata。
 
 ### AI 原生笔记助手开发阶段（v2）

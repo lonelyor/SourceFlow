@@ -77,7 +77,7 @@ func TestAssistantAIConnection(provider, baseURL, apiKey, proxy, userAgent strin
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 	return &AssistantAIConnectionTestResult{
 		OK:      false,
-		Message: fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))),
+		Message: fmt.Sprintf("HTTP %d: %s", resp.StatusCode, sanitizeAIProviderErrorBody(string(body))),
 		Latency: latency,
 	}
 }
@@ -259,4 +259,12 @@ func getAssistantAIStaticModels(provider string) []*AssistantAIModelEntry {
 		}
 	}
 	return nil
+}
+
+func sanitizeAIProviderErrorBody(body string) string {
+	s := strings.TrimSpace(body)
+	if runic := []rune(s); len(runic) > 256 {
+		s = string(runic[:256])
+	}
+	return s
 }

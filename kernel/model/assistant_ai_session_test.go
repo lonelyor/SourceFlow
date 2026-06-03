@@ -93,3 +93,54 @@ func TestAssistantAISessionPinningSortsAndPersists(t *testing.T) {
 		t.Fatalf("unpinned sessions should return to update order, got %s", sessions[0].ID)
 	}
 }
+
+func TestAssistantAIProfileSanitizeAndBlankSavePreservesAPIKey(t *testing.T) {
+	withAssistantAISessionTestDB(t)
+
+	created, err := SaveAssistantAIProfile(&AssistantAIProfile{
+		Name:     "Fake",
+		Provider: AssistantAIProviderFake,
+		BaseURL:  "sourceflow://fake",
+		APIKey:   "secret-key",
+		Model:    "sourceflow-fake-chat",
+	})
+	if err != nil {
+		t.Fatalf("save profile with API key: %s", err)
+	}
+
+	views := SanitizeAssistantAIProfiles([]*AssistantAIProfile{created})
+	if len(views) != 1 {
+		t.Fatalf("sanitized profile length = %d, want 1", len(views))
+	}
+	if views[0].APIKey != "" {
+		t.Fatalf("sanitized profile should hide API key, got %q", views[0].APIKey)
+	}
+	if !views[0].HasAPIKey {
+		t.Fatal("sanitized profile should expose hasAPIKey")
+	}
+
+	updated, err := SaveAssistantAIProfile(&AssistantAIProfile{
+		ID:        created.ID,
+		Name:      "Fake Updated",
+		Provider:  AssistantAIProviderFake,
+		BaseURL:   "sourceflow://fake",
+		APIKey:    "",
+		Model:     "sourceflow-fake-chat",
+		IsDefault: created.IsDefault,
+		Settings:  created.Settings,
+	})
+	if err != nil {
+		t.Fatalf("save profile with blank API key: %s", err)
+	}
+	if updated.APIKey != "secret-key" {
+		t.Fatalf("blank API key save should preserve existing key, got %q", updated.APIKey)
+	}
+
+	loaded, err := GetAssistantAIProfile(created.ID)
+	if err != nil {
+		t.Fatalf("load profile: %s", err)
+	}
+	if loaded.APIKey != "secret-key" {
+		t.Fatalf("stored API key should be preserved, got %q", loaded.APIKey)
+	}
+}

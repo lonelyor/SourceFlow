@@ -57,6 +57,7 @@ export const renderEscalationDialog = (options: {
     risk: string;
     target: string;
     visible: boolean;
+    allowUpgrade?: boolean;
 }): string => {
     if (!options.visible) return "";
     return `<div class="assistant-ai__escalation-overlay" data-role="escalation-overlay">
@@ -78,7 +79,7 @@ export const renderEscalationDialog = (options: {
         </div>
         <div class="assistant-ai__escalation-actions">
             <button type="button" class="b3-button b3-button--outline" data-action="escalation-allow-once">${escapeHTML(assistantText("本次允许", "Allow once"))}</button>
-            <button type="button" class="b3-button b3-button--outline" data-action="escalation-upgrade-auto">${escapeHTML(assistantText("提升为自动审查", "Upgrade to Auto Review"))}</button>
+            ${options.allowUpgrade === false ? "" : `<button type="button" class="b3-button b3-button--outline" data-action="escalation-upgrade-auto">${escapeHTML(assistantText("提升为自动审查", "Upgrade to Auto Review"))}</button>`}
             <button type="button" class="b3-button b3-button--outline" data-action="escalation-reject">${escapeHTML(assistantText("拒绝", "Reject"))}</button>
         </div>
     </div>

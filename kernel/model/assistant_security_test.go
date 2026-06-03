@@ -73,6 +73,9 @@ func TestCheckAISecurityDefaultMode(t *testing.T) {
 	if l3.Decision != AISecurityDeny {
 		t.Errorf("default mode L3 should deny, got %s", l3.Decision)
 	}
+	if !l3.Escalatable {
+		t.Error("default mode L3 denial should be escalatable")
+	}
 }
 
 func TestCheckAISecurityAutoReviewMode(t *testing.T) {
@@ -163,6 +166,35 @@ func TestCheckAISecurityCapabilityReadDenied(t *testing.T) {
 	cfg.Capabilities.Read = false
 	if err := SetAISecurityConfig(cfg); nil != err {
 		t.Fatalf("SetAISecurityConfig error: %v", err)
+	}
+
+	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:       AISecurityModeFullAccess,
+		Risk:       AISecurityRiskL1,
+		TargetType: "note",
+		TargetIDs:  []string{"id1"},
+		Capability: AISecurityCapabilityRead,
+	})
+	if result.Decision != AISecurityDeny {
+		t.Errorf("read disabled should deny, got %s", result.Decision)
+	}
+	if result.Escalatable {
+		t.Error("capability denial must not be escalatable")
+	}
+}
+
+func TestAISecurityCapabilitiesAllFalsePersists(t *testing.T) {
+	withTempAISecurityConfig(t)
+
+	cfg := NewAISecurityConfig()
+	cfg.Capabilities = AISecurityCapabilities{}
+	if err := SetAISecurityConfig(cfg); nil != err {
+		t.Fatalf("SetAISecurityConfig error: %v", err)
+	}
+
+	saved := GetAISecurityConfig()
+	if saved.Capabilities.Read || saved.Capabilities.Write || saved.Capabilities.Execute || saved.Capabilities.Create || saved.Capabilities.DeleteBlock || saved.Capabilities.DeleteNote || saved.Capabilities.Move {
+		t.Fatalf("expected explicit all-false capabilities to persist, got %+v", saved.Capabilities)
 	}
 
 	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{

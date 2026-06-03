@@ -109,10 +109,14 @@ func NewAISecurityConfig() *AISecurityConfig {
 }
 
 func cloneAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
-	return NormalizeAISecurityConfig(cfg)
+	return normalizeAISecurityConfig(cfg, true)
 }
 
 func NormalizeAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
+	return normalizeAISecurityConfig(cfg, false)
+}
+
+func normalizeAISecurityConfig(cfg *AISecurityConfig, preserveZeroCapabilities bool) *AISecurityConfig {
 	defaults := NewAISecurityConfig()
 	if cfg == nil {
 		return defaults
@@ -121,7 +125,7 @@ func NormalizeAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
 	normalized.DefaultMode = NormalizeAISecurityMode(cfg.DefaultMode, defaults.DefaultMode)
 	normalized.Blacklist = normalizeAISecurityRules(cfg.Blacklist)
 	normalized.Whitelist = normalizeAISecurityRules(cfg.Whitelist)
-	normalized.Capabilities = normalizeAISecurityCapabilities(cfg.Capabilities, defaults.Capabilities)
+	normalized.Capabilities = normalizeAISecurityCapabilities(cfg.Capabilities, defaults.Capabilities, preserveZeroCapabilities)
 	normalized.BatchThreshold = cfg.BatchThreshold
 	if normalized.BatchThreshold <= 0 {
 		normalized.BatchThreshold = AISecurityDefaultBatchThreshold
@@ -131,8 +135,11 @@ func NormalizeAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
 	return &normalized
 }
 
-func normalizeAISecurityCapabilities(capabilities AISecurityCapabilities, defaults AISecurityCapabilities) AISecurityCapabilities {
+func normalizeAISecurityCapabilities(capabilities AISecurityCapabilities, defaults AISecurityCapabilities, preserveZero bool) AISecurityCapabilities {
 	if !capabilities.Read && !capabilities.Write && !capabilities.Execute && !capabilities.Create && !capabilities.DeleteBlock && !capabilities.DeleteNote && !capabilities.Move {
+		if preserveZero {
+			return capabilities
+		}
 		return defaults
 	}
 	return capabilities
@@ -220,7 +227,7 @@ func getAISecurityConfigLocked() *AISecurityConfig {
 		logging.LogWarnf("parse AI security config [%s] failed: %s", p, err)
 		cfg = NewAISecurityConfig()
 	}
-	cfg = NormalizeAISecurityConfig(cfg)
+	cfg = normalizeAISecurityConfig(cfg, strings.Contains(string(data), `"capabilities"`))
 	aiSecurityConfigCache = cfg
 	return cfg
 }
@@ -231,7 +238,7 @@ func SetAISecurityConfig(cfg *AISecurityConfig) error {
 	if cfg == nil {
 		cfg = NewAISecurityConfig()
 	}
-	cfg = NormalizeAISecurityConfig(cfg)
+	cfg = normalizeAISecurityConfig(cfg, true)
 	dir := filepath.Dir(aiSecurityConfigPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create AI security config dir: %w", err)
@@ -276,6 +283,7 @@ type AISecurityAffectedItem struct {
 type AISecurityPermissionResult struct {
 	Decision      AISecurityDecision       `json:"decision"`
 	Reason        string                   `json:"reason,omitempty"`
+	Escalatable   bool                     `json:"escalatable,omitempty"`
 	AffectedItems []AISecurityAffectedItem `json:"affectedItems,omitempty"`
 }
 
@@ -340,6 +348,7 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 		return &AISecurityPermissionResult{
 			Decision:      AISecurityConfirm,
 			Reason:        fmt.Sprintf("本次操作累计影响 %d 篇笔记，达到批量阈值 %d，需要人工确认", sessionBatchCount, cfg.BatchThreshold),
+			Escalatable:   true,
 			AffectedItems: buildAffectedItems(targetIDs, targetType),
 		}
 	}
@@ -347,8 +356,9 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 	decision := permissionByModeAndRisk(mode, risk)
 	if decision == AISecurityDeny {
 		return &AISecurityPermissionResult{
-			Decision: AISecurityDeny,
-			Reason:   fmt.Sprintf("当前权限模式 [%s] 不允许执行 %s 风险操作", mode, risk),
+			Decision:    AISecurityDeny,
+			Reason:      fmt.Sprintf("当前权限模式 [%s] 不允许执行 %s 风险操作", mode, risk),
+			Escalatable: isWriteRisk(risk),
 		}
 	}
 	if decision == AISecurityConfirm {
@@ -358,8 +368,9 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 			}
 		}
 		return &AISecurityPermissionResult{
-			Decision: AISecurityConfirm,
-			Reason:   fmt.Sprintf("%s 风险操作 [%s] 需要确认", risk, targetType),
+			Decision:    AISecurityConfirm,
+			Reason:      fmt.Sprintf("%s 风险操作 [%s] 需要确认", risk, targetType),
+			Escalatable: true,
 		}
 	}
 
@@ -627,8 +638,12 @@ func matchesScope(ruleID string, ruleType string, targetID string) bool {
 	return false
 }
 
-func getBlockTreeRecover(id string) *treenode.BlockTree {
-	defer func() { recover() }()
+func getBlockTreeRecover(id string) (ret *treenode.BlockTree) {
+	defer func() {
+		if recover() != nil {
+			ret = nil
+		}
+	}()
 	return treenode.GetBlockTree(id)
 }
 
@@ -669,14 +684,11 @@ func buildAffectedItems(ids []string, targetType string) []AISecurityAffectedIte
 	for _, id := range ids {
 		title := id
 		path := ""
-		func() {
-			defer func() { recover() }()
-			bt := treenode.GetBlockTree(id)
-			if bt != nil {
-				title = bt.HPath
-				path = bt.Path
-			}
-		}()
+		bt := getBlockTreeRecover(id)
+		if bt != nil {
+			title = bt.HPath
+			path = bt.Path
+		}
 		items = append(items, AISecurityAffectedItem{
 			ID:    id,
 			Title: title,

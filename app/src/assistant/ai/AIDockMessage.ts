@@ -559,20 +559,27 @@ export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, message
     ctx.render();
     try {
         const metadata = buildAIDockPatchHistoryMetadata(ctx, context);
+        const securityOptions = {
+            securityMode: ctx.securityMode,
+            onSecurityModeChange: async (mode: typeof ctx.securityMode) => {
+                ctx.setSecurityMode(mode);
+                ctx.render();
+            },
+        };
         if (operationId) {
             const operation = patch.operations.find((item) => item.id === operationId);
             if (!operation) {
                 showMessage(assistantText("没有找到要应用的补丁项", "Patch operation not found"), 4000, "error");
                 return;
             }
-            if (await applyAssistantPatchOperation(patch, operation, context)) {
+            if (await applyAssistantPatchOperation(patch, operation, context, securityOptions)) {
                 recordAssistantPatchHistory(patch, metadata);
             } else {
                 recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
             }
             return;
         }
-        if (await applyAssistantPatch(patch, context)) {
+        if (await applyAssistantPatch(patch, context, securityOptions)) {
             recordAssistantPatchHistory(patch, metadata);
         } else {
             recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);

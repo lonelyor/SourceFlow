@@ -13,11 +13,13 @@ type aiSecurityConfigRequest struct {
 }
 
 type aiSecurityCheckRequest struct {
-	Mode             string   `json:"mode"`
-	Risk             string   `json:"risk"`
-	TargetType       string   `json:"targetType"`
-	TargetIDs        []string `json:"targetIds"`
+	Mode              string   `json:"mode"`
+	Risk              string   `json:"risk"`
+	TargetType        string   `json:"targetType"`
+	TargetIDs         []string `json:"targetIds"`
 	SessionBatchCount int      `json:"sessionBatchCount"`
+	Capability        string   `json:"capability"`
+	ToolID            string   `json:"toolId"`
 }
 
 func assistantSecurityGetConfig(c *gin.Context) {
@@ -58,11 +60,15 @@ func assistantSecurityCheckPermission(c *gin.Context) {
 
 	mode := model.AISecurityMode(req.Mode)
 	risk := model.AISecurityRiskLevel(req.Risk)
-	if mode != model.AISecurityModeDefault && mode != model.AISecurityModeAutoReview && mode != model.AISecurityModeFullAccess {
-		ret.Code = -1
-		ret.Msg = "invalid mode"
-		return
-	}
-	result := model.CheckAISecurityPermission(mode, risk, req.TargetType, req.TargetIDs, req.SessionBatchCount)
+	mode = model.NormalizeAISecurityMode(mode, model.GetAISecurityConfig().DefaultMode)
+	result := model.CheckAISecurityPermissionForRequest(&model.AISecurityPermissionRequest{
+		Mode:              mode,
+		Risk:              risk,
+		TargetType:        req.TargetType,
+		TargetIDs:         req.TargetIDs,
+		SessionBatchCount: req.SessionBatchCount,
+		Capability:        req.Capability,
+		ToolID:            req.ToolID,
+	})
 	ret.Data = result
 }

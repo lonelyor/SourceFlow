@@ -15,6 +15,7 @@ export interface IAssistantAIProfile {
     provider: string;
     baseURL: string;
     apiKey: string;
+    hasAPIKey?: boolean;
     model: string;
     userAgent: string;
     proxy: string;
@@ -193,6 +194,7 @@ export interface IAssistantAIModelEntry {
 }
 
 export const testAssistantAIConnection = async (payload: {
+    id?: string;
     provider: string;
     baseURL: string;
     apiKey: string;
@@ -203,6 +205,7 @@ export const testAssistantAIConnection = async (payload: {
 };
 
 export const listAssistantAIModels = async (payload: {
+    id?: string;
     provider: string;
     baseURL: string;
     apiKey: string;

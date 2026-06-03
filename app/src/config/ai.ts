@@ -23,6 +23,7 @@ let panel: TAssistantAIProfilesPanelLike | null = null;
 let bindToken = 0;
 let embeddingConfig: TAssistantEmbeddingConfig | null = null;
 let securityConfig: ISecurityConfig | null = null;
+let securityConfigError = "";
 
 const embeddingSectionHTML = () => {
     const cfg = embeddingConfig || {provider: "", baseURL: "", apiKey: "", model: "", enabled: false};
@@ -131,24 +132,28 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
                 } else {
                     showMessage(response.msg || assistantText("索引失败", "Indexing failed"), 5000, "error");
                 }
+            }, undefined, undefined, () => {
+                btn.disabled = false;
+                btn.textContent = assistantText("开始索引", "Start Indexing");
+                showMessage(assistantText("索引失败", "Indexing failed"), 5000, "error");
             });
         });
     }
 };
 
-const defaultCapabilities = (): ISecurityCapabilities => ({
-    read: true,
-    write: true,
-    execute: false,
-    create: true,
-    deleteBlock: true,
-    deleteNote: false,
-    move: false,
-});
-
 const securitySectionHTML = () => {
-    const cfg = securityConfig || {defaultMode: "default", blacklist: [], whitelist: [], capabilities: defaultCapabilities(), batchThreshold: 10};
-    const cap = cfg.capabilities || defaultCapabilities();
+    if (!securityConfig) {
+        return `<div class="assistant-config__section b3-label fn__flex-column">
+    <div class="fn__flex config__item">
+        <div class="fn__flex-1">
+            ${escapeHTML(assistantText("AI 安全与权限", "AI Security & Permissions"))}
+            <div class="b3-label__text">${escapeHTML(securityConfigError || assistantText("正在从后端加载安全配置。", "Loading security config from backend."))}</div>
+        </div>
+    </div>
+</div>`;
+    }
+    const cfg = securityConfig;
+    const cap = cfg.capabilities;
     const capSwitch = (id: string, checked: boolean, label: string, labelEn: string) =>
         `<div class="fn__flex config__item">
         <div class="fn__flex-center fn__flex-1">${escapeHTML(assistantText(label, labelEn))}</div>
@@ -214,10 +219,12 @@ const securitySectionHTML = () => {
 const loadSecurityConfig = (container: HTMLElement) => {
     void getSecurityConfig().then((cfg) => {
         securityConfig = cfg;
+        securityConfigError = "";
         renderSecuritySection(container);
         bindSecurityEvents(container);
-    }).catch(() => {
-        securityConfig = {defaultMode: "default", blacklist: [], whitelist: [], capabilities: defaultCapabilities(), batchThreshold: 10};
+    }).catch((error) => {
+        securityConfig = null;
+        securityConfigError = error instanceof Error ? error.message : assistantText("安全配置加载失败", "Failed to load security config");
         renderSecuritySection(container);
         bindSecurityEvents(container);
     });
@@ -235,7 +242,7 @@ const bindSecurityEvents = (container: HTMLElement) => {
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
             if (!securityConfig) return;
-            const cfg = {...securityConfig};
+            const cfg = {...securityConfig, capabilities: {...securityConfig.capabilities}};
             cfg.defaultMode = ((container.querySelector("#securityDefaultMode") as HTMLSelectElement)?.value || "default") as ISecurityConfig["defaultMode"];
             cfg.batchThreshold = parseInt((container.querySelector("#securityBatchThreshold") as HTMLInputElement)?.value || "10", 10) || 10;
             container.querySelectorAll(".security-cap-switch").forEach((el) => {

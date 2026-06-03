@@ -103,8 +103,8 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 	defer resp.Body.Close()
 
 	if 400 <= resp.StatusCode {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
-		return nil, fmt.Errorf("Anthropic stream request failed (status %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("Anthropic stream request failed (status %d): %s", resp.StatusCode, sanitizeAIProviderErrorBody(string(body)))
 	}
 
 	return parseAnthropicSSEStream(resp.Body, onDelta)
