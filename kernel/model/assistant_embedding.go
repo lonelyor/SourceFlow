@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,9 @@ var (
 	embeddingConfigLock  sync.Mutex
 )
 
+const assistantEmbeddingResponseMaxBytes = 4 * 1024 * 1024
+const assistantEmbeddingErrorMaxBytes = 512 * 1024
+
 func embeddingConfigPath() string {
 	return filepath.Join(util.DataDir, "storage", "assistant_embedding.json")
 }
@@ -48,6 +52,15 @@ func cloneAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *AssistantEmbe
 	}
 	ret := *cfg
 	return &ret
+}
+
+func normalizeAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *AssistantEmbeddingConfig {
+	ret := cloneAssistantEmbeddingConfig(cfg)
+	ret.Provider = strings.TrimSpace(ret.Provider)
+	ret.BaseURL = strings.TrimRight(strings.TrimSpace(ret.BaseURL), "/")
+	ret.APIKey = strings.TrimSpace(ret.APIKey)
+	ret.Model = strings.TrimSpace(ret.Model)
+	return ret
 }
 
 func GetAssistantEmbeddingConfig() *AssistantEmbeddingConfig {
@@ -71,6 +84,7 @@ func getAssistantEmbeddingConfigLocked() *AssistantEmbeddingConfig {
 		logging.LogWarnf("parse embedding config [%s] failed: %s", p, err)
 		cfg = &AssistantEmbeddingConfig{}
 	}
+	cfg = normalizeAssistantEmbeddingConfig(cfg)
 	embeddingConfigCache = cfg
 	return cfg
 }
@@ -93,7 +107,7 @@ func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
 	if cfg == nil {
 		cfg = &AssistantEmbeddingConfig{}
 	}
-	cfg = cloneAssistantEmbeddingConfig(cfg)
+	cfg = normalizeAssistantEmbeddingConfig(cfg)
 	if "" == cfg.APIKey {
 		cfg.APIKey = getAssistantEmbeddingConfigLocked().APIKey
 	}
@@ -168,13 +182,23 @@ func GenerateEmbedding(text string, cfg *AssistantEmbeddingConfig) ([]float64, e
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, assistantEmbeddingResponseMaxBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read embedding response: %w", err)
 	}
+	responseTooLarge := len(body) > assistantEmbeddingResponseMaxBytes
+	if responseTooLarge {
+		body = body[:assistantEmbeddingResponseMaxBytes]
+	}
 
 	if resp.StatusCode != http.StatusOK {
+		if len(body) > assistantEmbeddingErrorMaxBytes {
+			body = body[:assistantEmbeddingErrorMaxBytes]
+		}
 		return nil, fmt.Errorf("embedding API returned status %d: %s", resp.StatusCode, string(body))
+	}
+	if responseTooLarge {
+		return nil, fmt.Errorf("embedding API response exceeds %d bytes", assistantEmbeddingResponseMaxBytes)
 	}
 
 	var embResp embeddingResponse

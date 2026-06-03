@@ -364,13 +364,15 @@ func queryAliases(searchIgnoreLines []string) (ret []string) {
 
 func queryDocIDsByTitle(title string, excludeIDs []string) (ret []string) {
 	ret = []string{}
-	notIn := "('" + strings.Join(excludeIDs, "','") + "')"
+	notIn, notInArgs := buildStringNotInCondition("id", excludeIDs)
 
-	sqlStmt := "SELECT id FROM blocks WHERE type = 'd' AND content LIKE ? AND id NOT IN " + notIn + " LIMIT ?"
+	sqlStmt := "SELECT id FROM blocks WHERE type = 'd' AND content LIKE ?" + notIn + " LIMIT ?"
 	if caseSensitive {
-		sqlStmt = "SELECT id FROM blocks WHERE type = 'd' AND content = ? AND id NOT IN " + notIn + " LIMIT ?"
+		sqlStmt = "SELECT id FROM blocks WHERE type = 'd' AND content = ?" + notIn + " LIMIT ?"
 	}
-	rows, err := query(sqlStmt, title, 32)
+	queryArgs := append([]interface{}{title}, notInArgs...)
+	queryArgs = append(queryArgs, 32)
+	rows, err := query(sqlStmt, queryArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return
@@ -948,18 +950,18 @@ func scanBlockRow(row *sql.Row) (ret *Block) {
 
 func GetChildBlocks(parentID, condition string, limit int) (ret []*Block) {
 	blockIDs := queryBlockChildrenIDs(parentID)
-	var params []string
-	for _, id := range blockIDs {
-		params = append(params, "\""+id+"\"")
+	placeholders, args := buildStringInClause(blockIDs)
+	if "" == placeholders {
+		return []*Block{}
 	}
 
 	ret = []*Block{}
-	sqlStmt := "SELECT * FROM blocks AS ref WHERE ref.id IN (" + strings.Join(params, ",") + ")"
+	sqlStmt := "SELECT * FROM blocks AS ref WHERE ref.id IN (" + placeholders + ")"
 	if "" != condition {
 		sqlStmt += " AND " + condition
 	}
 	sqlStmt += " LIMIT " + strconv.Itoa(limit)
-	rows, err := query(sqlStmt)
+	rows, err := query(sqlStmt, args...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return
@@ -975,12 +977,16 @@ func GetChildBlocks(parentID, condition string, limit int) (ret []*Block) {
 
 func GetAllChildBlocks(rootIDs []string, condition string, limit int) (ret []*Block) {
 	ret = []*Block{}
-	sqlStmt := "SELECT * FROM blocks AS ref WHERE ref.root_id IN ('" + strings.Join(rootIDs, "','") + "')"
+	placeholders, args := buildStringInClause(rootIDs)
+	if "" == placeholders {
+		return ret
+	}
+	sqlStmt := "SELECT * FROM blocks AS ref WHERE ref.root_id IN (" + placeholders + ")"
 	if "" != condition {
 		sqlStmt += " AND " + condition
 	}
 	sqlStmt += " LIMIT " + strconv.Itoa(limit)
-	rows, err := query(sqlStmt)
+	rows, err := query(sqlStmt, args...)
 	if err != nil {
 		logging.LogErrorf("sql query [%s] failed: %s", sqlStmt, err)
 		return

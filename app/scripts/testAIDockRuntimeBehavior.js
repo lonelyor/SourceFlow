@@ -102,6 +102,15 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
             openSettingCalls.push(args);
         },
     },
+    "../../constants": {
+        Constants: {
+            CB_GET_FOCUS: "focus",
+            CB_GET_SCROLL: "scroll",
+        },
+    },
+    "../../editor/util": {
+        openFileById: async () => undefined,
+    },
     "./AIDockShared": {
         getImageFilesFromDataTransfer: (dt) => {
             if (dt && dt._hasImages) {
@@ -526,7 +535,7 @@ const createFakeKeyboardEvent = (target, key) => ({
         results: [{id: "old"}],
         seq: 1,
         anchorRect: null,
-    }, () => {});
+    }, "default", () => {});
     assert.deepStrictEqual(mentionSearchCalls, []);
 
     await mentionModule.searchAndShowMentions("note", 2, {
@@ -536,7 +545,7 @@ const createFakeKeyboardEvent = (target, key) => ({
         results: [],
         seq: 2,
         anchorRect: null,
-    }, () => {});
+    }, "default", () => {});
     assert.deepStrictEqual(mentionSearchCalls, ["note"]);
 
     console.log("[ai-dock-runtime-behavior] ok");

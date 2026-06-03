@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-06-02
+更新日期：2026-06-03
 
 ## 已确认
 
@@ -12,7 +12,7 @@
 - 用户确认 AI 安全规则中的“禁止删除整个笔记”指禁止删除整个工作空间、笔记本或全量笔记集合；单篇笔记删除不硬禁止，但属于高风险操作，需要人工确认。
 - 2026-06-02 已将工作台稳定化与 AI 原生笔记安全设计输出到 `plans/20260602-工作台稳定化与AI原生笔记安全设计.md`，并填充 `plans/AI原生笔记代理开发计划.md`。
 - 2026-06-02 AI 原生笔记助手架构设计 v2 定稿：输出 `plans/20260602-AI原生笔记助手架构设计.md`。用户确认四项关键决策：`@` 引用支持勾选/排除个别来源（类 NotebookLM Sources）；权限模式采用会话级默认+单次提权（D 方案）；双轨入口（编辑器内联轻量+Dock 对话复杂）；文件夹引用默认发摘要包且用户可展开勾选排除。
-- 2026-06-02 安全配置确认独立存储在 `conf/ai_security.json`，不与 `conf/assistant.json` 合并。来源面板位于 Dock 消息区上方、输入区上方，可收起。AI 回答来源标注采用 `[📄 笔记标题]` 内联标签格式，可点击跳转。
+- 2026-06-02 安全配置确认独立存储，不与 `conf/assistant.json` 合并。此前文档写为 `conf/ai_security.json`，当前代码实现和后续阶段记录为 `storage/ai_security.json`；因 plans 一般性路径信息冲突，已按当前实现 `storage/ai_security.json` 为准。来源面板位于 Dock 消息区上方、输入区上方，可收起。AI 回答来源标注采用 `[📄 笔记标题]` 内联标签格式，可点击跳转。
 - 2026-06-02 已将 spec.md、todo.md 和 state.md 同步更新为 v2 架构设计，阶段 1（@ 引用+来源面板）为最高优先级。
 - 2026-06-03 AI 原生笔记助手阶段 1 已实现基础闭环：后端新增 `/api/assistant/context/search`（轻量搜索）和 `/api/assistant/context/buildContextPack`（上下文包构建）；前端新增 `assistant/mentions/`（@ 引用触发器+搜索+上下文构建）和 `assistant/sources/`（来源面板渲染）；Dock Composer 集成 @ 触发、inline chip 插入、来源面板勾选排除、token 估算；消息发送时携带来源上下文并注入 system prompt 要求 AI 标注来源。
 - 2026-06-03 阶段 1 已通过 `go build ./...`、Go 测试（`TestBuildAssistantContextPack*`）、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
@@ -25,6 +25,9 @@
 - 2026-06-03 全部 4 个阶段 + 集成评审 + 设置页 UI 完成。全部通过 `go build ./...`、Go 测试、`pnpm --dir app exec tsc -p tsconfig.json --noEmit --pretty false` 和 `git diff --check`。
 - 2026-06-03 AI 助手细节修复完成：历史会话支持单条删除和置顶/取消置顶；置顶状态持久化到 `ai_sessions.pinned_at`，重复置顶保持原时间戳，满足幂等排序；输入单独 `@` 时前端短路空 query，不再调用 `/api/assistant/context/search` 触发 `query is required`；文档树节点和空白菜单统一提供 `@AI`，并将目标节点注入来源面板；未固定目标笔记会随当前活动编辑器刷新，打开 Dock 不再覆盖已固定目标；AI 设置页 Embedding/安全分区改为同一滚动布局，避免样式裁切。
 - 2026-06-03 本轮修复已通过 `pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run typecheck:app`、`go test -vet=off ./model -run TestAssistantAISessionPinningSortsAndPersists -count=1`、`go test -vet=off ./model -run TestBuildAssistantContextPackInvalidNote -count=1`、`go test -vet=off ./api -run TestDoesNotExist -count=1`、`go build ./...` 和 `git diff --check`。
+- 2026-06-03 按 `plans/rules.md` 审计后的 AI 安全与来源修复已完成：安全配置读写归一化；`securityMode` 贯穿聊天、流式聊天、编辑、工具执行/确认、`@` 来源搜索和上下文包构建；来源搜索/构建经过读权限检查；批量阈值按当前目标和会话写风险审计累计；来源引用 metadata 保留真实 ID/路径并支持 `[📄 标题]` 点击跳转；来源解析异步竞态和发送失败来源丢失已修复；安全测试改用临时 `DataDir`，运行时残留 `kernel/model/storage/ai_security.json` 已清理。
+- 2026-06-03 本轮同时完成资源与 SQL 边界加固：Embedding/Anthropic/Gemini 响应体读取增加上限，Embedding 配置读写做 trim 归一化，向量索引文本按 rune 截断；`kernel/sql` 新增 ID 列表占位符 helper，修复资产 hash 删除、子块/引用/标题排除等直接 ID 列表拼接点；搜索框 box/path 过滤空值并转义 SQL 字面量。
+- 2026-06-03 本轮验证已通过 `go test -vet=off ./model -count=1`、`go test -vet=off ./sql -run Test -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run typecheck:app` 和 `git diff --check`。
 - 2026-06-02 工作台稳定化阶段已完成：工作台默认固定到侧边栏活动栏；`openWorkbenchDialog` 打开时先显示 loading；查询或渲染失败时显示可重试错误页并记录错误；工作台查询 API 和关联块搜索失败不再被当成空结果吞掉。
 - 工作台稳定化阶段已新增 `test:workbench-stability`，并通过 `pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app` 和 `git diff --check`。
 - 2026-06-02 AI 原生笔记助手阶段 1 已完成：AI Dock 默认固定侧边栏保持不变；未配置 profile 时主消息区、模型入口、会话空状态和输入区统一要求配置真实 AI 提供商/模型；配置按钮统一进入 AI 设置页；未配置时禁用输入、附件和发送，避免表现成可直接对话。

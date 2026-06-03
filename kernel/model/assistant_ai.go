@@ -141,27 +141,41 @@ type AssistantAIInputAttachment struct {
 	Data     string `json:"data"`
 }
 
+type AssistantAISourceCitation struct {
+	ID       string                      `json:"id"`
+	Type     string                      `json:"type"`
+	Title    string                      `json:"title"`
+	Notebook string                      `json:"notebook,omitempty"`
+	Path     string                      `json:"path,omitempty"`
+	HPath    string                      `json:"hPath,omitempty"`
+	Children []AssistantAISourceCitation `json:"children,omitempty"`
+}
+
 type AssistantAIChatRequest struct {
-	ProfileID   string                       `json:"profileId"`
-	SessionID   string                       `json:"sessionId"`
-	Mode        string                       `json:"mode"`
-	Title       string                       `json:"title"`
-	Message     string                       `json:"message"`
-	System      string                       `json:"system"`
-	EnableTools bool                         `json:"enableTools"`
-	Context     *AssistantAINoteContext      `json:"context"`
-	Attachments []AssistantAIInputAttachment `json:"attachments"`
+	ProfileID    string                       `json:"profileId"`
+	SessionID    string                       `json:"sessionId"`
+	Mode         string                       `json:"mode"`
+	Title        string                       `json:"title"`
+	Message      string                       `json:"message"`
+	System       string                       `json:"system"`
+	EnableTools  bool                         `json:"enableTools"`
+	SecurityMode AISecurityMode               `json:"securityMode"`
+	Context      *AssistantAINoteContext      `json:"context"`
+	Attachments  []AssistantAIInputAttachment `json:"attachments"`
+	Sources      []AssistantAISourceCitation  `json:"sources"`
 }
 
 type AssistantAIMessageEditRequest struct {
-	ProfileID   string                       `json:"profileId"`
-	SessionID   string                       `json:"sessionId"`
-	MessageID   string                       `json:"messageId"`
-	Message     string                       `json:"message"`
-	System      string                       `json:"system"`
-	EnableTools bool                         `json:"enableTools"`
-	Context     *AssistantAINoteContext      `json:"context"`
-	Attachments []AssistantAIInputAttachment `json:"attachments"`
+	ProfileID    string                       `json:"profileId"`
+	SessionID    string                       `json:"sessionId"`
+	MessageID    string                       `json:"messageId"`
+	Message      string                       `json:"message"`
+	System       string                       `json:"system"`
+	EnableTools  bool                         `json:"enableTools"`
+	SecurityMode AISecurityMode               `json:"securityMode"`
+	Context      *AssistantAINoteContext      `json:"context"`
+	Attachments  []AssistantAIInputAttachment `json:"attachments"`
+	Sources      []AssistantAISourceCitation  `json:"sources"`
 }
 
 type AssistantAIChatResult struct {
@@ -180,13 +194,14 @@ type AssistantAIAnalyzeRequest struct {
 }
 
 type AssistantAIToolConfirmRequest struct {
-	ProfileID string                  `json:"profileId"`
-	SessionID string                  `json:"sessionId"`
-	MessageID string                  `json:"messageId"`
-	AuditID   string                  `json:"auditId"`
-	Context   *AssistantAINoteContext `json:"context"`
-	ToolID    string                  `json:"toolId"`
-	Args      map[string]interface{}  `json:"args"`
+	ProfileID    string                  `json:"profileId"`
+	SessionID    string                  `json:"sessionId"`
+	MessageID    string                  `json:"messageId"`
+	AuditID      string                  `json:"auditId"`
+	SecurityMode AISecurityMode          `json:"securityMode"`
+	Context      *AssistantAINoteContext `json:"context"`
+	ToolID       string                  `json:"toolId"`
+	Args         map[string]interface{}  `json:"args"`
 }
 
 type AssistantAIToolRejectRequest struct {
@@ -572,6 +587,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 
 	message := strings.TrimSpace(req.Message)
 	attachments := normalizeAssistantAIInputAttachments(req.Attachments)
+	sources := normalizeAssistantAISourceCitations(req.Sources)
 	if "" == message && 1 > len(attachments) {
 		return nil, fmt.Errorf("assistant AI message is required")
 	}
@@ -625,6 +641,9 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 	}
 	if 0 < len(attachments) {
 		userMessage.Metadata["attachments"] = assistantAIInputAttachmentsToMetadata(attachments)
+	}
+	if 0 < len(sources) {
+		userMessage.Metadata["sources"] = assistantAISourceCitationsToMetadata(sources)
 	}
 
 	tx, err := db.Begin()
@@ -689,6 +708,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		ContextMessages: contextMessages,
 		EnableTools:     req.EnableTools,
 		UseNativeTools:  useNativeTools,
+		SecurityMode:    req.SecurityMode,
 		OnDelta:         onDelta,
 	})
 	if nil != loopErr {
@@ -763,6 +783,7 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 
 	message := strings.TrimSpace(req.Message)
 	attachments := normalizeAssistantAIInputAttachments(req.Attachments)
+	sources := normalizeAssistantAISourceCitations(req.Sources)
 	if "" == message && 1 > len(attachments) {
 		return nil, fmt.Errorf("assistant AI message is required")
 	}
@@ -805,6 +826,11 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 		userMessage.Metadata["attachments"] = assistantAIInputAttachmentsToMetadata(attachments)
 	} else {
 		delete(userMessage.Metadata, "attachments")
+	}
+	if 0 < len(sources) {
+		userMessage.Metadata["sources"] = assistantAISourceCitationsToMetadata(sources)
+	} else {
+		delete(userMessage.Metadata, "sources")
 	}
 
 	tx, err := db.Begin()
@@ -878,6 +904,7 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 		ContextMessages: contextMessages,
 		EnableTools:     req.EnableTools,
 		UseNativeTools:  editUseNativeTools,
+		SecurityMode:    req.SecurityMode,
 		OnDelta:         onDelta,
 	})
 	if nil != editLoopErr {
@@ -1018,7 +1045,7 @@ func ConfirmAssistantAITool(req *AssistantAIToolConfirmRequest) (ret *AssistantA
 	}
 	userPrompt := assistantAIPrecedingUserPrompt(sessionMessages, strings.TrimSpace(req.MessageID))
 
-	toolResult, err := confirmAssistantAITool(db, profile, session.ID, req.Context, strings.TrimSpace(req.ToolID), cloneAssistantAIMap(req.Args), userPrompt)
+	toolResult, err := confirmAssistantAITool(db, profile, session.ID, req.Context, strings.TrimSpace(req.ToolID), cloneAssistantAIMap(req.Args), userPrompt, req.SecurityMode)
 	if err != nil {
 		return nil, err
 	}
@@ -2539,6 +2566,56 @@ func assistantAIInputAttachmentsToMetadata(items []AssistantAIInputAttachment) [
 		})
 	}
 	return ret
+}
+
+func normalizeAssistantAISourceCitations(items []AssistantAISourceCitation) []AssistantAISourceCitation {
+	if 1 > len(items) {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	count := 0
+	return normalizeAssistantAISourceCitations0(items, seen, &count)
+}
+
+func normalizeAssistantAISourceCitations0(items []AssistantAISourceCitation, seen map[string]struct{}, count *int) []AssistantAISourceCitation {
+	ret := make([]AssistantAISourceCitation, 0, len(items))
+	for _, item := range items {
+		if nil != count && *count >= 50 {
+			break
+		}
+		id := strings.TrimSpace(item.ID)
+		title := truncateText(strings.TrimSpace(item.Title), 160)
+		itemType := strings.TrimSpace(item.Type)
+		if "" == id || "" == title {
+			continue
+		}
+		key := itemType + "\x00" + id
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		if nil != count {
+			(*count)++
+		}
+		normalized := AssistantAISourceCitation{
+			ID:       id,
+			Type:     truncateText(itemType, 32),
+			Title:    title,
+			Notebook: truncateText(strings.TrimSpace(item.Notebook), 128),
+			Path:     truncateText(strings.TrimSpace(item.Path), 512),
+			HPath:    truncateText(strings.TrimSpace(item.HPath), 512),
+		}
+		normalized.Children = normalizeAssistantAISourceCitations0(item.Children, seen, count)
+		ret = append(ret, normalized)
+	}
+	if 1 > len(ret) {
+		return nil
+	}
+	return ret
+}
+
+func assistantAISourceCitationsToMetadata(items []AssistantAISourceCitation) []AssistantAISourceCitation {
+	return normalizeAssistantAISourceCitations(items)
 }
 
 func assistantAIMessageAttachments(msg *AssistantAIMessage) []AssistantAIInputAttachment {

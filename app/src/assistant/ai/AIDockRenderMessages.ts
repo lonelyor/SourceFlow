@@ -1,16 +1,49 @@
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, formatDateTime, nl2br} from "../common/dom";
-import {IAssistantAIMessage} from "./api";
+import {IAssistantAIMessage, IAssistantAISourceCitation} from "./api";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
 import {renderAssistantPatchHTML} from "../patch/format";
 import type {IAssistantEditPatch} from "../patch/types";
 
 const SOURCE_CITATION_RE = /\[📄\s*([^\]]+)\]/g;
 
-const renderSourceCitations = (html: string): string => {
+const flattenSourceCitations = (sources: IAssistantAISourceCitation[]): IAssistantAISourceCitation[] => {
+    const ret: IAssistantAISourceCitation[] = [];
+    for (const source of sources || []) {
+        if (!source?.id || !source.title) {
+            continue;
+        }
+        ret.push(source);
+        if (source.children?.length) {
+            ret.push(...flattenSourceCitations(source.children));
+        }
+    }
+    return ret;
+};
+
+const getMessageSourceCitations = (item: IAssistantAIMessage): IAssistantAISourceCitation[] => {
+    const raw = item.metadata?.sources;
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+    return flattenSourceCitations(raw as IAssistantAISourceCitation[]);
+};
+
+const renderSourceCitations = (html: string, sources: IAssistantAISourceCitation[]): string => {
+    const sourceByTitle = new Map<string, IAssistantAISourceCitation>();
+    for (const source of sources) {
+        const title = `${source.title || ""}`.trim();
+        if (title && !sourceByTitle.has(title)) {
+            sourceByTitle.set(title, source);
+        }
+    }
     return html.replace(SOURCE_CITATION_RE, (_, title: string) => {
-        const escaped = escapeAttr(title);
-        return `<span class="assistant-ai__source-citation" data-action="open-source-note" data-note-title="${escaped}" title="${escaped}">📄 ${escapeHTML(title)}</span>`;
+        const normalizedTitle = `${title || ""}`.trim();
+        const source = sourceByTitle.get(normalizedTitle);
+        const escapedTitle = escapeAttr(normalizedTitle);
+        const canOpenSource = source?.id && (source.type === "note" || source.type === "folder");
+        const noteAttr = canOpenSource ? ` data-note-id="${escapeAttr(source.id)}" data-source-type="${escapeAttr(source.type || "")}"` : "";
+        return `<span class="assistant-ai__source-citation" data-action="open-source-note"${noteAttr} data-note-title="${escapedTitle}" title="${escapedTitle}">📄 ${escapeHTML(normalizedTitle)}</span>`;
     });
 };
 
@@ -33,7 +66,11 @@ export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
     <div class="assistant-ai__empty-detail">${assistantText("聊天保持主视图，目标笔记、上下文、审计和能力都压缩成按钮，需要时再展开。", "Keep chat as the main canvas while target notes, context, audits, and tools stay compressed into buttons until you need them.")}</div>
 </div>`;
     }
+    let activeSources: IAssistantAISourceCitation[] = [];
     return ctx.messages.map((item) => {
+        if (item.role === "user") {
+            activeSources = getMessageSourceCitations(item);
+        }
         const attachments = ctx.getMessageAttachments(item);
         const displayContent = ctx.getMessageDisplayContent(item, attachments);
         const isExpandable = ctx.isMessageExpandable(item);
@@ -57,7 +94,7 @@ export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
             </div>
         </div>
     </div>
-    ${displayContent ? `<div class="assistant-ai__message-content">${renderSourceCitations(nl2br(displayContent))}</div>` : ""}
+    ${displayContent ? `<div class="assistant-ai__message-content">${renderSourceCitations(nl2br(displayContent), activeSources)}</div>` : ""}
     ${ctx.renderAttachmentList(attachments)}
     ${ctx.renderMessageToolResults(item)}
 </div>`;

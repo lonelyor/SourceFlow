@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lonelyor/sourceflow/kernel/sql"
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/filelock"
@@ -57,9 +58,32 @@ type AISecurityConfig struct {
 	BatchThreshold int                    `json:"batchThreshold"`
 }
 
+type AISecurityPermissionRequest struct {
+	Mode              AISecurityMode
+	Risk              AISecurityRiskLevel
+	TargetType        string
+	TargetIDs         []string
+	SessionBatchCount int
+	Capability        string
+	ToolID            string
+}
+
 var (
 	aiSecurityConfigCache *AISecurityConfig
 	aiSecurityConfigLock  sync.Mutex
+)
+
+const (
+	AISecurityDefaultBatchThreshold = 10
+	AISecurityMaxBatchThreshold     = 100
+
+	AISecurityCapabilityRead        = "read"
+	AISecurityCapabilityWrite       = "write"
+	AISecurityCapabilityCreate      = "create"
+	AISecurityCapabilityDeleteBlock = "deleteBlock"
+	AISecurityCapabilityDeleteNote  = "deleteNote"
+	AISecurityCapabilityMove        = "move"
+	AISecurityCapabilityExecute     = "execute"
 )
 
 func aiSecurityConfigPath() string {
@@ -80,22 +104,99 @@ func NewAISecurityConfig() *AISecurityConfig {
 			DeleteNote:  false,
 			Move:        false,
 		},
-		BatchThreshold: 10,
+		BatchThreshold: AISecurityDefaultBatchThreshold,
 	}
 }
 
 func cloneAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
+	return NormalizeAISecurityConfig(cfg)
+}
+
+func NormalizeAISecurityConfig(cfg *AISecurityConfig) *AISecurityConfig {
+	defaults := NewAISecurityConfig()
 	if cfg == nil {
-		return NewAISecurityConfig()
+		return defaults
 	}
-	clone := *cfg
-	if clone.Blacklist == nil {
-		clone.Blacklist = []AISecurityRule{}
+	normalized := *defaults
+	normalized.DefaultMode = NormalizeAISecurityMode(cfg.DefaultMode, defaults.DefaultMode)
+	normalized.Blacklist = normalizeAISecurityRules(cfg.Blacklist)
+	normalized.Whitelist = normalizeAISecurityRules(cfg.Whitelist)
+	normalized.Capabilities = normalizeAISecurityCapabilities(cfg.Capabilities, defaults.Capabilities)
+	normalized.BatchThreshold = cfg.BatchThreshold
+	if normalized.BatchThreshold <= 0 {
+		normalized.BatchThreshold = AISecurityDefaultBatchThreshold
+	} else if normalized.BatchThreshold > AISecurityMaxBatchThreshold {
+		normalized.BatchThreshold = AISecurityMaxBatchThreshold
 	}
-	if clone.Whitelist == nil {
-		clone.Whitelist = []AISecurityRule{}
+	return &normalized
+}
+
+func normalizeAISecurityCapabilities(capabilities AISecurityCapabilities, defaults AISecurityCapabilities) AISecurityCapabilities {
+	if !capabilities.Read && !capabilities.Write && !capabilities.Execute && !capabilities.Create && !capabilities.DeleteBlock && !capabilities.DeleteNote && !capabilities.Move {
+		return defaults
 	}
-	return &clone
+	return capabilities
+}
+
+func NormalizeAISecurityMode(mode AISecurityMode, fallback AISecurityMode) AISecurityMode {
+	switch AISecurityMode(strings.TrimSpace(string(mode))) {
+	case AISecurityModeDefault:
+		return AISecurityModeDefault
+	case AISecurityModeAutoReview:
+		return AISecurityModeAutoReview
+	case AISecurityModeFullAccess:
+		return AISecurityModeFullAccess
+	default:
+		switch fallback {
+		case AISecurityModeDefault, AISecurityModeAutoReview, AISecurityModeFullAccess:
+			return fallback
+		default:
+			return AISecurityModeDefault
+		}
+	}
+}
+
+func normalizeAISecurityRules(rules []AISecurityRule) []AISecurityRule {
+	if nil == rules {
+		return []AISecurityRule{}
+	}
+	seen := map[string]struct{}{}
+	normalized := make([]AISecurityRule, 0, len(rules))
+	for _, rule := range rules {
+		ruleType := normalizeAISecurityRuleType(rule.Type)
+		id := strings.TrimSpace(rule.ID)
+		if "" == id {
+			continue
+		}
+		key := string(ruleType) + "\x00" + id
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, AISecurityRule{
+			Type: ruleType,
+			ID:   id,
+			Name: strings.TrimSpace(rule.Name),
+		})
+	}
+	return normalized
+}
+
+func normalizeAISecurityRuleType(ruleType AISecurityRuleType) AISecurityRuleType {
+	switch AISecurityRuleType(strings.TrimSpace(string(ruleType))) {
+	case AISecurityRuleNotebook:
+		return AISecurityRuleNotebook
+	case AISecurityRuleFolder:
+		return AISecurityRuleFolder
+	case AISecurityRuleTag:
+		return AISecurityRuleTag
+	case AISecurityRuleAssetType:
+		return AISecurityRuleAssetType
+	case AISecurityRuleToolType:
+		return AISecurityRuleToolType
+	default:
+		return AISecurityRuleNote
+	}
 }
 
 func GetAISecurityConfig() *AISecurityConfig {
@@ -119,9 +220,7 @@ func getAISecurityConfigLocked() *AISecurityConfig {
 		logging.LogWarnf("parse AI security config [%s] failed: %s", p, err)
 		cfg = NewAISecurityConfig()
 	}
-	if cfg.BatchThreshold <= 0 {
-		cfg.BatchThreshold = 10
-	}
+	cfg = NormalizeAISecurityConfig(cfg)
 	aiSecurityConfigCache = cfg
 	return cfg
 }
@@ -132,7 +231,7 @@ func SetAISecurityConfig(cfg *AISecurityConfig) error {
 	if cfg == nil {
 		cfg = NewAISecurityConfig()
 	}
-	cfg = cloneAISecurityConfig(cfg)
+	cfg = NormalizeAISecurityConfig(cfg)
 	dir := filepath.Dir(aiSecurityConfigPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create AI security config dir: %w", err)
@@ -175,18 +274,56 @@ type AISecurityAffectedItem struct {
 }
 
 type AISecurityPermissionResult struct {
-	Decision      AISecurityDecision    `json:"decision"`
-	Reason        string                `json:"reason,omitempty"`
+	Decision      AISecurityDecision       `json:"decision"`
+	Reason        string                   `json:"reason,omitempty"`
 	AffectedItems []AISecurityAffectedItem `json:"affectedItems,omitempty"`
 }
 
 func CheckAISecurityPermission(mode AISecurityMode, risk AISecurityRiskLevel, targetType string, targetIDs []string, sessionBatchCount int) *AISecurityPermissionResult {
+	return CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:              mode,
+		Risk:              risk,
+		TargetType:        targetType,
+		TargetIDs:         targetIDs,
+		SessionBatchCount: sessionBatchCount,
+	})
+}
+
+func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISecurityPermissionResult {
 	cfg := GetAISecurityConfig()
+	if nil == req {
+		req = &AISecurityPermissionRequest{}
+	}
+	mode := NormalizeAISecurityMode(req.Mode, cfg.DefaultMode)
+	risk := normalizeAISecurityRiskLevel(req.Risk)
+	targetType := strings.TrimSpace(req.TargetType)
+	if "" == targetType {
+		targetType = "note"
+	}
+	targetIDs := normalizeAISecurityTargetIDs(req.TargetIDs)
+	sessionBatchCount := req.SessionBatchCount
+	if sessionBatchCount < len(targetIDs) {
+		sessionBatchCount = len(targetIDs)
+	}
 
 	if isHardBannedOperation(risk, targetType) {
 		return &AISecurityPermissionResult{
 			Decision: AISecurityDeny,
 			Reason:   "此操作被硬禁止：不允许删除工作空间、笔记本或清空全部笔记",
+		}
+	}
+
+	if deniedReason := checkAISecurityCapability(cfg, strings.TrimSpace(req.Capability)); "" != deniedReason {
+		return &AISecurityPermissionResult{
+			Decision: AISecurityDeny,
+			Reason:   deniedReason,
+		}
+	}
+
+	if "" != strings.TrimSpace(req.ToolID) && isInBlacklist(cfg.Blacklist, "toolType", strings.TrimSpace(req.ToolID)) {
+		return &AISecurityPermissionResult{
+			Decision: AISecurityDeny,
+			Reason:   fmt.Sprintf("工具 %s 在黑名单中，AI 无法调用", strings.TrimSpace(req.ToolID)),
 		}
 	}
 
@@ -215,6 +352,11 @@ func CheckAISecurityPermission(mode AISecurityMode, risk AISecurityRiskLevel, ta
 		}
 	}
 	if decision == AISecurityConfirm {
+		if AISecurityModeAutoReview == mode && isLowRiskWhitelistMatch(cfg.Whitelist, targetType, targetIDs, risk) {
+			return &AISecurityPermissionResult{
+				Decision: AISecurityAllow,
+			}
+		}
 		return &AISecurityPermissionResult{
 			Decision: AISecurityConfirm,
 			Reason:   fmt.Sprintf("%s 风险操作 [%s] 需要确认", risk, targetType),
@@ -226,15 +368,21 @@ func CheckAISecurityPermission(mode AISecurityMode, risk AISecurityRiskLevel, ta
 	}
 }
 
-func checkToolSecurity(def *AssistantAIToolDefinition, args map[string]interface{}) *AISecurityPermissionResult {
+func checkToolSecurity(def *AssistantAIToolDefinition, context *AssistantAINoteContext, args map[string]interface{}, mode AISecurityMode, sessionBatchCount int) *AISecurityPermissionResult {
 	if def == nil {
 		return &AISecurityPermissionResult{Decision: AISecurityAllow}
 	}
-	cfg := GetAISecurityConfig()
 	risk := toolRiskToSecurityRisk(def.Risk)
-	targetType := "note"
-	targetIDs := extractToolTargetIDs(args)
-	return CheckAISecurityPermission(cfg.DefaultMode, risk, targetType, targetIDs, 0)
+	targetType, targetIDs := resolveToolSecurityTarget(def, context, args)
+	return CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:              mode,
+		Risk:              risk,
+		TargetType:        targetType,
+		TargetIDs:         targetIDs,
+		SessionBatchCount: sessionBatchCount,
+		Capability:        toolSecurityCapability(def),
+		ToolID:            def.ID,
+	})
 }
 
 func toolRiskToSecurityRisk(risk string) AISecurityRiskLevel {
@@ -256,18 +404,145 @@ func toolRiskToSecurityRisk(risk string) AISecurityRiskLevel {
 	}
 }
 
-func extractToolTargetIDs(args map[string]interface{}) []string {
+func normalizeAISecurityRiskLevel(risk AISecurityRiskLevel) AISecurityRiskLevel {
+	switch AISecurityRiskLevel(strings.TrimSpace(string(risk))) {
+	case AISecurityRiskL1:
+		return AISecurityRiskL1
+	case AISecurityRiskL2:
+		return AISecurityRiskL2
+	case AISecurityRiskL3:
+		return AISecurityRiskL3
+	case AISecurityRiskL4:
+		return AISecurityRiskL4
+	case AISecurityRiskL5:
+		return AISecurityRiskL5
+	case AISecurityRiskL6:
+		return AISecurityRiskL6
+	default:
+		return AISecurityRiskL3
+	}
+}
+
+func resolveToolSecurityTarget(def *AssistantAIToolDefinition, context *AssistantAINoteContext, args map[string]interface{}) (string, []string) {
+	targetIDs := extractToolTargetIDs(args, context)
+	if 0 < len(targetIDs) {
+		return "note", targetIDs
+	}
+	if nil != def && AssistantAIToolScopeWorkspace == def.Target {
+		return "workspace", []string{}
+	}
+	if nil != context && "" != strings.TrimSpace(context.Notebook) {
+		return "notebook", []string{strings.TrimSpace(context.Notebook)}
+	}
+	return "note", []string{}
+}
+
+func extractToolTargetIDs(args map[string]interface{}, context *AssistantAINoteContext) []string {
 	ids := []string{}
-	if id, ok := args["rootID"].(string); ok && id != "" {
+	addID := func(id string) {
+		id = strings.TrimSpace(id)
+		if "" == id {
+			return
+		}
+		if block := sql.GetBlock(id); nil != block && "" != strings.TrimSpace(block.RootID) {
+			ids = append(ids, strings.TrimSpace(block.RootID))
+			return
+		}
 		ids = append(ids, id)
 	}
-	if id, ok := args["blockID"].(string); ok && id != "" {
-		ids = append(ids, id)
+	if nil != context {
+		addID(context.RootID)
+		addID(context.CurrentBlockID)
 	}
-	if id, ok := args["notebook"].(string); ok && id != "" {
-		ids = append(ids, id)
+	if nil != args {
+		if id, ok := args["rootID"].(string); ok {
+			addID(id)
+		}
+		if id, ok := args["blockID"].(string); ok {
+			addID(id)
+		}
+		if id, ok := args["targetID"].(string); ok {
+			addID(id)
+		}
 	}
-	return ids
+	return normalizeAISecurityTargetIDs(ids)
+}
+
+func normalizeAISecurityTargetIDs(ids []string) []string {
+	if nil == ids {
+		return []string{}
+	}
+	seen := map[string]struct{}{}
+	ret := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if "" == id {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		ret = append(ret, id)
+	}
+	return ret
+}
+
+func toolSecurityCapability(def *AssistantAIToolDefinition) string {
+	if nil == def {
+		return ""
+	}
+	switch def.ID {
+	case AssistantAIToolCreateNote, AssistantAIToolCreateChildNote, AssistantAIToolCreateWorkbench:
+		return AISecurityCapabilityCreate
+	case AssistantAIToolDeleteBlock:
+		return AISecurityCapabilityDeleteBlock
+	case AssistantAIToolReplaceBlock, AssistantAIToolAppendCurrentNote, AssistantAIToolInsertAfterBlock:
+		return AISecurityCapabilityWrite
+	default:
+		if "write" == strings.TrimSpace(def.Category) {
+			return AISecurityCapabilityWrite
+		}
+		return AISecurityCapabilityRead
+	}
+}
+
+func checkAISecurityCapability(cfg *AISecurityConfig, capability string) string {
+	if nil == cfg || "" == capability {
+		return ""
+	}
+	capabilities := cfg.Capabilities
+	switch capability {
+	case AISecurityCapabilityRead:
+		if !capabilities.Read {
+			return "当前安全配置禁止 AI 读取内容"
+		}
+	case AISecurityCapabilityWrite:
+		if !capabilities.Write {
+			return "当前安全配置禁止 AI 写入内容"
+		}
+	case AISecurityCapabilityCreate:
+		if !capabilities.Write || !capabilities.Create {
+			return "当前安全配置禁止 AI 创建笔记"
+		}
+	case AISecurityCapabilityDeleteBlock:
+		if !capabilities.Write || !capabilities.DeleteBlock {
+			return "当前安全配置禁止 AI 删除块"
+		}
+	case AISecurityCapabilityDeleteNote:
+		if !capabilities.Write || !capabilities.DeleteNote {
+			return "当前安全配置禁止 AI 删除笔记"
+		}
+	case AISecurityCapabilityMove:
+		if !capabilities.Write || !capabilities.Move {
+			return "当前安全配置禁止 AI 移动笔记"
+		}
+	case AISecurityCapabilityExecute:
+		if !capabilities.Execute {
+			return "当前安全配置禁止 AI 执行命令"
+		}
+	}
+	return ""
 }
 
 func isHardBannedOperation(risk AISecurityRiskLevel, targetType string) bool {
@@ -280,8 +555,38 @@ func isHardBannedOperation(risk AISecurityRiskLevel, targetType string) bool {
 	return false
 }
 
+func isLowRiskWhitelistMatch(whitelist []AISecurityRule, targetType string, targetIDs []string, risk AISecurityRiskLevel) bool {
+	if risk != AISecurityRiskL3 {
+		return false
+	}
+	if 1 > len(targetIDs) {
+		return false
+	}
+	for _, id := range targetIDs {
+		if !isInWhitelist(whitelist, targetType, id) {
+			return false
+		}
+	}
+	return true
+}
+
+func isInWhitelist(whitelist []AISecurityRule, targetType string, id string) bool {
+	for _, rule := range whitelist {
+		if rule.ID == id {
+			return true
+		}
+		ruleType := string(rule.Type)
+		if targetType == "note" && (ruleType == "notebook" || ruleType == "folder") {
+			if matchesScope(rule.ID, ruleType, id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func isWriteRisk(risk AISecurityRiskLevel) bool {
-	return risk == AISecurityRiskL3 || risk == AISecurityRiskL4 || risk == AISecurityRiskL5 || risk == AISecurityRiskL6
+	return risk == AISecurityRiskL2 || risk == AISecurityRiskL3 || risk == AISecurityRiskL4 || risk == AISecurityRiskL5 || risk == AISecurityRiskL6
 }
 
 func isInBlacklist(blacklist []AISecurityRule, targetType string, id string) bool {

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -57,17 +58,26 @@ const contextSummaryMaxLen = 2000
 const contextFolderChildSummaryMaxLen = 200
 const contextPackMaxChildren = 100
 
-func SearchAssistantContextItems(query string, limit int) []*AssistantContextSearchResult {
+func SearchAssistantContextItems(query string, limit int, mode AISecurityMode) []*AssistantContextSearchResult {
 	var results []*AssistantContextSearchResult
+	query = strings.TrimSpace(query)
+	if "" == query || limit <= 0 {
+		return results
+	}
+	mode = NormalizeAISecurityMode(mode, GetAISecurityConfig().DefaultMode)
 
 	docs := SearchDocs(query, false, nil)
-	for i, doc := range docs {
-		if i >= limit {
+	for _, doc := range docs {
+		if len(results) >= limit {
 			break
 		}
 		rootID := doc["rootID"]
 		if rootID == "" {
 			if doc["path"] == "/" {
+				if ok, reason := canReadAssistantContext(mode, "notebook", []string{doc["box"]}); !ok {
+					logging.LogWarnf("skip assistant context notebook %s: %s", doc["box"], reason)
+					continue
+				}
 				box := Conf.Box(doc["box"])
 				boxName := ""
 				if box != nil {
@@ -83,6 +93,10 @@ func SearchAssistantContextItems(query string, limit int) []*AssistantContextSea
 					HPath:    boxName,
 				})
 			}
+			continue
+		}
+		if ok, reason := canReadAssistantContext(mode, "note", []string{rootID}); !ok {
+			logging.LogWarnf("skip assistant context item %s: %s", rootID, reason)
 			continue
 		}
 
@@ -122,12 +136,17 @@ func SearchAssistantContextItems(query string, limit int) []*AssistantContextSea
 	return results
 }
 
-func BuildAssistantContextPack(items []AssistantContextPackItem) (*AssistantContextPack, error) {
+func BuildAssistantContextPack(items []AssistantContextPackItem, mode AISecurityMode) (*AssistantContextPack, error) {
 	pack := &AssistantContextPack{}
+	mode = NormalizeAISecurityMode(mode, GetAISecurityConfig().DefaultMode)
 
 	for _, item := range items {
 		switch item.Type {
 		case AssistantContextNote:
+			if ok, reason := canReadAssistantContext(mode, "note", []string{item.ID}); !ok {
+				logging.LogWarnf("skip context note %s: %s", item.ID, reason)
+				continue
+			}
 			entry, err := buildNoteContextEntry(item.ID, item.Notebook, item.Path)
 			if err != nil {
 				logging.LogWarnf("skip context item %s: %s", item.ID, err)
@@ -136,7 +155,11 @@ func BuildAssistantContextPack(items []AssistantContextPackItem) (*AssistantCont
 			pack.Items = append(pack.Items, *entry)
 
 		case AssistantContextFolder:
-			entries := buildFolderContextEntries(item.ID, item.Notebook, item.Path)
+			if ok, reason := canReadAssistantFolderContext(mode, item); !ok {
+				logging.LogWarnf("skip context folder %s: %s", firstAssistantAINonEmpty(item.ID, item.Notebook), reason)
+				continue
+			}
+			entries := buildFolderContextEntries(item.ID, item.Notebook, item.Path, mode)
 			if len(entries) > 0 {
 				pack.Items = append(pack.Items, entries...)
 			}
@@ -160,6 +183,32 @@ func BuildAssistantContextPack(items []AssistantContextPackItem) (*AssistantCont
 	}
 
 	return pack, nil
+}
+
+func canReadAssistantContext(mode AISecurityMode, targetType string, targetIDs []string) (bool, string) {
+	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:       mode,
+		Risk:       AISecurityRiskL1,
+		TargetType: targetType,
+		TargetIDs:  targetIDs,
+		Capability: AISecurityCapabilityRead,
+	})
+	if nil == result {
+		return false, "无法读取安全判定结果"
+	}
+	return AISecurityAllow == result.Decision, result.Reason
+}
+
+func canReadAssistantFolderContext(mode AISecurityMode, item AssistantContextPackItem) (bool, string) {
+	rootID := strings.TrimSpace(item.ID)
+	if "" != rootID {
+		return canReadAssistantContext(mode, "note", []string{rootID})
+	}
+	notebook := strings.TrimSpace(item.Notebook)
+	if "" != notebook {
+		return canReadAssistantContext(mode, "notebook", []string{notebook})
+	}
+	return canReadAssistantContext(mode, "folder", []string{})
 }
 
 func buildNoteContextEntry(rootID, notebook, docPath string) (*AssistantContextPackEntry, error) {
@@ -192,7 +241,7 @@ func buildNoteContextEntry(rootID, notebook, docPath string) (*AssistantContextP
 	}, nil
 }
 
-func buildFolderContextEntries(rootID, notebook, docPath string) []AssistantContextPackEntry {
+func buildFolderContextEntries(rootID, notebook, docPath string, mode AISecurityMode) []AssistantContextPackEntry {
 	rootID = strings.TrimSpace(rootID)
 	notebook = strings.TrimSpace(notebook)
 	docPath = strings.TrimSpace(docPath)
@@ -244,12 +293,16 @@ func buildFolderContextEntries(rootID, notebook, docPath string) []AssistantCont
 	}
 
 	children := listDirectChildren(boxID, pathValue)
-	if len(children) > contextPackMaxChildren {
-		children = children[:contextPackMaxChildren]
-	}
 
 	childEntries := make([]AssistantContextPackEntry, 0, len(children))
 	for _, child := range children {
+		if len(childEntries) >= contextPackMaxChildren {
+			break
+		}
+		if ok, reason := canReadAssistantContext(mode, "note", []string{child.RootID}); !ok {
+			logging.LogWarnf("skip context child %s: %s", child.RootID, reason)
+			continue
+		}
 		childTitle := extractTitleFromHPath(child.HPath)
 
 		childSummary := ""
@@ -293,6 +346,19 @@ func listDirectChildren(boxID, parentPath string) []*treenode.BlockTree {
 			filtered = append(filtered, bt)
 		}
 	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		left := strings.TrimSpace(filtered[i].Path)
+		right := strings.TrimSpace(filtered[j].Path)
+		if left != right {
+			return left < right
+		}
+		left = strings.TrimSpace(filtered[i].HPath)
+		right = strings.TrimSpace(filtered[j].HPath)
+		if left != right {
+			return left < right
+		}
+		return strings.TrimSpace(filtered[i].RootID) < strings.TrimSpace(filtered[j].RootID)
+	})
 	return filtered
 }
 

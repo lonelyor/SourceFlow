@@ -96,11 +96,12 @@ type AssistantAIToolCatalogResult struct {
 }
 
 type AssistantAIToolRequest struct {
-	ProfileID string                  `json:"profileId"`
-	SessionID string                  `json:"sessionId"`
-	Context   *AssistantAINoteContext `json:"context"`
-	ToolID    string                  `json:"toolId"`
-	Args      map[string]interface{}  `json:"args"`
+	ProfileID    string                  `json:"profileId"`
+	SessionID    string                  `json:"sessionId"`
+	SecurityMode AISecurityMode          `json:"securityMode"`
+	Context      *AssistantAINoteContext `json:"context"`
+	ToolID       string                  `json:"toolId"`
+	Args         map[string]interface{}  `json:"args"`
 }
 
 type AssistantAIToolResult struct {
@@ -402,15 +403,15 @@ func ExecuteAssistantAITool(req *AssistantAIToolRequest) (ret *AssistantAIToolRe
 	if err != nil {
 		return nil, err
 	}
-	return executeAssistantAITool(db, profile, strings.TrimSpace(req.SessionID), req.Context, strings.TrimSpace(req.ToolID), req.Args)
+	return executeAssistantAITool(db, profile, strings.TrimSpace(req.SessionID), req.Context, strings.TrimSpace(req.ToolID), req.Args, req.SecurityMode)
 }
 
-func executeAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}) (ret *AssistantAIToolResult, err error) {
-	return executeAssistantAITool0(db, profile, sessionID, context, toolID, args, false)
+func executeAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, securityMode AISecurityMode) (ret *AssistantAIToolResult, err error) {
+	return executeAssistantAITool0(db, profile, sessionID, context, toolID, args, false, securityMode)
 }
 
-func confirmAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, userPrompt string) (ret *AssistantAIToolResult, err error) {
-	return executeAssistantAITool0(db, profile, sessionID, context, toolID, normalizeAssistantAIToolArgs(toolID, args, "", userPrompt), true)
+func confirmAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, userPrompt string, securityMode AISecurityMode) (ret *AssistantAIToolResult, err error) {
+	return executeAssistantAITool0(db, profile, sessionID, context, toolID, normalizeAssistantAIToolArgs(toolID, args, "", userPrompt), true, securityMode)
 }
 
 func rejectAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, toolID string) (*AssistantAIToolResult, error) {
@@ -447,11 +448,12 @@ func rejectAssistantAITool(db *dbsql.DB, profile *AssistantAIProfile, sessionID 
 	return ret, nil
 }
 
-func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, allowConfirm bool) (ret *AssistantAIToolResult, err error) {
+func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolID string, args map[string]interface{}, allowConfirm bool, securityMode AISecurityMode) (ret *AssistantAIToolResult, err error) {
 	def := getAssistantAIToolDefinition(toolID)
 	if nil == def {
 		return nil, fmt.Errorf("unsupported assistant AI tool [%s]", toolID)
 	}
+	securityMode = NormalizeAISecurityMode(securityMode, GetAISecurityConfig().DefaultMode)
 	policy := getAssistantAIToolPolicy(profile)
 	decision := resolveAssistantAIToolDecision(policy, def)
 	ret = &AssistantAIToolResult{
@@ -503,7 +505,9 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		}
 	}()
 
-	securityResult := checkToolSecurity(def, args)
+	targetType, targetIDs := resolveToolSecurityTarget(def, context, args)
+	sessionBatchCount := countAssistantAIToolSessionBatch(db, strings.TrimSpace(sessionID), def, targetIDs)
+	securityResult := checkToolSecurity(def, context, args, securityMode, sessionBatchCount)
 	if securityResult.Decision == AISecurityDeny {
 		ret.Error = securityResult.Reason
 		ret.Summary = ret.Error
@@ -514,6 +518,8 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 		if securityResult.AffectedItems != nil {
 			ret.Data["securityAffectedItems"] = securityResult.AffectedItems
 		}
+		ret.Data["securityTargetType"] = targetType
+		ret.Data["securityTargetIDs"] = targetIDs
 		ret.Error = securityResult.Reason
 		ret.Summary = ret.Error
 		audit.Status = "blocked_security"
@@ -560,6 +566,30 @@ func executeAssistantAITool0(db *dbsql.DB, profile *AssistantAIProfile, sessionI
 	audit.Status = "executed"
 	audit.TargetID = targetID
 	return ret, nil
+}
+
+func countAssistantAIToolSessionBatch(db *dbsql.DB, sessionID string, def *AssistantAIToolDefinition, targetIDs []string) int {
+	count := len(normalizeAISecurityTargetIDs(targetIDs))
+	if nil == db || nil == def || "" == strings.TrimSpace(sessionID) || !isWriteRisk(toolRiskToSecurityRisk(def.Risk)) {
+		return count
+	}
+
+	var existing int
+	err := db.QueryRow(`SELECT COUNT(DISTINCT target_id)
+        FROM ai_tool_audits
+        WHERE session_id = ?
+          AND target_id != ''
+          AND risk IN (?, ?, ?, ?, ?)`,
+		strings.TrimSpace(sessionID),
+		AssistantAIToolRiskLowWrite,
+		AssistantAIToolRiskMediumWrite,
+		string(AISecurityRiskL4),
+		string(AISecurityRiskL5),
+		string(AISecurityRiskL6)).Scan(&existing)
+	if nil != err {
+		return count
+	}
+	return count + existing
 }
 
 func assistantAIToolDryRunRequested(args map[string]interface{}) bool {
@@ -979,7 +1009,7 @@ func parseAssistantAIToolEnvelope(content string) (ret *assistantAIToolEnvelope,
 	return envelope, 0 < len(envelope.ToolCalls) || "" != strings.TrimSpace(envelope.Reply)
 }
 
-func executeAssistantAIRequestedTools(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, calls []*assistantAIToolCall, fallbackReply, userPrompt string) (ret []*AssistantAIToolResult) {
+func executeAssistantAIRequestedTools(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, calls []*assistantAIToolCall, fallbackReply, userPrompt string, securityMode AISecurityMode) (ret []*AssistantAIToolResult) {
 	ret = []*AssistantAIToolResult{}
 	for i, call := range calls {
 		if nil == call || "" == strings.TrimSpace(call.Tool) {
@@ -989,7 +1019,7 @@ func executeAssistantAIRequestedTools(db *dbsql.DB, profile *AssistantAIProfile,
 			break
 		}
 		toolID, normalizedArgs := normalizeAssistantAIToolInvocation(strings.TrimSpace(call.Tool), call.Args, fallbackReply, userPrompt)
-		result, err := executeAssistantAITool(db, profile, sessionID, context, toolID, normalizedArgs)
+		result, err := executeAssistantAITool(db, profile, sessionID, context, toolID, normalizedArgs, securityMode)
 		if nil != err {
 			def := getAssistantAIToolDefinition(toolID)
 			name := toolID
@@ -1091,7 +1121,7 @@ func buildAssistantAIToolFollowupPrompt(results []*AssistantAIToolResult) string
 	return strings.Join(lines, "\n")
 }
 
-func executeAssistantAINativeToolCalls(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolCalls []map[string]interface{}) (ret []*AssistantAIToolResult) {
+func executeAssistantAINativeToolCalls(db *dbsql.DB, profile *AssistantAIProfile, sessionID string, context *AssistantAINoteContext, toolCalls []map[string]interface{}, securityMode AISecurityMode) (ret []*AssistantAIToolResult) {
 	ret = []*AssistantAIToolResult{}
 	for i, tc := range toolCalls {
 		if nil == tc || 3 <= i {
@@ -1104,7 +1134,7 @@ func executeAssistantAINativeToolCalls(db *dbsql.DB, profile *AssistantAIProfile
 		toolID, _ := fn["name"].(string)
 		argsJSON, _ := fn["arguments"].(string)
 		args := extractAssistantAIToolCallArgs(argsJSON)
-		result, err := executeAssistantAITool(db, profile, sessionID, context, strings.TrimSpace(toolID), args)
+		result, err := executeAssistantAITool(db, profile, sessionID, context, strings.TrimSpace(toolID), args, securityMode)
 		if nil != err {
 			def := getAssistantAIToolDefinition(toolID)
 			name := toolID

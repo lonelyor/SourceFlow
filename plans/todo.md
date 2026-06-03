@@ -1,6 +1,6 @@
 # SourceFlow 当前任务队列
 
-更新日期：2026-06-02
+更新日期：2026-06-03
 
 ## 本轮
 
@@ -66,6 +66,9 @@
 - [x] 双端打包验证修正：WSL Arch Linux `.deb` 打包缺少 `libcrypt.so.1` 时，临时解压 `libxcrypt-compat` 供 electron-builder fpm 使用，不要求修改系统环境。
 - [x] 双端打包最终验证：Windows x64 安装包/便携包与 WSL Arch Linux x64 AppImage/deb/tar.gz/portable 均已完整打包通过。
 - [x] v0.1.6 双端覆盖发布：远程 Release 已同步 Windows x64 与 Linux x64 全部 8 个资产。
+- [x] 按 `plans/rules.md` 完成 AI 安全/来源审计修复：安全配置归一化、`securityMode` 全链路透传、来源读权限检查、批量阈值会话累计、来源引用 ID metadata 与点击跳转、来源解析竞态和发送失败回滚。
+- [x] 完成审计衍生边界修复：AI 安全测试隔离 `DataDir` 并清理运行时残留；Embedding/流式错误响应限制读取大小；向量索引按 rune 截断；SQL ID/hash 列表查询改用占位符 helper，搜索 box/path 过滤器做空值过滤和字面量转义。
+- [x] 本轮验证：`go test -vet=off ./model -count=1`、`go test -vet=off ./sql -run Test -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run typecheck:app`、`git diff --check`。
 
 ## 后续（AI 原生笔记助手 v2，2026-06-02 定稿）
 

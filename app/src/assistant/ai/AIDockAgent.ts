@@ -1,7 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {assistantText, buildAssistantNoteContext} from "../constants";
 import type {ICurrentNoteContext} from "../common/note";
-import {buildIncludedContextText} from "../mentions/contextBuilder";
+import {buildIncludedContextText, buildSourceCitationsFromMentionSources} from "../mentions/contextBuilder";
 import {
     abortRunningAssistantAgentTask,
     cancelPendingAssistantAgentItems,
@@ -242,8 +242,10 @@ export const runAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: s
                 message: item.title,
                 system,
                 enableTools: ctx.enableTools,
+                securityMode: ctx.securityMode,
                 context,
                 attachments: [],
+                sources: buildSourceCitationsFromMentionSources(ctx.sources),
             }, {signal: runContext.signal});
             ctx.selectedSessionId = result.session.id;
             ctx.selectedProfileId = result.profile.id;

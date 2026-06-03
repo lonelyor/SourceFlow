@@ -2,7 +2,27 @@ package model
 
 import (
 	"testing"
+
+	"github.com/lonelyor/sourceflow/kernel/util"
 )
+
+func withTempAISecurityConfig(t *testing.T) {
+	t.Helper()
+	oldDataDir := util.DataDir
+
+	aiSecurityConfigLock.Lock()
+	oldCache := aiSecurityConfigCache
+	aiSecurityConfigCache = nil
+	aiSecurityConfigLock.Unlock()
+
+	util.DataDir = t.TempDir()
+	t.Cleanup(func() {
+		aiSecurityConfigLock.Lock()
+		aiSecurityConfigCache = oldCache
+		aiSecurityConfigLock.Unlock()
+		util.DataDir = oldDataDir
+	})
+}
 
 func TestNewAISecurityConfigDefaults(t *testing.T) {
 	cfg := NewAISecurityConfig()
@@ -94,16 +114,66 @@ func TestCheckAISecurityBatchThreshold(t *testing.T) {
 }
 
 func TestCheckAISecurityBlacklist(t *testing.T) {
-	original := GetAISecurityConfig()
-	defer SetAISecurityConfig(original)
+	withTempAISecurityConfig(t)
 
 	cfg := NewAISecurityConfig()
 	cfg.Blacklist = []AISecurityRule{{Type: AISecurityRuleNotebook, ID: "blocked-notebook"}}
-	SetAISecurityConfig(cfg)
+	if err := SetAISecurityConfig(cfg); nil != err {
+		t.Fatalf("SetAISecurityConfig error: %v", err)
+	}
 
 	result := CheckAISecurityPermission(AISecurityModeFullAccess, AISecurityRiskL1, "note", []string{"blocked-notebook"}, 0)
 	if result.Decision != AISecurityDeny {
 		t.Errorf("blacklisted target should be denied, got %s", result.Decision)
+	}
+}
+
+func TestNormalizeAISecurityConfig(t *testing.T) {
+	cfg := NormalizeAISecurityConfig(&AISecurityConfig{
+		DefaultMode:    "invalid",
+		BatchThreshold: 1000,
+		Blacklist: []AISecurityRule{
+			{Type: AISecurityRuleNote, ID: " note-1 ", Name: " Note "},
+			{Type: AISecurityRuleNote, ID: "note-1"},
+			{Type: "bad-type", ID: "tag-1"},
+			{Type: AISecurityRuleFolder, ID: ""},
+		},
+	})
+	if cfg.DefaultMode != AISecurityModeDefault {
+		t.Errorf("DefaultMode = %s, want default", cfg.DefaultMode)
+	}
+	if cfg.BatchThreshold != AISecurityMaxBatchThreshold {
+		t.Errorf("BatchThreshold = %d, want %d", cfg.BatchThreshold, AISecurityMaxBatchThreshold)
+	}
+	if len(cfg.Blacklist) != 2 {
+		t.Fatalf("Blacklist length = %d, want 2", len(cfg.Blacklist))
+	}
+	if cfg.Blacklist[0].ID != "note-1" || cfg.Blacklist[0].Name != "Note" {
+		t.Errorf("first blacklist entry not normalized: %+v", cfg.Blacklist[0])
+	}
+	if cfg.Blacklist[1].Type != AISecurityRuleNote {
+		t.Errorf("invalid rule type should normalize to note, got %s", cfg.Blacklist[1].Type)
+	}
+}
+
+func TestCheckAISecurityCapabilityReadDenied(t *testing.T) {
+	withTempAISecurityConfig(t)
+
+	cfg := NewAISecurityConfig()
+	cfg.Capabilities.Read = false
+	if err := SetAISecurityConfig(cfg); nil != err {
+		t.Fatalf("SetAISecurityConfig error: %v", err)
+	}
+
+	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:       AISecurityModeFullAccess,
+		Risk:       AISecurityRiskL1,
+		TargetType: "note",
+		TargetIDs:  []string{"id1"},
+		Capability: AISecurityCapabilityRead,
+	})
+	if result.Decision != AISecurityDeny {
+		t.Errorf("read disabled should deny, got %s", result.Decision)
 	}
 }
 

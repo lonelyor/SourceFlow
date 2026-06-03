@@ -19,6 +19,7 @@ type assistantAIToolLoopParams struct {
 	ContextMessages []*AssistantAIMessage
 	EnableTools     bool
 	UseNativeTools  bool
+	SecurityMode    AISecurityMode
 	OnDelta         func(string) error
 }
 
@@ -42,6 +43,7 @@ func runAssistantAIToolLoop(params *assistantAIToolLoopParams) (ret *assistantAI
 	systemPrompt := params.SystemPrompt
 	enableTools := params.EnableTools
 	useNativeTools := params.UseNativeTools
+	securityMode := NormalizeAISecurityMode(params.SecurityMode, GetAISecurityConfig().DefaultMode)
 
 	chatOpts := &assistantAIChatOptions{
 		EnableTools: useNativeTools,
@@ -69,7 +71,7 @@ func runAssistantAIToolLoop(params *assistantAIToolLoopParams) (ret *assistantAI
 		shouldContinue := false
 
 		if useNativeTools && 0 < len(reply.ToolCalls) {
-			toolResults = executeAssistantAINativeToolCalls(db, profile, sessionID, params.Context, reply.ToolCalls)
+			toolResults = executeAssistantAINativeToolCalls(db, profile, sessionID, params.Context, reply.ToolCalls, securityMode)
 			shouldContinue = true
 		} else if !useNativeTools {
 			envelope, ok := parseAssistantAIToolEnvelope(reply.Content)
@@ -78,7 +80,7 @@ func runAssistantAIToolLoop(params *assistantAIToolLoopParams) (ret *assistantAI
 				if 1 == len(envelope.ToolCalls) {
 					fallbackReply = strings.TrimSpace(envelope.Reply)
 				}
-				toolResults = executeAssistantAIRequestedTools(db, profile, sessionID, params.Context, envelope.ToolCalls, fallbackReply, params.UserPrompt)
+				toolResults = executeAssistantAIRequestedTools(db, profile, sessionID, params.Context, envelope.ToolCalls, fallbackReply, params.UserPrompt, securityMode)
 				shouldContinue = true
 			} else if ok && "" != strings.TrimSpace(envelope.Reply) {
 				reply.Content = strings.TrimSpace(envelope.Reply)

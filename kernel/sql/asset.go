@@ -91,8 +91,12 @@ func docTitleImgAsset(root *ast.Node, boxLocalPath, docDirLocalPath string) *Ass
 }
 
 func deleteAssetsByHashes(tx *sql.Tx, hashes []string) (err error) {
-	sqlStmt := "DELETE FROM assets WHERE hash IN ('" + strings.Join(hashes, "','") + "') OR hash = ''"
-	err = execStmtTx(tx, sqlStmt)
+	placeholders, args := buildStringInClause(hashes)
+	sqlStmt := "DELETE FROM assets WHERE hash = ''"
+	if "" != placeholders {
+		sqlStmt = "DELETE FROM assets WHERE hash IN (" + placeholders + ") OR hash = ''"
+	}
+	err = execStmtTx(tx, sqlStmt, args...)
 	return
 }
 

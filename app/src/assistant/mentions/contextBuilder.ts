@@ -1,5 +1,16 @@
 import {buildContextPack} from "./api";
 import type {IMentionSource, IContextPackItem, IContextPackEntry} from "./types";
+import type {TSecurityMode} from "../security/types";
+
+export interface IAssistantSourceCitation {
+    id: string;
+    type: string;
+    title: string;
+    notebook?: string;
+    path?: string;
+    hPath?: string;
+    children?: IAssistantSourceCitation[];
+}
 
 export const buildSourcesFromPackEntries = (entries: IContextPackEntry[]): IMentionSource[] => {
     return entries.map((entry) => {
@@ -53,6 +64,43 @@ export const buildPackItemsFromSources = (sources: IMentionSource[]): IContextPa
     return items;
 };
 
+export const cloneMentionSources = (sources: IMentionSource[]): IMentionSource[] => {
+    return (sources || []).map((source) => ({
+        ...source,
+        children: source.children?.map((child) => ({...child})),
+    }));
+};
+
+export const buildSourceCitationsFromMentionSources = (sources: IMentionSource[]): IAssistantSourceCitation[] => {
+    const citations: IAssistantSourceCitation[] = [];
+    for (const source of sources) {
+        if (!source.included || !source.id || !source.title) {
+            continue;
+        }
+        const citation: IAssistantSourceCitation = {
+            id: source.id,
+            type: source.type,
+            title: source.title,
+            notebook: source.notebook,
+            path: source.path,
+            hPath: source.hPath,
+        };
+        const children = (source.children || []).filter((child) => child.included && child.id && child.title).map((child) => ({
+            id: child.id,
+            type: child.type,
+            title: child.title,
+            notebook: child.notebook,
+            path: child.path,
+            hPath: child.hPath,
+        }));
+        if (children.length) {
+            citation.children = children;
+        }
+        citations.push(citation);
+    }
+    return citations;
+};
+
 export const buildIncludedContextText = (sources: IMentionSource[]): string => {
     const parts: string[] = [];
     for (const source of sources) {
@@ -91,11 +139,11 @@ export const estimateTokenCount = (sources: IMentionSource[]): number => {
     return Math.ceil(totalChars / 4);
 };
 
-export const resolveAndBuildPack = async (sources: IMentionSource[]): Promise<IMentionSource[]> => {
+export const resolveAndBuildPack = async (sources: IMentionSource[], securityMode: TSecurityMode = "default"): Promise<IMentionSource[]> => {
     const items = buildPackItemsFromSources(sources);
     if (!items.length) return sources;
 
-    const entries = await buildContextPack(items);
+    const entries = await buildContextPack(items, securityMode);
     const resolvedSources = buildSourcesFromPackEntries(entries);
 
     const sourceStateMap = new Map<string, {included: boolean; children: Map<string, boolean>}>();

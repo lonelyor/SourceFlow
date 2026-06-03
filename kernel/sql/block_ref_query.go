@@ -110,9 +110,11 @@ func queryRefTexts(refSearchIgnoreLines []string) (ret []string) {
 
 func QueryRefCount(defIDs []string) (ret map[string]int) {
 	ret = map[string]int{}
-	ids := strings.Join(defIDs, "','")
-	ids = "('" + ids + "')"
-	rows, err := query("SELECT def_block_id, COUNT(*) AS ref_cnt FROM refs WHERE def_block_id IN " + ids + " GROUP BY def_block_id")
+	placeholders, args := buildStringInClause(defIDs)
+	if "" == placeholders {
+		return ret
+	}
+	rows, err := query("SELECT def_block_id, COUNT(*) AS ref_cnt FROM refs WHERE def_block_id IN ("+placeholders+") GROUP BY def_block_id", args...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -195,9 +197,13 @@ func QueryDefRootBlocksByRefRootID(refRootID string) (ret []*Block) {
 
 func QueryRefRootBlocksByDefRootIDs(defRootIDs []string) (ret map[string][]*Block) {
 	ret = map[string][]*Block{}
+	placeholders, args := buildStringInClause(defRootIDs)
+	if "" == placeholders {
+		return ret
+	}
 
-	stmt := "SELECT r.def_block_root_id, b.* FROM refs AS r, blocks AS b ON r.def_block_root_id IN ('" + strings.Join(defRootIDs, "','") + "')" + " AND b.id = r.root_id"
-	rows, err := query(stmt)
+	stmt := "SELECT r.def_block_root_id, b.* FROM refs AS r, blocks AS b ON r.def_block_root_id IN (" + placeholders + ") AND b.id = r.root_id"
+	rows, err := query(stmt, args...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -274,12 +280,13 @@ func QueryBlockDefIDsByRefText(refText string, excludeIDs []string) (ret []strin
 
 func queryDefIDsByDefText(keyword string, excludeIDs []string) (ret []string) {
 	ret = []string{}
-	notIn := "('" + strings.Join(excludeIDs, "','") + "')"
-	q := "SELECT DISTINCT(def_block_id) FROM refs WHERE content LIKE ? AND def_block_id NOT IN " + notIn
+	notIn, notInArgs := buildStringNotInCondition("def_block_id", excludeIDs)
+	q := "SELECT DISTINCT(def_block_id) FROM refs WHERE content LIKE ?" + notIn
 	if caseSensitive {
-		q = "SELECT DISTINCT(def_block_id) FROM refs WHERE content = ? AND def_block_id NOT IN " + notIn
+		q = "SELECT DISTINCT(def_block_id) FROM refs WHERE content = ?" + notIn
 	}
-	rows, err := query(q, keyword)
+	queryArgs := append([]interface{}{keyword}, notInArgs...)
+	rows, err := query(q, queryArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -298,8 +305,9 @@ func queryDefIDsByDefText(keyword string, excludeIDs []string) (ret []string) {
 
 func queryDefIDsByNameAlias(keyword string, excludeIDs []string) (ret []string) {
 	ret = []string{}
-	notIn := "('" + strings.Join(excludeIDs, "','") + "')"
-	rows, err := query("SELECT DISTINCT(id), name, alias FROM blocks WHERE (name = ? OR alias LIKE ?) AND id NOT IN "+notIn, keyword, "%"+keyword+"%")
+	notIn, notInArgs := buildStringNotInCondition("id", excludeIDs)
+	queryArgs := append([]interface{}{keyword, "%" + keyword + "%"}, notInArgs...)
+	rows, err := query("SELECT DISTINCT(id), name, alias FROM blocks WHERE (name = ? OR alias LIKE ?)"+notIn, queryArgs...)
 	if err != nil {
 		logging.LogErrorf("sql query failed: %s", err)
 		return
@@ -434,11 +442,11 @@ func QueryRefsByDefID(defBlockID string, containChildren bool) (ret []*Ref) {
 	var err error
 	if containChildren {
 		blockIDs := queryBlockChildrenIDs(defBlockID)
-		var params []string
-		for _, id := range blockIDs {
-			params = append(params, "\""+id+"\"")
+		placeholders, args := buildStringInClause(blockIDs)
+		if "" == placeholders {
+			return
 		}
-		rows, err = query("SELECT * FROM refs WHERE def_block_id IN (" + strings.Join(params, ",") + ")")
+		rows, err = query("SELECT * FROM refs WHERE def_block_id IN ("+placeholders+")", args...)
 	} else {
 		rows, err = query("SELECT * FROM refs WHERE def_block_id = ?", defBlockID)
 	}

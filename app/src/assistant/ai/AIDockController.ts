@@ -65,7 +65,7 @@ import {
 } from "./AIDockShared";
 import type {IMentionSource} from "../mentions/types";
 import {createMentionTriggerState, IMentionTriggerState} from "../mentions/trigger";
-import {resolveAndBuildPack} from "../mentions/contextBuilder";
+import {cloneMentionSources, resolveAndBuildPack} from "../mentions/contextBuilder";
 import type {TSecurityMode} from "../security/types";
 import {getSecurityConfig} from "../security/api";
 import {
@@ -138,6 +138,7 @@ class AssistantAIDock {
     private attachmentsBackup: IAssistantAIInputAttachment[] | null = null;
     private sources: IMentionSource[] = [];
     private sourcesPanelVisible = false;
+    private sourcesResolveSeq = 0;
     private mentionState: IMentionTriggerState = createMentionTriggerState();
     private securityMode: TSecurityMode = "default";
     private securityDropdownVisible = false;
@@ -539,6 +540,7 @@ class AssistantAIDock {
     }
 
     private clearSources() {
+        this.sourcesResolveSeq++;
         this.sources = [];
         this.sourcesPanelVisible = false;
     }
@@ -551,6 +553,7 @@ class AssistantAIDock {
     }
 
     private removeSource(id: string) {
+        this.sourcesResolveSeq++;
         this.sources = this.sources.filter((s) => s.id !== id);
         if (!this.sources.length) {
             this.sourcesPanelVisible = false;
@@ -582,13 +585,27 @@ class AssistantAIDock {
 
     private async resolveSources() {
         if (!this.sources.length) return;
-        this.sources = await resolveAndBuildPack(this.sources);
-        this.render();
+        const seq = ++this.sourcesResolveSeq;
+        const sourcesSnapshot = cloneMentionSources(this.sources);
+        try {
+            const resolved = await resolveAndBuildPack(sourcesSnapshot, this.securityMode);
+            if (seq !== this.sourcesResolveSeq) {
+                return;
+            }
+            this.sources = resolved;
+            this.render();
+        } catch (error) {
+            if (seq === this.sourcesResolveSeq) {
+                showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+            }
+        }
     }
 
     private setSecurityMode(mode: TSecurityMode) {
         this.securityMode = mode;
         this.securityDropdownVisible = false;
+        this.sourcesResolveSeq++;
+        void this.resolveSources();
     }
 
     private toggleSecurityDropdown() {

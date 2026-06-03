@@ -13,7 +13,7 @@ import {
     streamAssistantAI,
 } from "./api";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
-import {buildIncludedContextText} from "../mentions/contextBuilder";
+import {buildIncludedContextText, buildSourceCitationsFromMentionSources, cloneMentionSources} from "../mentions/contextBuilder";
 import {
     assistantAIComposerAttachmentLimit,
     assistantAIComposerAttachmentMaxBytes,
@@ -309,13 +309,27 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     }
     const previousMessages = ctx.messages.slice();
     const messagePreview = ctx.buildUserMessagePreview(message, attachments) || assistantText("图片消息", "Image message");
+    const sourcesSnapshot = cloneMentionSources(ctx.sources);
+    const sourceCitations = buildSourceCitationsFromMentionSources(sourcesSnapshot);
+    const messageMetadata: Record<string, unknown> = {};
+    if (attachments.length) {
+        messageMetadata.attachments = attachments.map((item) => ({...item}));
+    }
+    if (sourceCitations.length) {
+        messageMetadata.sources = sourceCitations;
+    }
     const optimisticUser = isEditing
         ? (() => {
             const nextMetadata = {...(editingMessage?.metadata || {})} as Record<string, unknown>;
-            if (attachments.length) {
-                nextMetadata.attachments = attachments.map((item) => ({...item}));
+            if (messageMetadata.attachments) {
+                nextMetadata.attachments = messageMetadata.attachments;
             } else {
                 delete nextMetadata.attachments;
+            }
+            if (messageMetadata.sources) {
+                nextMetadata.sources = messageMetadata.sources;
+            } else {
+                delete nextMetadata.sources;
             }
             nextMetadata.editedAt = Date.now();
             return {
@@ -325,14 +339,13 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             } as TAssistantAIMessageItem;
         })()
         : ctx.buildLocalMessage("user", messagePreview, {
-            metadata: attachments.length ? {attachments} : {},
+            metadata: messageMetadata,
         });
     const optimisticAssistant = ctx.buildLocalMessage("assistant", assistantText("正在处理...", "Thinking..."), {
         localPending: true,
     });
     ctx.draftMessage = "";
     ctx.attachments = [];
-    const sourcesSnapshot = [...ctx.sources];
     ctx.clearSources();
     if (isEditing) {
         const editingIndex = previousMessages.findIndex((item) => item.id === editingMessageId);
@@ -376,8 +389,10 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             message,
             system,
             enableTools: ctx.enableTools,
+            securityMode: ctx.securityMode,
             context: currentNote,
             attachments,
+            sources: sourceCitations,
         };
         const result = await (isEditing
             ? editAssistantAIMessageStream({
@@ -422,6 +437,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         const errorText = error instanceof Error ? error.message : String(error);
         ctx.draftMessage = message;
         ctx.attachments = attachments;
+        ctx.sources = cloneMentionSources(sourcesSnapshot);
+        ctx.sourcesPanelVisible = sourcesSnapshot.length > 0;
         if (isEditing) {
             ctx.editingMessageId = editingMessageId;
             ctx.messages = previousMessages;
@@ -466,6 +483,7 @@ export const confirmAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId:
             sessionId: session.id,
             messageId,
             auditId: `${tool.auditId || ""}`,
+            securityMode: ctx.securityMode,
             context: tool.context as never,
             toolId: `${tool.toolId || ""}`,
             args: (tool.args || {}) as Record<string, unknown>,

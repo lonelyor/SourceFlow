@@ -93,7 +93,7 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 	defer resp.Body.Close()
 
 	if 400 <= resp.StatusCode {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
 		return nil, fmt.Errorf("Gemini stream request failed (status %d): %s", resp.StatusCode, string(body))
 	}
 

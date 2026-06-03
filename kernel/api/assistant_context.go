@@ -9,12 +9,14 @@ import (
 )
 
 type contextSearchRequest struct {
-	Query string `json:"query"`
-	Limit int    `json:"limit"`
+	Query        string `json:"query"`
+	Limit        int    `json:"limit"`
+	SecurityMode string `json:"securityMode"`
 }
 
 type contextBuildPackRequest struct {
-	Items []model.AssistantContextPackItem `json:"items"`
+	Items        []model.AssistantContextPackItem `json:"items"`
+	SecurityMode string                           `json:"securityMode"`
 }
 
 func assistantContextSearch(c *gin.Context) {
@@ -40,7 +42,7 @@ func assistantContextSearch(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	results := model.SearchAssistantContextItems(req.Query, req.Limit)
+	results := model.SearchAssistantContextItems(req.Query, req.Limit, model.AISecurityMode(req.SecurityMode))
 	ret.Data = map[string]interface{}{
 		"results": results,
 		"count":   len(results),
@@ -70,7 +72,7 @@ func assistantContextBuildPack(c *gin.Context) {
 		return
 	}
 
-	pack, err := model.BuildAssistantContextPack(req.Items)
+	pack, err := model.BuildAssistantContextPack(req.Items, model.AISecurityMode(req.SecurityMode))
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()

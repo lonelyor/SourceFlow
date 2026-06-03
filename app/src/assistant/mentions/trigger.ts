@@ -1,6 +1,7 @@
 import {searchMentionItems} from "./api";
 import {escapeAttr, escapeHTML} from "../common/dom";
 import type {IMentionSearchResult} from "./types";
+import type {TSecurityMode} from "../security/types";
 
 export interface IMentionTriggerState {
     active: boolean;
@@ -55,6 +56,7 @@ export const searchAndShowMentions = async (
     query: string,
     seq: number,
     state: IMentionTriggerState,
+    securityMode: TSecurityMode,
     onUpdate: () => void,
 ) => {
     const normalizedQuery = `${query || ""}`.trim();
@@ -69,7 +71,7 @@ export const searchAndShowMentions = async (
     }
     let results: IMentionSearchResult[] = [];
     try {
-        results = await searchMentionItems(normalizedQuery, 8);
+        results = await searchMentionItems(normalizedQuery, 8, securityMode);
     } catch (_) {
         results = [];
     }

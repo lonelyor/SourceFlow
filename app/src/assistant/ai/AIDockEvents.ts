@@ -1,4 +1,6 @@
 import {openSettingTab} from "../../config";
+import {Constants} from "../../constants";
+import {openFileById} from "../../editor/util";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
 import {rollbackAssistantOperationHistoryItem} from "../history/operations";
@@ -68,6 +70,14 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     return;
                 }
                 if (action === "open-source-note") {
+                    const noteId = target.getAttribute("data-note-id") || "";
+                    if (noteId) {
+                        void openFileById({
+                            app: ctx.app,
+                            id: noteId,
+                            action: [Constants.CB_GET_FOCUS, Constants.CB_GET_SCROLL],
+                        });
+                    }
                     event.preventDefault();
                     return;
                 }
@@ -164,7 +174,7 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     ctx.mentionState.active = true;
                     ctx.mentionState.query = mentionInfo.query;
                     ctx.mentionState.seq++;
-                    void searchAndShowMentions(mentionInfo.query, ctx.mentionState.seq, ctx.mentionState, () => {
+                    void searchAndShowMentions(mentionInfo.query, ctx.mentionState.seq, ctx.mentionState, ctx.securityMode, () => {
                         ctx.render();
                     });
                 } else {

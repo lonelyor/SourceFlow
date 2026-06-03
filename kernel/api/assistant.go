@@ -56,13 +56,14 @@ type assistantAIToolAuditListRequest struct {
 }
 
 type assistantAIToolExecuteRequest struct {
-	ProfileID string                        `json:"profileId"`
-	SessionID string                        `json:"sessionId"`
-	MessageID string                        `json:"messageId"`
-	AuditID   string                        `json:"auditId"`
-	Context   *model.AssistantAINoteContext `json:"context"`
-	ToolID    string                        `json:"toolId"`
-	Args      map[string]interface{}        `json:"args"`
+	ProfileID    string                        `json:"profileId"`
+	SessionID    string                        `json:"sessionId"`
+	MessageID    string                        `json:"messageId"`
+	AuditID      string                        `json:"auditId"`
+	SecurityMode string                        `json:"securityMode"`
+	Context      *model.AssistantAINoteContext `json:"context"`
+	ToolID       string                        `json:"toolId"`
+	Args         map[string]interface{}        `json:"args"`
 }
 
 type assistantAIChatStreamEvent struct {
@@ -471,11 +472,12 @@ func assistantAIToolExecute(c *gin.Context) {
 	}
 
 	data, err := model.ExecuteAssistantAITool(&model.AssistantAIToolRequest{
-		ProfileID: req.ProfileID,
-		SessionID: req.SessionID,
-		Context:   req.Context,
-		ToolID:    req.ToolID,
-		Args:      req.Args,
+		ProfileID:    req.ProfileID,
+		SessionID:    req.SessionID,
+		SecurityMode: model.AISecurityMode(req.SecurityMode),
+		Context:      req.Context,
+		ToolID:       req.ToolID,
+		Args:         req.Args,
 	})
 	if err != nil {
 		ret.Code = -1
@@ -497,13 +499,14 @@ func assistantAIToolConfirm(c *gin.Context) {
 	}
 
 	data, err := model.ConfirmAssistantAITool(&model.AssistantAIToolConfirmRequest{
-		ProfileID: req.ProfileID,
-		SessionID: req.SessionID,
-		MessageID: req.MessageID,
-		AuditID:   req.AuditID,
-		Context:   req.Context,
-		ToolID:    req.ToolID,
-		Args:      req.Args,
+		ProfileID:    req.ProfileID,
+		SessionID:    req.SessionID,
+		MessageID:    req.MessageID,
+		AuditID:      req.AuditID,
+		SecurityMode: model.AISecurityMode(req.SecurityMode),
+		Context:      req.Context,
+		ToolID:       req.ToolID,
+		Args:         req.Args,
 	})
 	if err != nil {
 		ret.Code = -1

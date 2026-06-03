@@ -48,7 +48,7 @@ func TestTruncateText(t *testing.T) {
 }
 
 func TestSearchAssistantContextItemsEmptyQuery(t *testing.T) {
-	results := SearchAssistantContextItems("", 10)
+	results := SearchAssistantContextItems("", 10, AISecurityModeDefault)
 	if results == nil {
 		results = []*AssistantContextSearchResult{}
 	}
@@ -58,7 +58,7 @@ func TestSearchAssistantContextItemsEmptyQuery(t *testing.T) {
 }
 
 func TestBuildAssistantContextPackEmptyItems(t *testing.T) {
-	pack, err := BuildAssistantContextPack(nil)
+	pack, err := BuildAssistantContextPack(nil, AISecurityModeDefault)
 	if err != nil {
 		t.Fatalf("BuildAssistantContextPack(nil) error: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestBuildAssistantContextPackSelection(t *testing.T) {
 			Content: "这是选中的文本内容",
 		},
 	}
-	pack, err := BuildAssistantContextPack(items)
+	pack, err := BuildAssistantContextPack(items, AISecurityModeDefault)
 	if err != nil {
 		t.Fatalf("BuildAssistantContextPack error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestBuildAssistantContextPackSelectionTruncation(t *testing.T) {
 			Content: longText,
 		},
 	}
-	pack, _ := BuildAssistantContextPack(items)
+	pack, _ := BuildAssistantContextPack(items, AISecurityModeDefault)
 	if len(pack.Items) != 1 {
 		t.Fatal("expected 1 item")
 	}
@@ -125,7 +125,7 @@ func TestBuildAssistantContextPackInvalidNote(t *testing.T) {
 			ID:   "nonexistent-id-12345",
 		},
 	}
-	pack, err := BuildAssistantContextPack(items)
+	pack, err := BuildAssistantContextPack(items, AISecurityModeDefault)
 	if err != nil {
 		t.Fatalf("BuildAssistantContextPack error: %v", err)
 	}
