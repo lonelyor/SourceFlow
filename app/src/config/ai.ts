@@ -5,6 +5,14 @@ import {fetchPost} from "../util/fetch";
 import {showMessage} from "../dialog/message";
 import type {ISecurityConfig, ISecurityCapabilities} from "../assistant/security/types";
 import {getSecurityConfig, setSecurityConfig} from "../assistant/security/api";
+import {
+    clearAssistantSecretMaskBeforeEdit,
+    getAssistantSecretInputValue,
+    getAssistantSecretPayloadFromInput,
+    normalizeAssistantSecretInputAfterEdit,
+    shouldClearAssistantSecretMaskForKey,
+} from "../assistant/secrets";
+import type {TAssistantAPIKeyAction} from "../assistant/secrets";
 
 type TAssistantAIProfilesPanelLike = {
     destroy: () => void;
@@ -14,6 +22,7 @@ type TAssistantEmbeddingConfig = {
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     model: string;
     enabled: boolean;
     hasAPIKey?: boolean;
@@ -27,6 +36,7 @@ let securityConfigError = "";
 
 const embeddingSectionHTML = () => {
     const cfg = embeddingConfig || {provider: "", baseURL: "", apiKey: "", model: "", enabled: false};
+    const apiKeyValue = getAssistantSecretInputValue(!!cfg.hasAPIKey);
     return `<div class="assistant-config__section b3-label fn__flex-column">
     <div class="fn__flex config__item">
         <div class="fn__flex-1">
@@ -52,7 +62,7 @@ const embeddingSectionHTML = () => {
     <div class="fn__flex config__item">
         <div class="fn__flex-center fn__flex-1">${escapeHTML(assistantText("API Key（可选）", "API Key (optional)"))}</div>
         <span class="fn__space"></span>
-        <input type="password" class="b3-text-field fn__flex-center fn__size200" id="embeddingApiKey" placeholder="${escapeAttr(cfg.hasAPIKey ? assistantText("留空保持已有密钥", "Leave blank to keep existing key") : "sk-...")}" value="">
+        <input type="password" class="b3-text-field fn__flex-center fn__size200" id="embeddingApiKey" data-secret-masked="${cfg.hasAPIKey ? "true" : "false"}" autocomplete="off" placeholder="sk-..." value="${escapeAttr(apiKeyValue)}">
     </div>
     <div class="fn__hr"></div>
     <div class="fn__flex config__item">
@@ -89,23 +99,46 @@ const renderEmbeddingSection = (container: HTMLElement) => {
 };
 
 const bindEmbeddingEvents = (container: HTMLElement) => {
+    const apiKeyInput = container.querySelector("#embeddingApiKey") as HTMLInputElement | null;
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (!shouldClearAssistantSecretMaskForKey(event)) {
+                return;
+            }
+            if (clearAssistantSecretMaskBeforeEdit(apiKeyInput) && (event.key === "Backspace" || event.key === "Delete")) {
+                event.preventDefault();
+            }
+        });
+        apiKeyInput.addEventListener("paste", () => {
+            clearAssistantSecretMaskBeforeEdit(apiKeyInput);
+        });
+        apiKeyInput.addEventListener("input", () => {
+            normalizeAssistantSecretInputAfterEdit(apiKeyInput);
+        });
+    }
+
     const saveBtn = container.querySelector("#embeddingSave");
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
             const enabled = (container.querySelector("#embeddingEnabled") as HTMLInputElement)?.checked || false;
             const baseURL = (container.querySelector("#embeddingBaseURL") as HTMLInputElement)?.value || "";
             const model = (container.querySelector("#embeddingModel") as HTMLInputElement)?.value || "";
-            const apiKey = (container.querySelector("#embeddingApiKey") as HTMLInputElement)?.value || "";
+            const secret = getAssistantSecretPayloadFromInput(!!embeddingConfig?.hasAPIKey, apiKeyInput);
             const config: TAssistantEmbeddingConfig = {
                 provider: "openai-compatible",
                 baseURL,
-                apiKey,
+                apiKey: secret.apiKey,
+                apiKeyAction: secret.apiKeyAction,
                 model,
                 enabled,
             };
             fetchPost("/api/assistant/embedding/setConfig", {config}, (response: {code: number; msg?: string; data?: TAssistantEmbeddingConfig}) => {
                 if (response.code === 0) {
-                    embeddingConfig = response.data || {...config, apiKey: "", hasAPIKey: !!apiKey || !!embeddingConfig?.hasAPIKey};
+                    embeddingConfig = response.data || {
+                        ...config,
+                        apiKey: "",
+                        hasAPIKey: secret.apiKeyAction === "replace" || (secret.apiKeyAction === "keep" && !!embeddingConfig?.hasAPIKey),
+                    };
                     renderEmbeddingSection(container);
                     bindEmbeddingEvents(container);
                     showMessage(assistantText("Embedding 配置已保存", "Embedding config saved"));

@@ -94,15 +94,16 @@ func TestAssistantAISessionPinningSortsAndPersists(t *testing.T) {
 	}
 }
 
-func TestAssistantAIProfileSanitizeAndBlankSavePreservesAPIKey(t *testing.T) {
+func TestAssistantAIProfileAPIKeyActions(t *testing.T) {
 	withAssistantAISessionTestDB(t)
 
 	created, err := SaveAssistantAIProfile(&AssistantAIProfile{
-		Name:     "Fake",
-		Provider: AssistantAIProviderFake,
-		BaseURL:  "sourceflow://fake",
-		APIKey:   "secret-key",
-		Model:    "sourceflow-fake-chat",
+		Name:         "Fake",
+		Provider:     AssistantAIProviderFake,
+		BaseURL:      "sourceflow://fake",
+		APIKey:       "secret-key",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "sourceflow-fake-chat",
 	})
 	if err != nil {
 		t.Fatalf("save profile with API key: %s", err)
@@ -120,27 +121,77 @@ func TestAssistantAIProfileSanitizeAndBlankSavePreservesAPIKey(t *testing.T) {
 	}
 
 	updated, err := SaveAssistantAIProfile(&AssistantAIProfile{
-		ID:        created.ID,
-		Name:      "Fake Updated",
-		Provider:  AssistantAIProviderFake,
-		BaseURL:   "sourceflow://fake",
-		APIKey:    "",
-		Model:     "sourceflow-fake-chat",
-		IsDefault: created.IsDefault,
-		Settings:  created.Settings,
+		ID:           created.ID,
+		Name:         "Fake Updated",
+		Provider:     AssistantAIProviderFake,
+		BaseURL:      "sourceflow://fake",
+		APIKey:       "",
+		APIKeyAction: AssistantAPIKeyActionKeep,
+		Model:        "sourceflow-fake-chat",
+		IsDefault:    created.IsDefault,
+		Settings:     created.Settings,
 	})
 	if err != nil {
-		t.Fatalf("save profile with blank API key: %s", err)
+		t.Fatalf("save profile with keep API key action: %s", err)
 	}
 	if updated.APIKey != "secret-key" {
-		t.Fatalf("blank API key save should preserve existing key, got %q", updated.APIKey)
+		t.Fatalf("keep API key action should preserve existing key, got %q", updated.APIKey)
+	}
+
+	cleared, err := SaveAssistantAIProfile(&AssistantAIProfile{
+		ID:           created.ID,
+		Name:         "Fake Cleared",
+		Provider:     AssistantAIProviderFake,
+		BaseURL:      "sourceflow://fake",
+		APIKey:       "",
+		APIKeyAction: AssistantAPIKeyActionClear,
+		Model:        "sourceflow-fake-chat",
+		IsDefault:    updated.IsDefault,
+		Settings:     updated.Settings,
+	})
+	if err != nil {
+		t.Fatalf("clear profile API key: %s", err)
+	}
+	if cleared.APIKey != "" || cleared.HasAPIKey {
+		t.Fatalf("clear API key action should remove stored key, got key %q has %v", cleared.APIKey, cleared.HasAPIKey)
+	}
+
+	replaced, err := SaveAssistantAIProfile(&AssistantAIProfile{
+		ID:           created.ID,
+		Name:         "Fake Replaced",
+		Provider:     AssistantAIProviderFake,
+		BaseURL:      "sourceflow://fake",
+		APIKey:       "new-secret",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "sourceflow-fake-chat",
+		IsDefault:    cleared.IsDefault,
+		Settings:     cleared.Settings,
+	})
+	if err != nil {
+		t.Fatalf("replace profile API key: %s", err)
+	}
+	if replaced.APIKey != "new-secret" || !replaced.HasAPIKey {
+		t.Fatalf("replace API key action should store new key, got key %q has %v", replaced.APIKey, replaced.HasAPIKey)
 	}
 
 	loaded, err := GetAssistantAIProfile(created.ID)
 	if err != nil {
 		t.Fatalf("load profile: %s", err)
 	}
-	if loaded.APIKey != "secret-key" {
-		t.Fatalf("stored API key should be preserved, got %q", loaded.APIKey)
+	if loaded.APIKey != "new-secret" {
+		t.Fatalf("stored API key should be replaced, got %q", loaded.APIKey)
+	}
+
+	if _, err = SaveAssistantAIProfile(&AssistantAIProfile{
+		ID:           created.ID,
+		Name:         "Fake Invalid",
+		Provider:     AssistantAIProviderFake,
+		BaseURL:      "sourceflow://fake",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "sourceflow-fake-chat",
+		IsDefault:    loaded.IsDefault,
+		Settings:     loaded.Settings,
+	}); err == nil {
+		t.Fatal("replace API key action with blank key should fail")
 	}
 }

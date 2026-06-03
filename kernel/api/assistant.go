@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -19,12 +20,13 @@ type assistantAIIDRequest struct {
 }
 
 type assistantAIProfileTestRequest struct {
-	ID        string `json:"id"`
-	Provider  string `json:"provider"`
-	BaseURL   string `json:"baseURL"`
-	APIKey    string `json:"apiKey"`
-	Proxy     string `json:"proxy"`
-	UserAgent string `json:"userAgent"`
+	ID           string `json:"id"`
+	Provider     string `json:"provider"`
+	BaseURL      string `json:"baseURL"`
+	APIKey       string `json:"apiKey"`
+	APIKeyAction string `json:"apiKeyAction"`
+	Proxy        string `json:"proxy"`
+	UserAgent    string `json:"userAgent"`
 }
 
 type assistantAISessionCreateRequest struct {
@@ -141,7 +143,13 @@ func assistantAIProfileTest(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, assistantAIProfileRequestAPIKey(req), req.Proxy, req.UserAgent)
+	apiKey, err := assistantAIProfileRequestAPIKey(req)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, apiKey, req.Proxy, req.UserAgent)
 }
 
 func assistantAIProfileModels(c *gin.Context) {
@@ -154,21 +162,40 @@ func assistantAIProfileModels(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, assistantAIProfileRequestAPIKey(req), req.Proxy, req.UserAgent)
+	apiKey, err := assistantAIProfileRequestAPIKey(req)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, apiKey, req.Proxy, req.UserAgent)
 }
 
-func assistantAIProfileRequestAPIKey(req *assistantAIProfileTestRequest) string {
-	if nil == req || "" != strings.TrimSpace(req.APIKey) || "" == strings.TrimSpace(req.ID) {
-		if nil == req {
-			return ""
+func assistantAIProfileRequestAPIKey(req *assistantAIProfileTestRequest) (string, error) {
+	if nil == req {
+		return "", nil
+	}
+	action, err := model.NormalizeAssistantAPIKeyAction(req.APIKeyAction, req.APIKey)
+	if nil != err {
+		return "", err
+	}
+	switch action {
+	case model.AssistantAPIKeyActionReplace:
+		if "" == strings.TrimSpace(req.APIKey) {
+			return "", fmt.Errorf("assistant AI API key is required when replacing")
 		}
-		return req.APIKey
+		return req.APIKey, nil
+	case model.AssistantAPIKeyActionClear:
+		return "", nil
+	}
+	if "" == strings.TrimSpace(req.ID) {
+		return "", nil
 	}
 	profile, err := model.GetAssistantAIProfile(req.ID)
 	if nil != err || nil == profile {
-		return req.APIKey
+		return "", nil
 	}
-	return profile.APIKey
+	return profile.APIKey, nil
 }
 
 func assistantAISessionList(c *gin.Context) {

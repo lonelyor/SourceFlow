@@ -110,4 +110,5 @@
   - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、会话置顶 Go 回归、API 编译、`go build ./...` 与 `git diff --check` 通过。
 - [x] AI 安全闭环补齐：以当前实现 `storage/ai_security.json` 为唯一存储真相源；白名单和能力开关由后端安全内核决策；patch review 接受前统一调用后端安全检查；单次提权接入真实操作流程；前端移除安全默认能力矩阵复制。
   - [x] 验收：`test:ai-dock-runtime`、`typecheck:app`、AI 安全 Go 目标测试和 API 编译通过。
+- [x] AI/Embedding 密钥保存语义显式化：后端响应只暴露 `hasAPIKey`，前端用掩码表示已有密钥，请求用 `apiKeyAction=keep|replace|clear` 区分保留、替换和清空，避免空字符串多义。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

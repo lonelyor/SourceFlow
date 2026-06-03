@@ -18,11 +18,12 @@ import (
 )
 
 type AssistantEmbeddingConfig struct {
-	Provider string `json:"provider"`
-	BaseURL  string `json:"baseURL"`
-	APIKey   string `json:"apiKey"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	Provider     string `json:"provider"`
+	BaseURL      string `json:"baseURL"`
+	APIKey       string `json:"apiKey"`
+	APIKeyAction string `json:"apiKeyAction,omitempty"`
+	Model        string `json:"model"`
+	Enabled      bool   `json:"enabled"`
 }
 
 type AssistantEmbeddingConfigView struct {
@@ -59,6 +60,11 @@ func normalizeAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *Assistant
 	ret.Provider = strings.TrimSpace(ret.Provider)
 	ret.BaseURL = strings.TrimRight(strings.TrimSpace(ret.BaseURL), "/")
 	ret.APIKey = strings.TrimSpace(ret.APIKey)
+	if action, err := NormalizeAssistantAPIKeyAction(ret.APIKeyAction, ret.APIKey); nil == err {
+		ret.APIKeyAction = action
+	} else {
+		ret.APIKeyAction = strings.TrimSpace(ret.APIKeyAction)
+	}
 	ret.Model = strings.TrimSpace(ret.Model)
 	return ret
 }
@@ -108,9 +114,19 @@ func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
 		cfg = &AssistantEmbeddingConfig{}
 	}
 	cfg = normalizeAssistantEmbeddingConfig(cfg)
-	if "" == cfg.APIKey {
+	switch cfg.APIKeyAction {
+	case AssistantAPIKeyActionKeep:
 		cfg.APIKey = getAssistantEmbeddingConfigLocked().APIKey
+	case AssistantAPIKeyActionReplace:
+		if "" == cfg.APIKey {
+			return fmt.Errorf("embedding API key is required when replacing")
+		}
+	case AssistantAPIKeyActionClear:
+		cfg.APIKey = ""
+	default:
+		return fmt.Errorf("unsupported API key action [%s]", cfg.APIKeyAction)
 	}
+	cfg.APIKeyAction = ""
 	dir := filepath.Dir(embeddingConfigPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create embedding config dir: %w", err)

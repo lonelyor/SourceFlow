@@ -77,20 +77,21 @@ type AssistantAIProviderType struct {
 }
 
 type AssistantAIProfile struct {
-	ID        string                 `json:"id"`
-	Name      string                 `json:"name"`
-	Provider  string                 `json:"provider"`
-	BaseURL   string                 `json:"baseURL"`
-	APIKey    string                 `json:"apiKey"`
-	HasAPIKey bool                   `json:"hasAPIKey"`
-	Model     string                 `json:"model"`
-	UserAgent string                 `json:"userAgent"`
-	Proxy     string                 `json:"proxy"`
-	Version   string                 `json:"version"`
-	IsDefault bool                   `json:"isDefault"`
-	Settings  map[string]interface{} `json:"settings"`
-	CreatedAt int64                  `json:"createdAt"`
-	UpdatedAt int64                  `json:"updatedAt"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Provider     string                 `json:"provider"`
+	BaseURL      string                 `json:"baseURL"`
+	APIKey       string                 `json:"apiKey"`
+	APIKeyAction string                 `json:"apiKeyAction,omitempty"`
+	HasAPIKey    bool                   `json:"hasAPIKey"`
+	Model        string                 `json:"model"`
+	UserAgent    string                 `json:"userAgent"`
+	Proxy        string                 `json:"proxy"`
+	Version      string                 `json:"version"`
+	IsDefault    bool                   `json:"isDefault"`
+	Settings     map[string]interface{} `json:"settings"`
+	CreatedAt    int64                  `json:"createdAt"`
+	UpdatedAt    int64                  `json:"updatedAt"`
 }
 
 type AssistantAISession struct {

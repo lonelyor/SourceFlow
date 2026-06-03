@@ -25,6 +25,7 @@ import {
     saveAssistantAIProfile,
     setAssistantAISessionPinned,
 } from "./api";
+import {getAssistantSecretInputValue, getAssistantSecretPayload} from "../secrets";
 import type {IAssistantAIDockRuntime, IAssistantAINotePreview, TAssistantAIToolPolicyPreset} from "./AIDockContract";
 import {cloneProfileToolSettings, cloneToolModes} from "./AIDockShared";
 
@@ -126,6 +127,7 @@ export const saveSelectedAIDockProfileSettings = async (
     try {
         const saved = await saveAssistantAIProfile({
             ...profile,
+            ...getAssistantSecretPayload(!!profile.hasAPIKey, getAssistantSecretInputValue(!!profile.hasAPIKey)),
             settings,
         });
         ctx.profiles = ctx.profiles.map((item) => item.id === saved.id ? saved : item);

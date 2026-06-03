@@ -21,7 +21,8 @@
 - AI 助手验收必须提供不依赖外部服务的 `fake` Provider：默认 baseURL 为 `sourceflow://fake`，默认模型为 `sourceflow-fake-chat`，不要求 API Key，支持配置连通测试、静态模型列表、确定性普通回复、mock stream，以及工具 dry-run patch 预览。该 Provider 仅用于本地测试和产品验收，不应作为真实生产模型接入。
 - 前端 patch apply 必须复用后端 AI 写工具的安全边界：`delete-block` 和 `replace-block` 只能作用于非根内容块；无法确认目标块根文档关系时必须失败关闭，禁止直接删除或整体替换笔记根文档。
 - AI/Assistant 产生的外部 Markdown 写入必须重新生成块 ID，避免导入内容携带的 ID 与现有笔记碰撞；普通块 API 默认保持兼容，仅在 `sanitizeIDs` 显式开启时执行。
-- Embedding 配置 API 不得回显已保存 API Key；前端密码输入框留空表示保留已有密钥。语义搜索结果限制最多 50 条，删除笔记时必须清理对应向量索引。
+- Embedding 配置 API 不得回显已保存 API Key；语义搜索结果限制最多 50 条，删除笔记时必须清理对应向量索引。
+- AI Profile 与 Embedding 的 API Key 语义必须显式化：后端响应只返回 `hasAPIKey`，不得回显真实密钥；前端有密钥时只显示掩码 `******`，无密钥时显示空；保存请求必须携带 `apiKeyAction`，取值为 `keep`、`replace`、`clear`。`keep` 仅保留后端已有密钥，`replace` 使用本次输入的新密钥，`clear` 写入空密钥。掩码只作为 UI 展示状态，不得作为真实密钥存储或发送给模型服务。
 - Embedding 全量索引和语义搜索等异步 UI 必须在成功、业务失败和网络失败路径都恢复按钮/loading 状态，不允许让用户停留在永久“索引中/搜索中”。
 - 工作台与 AI 是独立功能：工作台负责任务、项目、资料、视图、收件箱、日历和查询筛选；AI 负责原生笔记助手、上下文引用、对话、patch 审阅、权限和审计。两者可以通过"引用当前工作台视图"或"让 AI 分析当前视图"做薄桥接，但不能合并为同一主入口。
 - 工作台和 AI 都应默认固定在侧边栏活动栏，不应默认隐藏在"更多功能"中。

@@ -59,6 +59,7 @@
     "test:assistant-ghost-draft": "node ./scripts/testAssistantGhostDraft.js",
     "test:assistant-inline-command": "node ./scripts/testAssistantInlineCommand.js",
     "test:assistant-agent-history": "node ./scripts/testAssistantAgentHistory.js",
+    "test:assistant-secrets": "node ./scripts/testAssistantSecrets.js",
     "test:keymap-consistency": "node ./scripts/testKeymapConsistency.js",
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:editor-structure-guide": "node ./scripts/testEditorStructureGuide.js",

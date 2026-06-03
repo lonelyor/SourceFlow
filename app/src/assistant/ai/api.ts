@@ -1,5 +1,6 @@
 import {fetchSyncPost} from "../../util/fetch";
 import type {TSecurityMode} from "../security/types";
+import type {TAssistantAPIKeyAction} from "../secrets";
 
 export interface IAssistantAIProviderType {
     id: string;
@@ -15,6 +16,7 @@ export interface IAssistantAIProfile {
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     hasAPIKey?: boolean;
     model: string;
     userAgent: string;
@@ -198,6 +200,7 @@ export const testAssistantAIConnection = async (payload: {
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     proxy: string;
     userAgent: string;
 }) => {
@@ -209,6 +212,7 @@ export const listAssistantAIModels = async (payload: {
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     proxy: string;
     userAgent: string;
 }) => {

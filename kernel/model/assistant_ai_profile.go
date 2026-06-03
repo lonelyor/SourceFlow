@@ -43,6 +43,7 @@ func SanitizeAssistantAIProfile(profile *AssistantAIProfile) *AssistantAIProfile
 	ret := *profile
 	ret.HasAPIKey = "" != strings.TrimSpace(profile.APIKey)
 	ret.APIKey = ""
+	ret.APIKeyAction = ""
 	ret.Settings = cloneAssistantAIMap(profile.Settings)
 	return &ret
 }
@@ -94,13 +95,10 @@ func SaveAssistantAIProfile(profile *AssistantAIProfile) (ret *AssistantAIProfil
 		if err = tx.QueryRow(`SELECT created_at FROM ai_profiles WHERE id = ?`, normalized.ID).Scan(&normalized.CreatedAt); err != nil {
 			return nil, err
 		}
-		if "" == normalized.APIKey {
-			if err = tx.QueryRow(`SELECT api_key FROM ai_profiles WHERE id = ?`, normalized.ID).Scan(&normalized.APIKey); err != nil {
-				return nil, err
-			}
-		}
 	}
-	normalized.HasAPIKey = "" != strings.TrimSpace(normalized.APIKey)
+	if err = applyAssistantAIProfileAPIKeyActionTx(tx, normalized, 0 < exists); err != nil {
+		return nil, err
+	}
 
 	if normalized.IsDefault || 0 == total {
 		if _, err = tx.Exec(`UPDATE ai_profiles SET is_default = 0`); err != nil {
@@ -140,6 +138,34 @@ func SaveAssistantAIProfile(profile *AssistantAIProfile) (ret *AssistantAIProfil
 	}
 	syncAssistantAILegacyConfig(db)
 	return normalized, nil
+}
+
+func applyAssistantAIProfileAPIKeyActionTx(tx *dbsql.Tx, profile *AssistantAIProfile, exists bool) error {
+	if nil == profile {
+		return fmt.Errorf("assistant AI profile is required")
+	}
+	switch profile.APIKeyAction {
+	case AssistantAPIKeyActionKeep:
+		if exists {
+			if err := tx.QueryRow(`SELECT api_key FROM ai_profiles WHERE id = ?`, profile.ID).Scan(&profile.APIKey); err != nil {
+				return err
+			}
+		} else {
+			profile.APIKey = ""
+		}
+	case AssistantAPIKeyActionReplace:
+		if "" == strings.TrimSpace(profile.APIKey) {
+			return fmt.Errorf("assistant AI API key is required when replacing")
+		}
+	case AssistantAPIKeyActionClear:
+		profile.APIKey = ""
+	default:
+		return fmt.Errorf("unsupported API key action [%s]", profile.APIKeyAction)
+	}
+	profile.APIKey = strings.TrimSpace(profile.APIKey)
+	profile.HasAPIKey = "" != profile.APIKey
+	profile.APIKeyAction = ""
+	return nil
 }
 
 func GetAssistantAIProfile(id string) (ret *AssistantAIProfile, err error) {
@@ -184,19 +210,24 @@ func DeleteAssistantAIProfile(id string) (err error) {
 }
 
 func normalizeAssistantAIProfile(profile *AssistantAIProfile) (ret *AssistantAIProfile, err error) {
+	apiKeyAction, err := NormalizeAssistantAPIKeyAction(profile.APIKeyAction, profile.APIKey)
+	if err != nil {
+		return nil, err
+	}
 	ret = &AssistantAIProfile{
-		ID:        strings.TrimSpace(profile.ID),
-		Name:      strings.TrimSpace(profile.Name),
-		Provider:  normalizeAssistantAIProvider(profile.Provider),
-		BaseURL:   normalizeAssistantAIBaseURL(normalizeAssistantAIProvider(profile.Provider), profile.BaseURL),
-		APIKey:    strings.TrimSpace(profile.APIKey),
-		HasAPIKey: profile.HasAPIKey,
-		Model:     strings.TrimSpace(profile.Model),
-		UserAgent: strings.TrimSpace(profile.UserAgent),
-		Proxy:     strings.TrimSpace(profile.Proxy),
-		Version:   strings.TrimSpace(profile.Version),
-		IsDefault: profile.IsDefault,
-		Settings:  cloneAssistantAIMap(profile.Settings),
+		ID:           strings.TrimSpace(profile.ID),
+		Name:         strings.TrimSpace(profile.Name),
+		Provider:     normalizeAssistantAIProvider(profile.Provider),
+		BaseURL:      normalizeAssistantAIBaseURL(normalizeAssistantAIProvider(profile.Provider), profile.BaseURL),
+		APIKey:       strings.TrimSpace(profile.APIKey),
+		APIKeyAction: apiKeyAction,
+		HasAPIKey:    profile.HasAPIKey,
+		Model:        strings.TrimSpace(profile.Model),
+		UserAgent:    strings.TrimSpace(profile.UserAgent),
+		Proxy:        strings.TrimSpace(profile.Proxy),
+		Version:      strings.TrimSpace(profile.Version),
+		IsDefault:    profile.IsDefault,
+		Settings:     cloneAssistantAIMap(profile.Settings),
 	}
 	if "" == ret.ID {
 		ret.ID = ast.NewNodeID()
