@@ -995,6 +995,9 @@ func exit(c *gin.Context) {
 	case 1: // 同步执行失败
 		detail := strings.TrimSpace(model.Conf.Sync.Stat)
 		ret.Msg = model.Conf.Language(96)
+		if shouldSuggestRebuildIndexForExitSync(detail) {
+			ret.Msg += "<div class=\"fn__hr\"></div><div class=\"ft__breakword\">" + html.EscapeString(model.Conf.Language(245)) + "</div>"
+		}
 		if "" != detail {
 			ret.Msg += "<div class=\"fn__hr\"></div><div class=\"ft__breakword\">" + html.EscapeString(detail) + "</div>"
 		}
@@ -1003,4 +1006,9 @@ func exit(c *gin.Context) {
 		ret.Msg = model.Conf.Language(61)
 		ret.Data = map[string]interface{}{"closeTimeout": 0}
 	}
+}
+
+func shouldSuggestRebuildIndexForExitSync(detail string) bool {
+	detail = strings.ToLower(strings.TrimSpace(detail))
+	return strings.Contains(detail, "tree not found")
 }

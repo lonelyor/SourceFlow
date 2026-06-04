@@ -4,6 +4,7 @@
 
 ## 已确认
 
+- 2026-06-04 退出时 `tree not found` 提示优化已完成：`/api/system/exit` 在退出同步失败详情包含 `tree not found` / `block tree not found` 时，会追加“设置 - 关于 - 重建索引”引导；普通网络、权限、密钥或云端限流同步失败不触发该提示。
 - 2026-06-04 工作台加载失败根因修复完成：工作台主查询继续作为硬依赖，关联块搜索和二段 scope 查询改为增强层局部降级，失败时记录 `blockError` 并在工作台内显示提示，主列表/主工作台不再被 `/api/search/fullTextSearchBlock` 失败拖垮；同步补齐工作台缺失语言键 `content` 和关联块降级提示；`fetchSyncPost` 对网络失败、非 JSON 响应和坏 JSON 响应输出可读错误，便于定位真实后端/网络原因。
 - 2026-06-04 本轮工作台修复验证已通过：`pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app`、`go test ./conf/ -v`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app run test:editor-structure-guide-bugfix`、变更文件范围 eslint 和 `git diff --check`。全量 `pnpm --dir app run lint` 仍被既有 `app/build-linux-portable/...` 打包产物阻断，非本轮源码改动引入。
 - 2026-06-04 构建/发布提速阶段完成：`编译.py` 默认继续使用自动并行作业（`--jobs 0` 解析为 CPU 自适应并行，当前上限 4），新增阶段耗时汇总用于定位瓶颈；installer 与 portable 仍保持串行，避免 Windows portable 复用 `win-unpacked` 时与 `app/build` 产生竞态；`发布.py` 默认并行上传 Release 资产（默认 3，`--upload-jobs 1` 可串行排障），SHA256 并行计算，Windows portable zip 通过本地 manifest 复用未变化压缩包，最终仍执行远端资产一致性校验。

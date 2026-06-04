@@ -4,6 +4,9 @@
 
 ## 本轮
 
+- [x] 退出同步 `tree not found` 提示优化：仅在退出同步失败详情命中本地笔记树索引缺失特征时，追加“设置 - 关于 - 重建索引”引导，避免网络/权限/密钥类失败误导用户。
+- [x] 本轮退出提示验证：`go test -vet=off ./api -run TestShouldSuggestRebuildIndexForExitSync -count=1` 通过。
+
 - [x] 工作台加载失败根因修复：主查询失败仍显示可重试错误页，关联块搜索和二段 scope 查询失败改为局部降级提示，不再拖垮主工作台；补齐工作台语言键并让同步请求错误更可读。
 - [x] 本轮工作台修复验证：`test:workbench-stability`、`typecheck:app`、Go conf 测试、两个编辑器结构提示回归、变更文件范围 eslint 和 `git diff --check` 均通过；全量 lint 仍被既有打包产物阻断。
 
