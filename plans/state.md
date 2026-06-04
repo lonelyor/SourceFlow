@@ -5,6 +5,7 @@
 ## 已确认
 
 - 2026-06-04 v0.1.7 发布准备开始：当前源码版本与已存在最新 Windows 产物均为 `0.1.6`，而本轮用户明确要求发布 `0.1.7`。因发布约束要求 `app/package.json`、`kernel/util/working.go`、Windows Appx manifest 与编译产物版本一致，本轮先同步版本号与 `app/changelogs/v0.1.7/` 发布说明，再重新运行 `编译.py` 生成匹配 `0.1.7` 的产物；禁止把旧 `0.1.6` 产物伪装为 `0.1.7` 发布资产。
+- 2026-06-04 v0.1.7 Windows x64 编译验证已通过：`python 编译.py` 完成依赖检查、脚本语法、架构审计、产品文档审计、kernel 隔离审计、Go 全量回归、插件隔离 smoke、Electron 启动 smoke、前端全量 typecheck、前端四 bundle、kernel build、installer 打包、portable 目录复用与安装包/便携包验证；生成 `app/build/sourceflow-0.1.7-win.exe` 与 `app/build/sourceflow-portable`。
 - 2026-06-04 工作台 `Cannot read properties of null (reading 'length')` 根因已定位并修复：后端 `WorkbenchItem.Tags` 在无标签时由 Go nil slice 序列化为 `tags:null`，前端 `renderListItem()` 等渲染路径按 `string[]` 读取 `item.tags.length` 触发异常；本次在 `fetchWorkbenchData` 数据入口新增 `normalizeWorkbenchItems`，将非数组 tags 归一化为空数组，未改变后端 API 形状。
 - 2026-06-04 工作台易用性阶段 1 已完成：第一屏收敛为顶部视图、搜索、常用快速筛选、选中项批量操作、结果和局部提示；复杂筛选与低频操作折叠到“筛选/更多”渐进展开区。未改变工作台数据结构、查询语义、控件 ID 或事件 `data-action` 契约。
 - 2026-06-04 退出时 `tree not found` 提示优化已完成：`/api/system/exit` 在退出同步失败详情包含 `tree not found` / `block tree not found` 时，会追加“设置 - 关于 - 重建索引”引导；普通网络、权限、密钥或云端限流同步失败不触发该提示。

@@ -5,7 +5,7 @@
 ## 本轮
 
 - [x] v0.1.7 发布准备：同步 `app/package.json`、`kernel/util/working.go`、Windows Appx manifest、`CHANGELOG.md`、`app/changelogs/v0.1.7/` 与 plans，确认必须重新生成匹配 `0.1.7` 的发布产物。
-- [ ] v0.1.7 编译验证：运行 `python 编译.py`，生成并验证与版本号一致的安装包和便携包。
+- [x] v0.1.7 编译验证：`python 编译.py` 通过，生成并验证与版本号一致的 Windows x64 安装包和便携包。
 - [ ] v0.1.7 发布：运行 `python 发布.py --version-bump none`，创建/更新 GitHub Release 并上传发布资产。
 
 - [x] 工作台 `null.length` 根因定位与修复：后端无标签条目的 `tags:null` 被前端当数组渲染，已在工作台数据入口归一化 `items/allItems[].tags` 为数组。
