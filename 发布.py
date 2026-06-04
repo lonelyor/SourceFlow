@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import functools
 import hashlib
 import http.client
@@ -106,6 +107,9 @@ RELEASE_UPLOAD_CHUNK_SIZE = read_int_env("SOURCEFLOW_RELEASE_UPLOAD_CHUNK_MB", 4
 RELEASE_UPLOAD_TIMEOUT_SECONDS = read_int_env("SOURCEFLOW_RELEASE_UPLOAD_TIMEOUT_SECONDS", 600, min_value=60, max_value=3600)
 RELEASE_UPLOAD_MAX_RETRIES = read_int_env("SOURCEFLOW_RELEASE_UPLOAD_RETRIES", 3, min_value=0, max_value=3)
 RELEASE_UPLOAD_MAX_ATTEMPTS = RELEASE_UPLOAD_MAX_RETRIES + 1
+RELEASE_UPLOAD_MAX_JOBS = 6
+RELEASE_UPLOAD_DEFAULT_JOBS = read_int_env("SOURCEFLOW_RELEASE_UPLOAD_JOBS", 3, min_value=1, max_value=RELEASE_UPLOAD_MAX_JOBS)
+RELEASE_HASH_JOBS = read_int_env("SOURCEFLOW_RELEASE_HASH_JOBS", max(1, min(4, os.cpu_count() or 2)), min_value=1, max_value=8)
 GITHUB_API_TIMEOUT_SECONDS = read_int_env("SOURCEFLOW_GITHUB_API_TIMEOUT_SECONDS", 60, min_value=15, max_value=300)
 GITHUB_API_MAX_RETRIES = read_int_env("SOURCEFLOW_GITHUB_API_RETRIES", 3, min_value=0, max_value=5)
 GITHUB_API_MAX_ATTEMPTS = GITHUB_API_MAX_RETRIES + 1
@@ -318,6 +322,13 @@ TARGETS: dict[tuple[str, str], ReleaseTarget] = {
 
 def print_step(message: str) -> None:
     print(f"\n==> {message}", flush=True)
+
+
+def format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, remaining_seconds = divmod(seconds, 60)
+    return f"{int(minutes)}m {remaining_seconds:.0f}s"
 
 
 def require_command(name: str) -> None:
@@ -651,6 +662,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--build", action="store_true", help="Deprecated. 发布.py never builds; run 编译.py before publishing.")
     parser.add_argument("--skip-build", action="store_true", help="Compatibility option. 发布.py always uses existing build artifacts.")
     parser.add_argument("--reuse-release-assets", action="store_true", help="Do not restage artifacts from app/build*; reuse files already in --release-asset-dir.")
+    parser.add_argument("--upload-jobs", type=int, default=0, help="Parallel GitHub release asset uploads. Defaults to SOURCEFLOW_RELEASE_UPLOAD_JOBS or 3; use 1 for serial uploads.")
     parser.add_argument("--validate", action="store_true", help="Run local artifact smoke validation before publishing. Disabled by default; 编译.py/local testing owns validation.")
     parser.add_argument("--skip-validate", action="store_true", help="Skip release asset consistency checks and any explicit --validate smoke checks.")
     parser.add_argument("--skip-quality-gate", action="store_true", help="Compatibility option. Release publishing does not run a separate quality gate; 编译.py owns build checks.")
@@ -699,6 +711,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def argv_has_option(argv: Sequence[str], option_name: str) -> bool:
     return any(arg == option_name or arg.startswith(f"{option_name}=") for arg in argv)
+
+
+def resolve_release_upload_jobs(args: argparse.Namespace) -> int:
+    requested_jobs = int(getattr(args, "upload_jobs", 0) or 0)
+    if requested_jobs < 0:
+        raise RuntimeError("--upload-jobs must be 0 or a positive integer.")
+    if requested_jobs == 0:
+        return RELEASE_UPLOAD_DEFAULT_JOBS
+    return max(1, min(RELEASE_UPLOAD_MAX_JOBS, requested_jobs))
 
 
 def should_lock_version_to_existing_artifacts(args: argparse.Namespace, raw_argv: Sequence[str]) -> bool:
@@ -1946,7 +1967,54 @@ def verify_release_assets_synced(token: str, repo_slug: str, release_id: int, ar
     return remote_assets
 
 
-def sync_release_assets(token: str, repo_slug: str, release: dict[str, object], artifact_paths: list[Path]) -> None:
+def upload_prepared_release_assets(
+    token: str,
+    repo_slug: str,
+    release_id: int,
+    upload_url: str,
+    upload_tasks: Sequence[tuple[Path, str]],
+    upload_jobs: int,
+) -> dict[str, str]:
+    if not upload_tasks:
+        return {}
+
+    action_map: dict[str, str] = {}
+    worker_count = max(1, min(upload_jobs, len(upload_tasks)))
+    if worker_count == 1:
+        for artifact_path, action_prefix in upload_tasks:
+            started_at = time.monotonic()
+            upload_outcome = upload_release_asset(token, repo_slug, release_id, upload_url, artifact_path)
+            action_map[artifact_path.name] = action_prefix if upload_outcome == "uploaded" else f"{action_prefix}+reuse"
+            print(f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - started_at)}.", flush=True)
+        return action_map
+
+    print(f"Uploading {len(upload_tasks)} release asset(s) with {worker_count} parallel job(s).", flush=True)
+    started_at = time.monotonic()
+    failures: list[tuple[Path, Exception]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(upload_release_asset, token, repo_slug, release_id, upload_url, artifact_path): (artifact_path, action_prefix, time.monotonic())
+            for artifact_path, action_prefix in upload_tasks
+        }
+        for future in concurrent.futures.as_completed(futures):
+            artifact_path, action_prefix, task_started_at = futures[future]
+            try:
+                upload_outcome = future.result()
+            except Exception as exc:
+                failures.append((artifact_path, exc))
+                print(f"Upload failed for {artifact_path.name}: {exc}", flush=True)
+                continue
+            action_map[artifact_path.name] = action_prefix if upload_outcome == "uploaded" else f"{action_prefix}+reuse"
+            print(f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - task_started_at)}.", flush=True)
+
+    print(f"Parallel release asset uploads finished in {format_duration(time.monotonic() - started_at)}.", flush=True)
+    if failures:
+        artifact_path, exc = failures[0]
+        raise RuntimeError(f"Release asset upload failed for {artifact_path.name}: {exc}") from exc
+    return action_map
+
+
+def sync_release_assets(token: str, repo_slug: str, release: dict[str, object], artifact_paths: list[Path], *, upload_jobs: int) -> None:
     upload_url = str(release.get("upload_url", "")).strip()
     if not upload_url:
         raise RuntimeError("GitHub release upload URL is missing.")
@@ -1955,14 +2023,16 @@ def sync_release_assets(token: str, repo_slug: str, release: dict[str, object], 
         raise RuntimeError("GitHub release id is missing.")
 
     desired_asset_names = {artifact_path.name for artifact_path in artifact_paths}
+    if len(desired_asset_names) != len(artifact_paths):
+        raise RuntimeError("Release artifacts contain duplicate file names.")
     print(f"Release asset sync: remote release id={release_id}, desired assets={len(desired_asset_names)}.", flush=True)
     delete_release_assets_not_in_set(token, repo_slug, release_id, desired_asset_names)
     existing_assets = get_release_asset_map(token, repo_slug, release_id)
     print(f"Release asset sync: remote assets after cleanup={len(existing_assets)}.", flush=True)
     skipped_count = 0
     replaced_count = 0
-    uploaded_count = 0
     action_map: dict[str, str] = {}
+    upload_tasks: list[tuple[Path, str]] = []
 
     for artifact_path in artifact_paths:
         existing_asset = existing_assets.get(artifact_path.name)
@@ -1982,9 +2052,9 @@ def sync_release_assets(token: str, repo_slug: str, release: dict[str, object], 
         else:
             action_prefix = "upload"
 
-        upload_outcome = upload_release_asset(token, repo_slug, release_id, upload_url, artifact_path)
-        uploaded_count += 1
-        action_map[artifact_path.name] = action_prefix if upload_outcome == "uploaded" else f"{action_prefix}+reuse"
+        upload_tasks.append((artifact_path, action_prefix))
+
+    action_map.update(upload_prepared_release_assets(token, repo_slug, release_id, upload_url, upload_tasks, upload_jobs))
 
     remote_assets = verify_release_assets_synced(token, repo_slug, release_id, artifact_paths)
     summary_entries = [
@@ -1999,7 +2069,7 @@ def sync_release_assets(token: str, repo_slug: str, release: dict[str, object], 
     ]
     print_release_asset_summary(summary_entries)
     print(
-        f"Release asset sync complete: uploaded={uploaded_count}, replaced={replaced_count}, skipped={skipped_count}, verified={len(artifact_paths)}.",
+        f"Release asset sync complete: uploaded={len(upload_tasks)}, replaced={replaced_count}, skipped={skipped_count}, verified={len(artifact_paths)}.",
         flush=True,
     )
 
@@ -2260,17 +2330,100 @@ def export_public_repository(repository_url: str, branch: str, commit_message: s
     finalize_export_repo(branch, commit_message, export_dir, no_push)
 
 
+def build_directory_manifest(source_dir: Path) -> dict[str, object]:
+    files: list[dict[str, object]] = []
+    for path in sorted(source_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        stat = path.stat()
+        files.append(
+            {
+                "path": path.relative_to(source_dir).as_posix(),
+                "size": stat.st_size,
+                "mtimeNs": stat.st_mtime_ns,
+            }
+        )
+    return {
+        "format": 1,
+        "rootName": source_dir.name,
+        "files": files,
+    }
+
+
+def portable_zip_manifest_path(zip_path: Path) -> Path:
+    return zip_path.with_name(f"{zip_path.name}.manifest.json")
+
+
+def read_json_object_if_exists(path: Path) -> dict[str, object] | None:
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_json_atomic(path: Path, data: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    try:
+        temp_path.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        temp_path.replace(path)
+    finally:
+        if temp_path.exists():
+            remove_path_with_retry(temp_path)
+
+
+def can_reuse_portable_zip(zip_path: Path, manifest_path: Path, source_manifest: Mapping[str, object]) -> bool:
+    if not zip_path.is_file() or zip_path.stat().st_size <= 0:
+        return False
+    if read_json_object_if_exists(manifest_path) != dict(source_manifest):
+        return False
+    root_name = str(source_manifest.get("rootName", "")).strip()
+    files = source_manifest.get("files")
+    if not root_name or not isinstance(files, list):
+        return False
+    expected_names: set[str] = set()
+    for file_entry in files:
+        if not isinstance(file_entry, Mapping):
+            return False
+        relative_path = str(file_entry.get("path", "")).strip()
+        if not relative_path:
+            return False
+        expected_names.add(f"{root_name}/{relative_path}")
+    try:
+        with zipfile.ZipFile(zip_path, "r") as archive:
+            return set(archive.namelist()) == expected_names
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
 def compress_windows_portable_directory(build_dir: Path, version: str) -> Path:
     candidates = [path for path in build_dir.iterdir() if path.is_dir() and path.name.startswith("sourceflow-portable")]
     if not candidates:
         raise RuntimeError(f"Portable directory not found under {build_dir}")
     portable_dir = max(candidates, key=lambda item: (item.stat().st_mtime, item.name))
     zip_path = build_dir / f"sourceflow-{version}-win-portable.zip"
+    manifest_path = portable_zip_manifest_path(zip_path)
+    source_manifest = build_directory_manifest(portable_dir)
+    if can_reuse_portable_zip(zip_path, manifest_path, source_manifest):
+        print(f"Reuse Windows portable zip: {zip_path}", flush=True)
+        return zip_path
+
+    temp_zip_path = zip_path.with_name(f"{zip_path.name}.tmp-{os.getpid()}")
     remove_path(zip_path)
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in portable_dir.rglob("*"):
-            if path.is_file():
-                archive.write(path, path.relative_to(portable_dir.parent).as_posix())
+    remove_path(temp_zip_path)
+    try:
+        with zipfile.ZipFile(temp_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+            for path in sorted(portable_dir.rglob("*")):
+                if path.is_file():
+                    archive.write(path, path.relative_to(portable_dir.parent).as_posix())
+        temp_zip_path.replace(zip_path)
+        write_json_atomic(manifest_path, source_manifest)
+    finally:
+        if temp_zip_path.exists():
+            remove_path_with_retry(temp_zip_path)
     return zip_path
 
 
@@ -3325,6 +3478,7 @@ def get_release_asset_paths(asset_dir: Path) -> list[Path]:
             for path in asset_dir.iterdir()
             if path.is_file()
             and path.name != "SHA256SUMS.txt"
+            and not path.name.endswith(".manifest.json")
             and not path.name.endswith("-source.zip")
             and not path.name.endswith(".blockmap")
             and not fnmatch(path.name, "latest*.yml")
@@ -3332,9 +3486,22 @@ def get_release_asset_paths(asset_dir: Path) -> list[Path]:
     )
 
 
+def hash_release_artifacts(artifact_paths: Sequence[Path]) -> list[tuple[Path, str]]:
+    if not artifact_paths:
+        return []
+    worker_count = max(1, min(RELEASE_HASH_JOBS, len(artifact_paths)))
+    if worker_count == 1:
+        return [(path, sha256_file(path)) for path in artifact_paths]
+
+    print(f"Hashing {len(artifact_paths)} release artifact(s) with {worker_count} parallel job(s).", flush=True)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+        hashes = list(executor.map(sha256_file, artifact_paths))
+    return list(zip(artifact_paths, hashes))
+
+
 def write_sha256_sums(output_dir: Path, artifact_paths: list[Path]) -> Path:
     hash_file = output_dir / "SHA256SUMS.txt"
-    lines = [f"{sha256_file(path)} *{path.name}" for path in artifact_paths]
+    lines = [f"{digest} *{path.name}" for path, digest in hash_release_artifacts(artifact_paths)]
     hash_file.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
     return hash_file
 
@@ -3349,6 +3516,7 @@ def create_or_update_release(
     prerelease: bool,
     notes_file: Path | None,
     artifact_paths: list[Path],
+    upload_jobs: int,
 ) -> None:
     token = require_github_token(token, "publish a GitHub release")
     release = get_github_release_by_tag(token, repo_slug, release_tag, allow_missing=True)
@@ -3388,7 +3556,7 @@ def create_or_update_release(
             raise RuntimeError("GitHub release update returned an unexpected response.")
         release = updated
 
-    sync_release_assets(token, repo_slug, release, artifact_paths)
+    sync_release_assets(token, repo_slug, release, artifact_paths, upload_jobs=upload_jobs)
 
 
 def preview_release(
@@ -3408,6 +3576,7 @@ def preview_release(
     effective_skip_portable: bool,
     version_source: str,
     release_tag_sync_plan: ReleaseTagSyncPlan,
+    upload_jobs: int,
 ) -> int:
     print_step("Release preview")
     print(f"Repository: {repo_slug}")
@@ -3429,6 +3598,8 @@ def preview_release(
     print(f"GitHub API retries: {GITHUB_API_MAX_RETRIES}")
     print(f"Upload timeout: {RELEASE_UPLOAD_TIMEOUT_SECONDS}s")
     print(f"Upload retries: {RELEASE_UPLOAD_MAX_RETRIES}")
+    print(f"Upload parallel jobs: {upload_jobs}")
+    print(f"SHA256 hash jobs: {RELEASE_HASH_JOBS}")
     print(f"Include installer: {format_bool(not args.skip_installer)}")
     print(f"Include portable: {format_bool(not effective_skip_portable)}")
     print("Include browser extension zip: yes")
@@ -3475,6 +3646,7 @@ def main(argv: list[str] | None = None) -> int:
     effective_skip_portable = args.skip_portable or not target.portable_supported
     should_validate_portable = args.validate and (not args.skip_validate) and (not args.skip_validate_portable) and (not effective_skip_portable) and target.portable_validation_supported
     should_validate_docker = (not args.skip_validate) and args.validate_docker and (not args.skip_validate_docker)
+    upload_jobs = resolve_release_upload_jobs(args)
 
     github_auth = resolve_github_auth_config(args.github_token, args.github_token_file)
 
@@ -3563,6 +3735,7 @@ def main(argv: list[str] | None = None) -> int:
             effective_skip_portable,
             version_source,
             release_tag_sync_plan,
+            upload_jobs,
         )
 
     require_command("git")
@@ -3663,6 +3836,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.prerelease,
                 notes_file,
                 artifact_paths,
+                upload_jobs,
             )
 
         print_step("Done")

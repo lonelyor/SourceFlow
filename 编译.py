@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 import urllib.request
@@ -268,6 +270,16 @@ class CommandTask:
     env: Mapping[str, str] | None = None
 
 
+@dataclass(frozen=True)
+class StageTiming:
+    label: str
+    seconds: float
+
+
+_STAGE_TIMINGS: list[StageTiming] = []
+_STAGE_TIMINGS_LOCK = threading.Lock()
+
+
 TARGETS: dict[tuple[str, str], BuildTarget] = {
     ("win", "x64"): BuildTarget(
         platform_key="win",
@@ -370,6 +382,43 @@ TARGETS: dict[tuple[str, str], BuildTarget] = {
 
 def print_step(message: str) -> None:
     print(f"\n==> {message}", flush=True)
+
+
+def reset_stage_timings() -> None:
+    with _STAGE_TIMINGS_LOCK:
+        _STAGE_TIMINGS.clear()
+
+
+def record_stage_duration(label: str, started_at: float) -> None:
+    seconds = max(0.0, time.monotonic() - started_at)
+    with _STAGE_TIMINGS_LOCK:
+        _STAGE_TIMINGS.append(StageTiming(label=label, seconds=seconds))
+
+
+@contextmanager
+def timed_stage(label: str):
+    started_at = time.monotonic()
+    try:
+        yield
+    finally:
+        record_stage_duration(label, started_at)
+
+
+def print_stage_timing_summary(total_seconds: float) -> None:
+    with _STAGE_TIMINGS_LOCK:
+        timings = tuple(_STAGE_TIMINGS)
+    if not timings:
+        return
+
+    print_step("Stage timing summary")
+    print(
+        "Stage timings are sorted by duration; nested or parallel tasks may overlap, "
+        "so only the total is wall-clock time.",
+        flush=True,
+    )
+    print(f"Total wall time: {format_duration(total_seconds)}", flush=True)
+    for timing in sorted(timings, key=lambda item: item.seconds, reverse=True):
+        print(f"- {timing.label}: {format_duration(timing.seconds)}", flush=True)
 
 
 def remember_install_failure(name: str, reason: str) -> None:
@@ -1301,8 +1350,12 @@ def run_parallel_commands(tasks: Sequence[CommandTask], max_workers: int) -> Non
         for task in tasks:
             task_start = time.monotonic()
             print(f"Started {task.label}", flush=True)
-            run(task.args, cwd=task.cwd, env=task.env)
-            print(f"Finished {task.label} in {format_duration(time.monotonic() - task_start)}", flush=True)
+            try:
+                run(task.args, cwd=task.cwd, env=task.env)
+            finally:
+                task_seconds = time.monotonic() - task_start
+                record_stage_duration(task.label, task_start)
+                print(f"Finished {task.label} in {format_duration(task_seconds)}", flush=True)
         return
 
     print(f"Running {len(tasks)} build task(s) with {worker_count} parallel job(s).", flush=True)
@@ -1316,7 +1369,9 @@ def run_parallel_commands(tasks: Sequence[CommandTask], max_workers: int) -> Non
         for future in concurrent.futures.as_completed(futures):
             task, task_started_at = futures[future]
             result = future.result()
-            print(f"Finished {task.label} in {format_duration(time.monotonic() - task_started_at)}", flush=True)
+            task_seconds = time.monotonic() - task_started_at
+            record_stage_duration(task.label, task_started_at)
+            print(f"Finished {task.label} in {format_duration(task_seconds)}", flush=True)
             print_completed_process_output(result)
             if result.returncode != 0:
                 failures.append((task, result))
@@ -2025,32 +2080,57 @@ def build_frontend(args: argparse.Namespace, max_jobs: int | None = None) -> Non
 
 
 def build_target_kernel(target: BuildTarget, args: argparse.Namespace) -> None:
-    if not target.portable_kernel_dir:
-        raise RuntimeError(f"Kernel output directory is not configured for {target.display_name}")
+    with timed_stage("Kernel build"):
+        if not target.portable_kernel_dir:
+            raise RuntimeError(f"Kernel output directory is not configured for {target.display_name}")
 
-    kernel_binary = target.portable_kernel_dir / target.portable_kernel_binary
-    if args.skip_kernel:
-        ensure_path_exists(
-            kernel_binary,
-            f"Kernel binary is missing at {kernel_binary}. Remove --skip-kernel or build it first.",
-        )
-        return
+        kernel_binary = target.portable_kernel_dir / target.portable_kernel_binary
+        if args.skip_kernel:
+            ensure_path_exists(
+                kernel_binary,
+                f"Kernel binary is missing at {kernel_binary}. Remove --skip-kernel or build it first.",
+            )
+            return
 
-    print_step("Build kernel")
-    remove_path(target.portable_kernel_dir)
-    target.portable_kernel_dir.mkdir(parents=True, exist_ok=True)
+        print_step("Build kernel")
+        remove_path(target.portable_kernel_dir)
+        target.portable_kernel_dir.mkdir(parents=True, exist_ok=True)
 
-    env = go_command_env({
-        "CGO_ENABLED": "1",
-        "GOOS": target.goos,
-        "GOARCH": target.goarch,
-    })
+        env = go_command_env({
+            "CGO_ENABLED": "1",
+            "GOOS": target.goos,
+            "GOARCH": target.goarch,
+        })
 
-    if target.platform_key == "win":
-        maybe_run_goversioninfo()
-        env["CC"] = pick_windows_compiler(target, args)
-        run_go_command(
-            [
+        if target.platform_key == "win":
+            maybe_run_goversioninfo()
+            env["CC"] = pick_windows_compiler(target, args)
+            run_go_command(
+                [
+                    "go",
+                    "build",
+                    "-trimpath",
+                    "-tags",
+                    "fts5",
+                    "-o",
+                    str(kernel_binary),
+                    "-ldflags",
+                    "-s -w -H=windowsgui",
+                    ".",
+                ],
+                cwd=KERNEL_DIR,
+                env=env,
+            )
+            elevator_source = APP_DIR / "elevator" / f"elevator-{'arm64' if target.arch == 'arm64' else 'amd64'}.exe"
+            elevator_target = target.portable_kernel_dir / "elevator.exe"
+            ensure_path_exists(elevator_source, f"Portable build requires {elevator_source}")
+            shutil.copy2(elevator_source, elevator_target)
+            return
+
+        if target.platform_key == "linux":
+            compiler = pick_linux_compiler(target, args)
+            env["CC"] = compiler
+            command = [
                 "go",
                 "build",
                 "-trimpath",
@@ -2058,57 +2138,33 @@ def build_target_kernel(target: BuildTarget, args: argparse.Namespace) -> None:
                 "fts5",
                 "-o",
                 str(kernel_binary),
+            ]
+            if not args.dynamic and "musl" in compiler.lower():
+                command.extend(["-buildmode=pie", "-ldflags", "-s -w -extldflags -static-pie"])
+            else:
+                command.extend(["-ldflags", "-s -w"])
+            command.append(".")
+            run_go_command(command, cwd=KERNEL_DIR, env=env)
+            return
+
+        compiler = args.cc or "clang"
+        require_command(compiler)
+        env["CC"] = compiler
+        run_go_command(
+            [
+                "go",
+                "build",
+                "-tags",
+                "fts5",
+                "-o",
+                str(kernel_binary),
                 "-ldflags",
-                "-s -w -H=windowsgui",
+                "-s -w",
                 ".",
             ],
             cwd=KERNEL_DIR,
             env=env,
         )
-        elevator_source = APP_DIR / "elevator" / f"elevator-{'arm64' if target.arch == 'arm64' else 'amd64'}.exe"
-        elevator_target = target.portable_kernel_dir / "elevator.exe"
-        ensure_path_exists(elevator_source, f"Portable build requires {elevator_source}")
-        shutil.copy2(elevator_source, elevator_target)
-        return
-
-    if target.platform_key == "linux":
-        compiler = pick_linux_compiler(target, args)
-        env["CC"] = compiler
-        command = [
-            "go",
-            "build",
-            "-trimpath",
-            "-tags",
-            "fts5",
-            "-o",
-            str(kernel_binary),
-        ]
-        if not args.dynamic and "musl" in compiler.lower():
-            command.extend(["-buildmode=pie", "-ldflags", "-s -w -extldflags -static-pie"])
-        else:
-            command.extend(["-ldflags", "-s -w"])
-        command.append(".")
-        run_go_command(command, cwd=KERNEL_DIR, env=env)
-        return
-
-    compiler = args.cc or "clang"
-    require_command(compiler)
-    env["CC"] = compiler
-    run_go_command(
-        [
-            "go",
-            "build",
-            "-tags",
-            "fts5",
-            "-o",
-            str(kernel_binary),
-            "-ldflags",
-            "-s -w",
-            ".",
-        ],
-        cwd=KERNEL_DIR,
-        env=env,
-    )
 
 
 def make_windows_portable_dir() -> None:
@@ -2481,51 +2537,59 @@ def run_kernel_validation_isolation_audit() -> None:
 
 
 def run_build_quality_gate(parallel_jobs: int) -> None:
-    print_step("Script syntax")
-    syntax_paths = [
-        path
-        for path in (
-            Path(__file__).resolve(),
-            PROJECT_ROOT / "发布.py",
-            PROJECT_ROOT / "插件商城.py",
-            PROJECT_ROOT / "诊断包.py",
-        )
-        if path.is_file()
-    ]
-    run([sys.executable, "-m", "py_compile", *map(str, syntax_paths)], cwd=PROJECT_ROOT)
+    with timed_stage("Quality gate: script syntax"):
+        print_step("Script syntax")
+        syntax_paths = [
+            path
+            for path in (
+                Path(__file__).resolve(),
+                PROJECT_ROOT / "发布.py",
+                PROJECT_ROOT / "插件商城.py",
+                PROJECT_ROOT / "诊断包.py",
+            )
+            if path.is_file()
+        ]
+        run([sys.executable, "-m", "py_compile", *map(str, syntax_paths)], cwd=PROJECT_ROOT)
 
-    print_step("SourceFlow architecture audit")
-    run_sourceflow_architecture_audit()
-    print("SourceFlow architecture audit passed.", flush=True)
+    with timed_stage("Quality gate: architecture audit"):
+        print_step("SourceFlow architecture audit")
+        run_sourceflow_architecture_audit()
+        print("SourceFlow architecture audit passed.", flush=True)
 
-    print_step("Product quality docs audit")
-    run_product_quality_docs_audit()
-    print("Product quality docs audit passed.", flush=True)
+    with timed_stage("Quality gate: product docs audit"):
+        print_step("Product quality docs audit")
+        run_product_quality_docs_audit()
+        print("Product quality docs audit passed.", flush=True)
 
-    print_step("Kernel validation isolation audit")
-    run_kernel_validation_isolation_audit()
-    print("Kernel validation isolation audit passed.", flush=True)
+    with timed_stage("Quality gate: kernel validation isolation audit"):
+        print_step("Kernel validation isolation audit")
+        run_kernel_validation_isolation_audit()
+        print("Kernel validation isolation audit passed.", flush=True)
 
-    print_step("Kernel regression tests")
-    require_command("go")
-    run_go_command(["go", "mod", "download"], cwd=KERNEL_DIR)
-    run_go_command(["go", "test", "-p", str(max(1, parallel_jobs)), "-vet=off", "./..."], cwd=KERNEL_DIR)
+    with timed_stage("Quality gate: kernel regression tests"):
+        print_step("Kernel regression tests")
+        require_command("go")
+        run_go_command(["go", "mod", "download"], cwd=KERNEL_DIR)
+        run_go_command(["go", "test", "-p", str(max(1, parallel_jobs)), "-vet=off", "./..."], cwd=KERNEL_DIR)
 
-    print_step("Plugin isolation smoke")
-    run_plugin_isolation_smoke()
-    print("Plugin isolation smoke passed.", flush=True)
+    with timed_stage("Quality gate: plugin isolation smoke"):
+        print_step("Plugin isolation smoke")
+        run_plugin_isolation_smoke()
+        print("Plugin isolation smoke passed.", flush=True)
 
-    print_step("Electron startup regression smoke")
-    startup_regression = PROJECT_ROOT / "app" / "scripts" / "testElectronStartupFailure.js"
-    if startup_regression.is_file():
-        require_command("node")
-        run(["node", str(startup_regression)], cwd=PROJECT_ROOT)
-    else:
-        print(f"Electron startup regression smoke skipped: {normalize_audit_path(startup_regression.relative_to(PROJECT_ROOT))} is missing.", flush=True)
+    with timed_stage("Quality gate: Electron startup smoke"):
+        print_step("Electron startup regression smoke")
+        startup_regression = PROJECT_ROOT / "app" / "scripts" / "testElectronStartupFailure.js"
+        if startup_regression.is_file():
+            require_command("node")
+            run(["node", str(startup_regression)], cwd=PROJECT_ROOT)
+        else:
+            print(f"Electron startup regression smoke skipped: {normalize_audit_path(startup_regression.relative_to(PROJECT_ROOT))} is missing.", flush=True)
 
-    print_step("Frontend typecheck")
-    require_command(PNPM)
-    run([PNPM, "--dir", "app", "run", "typecheck"], cwd=PROJECT_ROOT)
+    with timed_stage("Quality gate: frontend typecheck"):
+        print_step("Frontend typecheck")
+        require_command(PNPM)
+        run([PNPM, "--dir", "app", "run", "typecheck"], cwd=PROJECT_ROOT)
 
 
 def find_free_port() -> int:
@@ -3289,7 +3353,7 @@ def ensure_build_prerequisites(target: BuildTarget) -> None:
     require_command("go")
 
 
-def main(argv: list[str] | None = None) -> int:
+def run_build_main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(argv)
@@ -3310,9 +3374,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.skip_installer and not build_portable_artifact:
         raise RuntimeError("Nothing to build for this target. Remove --skip-installer or choose a portable-supported target.")
     if should_use_wsl_native_workspace(args, target):
-        return run_wsl_native_workspace_build(args, target, raw_argv)
+        with timed_stage("WSL native workspace build"):
+            return run_wsl_native_workspace_build(args, target, raw_argv)
 
-    ensure_build_prerequisites(target)
+    with timed_stage("Build prerequisites"):
+        ensure_build_prerequisites(target)
 
     print_step("Resolved target")
     print(f"Host platform: {host_name}", flush=True)
@@ -3330,7 +3396,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_portable and not target.portable_supported:
         print("Portable build: skipped automatically because this target has no portable packaging flow.", flush=True)
 
-    ensure_app_dependencies(target, args)
+    with timed_stage("Dependency installation"):
+        ensure_app_dependencies(target, args)
 
     if args.skip_quality_gate:
         print_step("Quality gate skipped")
@@ -3343,19 +3410,23 @@ def main(argv: list[str] | None = None) -> int:
         print("Stability gate passed. Build was not started because --stability-gate-only was set.", flush=True)
         return 0
 
-    prepare_target(target, args)
+    with timed_stage("Prepare frontend and kernel"):
+        prepare_target(target, args)
 
     if not args.skip_installer:
-        build_installer(target, args)
+        with timed_stage("Installer package"):
+            build_installer(target, args)
 
     if build_portable_artifact:
-        build_portable(target, args, installer_built=not args.skip_installer)
+        with timed_stage("Portable package"):
+            build_portable(target, args, installer_built=not args.skip_installer)
 
     if args.skip_validate:
         print_step("Output validation skipped")
         print("Post-build artifact validation was skipped by --fast or --skip-validate.", flush=True)
     else:
-        validate_build_outputs(target, include_installer=not args.skip_installer, include_portable=build_portable_artifact)
+        with timed_stage("Output validation"):
+            validate_build_outputs(target, include_installer=not args.skip_installer, include_portable=build_portable_artifact)
 
     output_dir = main_output_dir(target, build_portable_artifact)
     print_step("Done")
@@ -3366,6 +3437,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.open_output and output_dir.exists():
         open_directory(output_dir)
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    reset_stage_timings()
+    started_at = time.monotonic()
+    try:
+        return run_build_main(argv)
+    finally:
+        print_stage_timing_summary(time.monotonic() - started_at)
 
 
 if __name__ == "__main__":

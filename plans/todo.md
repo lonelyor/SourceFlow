@@ -4,6 +4,9 @@
 
 ## 本轮
 
+- [x] 构建/发布提速：`编译.py` 增加阶段耗时汇总，保留 installer 与 portable 串行打包，默认继续启用自动并行编译；`发布.py` 默认并行上传 GitHub Release 资产，并行计算 SHA256，Windows portable zip 支持 manifest 命中复用。
+- [x] 本轮构建发布脚本验证：`python -m py_compile 编译.py 发布.py`、`python 发布.py --preview --skip-export --skip-release --skip-push --reuse-release-assets`、本地 mock 并行上传同步、`python 编译.py --stability-gate-only --jobs 4` 均通过。
+
 - [x] AI 写入路径生产级收敛：内联翻译替换、技能结果插入/替换/建链等 AI 改写已有笔记动作统一生成 patch，并通过 `/api/assistant/patch/apply` 安全入口提交。
 - [x] 单次提权真实化：移除 patch apply 对客户端 `allowOnce` 布尔值的信任，改为后端签发、绑定目标/风险/能力/内容摘要、短期过期且消费一次的 escalation token。
 - [x] AI Profile 真相源收敛：AI Profile 保存/删除不再反向同步旧 `Conf.AI.OpenAI`，旧配置仅作为一次性迁移来源或非 AI 助手兼容边界。

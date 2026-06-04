@@ -84,6 +84,12 @@
 - 发布版本号由 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest 共同约束，编译前必须保持一致。
 - 发布说明存放在 `app/changelogs/v<version>/`，中文版作为默认 GitHub Release 正文。
 - `发布.py` 只消费 `编译.py` 已生成并验证的产物，不在发布阶段重新编译。
+- `编译.py` 默认启用自动并行作业，`--jobs 0` 按 CPU 自适应解析，当前默认上限为 4；前端多 bundle、前端与 kernel 准备、Go 测试可以并行，但 installer 与 portable 打包必须保持串行。
+- Windows portable 打包可复用 installer 遗留的 `win-unpacked`，因此不得与 installer 并行写同一个 `app/build`；如后续要并行打包，必须先隔离输出目录和复用策略。
+- `编译.py` 必须输出阶段耗时汇总，用于定位质量门、前端构建、kernel 构建、installer、portable 和验证等瓶颈；并行子任务耗时可以重叠，只有总耗时代表 wall-clock。
+- `发布.py` 默认并行上传 GitHub Release 独立资产，默认并行度为 3，可通过 `SOURCEFLOW_RELEASE_UPLOAD_JOBS` 或 `--upload-jobs` 调整，`--upload-jobs 1` 用于串行排障；远端多余资产清理、同名资产删除/替换准备和最终校验必须保持顺序执行。
+- `发布.py` 生成 `SHA256SUMS.txt` 时可以并行计算各资产摘要，但输出顺序和文件格式必须保持稳定。
+- Windows portable 发布 zip 使用本地 manifest 记录目录文件名、大小和 mtime；manifest 命中时可复用已有 zip，manifest 文件不得作为 Release 资产上传，最终仍以发布资产一致性校验为准。
 - `编译.py` 在 WSL Linux 且仓库位于 `/mnt/*` 时，默认把源码复制到 WSL 原生临时目录执行 Linux 构建，排除 `node_modules`、构建输出和发布临时目录，成功后把 installer 合并回 `app/build`，并把 portable、kernel、前端和 web clipper 产物回拷到当前仓库；需要复现旧流程时使用 `--no-wsl-native`。
 - Electron 和 electron-builder 二进制下载镜像可由环境变量覆盖；脚本默认使用 `ELECTRON_MIRROR` 与 `ELECTRON_BUILDER_BINARIES_MIRROR` 的国内镜像兜底，降低 Linux 打包下载失败概率。
 - Arch/WSL 等缺少 `libcrypt.so.1` 的 Linux 环境打包 `.deb` 时，`编译.py` 可临时解压 `libxcrypt-compat` 到 `.tmp/linux-fpm-compat` 并通过 `LD_LIBRARY_PATH` 供 electron-builder 内置 fpm 使用；不得要求用户手动污染系统环境。
