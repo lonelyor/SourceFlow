@@ -18,6 +18,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import tempfile
 import uuid
@@ -77,6 +78,11 @@ _GITHUB_GIT_CREDENTIAL_FALLBACK_ANNOUNCED = False
 _GITHUB_PREFER_BASIC_AUTH = False
 _INTERRUPT_COUNT = 0
 _POST_RUN_WARNINGS: list[str] = []
+_CANCEL_REQUESTED = threading.Event()
+_ACTIVE_PROCESSES: set[subprocess.Popen[str]] = set()
+_ACTIVE_PROCESSES_LOCK = threading.Lock()
+_ACTIVE_UPLOAD_CONNECTIONS: set[http.client.HTTPSConnection] = set()
+_ACTIVE_UPLOAD_CONNECTIONS_LOCK = threading.Lock()
 
 
 def configure_utf8_stdio() -> None:
@@ -324,6 +330,117 @@ def print_step(message: str) -> None:
     print(f"\n==> {message}", flush=True)
 
 
+def print_status(status: str, message: str, *, file=sys.stdout) -> None:
+    print(f"[{status}] {message}", file=file, flush=True)
+
+
+def request_cancel() -> None:
+    _CANCEL_REQUESTED.set()
+
+
+def ensure_not_cancelled() -> None:
+    if _CANCEL_REQUESTED.is_set():
+        raise KeyboardInterrupt
+
+
+def sleep_interruptibly(seconds: float) -> None:
+    deadline = time.monotonic() + max(0.0, seconds)
+    while True:
+        ensure_not_cancelled()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(0.25, remaining))
+
+
+def register_process(process: subprocess.Popen[str]) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        _ACTIVE_PROCESSES.add(process)
+
+
+def unregister_process(process: subprocess.Popen[str]) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        _ACTIVE_PROCESSES.discard(process)
+
+
+def terminate_process_tree(process: subprocess.Popen[str], *, force: bool) -> None:
+    if process.poll() is not None:
+        return
+    if IS_WINDOWS:
+        command = ["taskkill", "/PID", str(process.pid), "/T"]
+        if force:
+            command.append("/F")
+        subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        return
+    try:
+        if force:
+            process.kill()
+        else:
+            process.terminate()
+    except OSError:
+        pass
+
+
+def terminate_active_processes(*, force: bool = False) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        processes = tuple(_ACTIVE_PROCESSES)
+    for process in processes:
+        terminate_process_tree(process, force=force)
+
+
+def stop_active_processes_after_interrupt(grace_seconds: float = 3.0) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        processes = tuple(_ACTIVE_PROCESSES)
+    for process in processes:
+        terminate_process_tree(process, force=False)
+
+    deadline = time.monotonic() + max(0.0, grace_seconds)
+    for process in processes:
+        if process.poll() is not None:
+            continue
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            try:
+                process.wait(timeout=remaining)
+                continue
+            except subprocess.TimeoutExpired:
+                pass
+        terminate_process_tree(process, force=True)
+
+
+def register_upload_connection(connection: http.client.HTTPSConnection) -> None:
+    with _ACTIVE_UPLOAD_CONNECTIONS_LOCK:
+        _ACTIVE_UPLOAD_CONNECTIONS.add(connection)
+
+
+def unregister_upload_connection(connection: http.client.HTTPSConnection) -> None:
+    with _ACTIVE_UPLOAD_CONNECTIONS_LOCK:
+        _ACTIVE_UPLOAD_CONNECTIONS.discard(connection)
+
+
+def close_active_upload_connections() -> None:
+    with _ACTIVE_UPLOAD_CONNECTIONS_LOCK:
+        connections = tuple(_ACTIVE_UPLOAD_CONNECTIONS)
+    for connection in connections:
+        try:
+            connection.close()
+        except OSError:
+            pass
+
+
+def stop_process_after_interrupt(process: subprocess.Popen[str]) -> None:
+    terminate_process_tree(process, force=False)
+    try:
+        process.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process, force=True)
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def format_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.1f}s"
@@ -350,17 +467,29 @@ def run(
     if env:
         merged_env.update({key: str(value) for key, value in env.items()})
 
-    result = subprocess.run(
+    ensure_not_cancelled()
+    process = subprocess.Popen(
         command,
         cwd=os.fspath(cwd) if cwd else None,
         env=merged_env,
         text=True,
         encoding="utf-8",
         errors="replace",
-        input=input_text,
-        capture_output=capture_output,
-        check=False,
+        stdin=subprocess.PIPE if input_text is not None else None,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.PIPE if capture_output else None,
     )
+    register_process(process)
+    try:
+        stdout, stderr = process.communicate(input=input_text)
+    except KeyboardInterrupt:
+        request_cancel()
+        stop_process_after_interrupt(process)
+        raise
+    finally:
+        unregister_process(process)
+
+    result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if check and result.returncode != 0:
         details: list[str] = []
         for label, text in (("stdout", result.stdout), ("stderr", result.stderr)):
@@ -1688,6 +1817,7 @@ def upload_release_asset(token: str, repo_slug: str, release_id: int, upload_url
     upload_target = f"{upload_target}?{urllib_parse.urlencode({'name': artifact_path.name})}"
     content_type = mimetypes.guess_type(artifact_path.name)[0] or "application/octet-stream"
     for attempt in range(1, RELEASE_UPLOAD_MAX_ATTEMPTS + 1):
+        ensure_not_cancelled()
         try:
             upload_release_asset_streaming(upload_target, token, artifact_path, content_type)
             return "uploaded"
@@ -1710,7 +1840,7 @@ def upload_release_asset(token: str, repo_slug: str, release_id: int, upload_url
                 f"Release asset upload retry {attempt}/{RELEASE_UPLOAD_MAX_ATTEMPTS - 1} for {artifact_path.name} after transient failure: {exc}",
                 flush=True,
             )
-            time.sleep(wait_seconds)
+            sleep_interruptibly(wait_seconds)
         except Exception as exc:
             matching_asset = get_matching_uploaded_release_asset(token, repo_slug, release_id, artifact_path, attempts=2, delay_seconds=0.5)
             if matching_asset is not None:
@@ -1723,7 +1853,7 @@ def upload_release_asset(token: str, repo_slug: str, release_id: int, upload_url
                 f"Release asset upload retry {attempt}/{RELEASE_UPLOAD_MAX_ATTEMPTS - 1} for {artifact_path.name} after transient failure: {exc}",
                 flush=True,
             )
-            time.sleep(wait_seconds)
+            sleep_interruptibly(wait_seconds)
     raise RuntimeError(f"GitHub release upload did not finish for {artifact_path.name}")
 
 
@@ -1754,7 +1884,9 @@ def upload_release_asset_streaming(
     parsed_url = urllib_parse.urlparse(upload_target)
     request_path = parsed_url.path + (f"?{parsed_url.query}" if parsed_url.query else "")
     connection = http.client.HTTPSConnection(parsed_url.netloc, timeout=RELEASE_UPLOAD_TIMEOUT_SECONDS)
+    register_upload_connection(connection)
     try:
+        ensure_not_cancelled()
         connection.putrequest("POST", request_path)
         for key, value in request_headers.items():
             connection.putheader(key, value)
@@ -1762,8 +1894,10 @@ def upload_release_asset_streaming(
 
         with artifact_path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(RELEASE_UPLOAD_CHUNK_SIZE), b""):
+                ensure_not_cancelled()
                 connection.send(chunk)
 
+        ensure_not_cancelled()
         response = connection.getresponse()
         body = response.read()
     except KeyboardInterrupt:
@@ -1771,6 +1905,7 @@ def upload_release_asset_streaming(
     except (OSError, http.client.HTTPException) as exc:
         raise RuntimeError(f"GitHub release upload failed for {artifact_path.name}: {exc}") from exc
     finally:
+        unregister_upload_connection(connection)
         connection.close()
 
     raw_body = body.decode("utf-8", errors="replace")
@@ -1908,7 +2043,7 @@ def get_matching_uploaded_release_asset(
             if remote_state == "uploaded" and isinstance(remote_size, int) and remote_size == expected_size:
                 return asset
         if attempt < attempts:
-            time.sleep(delay_seconds)
+            sleep_interruptibly(delay_seconds)
     return None
 
 
@@ -1982,32 +2117,43 @@ def upload_prepared_release_assets(
     worker_count = max(1, min(upload_jobs, len(upload_tasks)))
     if worker_count == 1:
         for artifact_path, action_prefix in upload_tasks:
+            ensure_not_cancelled()
             started_at = time.monotonic()
             upload_outcome = upload_release_asset(token, repo_slug, release_id, upload_url, artifact_path)
             action_map[artifact_path.name] = action_prefix if upload_outcome == "uploaded" else f"{action_prefix}+reuse"
-            print(f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - started_at)}.", flush=True)
+            print_status("OK", f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - started_at)}.")
         return action_map
 
-    print(f"Uploading {len(upload_tasks)} release asset(s) with {worker_count} parallel job(s).", flush=True)
+    print_status("RUN", f"Uploading {len(upload_tasks)} release asset(s) with {worker_count} parallel job(s).")
     started_at = time.monotonic()
     failures: list[tuple[Path, Exception]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(upload_release_asset, token, repo_slug, release_id, upload_url, artifact_path): (artifact_path, action_prefix, time.monotonic())
-            for artifact_path, action_prefix in upload_tasks
-        }
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
+    try:
+        futures = {}
+        for artifact_path, action_prefix in upload_tasks:
+            ensure_not_cancelled()
+            futures[executor.submit(upload_release_asset, token, repo_slug, release_id, upload_url, artifact_path)] = (artifact_path, action_prefix, time.monotonic())
         for future in concurrent.futures.as_completed(futures):
+            ensure_not_cancelled()
             artifact_path, action_prefix, task_started_at = futures[future]
             try:
                 upload_outcome = future.result()
             except Exception as exc:
                 failures.append((artifact_path, exc))
-                print(f"Upload failed for {artifact_path.name}: {exc}", flush=True)
+                print_status("FAIL", f"Upload failed for {artifact_path.name}: {exc}")
                 continue
             action_map[artifact_path.name] = action_prefix if upload_outcome == "uploaded" else f"{action_prefix}+reuse"
-            print(f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - task_started_at)}.", flush=True)
+            print_status("OK", f"Uploaded {artifact_path.name} in {format_duration(time.monotonic() - task_started_at)}.")
+    except KeyboardInterrupt:
+        request_cancel()
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
 
-    print(f"Parallel release asset uploads finished in {format_duration(time.monotonic() - started_at)}.", flush=True)
+    print_status("OK", f"Parallel release asset uploads finished in {format_duration(time.monotonic() - started_at)}.")
     if failures:
         artifact_path, exc = failures[0]
         raise RuntimeError(f"Release asset upload failed for {artifact_path.name}: {exc}") from exc
@@ -2175,8 +2321,15 @@ def show_export_preview(candidates: list[ExportCandidate]) -> None:
 def handle_interrupt(_signum: int, _frame: object) -> None:
     global _INTERRUPT_COUNT
     _INTERRUPT_COUNT += 1
+    request_cancel()
     if _INTERRUPT_COUNT == 1:
+        print_status("CANCEL", "Ctrl+C received; stopping active release processes...")
+        close_active_upload_connections()
+        stop_active_processes_after_interrupt()
         raise KeyboardInterrupt
+    print_status("CANCEL", "Second interrupt received; force-killing active release processes...")
+    close_active_upload_connections()
+    terminate_active_processes(force=True)
     raise SystemExit(130)
 
 
@@ -2521,7 +2674,7 @@ def kill_process_tree(pid: int) -> None:
     if pid <= 0:
         return
     if IS_WINDOWS:
-        run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False)
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         return
     try:
         os.kill(pid, signal.SIGTERM)
@@ -3867,8 +4020,8 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except KeyboardInterrupt:
-        print("发布失败,原因: 用户中断了发布流程。", file=sys.stderr)
+        print_status("CANCEL", "发布已取消。", file=sys.stderr)
         raise SystemExit(130)
     except Exception as exc:  # pragma: no cover - top-level CLI behavior
-        print(f"发布失败,原因: {exc}", file=sys.stderr)
+        print_status("FAIL", f"发布失败,原因: {exc}", file=sys.stderr)
         raise SystemExit(1)

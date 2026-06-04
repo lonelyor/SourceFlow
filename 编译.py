@@ -9,6 +9,7 @@ import json
 import os
 import platform as host_platform
 import re
+import signal
 import shlex
 import shutil
 import socket
@@ -278,6 +279,10 @@ class StageTiming:
 
 _STAGE_TIMINGS: list[StageTiming] = []
 _STAGE_TIMINGS_LOCK = threading.Lock()
+_CANCEL_REQUESTED = threading.Event()
+_ACTIVE_PROCESSES: set[subprocess.Popen[str]] = set()
+_ACTIVE_PROCESSES_LOCK = threading.Lock()
+_INTERRUPT_COUNT = 0
 
 
 TARGETS: dict[tuple[str, str], BuildTarget] = {
@@ -382,6 +387,100 @@ TARGETS: dict[tuple[str, str], BuildTarget] = {
 
 def print_step(message: str) -> None:
     print(f"\n==> {message}", flush=True)
+
+
+def print_status(status: str, message: str, *, file=sys.stdout) -> None:
+    print(f"[{status}] {message}", file=file, flush=True)
+
+
+def request_cancel() -> None:
+    _CANCEL_REQUESTED.set()
+
+
+def ensure_not_cancelled() -> None:
+    if _CANCEL_REQUESTED.is_set():
+        raise KeyboardInterrupt
+
+
+def register_process(process: subprocess.Popen[str]) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        _ACTIVE_PROCESSES.add(process)
+
+
+def unregister_process(process: subprocess.Popen[str]) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        _ACTIVE_PROCESSES.discard(process)
+
+
+def terminate_process_tree(process: subprocess.Popen[str], *, force: bool) -> None:
+    if process.poll() is not None:
+        return
+    if IS_WINDOWS:
+        command = ["taskkill", "/PID", str(process.pid), "/T"]
+        if force:
+            command.append("/F")
+        subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        return
+    try:
+        if force:
+            process.kill()
+        else:
+            process.terminate()
+    except OSError:
+        pass
+
+
+def terminate_active_processes(*, force: bool = False) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        processes = tuple(_ACTIVE_PROCESSES)
+    for process in processes:
+        terminate_process_tree(process, force=force)
+
+
+def stop_active_processes_after_interrupt(grace_seconds: float = 3.0) -> None:
+    with _ACTIVE_PROCESSES_LOCK:
+        processes = tuple(_ACTIVE_PROCESSES)
+    for process in processes:
+        terminate_process_tree(process, force=False)
+
+    deadline = time.monotonic() + max(0.0, grace_seconds)
+    for process in processes:
+        if process.poll() is not None:
+            continue
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            try:
+                process.wait(timeout=remaining)
+                continue
+            except subprocess.TimeoutExpired:
+                pass
+        terminate_process_tree(process, force=True)
+
+
+def stop_process_after_interrupt(process: subprocess.Popen[str]) -> None:
+    terminate_process_tree(process, force=False)
+    try:
+        process.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process, force=True)
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def handle_interrupt(_signum: int, _frame: object) -> None:
+    global _INTERRUPT_COUNT
+    _INTERRUPT_COUNT += 1
+    request_cancel()
+    if _INTERRUPT_COUNT == 1:
+        print_status("CANCEL", "Ctrl+C received; stopping active build processes...")
+        stop_active_processes_after_interrupt()
+        raise KeyboardInterrupt
+    print_status("CANCEL", "Second interrupt received; force-killing active build processes...")
+    terminate_active_processes(force=True)
+    raise SystemExit(130)
 
 
 def reset_stage_timings() -> None:
@@ -1264,16 +1363,28 @@ def run(
     if env:
         merged_env.update({key: str(value) for key, value in env.items()})
 
-    result = subprocess.run(
+    ensure_not_cancelled()
+    process = subprocess.Popen(
         command,
         cwd=os.fspath(cwd) if cwd else None,
         env=merged_env,
         text=True,
         encoding="utf-8",
         errors="replace",
-        capture_output=capture_output,
-        check=False,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.PIPE if capture_output else None,
     )
+    register_process(process)
+    try:
+        stdout, stderr = process.communicate()
+    except KeyboardInterrupt:
+        request_cancel()
+        stop_process_after_interrupt(process)
+        raise
+    finally:
+        unregister_process(process)
+
+    result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if check and result.returncode != 0:
         details: list[str] = []
         for label, text in (("stdout", result.stdout), ("stderr", result.stderr)):
@@ -1348,34 +1459,45 @@ def run_parallel_commands(tasks: Sequence[CommandTask], max_workers: int) -> Non
     worker_count = max(1, min(max_workers, len(tasks)))
     if worker_count == 1 or len(tasks) == 1:
         for task in tasks:
+            ensure_not_cancelled()
             task_start = time.monotonic()
-            print(f"Started {task.label}", flush=True)
+            print_status("RUN", f"Started {task.label}")
             try:
                 run(task.args, cwd=task.cwd, env=task.env)
             finally:
                 task_seconds = time.monotonic() - task_start
                 record_stage_duration(task.label, task_start)
-                print(f"Finished {task.label} in {format_duration(task_seconds)}", flush=True)
+                print_status("OK", f"Finished {task.label} in {format_duration(task_seconds)}")
         return
 
-    print(f"Running {len(tasks)} build task(s) with {worker_count} parallel job(s).", flush=True)
+    print_status("RUN", f"Running {len(tasks)} build task(s) with {worker_count} parallel job(s).")
     started_at = time.monotonic()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(run, task.args, cwd=task.cwd, env=task.env, capture_output=True, check=False): (task, time.monotonic())
-            for task in tasks
-        }
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
+    try:
+        futures = {}
+        for task in tasks:
+            ensure_not_cancelled()
+            futures[executor.submit(run, task.args, cwd=task.cwd, env=task.env, capture_output=True, check=False)] = (task, time.monotonic())
         failures: list[tuple[CommandTask, subprocess.CompletedProcess[str]]] = []
         for future in concurrent.futures.as_completed(futures):
+            ensure_not_cancelled()
             task, task_started_at = futures[future]
             result = future.result()
             task_seconds = time.monotonic() - task_started_at
             record_stage_duration(task.label, task_started_at)
-            print(f"Finished {task.label} in {format_duration(task_seconds)}", flush=True)
+            print_status("OK", f"Finished {task.label} in {format_duration(task_seconds)}")
             print_completed_process_output(result)
             if result.returncode != 0:
                 failures.append((task, result))
-        print(f"Parallel build tasks finished in {format_duration(time.monotonic() - started_at)}", flush=True)
+        print_status("OK", f"Parallel build tasks finished in {format_duration(time.monotonic() - started_at)}")
+    except KeyboardInterrupt:
+        request_cancel()
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
 
     if failures:
         task, result = failures[0]
@@ -1987,7 +2109,7 @@ def run_wsl_native_workspace_build(args: argparse.Namespace, target: BuildTarget
     command = [sys.executable, str(native_root / Path(__file__).name), *filter_child_argv_for_wsl_native(raw_argv)]
     print_step("Run WSL native build")
     print(" ".join(shlex.quote(part) for part in command), flush=True)
-    result = subprocess.run(command, cwd=native_root, env=child_env)
+    result = run(command, cwd=native_root, env=child_env, check=False)
     if result.returncode != 0:
         print(f"WSL native build failed; workspace kept for diagnostics: {native_root}", flush=True)
         return result.returncode
@@ -2205,13 +2327,23 @@ def prepare_build_inputs(target: BuildTarget, args: argparse.Namespace) -> None:
 
     print_step("Prepare frontend and kernel in parallel")
     frontend_jobs = max(1, total_jobs - 1)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    try:
         futures = (
             executor.submit(build_frontend, args, frontend_jobs),
             executor.submit(build_target_kernel, target, args),
         )
         for future in concurrent.futures.as_completed(futures):
+            ensure_not_cancelled()
             future.result()
+    except KeyboardInterrupt:
+        request_cancel()
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
 
 
 def load_version_field(path: Path, label: str) -> str:
@@ -2871,7 +3003,7 @@ def kill_process_tree(pid: int) -> None:
     if pid <= 0:
         return
     if IS_WINDOWS:
-        run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False)
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         return
     try:
         os.kill(pid, 15)
@@ -3449,8 +3581,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, handle_interrupt)
     try:
         raise SystemExit(main())
+    except KeyboardInterrupt:
+        print_status("CANCEL", "编译已取消。", file=sys.stderr)
+        raise SystemExit(130)
     except Exception as exc:  # pragma: no cover - top-level CLI behavior
-        print(f"编译失败,原因: {exc}", file=sys.stderr)
+        print_status("FAIL", f"编译失败,原因: {exc}", file=sys.stderr)
         raise SystemExit(1)
