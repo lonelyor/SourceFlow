@@ -35,3 +35,23 @@ func assistantPatchApply(c *gin.Context) {
 	}
 	ret.Data = result
 }
+
+func assistantPatchIssueEscalation(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &model.AssistantPatchApplyRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ret.Code = -1
+		ret.Msg = "invalid request"
+		return
+	}
+
+	result, err := model.IssueAssistantPatchEscalationToken(req)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = result
+}

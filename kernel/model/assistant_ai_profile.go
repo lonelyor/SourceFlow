@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lonelyor/sourceflow/kernel/conf"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
 	"github.com/sashabaranov/go-openai"
 )
@@ -136,7 +135,6 @@ func SaveAssistantAIProfile(profile *AssistantAIProfile) (ret *AssistantAIProfil
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
-	syncAssistantAILegacyConfig(db)
 	return normalized, nil
 }
 
@@ -205,7 +203,6 @@ func DeleteAssistantAIProfile(id string) (err error) {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	syncAssistantAILegacyConfig(db)
 	return nil
 }
 
@@ -378,44 +375,6 @@ func bootstrapAssistantAILegacyProfile(db *dbsql.DB) (err error) {
 		firstAssistantAINonEmpty(strings.TrimSpace(old.APIModel), openai.GPT3Dot5Turbo), strings.TrimSpace(old.APIUserAgent),
 		strings.TrimSpace(old.APIProxy), strings.TrimSpace(old.APIVersion), string(settingsJSON), now, now)
 	return err
-}
-
-func syncAssistantAILegacyConfig(db *dbsql.DB) {
-	if nil == Conf {
-		return
-	}
-	if nil == Conf.AI {
-		Conf.AI = conf.NewAI()
-	}
-	if nil == Conf.AI.OpenAI {
-		Conf.AI.OpenAI = conf.NewAI().OpenAI
-	}
-
-	profile, err := getAssistantAIProfile0(db, "")
-	if nil != err || nil == profile {
-		Conf.AI.OpenAI.APIKey = ""
-		Conf.Save()
-		return
-	}
-
-	openAI := Conf.AI.OpenAI
-	openAI.APIProvider = "OpenAI"
-	openAI.APIBaseURL = profile.BaseURL
-	openAI.APIUserAgent = profile.UserAgent
-	openAI.APIProxy = profile.Proxy
-	openAI.APIVersion = profile.Version
-	openAI.APIModel = profile.Model
-	openAI.APITimeout = getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	openAI.APIMaxTokens = getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
-	openAI.APITemperature = getAssistantAIFloatSetting(profile.Settings, "temperature", assistantAIDefaultTemperature)
-	openAI.APIMaxContexts = getAssistantAIIntSetting(profile.Settings, "maxContextMessages", assistantAIDefaultContextMessages)
-
-	if isAssistantAILegacyCompatibleProvider(profile.Provider) {
-		openAI.APIKey = profile.APIKey
-	} else {
-		openAI.APIKey = ""
-	}
-	Conf.Save()
 }
 
 func ensureAssistantAIDefaultProfileTx(tx *dbsql.Tx) (err error) {

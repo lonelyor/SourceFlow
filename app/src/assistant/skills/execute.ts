@@ -1,24 +1,26 @@
 import {Dialog} from "../../dialog";
 import {showMessage} from "../../dialog/message";
-import {fetchSyncPost} from "../../util/fetch";
-import {bgFade, highlightById} from "../../util/highlightById";
 import {writeText} from "../../protyle/util/compatibility";
-import {hasClosestBlock} from "../../protyle/util/hasClosest";
 import {App} from "../../index";
 import {assistantText, buildAssistantNoteContextForSkill} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {
     getActiveEditorProtyle,
-    getAssistantNoteContextByRootID,
     getNoteContextFromProtyle,
-    ICurrentNoteContext,
-    invalidateAssistantNoteContextCache
+    ICurrentNoteContext
 } from "../common/note";
 import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
 import {reportAssistantRuntimeError} from "../runtime";
-import {buildAssistantPatchFromSkillResult, isAssistantPatchableSkill} from "../patch/build";
+import {buildAssistantPatchFromSkillResult, createAssistantPatchID, isAssistantPatchableSkill} from "../patch/build";
 import {openAssistantPatchReviewDialog} from "../patch/dialog";
+import type {IAssistantEditPatch, IAssistantPatchOperation} from "../patch/types";
 import {createAssistantGhostDraft} from "../ghost/draft";
+import {
+    buildAssistantLinkSuggestionsPatch,
+    buildLinkSuggestionMarkdown,
+    parseAssistantLinkSuggestionResult,
+    renderLinkSuggestionPreview
+} from "./linkSuggestions";
 import {getAssistantSkillDefinition} from "./registry";
 import {IAssistantSkillContext, IAssistantSkillDefinition, IAssistantSkillParams, TAssistantSkillId} from "./types";
 
@@ -33,27 +35,6 @@ interface IRunAssistantSkillOptions {
     protyle?: IProtyle;
     range?: Range | null;
     fallbackSelectionText?: string;
-}
-
-interface IAssistantLinkSuggestionItem {
-    rootID: string;
-    title: string;
-    path: string;
-    reason: string;
-    currentNoteText: string;
-    backlinkText: string;
-    applyCurrent: boolean;
-    applyBacklink: boolean;
-}
-
-interface IAssistantLinkSuggestionResult {
-    summary: string;
-    suggestions: IAssistantLinkSuggestionItem[];
-}
-
-interface IAssistantInsertResult {
-    ok: boolean;
-    blockID?: string;
 }
 
 const buildNoteContext = async (protyle: IProtyle, range?: Range | null, fallbackSelectionText = ""): Promise<ICurrentNoteContext | null> => {
@@ -158,399 +139,122 @@ const openAssistantResultsPanel = async () => {
     }
 };
 
-const escapeMarkdownLinkText = (value: string) => `${value || ""}`
-    .replace(/\r?\n+/g, " ")
-    .replace(/([\[\]\(\)\\])/g, "\\$1")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const stripAssistantJSONFence = (value: string) => {
-    const trimmed = `${value || ""}`.trim();
-    const fencedMatch = trimmed.match(/^```(?:json|assistant-links)?\s*([\s\S]*?)\s*```$/i);
-    if (fencedMatch?.[1]) {
-        return fencedMatch[1].trim();
-    }
-    return trimmed;
-};
-
-const parseAssistantJSONObject = <T>(value: string): T | null => {
-    const normalized = stripAssistantJSONFence(value);
-    const candidates = [normalized];
-    const start = normalized.indexOf("{");
-    const end = normalized.lastIndexOf("}");
-    if (start > -1 && end > start) {
-        candidates.push(normalized.slice(start, end + 1));
-    }
-    for (const candidate of candidates) {
-        try {
-            return JSON.parse(candidate) as T;
-        } catch (_error) {
-            // Continue trying the next candidate.
-        }
-    }
-    return null;
-};
-
-const normalizeLinkSuggestionItem = (item: Record<string, unknown>, currentRootID: string) => {
-    const rootID = `${item.rootID || item.id || ""}`.trim();
-    if (!rootID || rootID === currentRootID) {
-        return null;
-    }
-    const title = `${item.title || item.name || item.path || rootID}`.trim() || rootID;
-    return {
-        rootID,
-        title,
-        path: `${item.path || ""}`.trim(),
-        reason: `${item.reason || item.why || ""}`.trim(),
-        currentNoteText: `${item.currentNoteText || item.anchorText || item.reason || ""}`.trim(),
-        backlinkText: `${item.backlinkText || item.reason || ""}`.trim(),
-        applyCurrent: item.applyCurrent !== false,
-        applyBacklink: item.applyBacklink !== false,
-    } as IAssistantLinkSuggestionItem;
-};
-
-const parseAssistantLinkSuggestionResult = (value: string, currentRootID: string) => {
-    const parsed = parseAssistantJSONObject<{ summary?: unknown, suggestions?: unknown[] }>(value);
-    if (!parsed || !Array.isArray(parsed.suggestions)) {
-        return null;
-    }
-    const deduped = new Map<string, IAssistantLinkSuggestionItem>();
-    parsed.suggestions.forEach((item) => {
-        if (!item || typeof item !== "object") {
-            return;
-        }
-        const normalized = normalizeLinkSuggestionItem(item as Record<string, unknown>, currentRootID);
-        if (!normalized) {
-            return;
-        }
-        const existing = deduped.get(normalized.rootID);
-        if (!existing) {
-            deduped.set(normalized.rootID, normalized);
-            return;
-        }
-        deduped.set(normalized.rootID, {
-            ...existing,
-            title: existing.title || normalized.title,
-            path: existing.path || normalized.path,
-            reason: existing.reason || normalized.reason,
-            currentNoteText: existing.currentNoteText || normalized.currentNoteText,
-            backlinkText: existing.backlinkText || normalized.backlinkText,
-            applyCurrent: existing.applyCurrent || normalized.applyCurrent,
-            applyBacklink: existing.applyBacklink || normalized.applyBacklink,
-        });
-    });
-    return {
-        summary: `${parsed.summary || ""}`.trim(),
-        suggestions: Array.from(deduped.values()),
-    } as IAssistantLinkSuggestionResult;
-};
-
-const buildLinkSuggestionMarkdown = (data: IAssistantLinkSuggestionResult) => {
-    const lines = [
-        `## ${assistantText("关联建议", "Link Suggestions")}`,
-        "",
-        data.summary || assistantText("这些是 AI 生成的关联建议。", "These are the AI generated relationship suggestions."),
-        "",
-    ];
-    data.suggestions.forEach((item) => {
-        const flags = [
-            item.applyCurrent ? assistantText("当前笔记建链", "Link from current note") : "",
-            item.applyBacklink ? assistantText("目标笔记回链", "Backlink from target note") : "",
-        ].filter(Boolean).join(" / ");
-        const extras = [item.path, flags, item.reason].filter(Boolean).join(" · ");
-        lines.push(`- [${escapeMarkdownLinkText(item.title)}](sf://blocks/${item.rootID})${extras ? ` · ${extras}` : ""}`);
-    });
-    return lines.join("\n").trim();
-};
-
-const renderLinkSuggestionPreview = (data: IAssistantLinkSuggestionResult) => {
-    const emptyText = assistantText("没有可执行的建链建议", "No actionable link suggestions");
-    return `<div class="assistant-skill-dialog__structured">
-    <div class="assistant-skill-dialog__structured-summary">${escapeHTML(data.summary || emptyText)}</div>
-    <div class="assistant-skill-dialog__suggestions">${data.suggestions.length > 0 ? data.suggestions.map((item) => {
-        const flags = [
-            item.applyCurrent ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("当前笔记建链", "Link current note"))}</span>` : "",
-            item.applyBacklink ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("目标笔记回链", "Backlink target note"))}</span>` : "",
-        ].filter(Boolean).join("");
-        return `<div class="assistant-skill-dialog__suggestion">
-    <div class="assistant-skill-dialog__suggestion-head">
-        <div class="assistant-skill-dialog__suggestion-title">${escapeHTML(item.title)}</div>
-        <div class="assistant-skill-dialog__suggestion-chips">${flags}</div>
-    </div>
-    ${item.path ? `<div class="assistant-skill-dialog__suggestion-path">${escapeHTML(item.path)}</div>` : ""}
-    ${item.reason ? `<div class="assistant-skill-dialog__suggestion-reason">${escapeHTML(item.reason)}</div>` : ""}
-</div>`;
-    }).join("") : `<div class="assistant-skill-dialog__suggestion assistant-skill-dialog__suggestion--empty">${escapeHTML(emptyText)}</div>`}</div>
-</div>`;
-};
-
 const normalizeMarkdown = (result: string) => {
     return `${result || ""}`.trim();
 };
 
-const getInsertedBlockIDFromResponse = (response: { data?: Array<{ doOperations?: Array<{ id?: string, blockID?: string }> }> }) => {
-    return `${response?.data?.[0]?.doOperations?.[0]?.id || response?.data?.[0]?.doOperations?.[0]?.blockID || ""}`.trim();
-};
-
-const highlightCurrentContextBlock = (context: IAssistantSkillContext) => {
-    const activeRange = getSelection().rangeCount > 0
-        ? getSelection().getRangeAt(0)
-        : (context.range || null);
-    const activeBlock = activeRange ? hasClosestBlock(activeRange.startContainer) as HTMLElement : null;
-    if (activeBlock) {
-        bgFade(activeBlock);
-        return true;
-    }
-    const fallbackID = context.note?.currentBlockID || context.note?.rootID || "";
-    const fallbackElement = fallbackID && context.protyle
-        ? context.protyle.wysiwyg.element.querySelector(`[data-node-id="${fallbackID}"]`) as HTMLElement
-        : null;
-    if (fallbackElement) {
-        bgFade(fallbackElement);
-        return true;
-    }
-    return false;
-};
-
-const highlightInsertedBlock = (context: IAssistantSkillContext, blockID?: string) => {
-    if (!context.protyle || !blockID) {
-        return false;
-    }
-    const protyle = context.protyle;
-    const scheduleHighlight = (retries: number) => {
-        if (!protyle.wysiwyg?.element?.isConnected) {
-            return;
-        }
-        const targetElement = protyle.wysiwyg.element.querySelector(`[data-node-id="${blockID}"]`) as HTMLElement;
-        if (targetElement) {
-            highlightById(protyle, blockID);
-            return;
-        }
-        if (retries > 0) {
-            window.setTimeout(() => scheduleHighlight(retries - 1), 80);
-        }
-    };
-    window.setTimeout(() => scheduleHighlight(8), 32);
-    return true;
-};
-
-const presentSkillApplyFeedback = (context: IAssistantSkillContext, options: {
-    blockID?: string,
-    fallbackMessage: string,
-}) => {
-    if (options.blockID && highlightInsertedBlock(context, options.blockID)) {
-        return;
-    }
-    if (highlightCurrentContextBlock(context)) {
-        return;
-    }
-    showMessage(options.fallbackMessage);
-};
-
-const insertMarkdownNearCurrentContext = async (context: IAssistantSkillContext, markdown: string): Promise<IAssistantInsertResult> => {
-    const normalized = normalizeMarkdown(markdown);
-    if (!normalized || !context.note) {
-        return {ok: false};
-    }
-    let response;
-    if (context.note.currentBlockID && context.note.currentBlockID !== context.note.rootID) {
-        response = await fetchSyncPost("/api/block/insertBlock", {
-            previousID: context.note.currentBlockID,
-            data: normalized,
-            dataType: "markdown",
-        });
-    } else {
-        response = await fetchSyncPost("/api/block/appendBlock", {
-            parentID: context.note.rootID,
-            data: normalized,
-            dataType: "markdown",
-        });
-    }
-    if (response.code === 0) {
-        invalidateAssistantNoteContextCache(context.note.rootID);
-    }
-    return {
-        ok: response.code === 0,
-        blockID: response.code === 0 ? getInsertedBlockIDFromResponse(response) : "",
-    };
-};
-
-const appendMarkdownToNoteByRootID = async (rootID: string, markdown: string) => {
-    const normalized = normalizeMarkdown(markdown);
-    if (!rootID.trim() || !normalized) {
-        return false;
-    }
-    const response = await fetchSyncPost("/api/block/appendBlock", {
-        parentID: rootID,
-        data: normalized,
-        dataType: "markdown",
-    });
-    if (response.code === 0) {
-        invalidateAssistantNoteContextCache(rootID);
-    }
-    return response.code === 0;
-};
-
-const insertMindElixirNearCurrentContext = async (context: IAssistantSkillContext, responseText: string): Promise<IAssistantInsertResult> => {
-    const {buildMindElixirAttrs, buildMindElixirHTMLBlockDOM, parseMindElixirData} = await loadMindmapDataModule();
+const buildMindElixirPatchFromResult = async (
+    definition: IAssistantSkillDefinition,
+    context: IAssistantSkillContext,
+    responseText: string,
+): Promise<IAssistantEditPatch | null> => {
+    const {buildMindElixirHTMLBlockDOM, parseMindElixirData} = await loadMindmapDataModule();
     const data = parseMindElixirData(responseText);
     if (!data || !context.note) {
-        return {ok: false};
+        return null;
     }
     const blockID = Lute.NewNodeID();
     const blockDOM = buildMindElixirHTMLBlockDOM(data, {
         id: blockID,
     });
-    let response;
-    if (context.note.currentBlockID && context.note.currentBlockID !== context.note.rootID) {
-        response = await fetchSyncPost("/api/block/insertBlock", {
-            previousID: context.note.currentBlockID,
-            data: blockDOM,
-            dataType: "dom",
-        });
-    } else {
-        response = await fetchSyncPost("/api/block/appendBlock", {
-            parentID: context.note.rootID,
-            data: blockDOM,
-            dataType: "dom",
-        });
-    }
-    if (response.code !== 0) {
-        return {ok: false};
-    }
-    const attrs = buildMindElixirAttrs(data);
-    const attrsResponse = await fetchSyncPost("/api/attr/setBlockAttrs", {
-        id: blockID,
-        attrs,
-    });
-    if (attrsResponse.code === 0) {
-        invalidateAssistantNoteContextCache(context.note.rootID);
-    }
+    const targetId = context.note.currentBlockID || context.note.rootID;
+    const operation: IAssistantPatchOperation = {
+        id: createAssistantPatchID("op"),
+        type: "insert-after-block",
+        targetId,
+        targetLabel: targetId !== context.note.rootID
+            ? assistantText("当前块", "Current block")
+            : assistantText("当前笔记末尾", "End of current note"),
+        after: blockDOM,
+        dataType: "dom",
+        reason: definition.description,
+        status: "pending",
+    };
     return {
-        ok: attrsResponse.code === 0,
-        blockID: attrsResponse.code === 0 ? blockID : "",
+        id: createAssistantPatchID("patch"),
+        skillId: definition.id,
+        source: "skill",
+        target: "block",
+        risk: "L2",
+        summary: `${definition.shortLabel}：${data.topic || assistantText("思维导图", "Mind map")}`,
+        operations: [operation],
+        createdAt: Date.now(),
     };
 };
 
-const noteContainsBlockLink = (markdown: string, rootID: string) => {
-    const normalizedMarkdown = `${markdown || ""}`;
-    const normalizedRootID = `${rootID || ""}`.trim();
-    if (!normalizedRootID) {
-        return false;
-    }
-    return normalizedMarkdown.includes(`sf://blocks/${normalizedRootID}`) || normalizedMarkdown.includes(normalizedRootID);
-};
-
-const buildAssistantLinkBullet = (title: string, rootID: string, detail = "") => {
-    const safeTitle = escapeMarkdownLinkText(title || rootID);
-    const safeDetail = `${detail || ""}`.replace(/\r?\n+/g, " ").replace(/\s+/g, " ").trim();
-    return `- [${safeTitle}](sf://blocks/${rootID})${safeDetail ? ` · ${safeDetail}` : ""}`;
-};
-
-const buildAssistantLinkSection = (heading: string, lines: string[]) => {
-    if (lines.length === 0) {
-        return "";
-    }
-    return `## ${heading}\n\n${lines.join("\n")}`;
-};
-
-const applyAssistantLinkSuggestions = async (context: IAssistantSkillContext, parsed: IAssistantLinkSuggestionResult) => {
-    if (!context.note) {
-        return {
-            ok: false,
-            message: assistantText("当前没有可用的笔记上下文", "The current note context is unavailable"),
-        };
-    }
-    const currentLines = parsed.suggestions
-        .filter((item) => item.applyCurrent && !noteContainsBlockLink(context.note?.markdown || "", item.rootID))
-        .map((item) => buildAssistantLinkBullet(item.title, item.rootID, item.currentNoteText || item.reason));
-    let appliedCurrent = 0;
-    let failedCurrent = 0;
-    if (currentLines.length > 0) {
-        const ok = await appendMarkdownToNoteByRootID(context.note.rootID, buildAssistantLinkSection(
-            assistantText("AI 建议关联笔记", "AI Suggested Related Notes"),
-            currentLines
-        ));
-        if (ok) {
-            appliedCurrent = currentLines.length;
-        } else {
-            failedCurrent = currentLines.length;
-        }
-    }
-
-    let appliedBacklinks = 0;
-    let skippedBacklinks = 0;
-    let failedBacklinks = 0;
-    for (const item of parsed.suggestions) {
-        if (!item.applyBacklink) {
-            continue;
-        }
-        const targetNote = await getAssistantNoteContextByRootID(item.rootID);
-        if (!targetNote) {
-            failedBacklinks += 1;
-            continue;
-        }
-        if (noteContainsBlockLink(targetNote.markdown, context.note.rootID)) {
-            skippedBacklinks += 1;
-            continue;
-        }
-        const backlinkLine = buildAssistantLinkBullet(
-            context.note.title || assistantText("当前笔记", "Current note"),
-            context.note.rootID,
-            item.backlinkText || item.reason
-        );
-        const ok = await appendMarkdownToNoteByRootID(targetNote.rootID, buildAssistantLinkSection(
-            assistantText("AI 建议回链", "AI Suggested Backlink"),
-            [backlinkLine]
-        ));
-        if (ok) {
-            appliedBacklinks += 1;
-        } else {
-            failedBacklinks += 1;
-        }
-    }
-
-    const appliedTotal = appliedCurrent + appliedBacklinks;
-    if (appliedTotal === 0) {
-        return {
-            ok: false,
-            message: assistantText(
-                "没有新的建链建议可执行，相关链接可能已经存在。",
-                "There were no new link suggestions to apply. The related links may already exist."
-            ),
-        };
-    }
-    const messageParts = [
-        assistantText("已应用建链建议", "Applied link suggestions"),
-        `${assistantText("当前笔记", "Current note")} ${appliedCurrent}`,
-        `${assistantText("回链", "Backlinks")} ${appliedBacklinks}`,
-        skippedBacklinks ? `${assistantText("已跳过", "Skipped")} ${skippedBacklinks}` : "",
-        failedCurrent || failedBacklinks ? `${assistantText("失败", "Failed")} ${failedCurrent + failedBacklinks}` : "",
-    ].filter(Boolean);
-    return {
-        ok: true,
-        message: messageParts.join(" · "),
-    };
-};
-
-const replaceCurrentSelection = async (context: IAssistantSkillContext, text: string) => {
+const buildReplaceSelectionPatch = (
+    definition: IAssistantSkillDefinition,
+    context: IAssistantSkillContext,
+    text: string,
+): IAssistantEditPatch | null => {
     const note = context.note;
     const before = `${context.selectedText || note?.selectedText || ""}`;
     const after = `${text || ""}`.trim();
     const blockID = `${note?.currentBlockID || ""}`.trim();
-    const blockMarkdown = `${note?.currentBlockMarkdown || ""}`;
-    if (!note || !before.trim() || !after || !blockID || !blockMarkdown.includes(before)) {
-        return false;
+    if (!note || !before.trim() || !after || !blockID) {
+        return null;
     }
-    const response = await fetchSyncPost("/api/block/updateBlock", {
-        id: blockID,
-        data: blockMarkdown.replace(before, after),
-        dataType: "markdown",
+    return {
+        id: createAssistantPatchID("patch"),
+        skillId: definition.id,
+        source: "skill",
+        target: "selection",
+        risk: "L3",
+        summary: `${definition.shortLabel}：${after.slice(0, 80)}`,
+        operations: [{
+            id: createAssistantPatchID("op"),
+            type: "replace-selection",
+            targetId: blockID,
+            targetLabel: assistantText("当前选区", "Current selection"),
+            before,
+            after,
+            reason: definition.description,
+            status: "pending",
+        }],
+        createdAt: Date.now(),
+    };
+};
+
+const buildInsertCurrentNotePatch = (
+    definition: IAssistantSkillDefinition,
+    context: IAssistantSkillContext,
+    markdown: string,
+): IAssistantEditPatch | null => {
+    const after = normalizeMarkdown(markdown);
+    if (!after || !context.note) {
+        return null;
+    }
+    const targetId = context.note.currentBlockID || context.note.rootID;
+    return {
+        id: createAssistantPatchID("patch"),
+        skillId: definition.id,
+        source: "skill",
+        target: targetId === context.note.rootID ? "note" : "block",
+        risk: "L2",
+        summary: `${definition.shortLabel}：${after.split(/\r?\n/).find((line) => line.trim())?.slice(0, 80) || ""}`,
+        operations: [{
+            id: createAssistantPatchID("op"),
+            type: targetId === context.note.rootID ? "append-note" : "insert-after-block",
+            targetId,
+            targetLabel: targetId === context.note.rootID
+                ? (context.note.title || assistantText("当前笔记", "Current note"))
+                : assistantText("当前块", "Current block"),
+            after,
+            reason: definition.description,
+            status: "pending",
+        }],
+        createdAt: Date.now(),
+    };
+};
+
+const openSkillPatchReview = (definition: IAssistantSkillDefinition, context: IAssistantSkillContext, patch: IAssistantEditPatch, sessionId = "") => {
+    openAssistantPatchReviewDialog({
+        patch,
+        context,
+        title: definition.label,
+        sessionId,
     });
-    if (response.code === 0) {
-        invalidateAssistantNoteContextCache(note.rootID);
-    }
-    return response.code === 0;
+    return true;
 };
 
 const buildSkillInboxTitle = (definition: IAssistantSkillDefinition, context: IAssistantSkillContext) => {
@@ -718,28 +422,23 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                 return;
             }
             if (action === "replace-selection") {
-                const replaced = await replaceCurrentSelection(context, displayResult);
-                if (replaced) {
+                const patch = buildReplaceSelectionPatch(definition, context, displayResult);
+                if (patch) {
+                    openSkillPatchReview(definition, context, patch, sessionId);
                     dialog.destroy();
-                    presentSkillApplyFeedback(context, {
-                        fallbackMessage: assistantText("已替换选区内容", "Selection replaced"),
-                    });
                 } else {
-                    showMessage(assistantText("替换失败，请改用插入或复制。", "Replace failed. Use insert or copy instead."), 4000, "error");
+                    showMessage(assistantText("无法生成替换补丁，请改用插入或复制。", "Failed to create a replacement patch. Use insert or copy instead."), 4000, "error");
                 }
                 event.preventDefault();
                 return;
             }
             if (action === "insert-note") {
-                const inserted = await insertMarkdownNearCurrentContext(context, resultWithCitation);
-                if (inserted.ok) {
+                const patch = buildInsertCurrentNotePatch(definition, context, resultWithCitation);
+                if (patch) {
+                    openSkillPatchReview(definition, context, patch, sessionId);
                     dialog.destroy();
-                    presentSkillApplyFeedback(context, {
-                        blockID: inserted.blockID,
-                        fallbackMessage: assistantText("结果已写入当前笔记", "Result inserted into the current note"),
-                    });
                 } else {
-                    showMessage(assistantText("写入当前笔记失败", "Failed to insert into the current note"), 4000, "error");
+                    showMessage(assistantText("无法生成写入补丁", "Failed to create an insertion patch"), 4000, "error");
                 }
                 event.preventDefault();
                 return;
@@ -750,9 +449,9 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
                     event.preventDefault();
                     return;
                 }
-                const applied = await applyAssistantLinkSuggestions(context, parsedLinkSuggestions);
-                showMessage(applied.message, applied.ok ? 3000 : 5000, applied.ok ? "info" : "error");
-                if (applied.ok) {
+                const patch = await buildAssistantLinkSuggestionsPatch(definition, context, parsedLinkSuggestions);
+                if (patch) {
+                    openSkillPatchReview(definition, context, patch, sessionId);
                     dialog.destroy();
                 }
                 event.preventDefault();
@@ -809,7 +508,7 @@ const createSkillLoadingDialog = (definition: IAssistantSkillDefinition, context
         <div class="assistant-skill-dialog__title">${escapeHTML(definition.label)}</div>
         <div class="assistant-skill-dialog__subtitle">${escapeHTML(context.note ? `${context.note.title} · ${truncateText(context.note.path, 72)}` : definition.description)}</div>
     </div>
-    <div class="assistant-skill-dialog__loading-hint">${escapeHTML(assistantText("正在生成，完成后会直接应用默认动作。", "Generating now. The default action will be applied automatically once it finishes..."))}</div>
+    <div class="assistant-skill-dialog__loading-hint">${escapeHTML(assistantText("正在生成，完成后会进入审阅或结果预览。", "Generating now. The result will open for review or preview when it finishes..."))}</div>
     <div class="assistant-skill-dialog__preview assistant-skill-dialog__preview--text" data-role="stream-preview">${escapeHTML(assistantText("准备中...", "Preparing..."))}</div>
 </div>`,
     });
@@ -824,42 +523,6 @@ const updateSkillLoadingDialog = (dialog: Dialog, partial: string) => {
     }
     const text = `${partial || ""}`.trim();
     preview.textContent = text || assistantText("准备中...", "Preparing...");
-};
-
-const applySkillResultAutomatically = async (definition: IAssistantSkillDefinition, context: IAssistantSkillContext, reply: string) => {
-    if (definition.action === "replace-selection") {
-        const replaced = await replaceCurrentSelection(context, reply);
-        if (replaced) {
-            presentSkillApplyFeedback(context, {
-                fallbackMessage: assistantText("已应用到当前选区内容", "Applied to the current selection"),
-            });
-            return true;
-        }
-        return false;
-    }
-    if (definition.action === "insert-below" || definition.action === "append-note") {
-        const inserted = await insertMarkdownNearCurrentContext(context, appendResultCitation(reply, context));
-        if (inserted.ok) {
-            presentSkillApplyFeedback(context, {
-                blockID: inserted.blockID,
-                fallbackMessage: assistantText("结果已写入当前笔记", "Inserted into the current note"),
-            });
-            return true;
-        }
-        return false;
-    }
-    if (definition.action === "insert-mind-elixir") {
-        const insertedMindElixir = await insertMindElixirNearCurrentContext(context, reply);
-        if (insertedMindElixir.ok) {
-            presentSkillApplyFeedback(context, {
-                blockID: insertedMindElixir.blockID,
-                fallbackMessage: assistantText("思维导图已插入当前笔记", "Mind map inserted into the current note"),
-            });
-            return true;
-        }
-        return false;
-    }
-    return false;
 };
 
 export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
@@ -970,13 +633,29 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             });
             return true;
         }
+        const domPatchResult = definition.action === "insert-mind-elixir"
+            ? await buildMindElixirPatchFromResult(definition, context, reply)
+            : null;
+        if (domPatchResult) {
+            openAssistantPatchReviewDialog({
+                patch: domPatchResult,
+                context,
+                title: definition.label,
+                sessionId: result.session.id,
+                onContinue: () => openAssistantChatDock({
+                    sessionId: result.session.id,
+                    append: true,
+                    message: assistantText(
+                        `请基于刚才的「${definition.shortLabel}」结果继续调整，目标是得到更合适的可接受补丁。`,
+                        `Continue refining the previous ${definition.shortLabel} result into a better acceptable patch.`
+                    ),
+                }),
+            });
+            return true;
+        }
         ghostDraft?.destroy();
         if (definition.resultMode === "auto-apply") {
-            const applied = await applySkillResultAutomatically(definition, context, reply);
-            if (applied) {
-                return true;
-            }
-            showMessage(assistantText("自动应用失败，已打开结果预览", "Automatic apply failed. Opened the result preview instead."), 5000, "error");
+            showMessage(assistantText("已打开结果预览，请审阅后再应用。", "Opened the result preview. Review it before applying."), 4000);
         }
         openSkillResultDialog(definition, context, reply, result.session.id);
         return true;

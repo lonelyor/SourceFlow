@@ -20,6 +20,12 @@ interface IAssistantPatchApplyResult {
     summary?: string;
 }
 
+interface IAssistantPatchEscalationResult {
+    token?: string;
+    expiresAt?: number;
+    security?: ISecurityPermissionResult;
+}
+
 const highlightPatchTarget = (context: IAssistantSkillContext, blockID?: string) => {
     if (!context.protyle || !blockID) {
         return;
@@ -51,7 +57,7 @@ const requestBackendPatchApply = async (
     operation: IAssistantPatchOperation,
     context: IAssistantSkillContext,
     securityMode: TSecurityMode | undefined,
-    allowOnce: boolean,
+    escalationToken: string,
 ): Promise<IAssistantPatchApplyResult | null> => {
     const noteContext = buildBackendPatchContext(context);
     if (!noteContext) {
@@ -63,7 +69,7 @@ const requestBackendPatchApply = async (
         operation,
         context: noteContext,
         securityMode,
-        allowOnce,
+        escalationToken,
     });
     if (response.code !== 0) {
         showMessage(response.msg || assistantText("应用修改失败，请改用复制结果。", "Failed to apply the edit. Copy the result instead."), 5000, "error");
@@ -72,15 +78,40 @@ const requestBackendPatchApply = async (
     return response.data || null;
 };
 
+const requestBackendPatchEscalationToken = async (
+    patch: IAssistantEditPatch,
+    operation: IAssistantPatchOperation,
+    context: IAssistantSkillContext,
+    securityMode: TSecurityMode | undefined,
+): Promise<string> => {
+    const noteContext = buildBackendPatchContext(context);
+    if (!noteContext) {
+        showMessage(assistantText("当前没有可用的笔记上下文", "The current note context is unavailable"), 4000, "error");
+        return "";
+    }
+    const response = await fetchSyncPost("/api/assistant/patch/issueEscalation", {
+        patch,
+        operation,
+        context: noteContext,
+        securityMode,
+    });
+    const data = response.data as IAssistantPatchEscalationResult | undefined;
+    if (response.code !== 0 || !data?.token) {
+        showMessage(response.msg || data?.security?.reason || assistantText("本次允许凭证申请失败，请重新确认。", "Failed to issue one-time permission. Please confirm again."), 5000, "error");
+        return "";
+    }
+    return data.token;
+};
+
 const applyBackendPatchOperation = async (
     patch: IAssistantEditPatch,
     operation: IAssistantPatchOperation,
     context: IAssistantSkillContext,
     options: IAssistantPatchApplyOptions,
     securityMode: TSecurityMode | undefined,
-    allowOnce: boolean,
+    escalationToken: string,
 ): Promise<IAssistantPatchApplyResult | null> => {
-    const result = await requestBackendPatchApply(patch, operation, context, securityMode, allowOnce);
+    const result = await requestBackendPatchApply(patch, operation, context, securityMode, escalationToken);
     if (!result) {
         return null;
     }
@@ -106,9 +137,13 @@ const applyBackendPatchOperation = async (
     }
     if (action === "upgrade-auto") {
         await options.onSecurityModeChange?.("autoReview");
-        return applyBackendPatchOperation(patch, operation, context, options, "autoReview", false);
+        return applyBackendPatchOperation(patch, operation, context, options, "autoReview", "");
     }
-    return applyBackendPatchOperation(patch, operation, context, options, securityMode, true);
+    const token = await requestBackendPatchEscalationToken(patch, operation, context, securityMode);
+    if (!token) {
+        return null;
+    }
+    return applyBackendPatchOperation(patch, operation, context, options, securityMode, token);
 };
 
 export const applyAssistantPatchOperation = async (
@@ -121,7 +156,7 @@ export const applyAssistantPatchOperation = async (
         showMessage(assistantText("当前没有可用的笔记上下文", "The current note context is unavailable"), 4000, "error");
         return false;
     }
-    const result = await applyBackendPatchOperation(patch, operation, context, options, options.securityMode, false);
+    const result = await applyBackendPatchOperation(patch, operation, context, options, options.securityMode, "");
     if (!result || result.requiresConfirm) {
         return false;
     }

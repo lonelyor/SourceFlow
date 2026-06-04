@@ -4,10 +4,10 @@
 
 ## 本轮
 
-- [ ] AI 写入路径生产级收敛：内联翻译替换、技能结果插入/替换/建链等 AI 改写已有笔记动作统一生成 patch，并通过 `/api/assistant/patch/apply` 安全入口提交。
-- [ ] 单次提权真实化：移除 patch apply 对客户端 `allowOnce` 布尔值的信任，改为后端签发、绑定目标/风险/能力/内容摘要、短期过期且消费一次的 escalation token。
-- [ ] AI Profile 真相源收敛：AI Profile 保存/删除不再反向同步旧 `Conf.AI.OpenAI`，旧配置仅作为一次性迁移来源或非 AI 助手兼容边界。
-- [ ] 本轮验证：更新 patch review / AI 安全 / Profile 回归测试，运行前端目标测试、TypeScript、Go 目标测试和 `git diff --check`。
+- [x] AI 写入路径生产级收敛：内联翻译替换、技能结果插入/替换/建链等 AI 改写已有笔记动作统一生成 patch，并通过 `/api/assistant/patch/apply` 安全入口提交。
+- [x] 单次提权真实化：移除 patch apply 对客户端 `allowOnce` 布尔值的信任，改为后端签发、绑定目标/风险/能力/内容摘要、短期过期且消费一次的 escalation token。
+- [x] AI Profile 真相源收敛：AI Profile 保存/删除不再反向同步旧 `Conf.AI.OpenAI`，旧配置仅作为一次性迁移来源或非 AI 助手兼容边界。
+- [x] 本轮验证：更新 patch review / AI 安全 / Profile 回归测试，运行前端目标测试、TypeScript、Go 目标测试和 `git diff --check`。
 
 - [x] 输出工作台稳定化与 AI 原生笔记安全设计文档：确认工作台和 AI 独立开发、默认固定侧边栏、工作台空白修复方向、AI 权限/黑白名单/批量阈值/硬禁止/绕过检测。
 - [x] 工作台稳定化：默认固定侧边栏入口，修复工作台打开过程空白，补 loading、错误页、重试入口、失败查询显式错误和目标测试。

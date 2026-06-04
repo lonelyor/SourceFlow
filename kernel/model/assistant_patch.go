@@ -1,6 +1,9 @@
 package model
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -8,6 +11,7 @@ import (
 	sql "github.com/lonelyor/sourceflow/kernel/sql"
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/lute"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
 )
 
@@ -42,6 +46,7 @@ type AssistantPatchOperation struct {
 	TargetLabel     string                 `json:"targetLabel,omitempty"`
 	Before          string                 `json:"before,omitempty"`
 	After           string                 `json:"after,omitempty"`
+	DataType        string                 `json:"dataType,omitempty"`
 	Attrs           map[string]interface{} `json:"attrs,omitempty"`
 	Reason          string                 `json:"reason,omitempty"`
 	Status          string                 `json:"status,omitempty"`
@@ -49,11 +54,11 @@ type AssistantPatchOperation struct {
 }
 
 type AssistantPatchApplyRequest struct {
-	Patch        *AssistantEditPatch      `json:"patch"`
-	Operation    *AssistantPatchOperation `json:"operation"`
-	Context      *AssistantAINoteContext  `json:"context"`
-	SecurityMode AISecurityMode           `json:"securityMode"`
-	AllowOnce    bool                     `json:"allowOnce"`
+	Patch           *AssistantEditPatch      `json:"patch"`
+	Operation       *AssistantPatchOperation `json:"operation"`
+	Context         *AssistantAINoteContext  `json:"context"`
+	SecurityMode    AISecurityMode           `json:"securityMode"`
+	EscalationToken string                   `json:"escalationToken,omitempty"`
 }
 
 type AssistantPatchApplyResult struct {
@@ -67,35 +72,32 @@ type AssistantPatchApplyResult struct {
 	Path            string                      `json:"path,omitempty"`
 }
 
-func ApplyAssistantPatchOperation(req *AssistantPatchApplyRequest) (*AssistantPatchApplyResult, error) {
-	if nil == req || nil == req.Patch || nil == req.Operation {
-		return nil, fmt.Errorf("assistant patch and operation are required")
-	}
-	context := cloneAssistantAINoteContext(req.Context)
-	if nil == context || "" == contextID(context) {
-		return nil, fmt.Errorf("current note context is unavailable")
-	}
-	operation := normalizeAssistantPatchOperation(req.Operation)
-	if "" == operation.Type {
-		return nil, fmt.Errorf("assistant patch operation type is required")
-	}
+type AssistantPatchEscalationIssueResult struct {
+	Token     string                      `json:"token,omitempty"`
+	ExpiresAt int64                       `json:"expiresAt,omitempty"`
+	Security  *AISecurityPermissionResult `json:"security,omitempty"`
+}
 
-	security := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
-		Mode:              req.SecurityMode,
-		Risk:              assistantPatchSecurityRisk(req.Patch, operation),
-		TargetType:        "note",
-		TargetIDs:         []string{contextID(context)},
-		SessionBatchCount: assistantPatchPendingOperationCount(req.Patch),
-		Capability:        assistantPatchOperationCapability(operation),
-	})
+func ApplyAssistantPatchOperation(req *AssistantPatchApplyRequest) (*AssistantPatchApplyResult, error) {
+	context, operation, security, scope, err := prepareAssistantPatchSecurity(req)
+	if nil != err {
+		return nil, err
+	}
 	if nil == security {
 		return nil, fmt.Errorf("AI security decision is unavailable")
 	}
-	if security.Decision == AISecurityDeny && (!security.Escalatable || !req.AllowOnce) {
-		return &AssistantPatchApplyResult{RequiresConfirm: security.Escalatable, Security: security}, nil
-	}
-	if security.Decision == AISecurityConfirm && !req.AllowOnce {
-		return &AssistantPatchApplyResult{RequiresConfirm: true, Security: security}, nil
+	if security.Decision != AISecurityAllow {
+		if !security.Escalatable {
+			return &AssistantPatchApplyResult{RequiresConfirm: true, Security: security}, nil
+		}
+		if !consumeAISecurityEscalationToken(req.EscalationToken, scope) {
+			if "" != strings.TrimSpace(req.EscalationToken) && "" == strings.TrimSpace(security.Reason) {
+				security.Reason = "本次允许凭证无效或已过期，请重新确认"
+			} else if "" != strings.TrimSpace(req.EscalationToken) && "" != strings.TrimSpace(security.Reason) {
+				security.Reason = strings.TrimSpace(security.Reason) + "；本次允许凭证无效或已过期，请重新确认"
+			}
+			return &AssistantPatchApplyResult{RequiresConfirm: true, Security: security}, nil
+		}
 	}
 
 	switch operation.Type {
@@ -122,6 +124,113 @@ func ApplyAssistantPatchOperation(req *AssistantPatchApplyRequest) (*AssistantPa
 	}
 }
 
+func IssueAssistantPatchEscalationToken(req *AssistantPatchApplyRequest) (*AssistantPatchEscalationIssueResult, error) {
+	_, _, security, scope, err := prepareAssistantPatchSecurity(req)
+	if nil != err {
+		return nil, err
+	}
+	if nil == security {
+		return nil, fmt.Errorf("AI security decision is unavailable")
+	}
+	if security.Decision == AISecurityAllow {
+		return &AssistantPatchEscalationIssueResult{Security: security}, nil
+	}
+	if !security.Escalatable {
+		return &AssistantPatchEscalationIssueResult{Security: security}, nil
+	}
+	token, expiresAt, err := issueAISecurityEscalationToken(scope)
+	if nil != err {
+		return nil, err
+	}
+	return &AssistantPatchEscalationIssueResult{Token: token, ExpiresAt: expiresAt, Security: security}, nil
+}
+
+func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantAINoteContext, *AssistantPatchOperation, *AISecurityPermissionResult, *AISecurityEscalationScope, error) {
+	if nil == req || nil == req.Patch || nil == req.Operation {
+		return nil, nil, nil, nil, fmt.Errorf("assistant patch and operation are required")
+	}
+	context := cloneAssistantAINoteContext(req.Context)
+	if nil == context || "" == contextID(context) {
+		return nil, nil, nil, nil, fmt.Errorf("current note context is unavailable")
+	}
+	operation := normalizeAssistantPatchOperation(req.Operation)
+	if "" == operation.Type {
+		return nil, nil, nil, nil, fmt.Errorf("assistant patch operation type is required")
+	}
+	risk := assistantPatchSecurityRisk(req.Patch, operation)
+	targetType := "note"
+	targetIDs := assistantPatchSecurityTargetIDs(context, operation)
+	batchCount := assistantPatchPendingOperationCount(req.Patch)
+	capability := assistantPatchOperationCapability(operation)
+	security := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:              req.SecurityMode,
+		Risk:              risk,
+		TargetType:        targetType,
+		TargetIDs:         targetIDs,
+		SessionBatchCount: batchCount,
+		Capability:        capability,
+	})
+	scope := &AISecurityEscalationScope{
+		Kind:              "assistant-patch",
+		Mode:              NormalizeAISecurityMode(req.SecurityMode, GetAISecurityConfig().DefaultMode),
+		Risk:              risk,
+		TargetType:        targetType,
+		TargetIDs:         targetIDs,
+		SessionBatchCount: batchCount,
+		Capability:        capability,
+		PatchID:           strings.TrimSpace(req.Patch.ID),
+		OperationID:       strings.TrimSpace(operation.ID),
+		OperationType:     strings.TrimSpace(operation.Type),
+		OperationDigest:   assistantPatchOperationDigest(operation),
+	}
+	return context, operation, security, scope, nil
+}
+
+func assistantPatchSecurityTargetIDs(context *AssistantAINoteContext, operation *AssistantPatchOperation) []string {
+	ids := []string{}
+	addID := func(id string) {
+		id = strings.TrimSpace(id)
+		if "" == id {
+			return
+		}
+		if block := sql.GetBlock(id); nil != block && "" != strings.TrimSpace(block.RootID) {
+			ids = append(ids, strings.TrimSpace(block.RootID))
+			return
+		}
+		ids = append(ids, id)
+	}
+	addID(operation.TargetID)
+	if 1 > len(ids) {
+		addID(contextID(context))
+	}
+	return normalizeAISecurityTargetIDs(ids)
+}
+
+func assistantPatchOperationDigest(operation *AssistantPatchOperation) string {
+	payload := struct {
+		Type     string                 `json:"type"`
+		TargetID string                 `json:"targetId"`
+		Before   string                 `json:"before"`
+		After    string                 `json:"after"`
+		DataType string                 `json:"dataType"`
+		Attrs    map[string]interface{} `json:"attrs,omitempty"`
+	}{
+		Type:     strings.TrimSpace(operation.Type),
+		TargetID: strings.TrimSpace(operation.TargetID),
+		Before:   operation.Before,
+		After:    operation.After,
+		DataType: strings.TrimSpace(operation.DataType),
+		Attrs:    operation.Attrs,
+	}
+	data, err := json.Marshal(payload)
+	if nil != err {
+		sum := sha256.Sum256([]byte(strings.TrimSpace(operation.Type) + "\x00" + strings.TrimSpace(operation.TargetID)))
+		return hex.EncodeToString(sum[:])
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
 func normalizeAssistantPatchOperation(operation *AssistantPatchOperation) *AssistantPatchOperation {
 	if nil == operation {
 		return &AssistantPatchOperation{}
@@ -133,10 +242,20 @@ func normalizeAssistantPatchOperation(operation *AssistantPatchOperation) *Assis
 		TargetLabel:     strings.TrimSpace(operation.TargetLabel),
 		Before:          operation.Before,
 		After:           operation.After,
+		DataType:        normalizeAssistantPatchDataType(operation.DataType),
 		Attrs:           operation.Attrs,
 		Reason:          strings.TrimSpace(operation.Reason),
 		Status:          strings.TrimSpace(operation.Status),
 		AppliedTargetID: strings.TrimSpace(operation.AppliedTargetID),
+	}
+}
+
+func normalizeAssistantPatchDataType(dataType string) string {
+	switch strings.TrimSpace(dataType) {
+	case "dom":
+		return "dom"
+	default:
+		return "markdown"
 	}
 }
 
@@ -200,21 +319,33 @@ func assistantPatchOperationCapability(operation *AssistantPatchOperation) strin
 }
 
 func applyAssistantPatchAppendNote(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
-	markdown := strings.TrimSpace(operation.After)
-	if "" == markdown {
+	content := strings.TrimSpace(operation.After)
+	targetID := strings.TrimSpace(firstAssistantAINonEmpty(operation.TargetID, contextID(context)))
+	if "" == targetID || "" == content {
 		return nil, fmt.Errorf("append-note patch content is required")
 	}
-	transactions, blockID, err := performAssistantPatchAppendMarkdown(contextID(context), markdown)
+	targetBlock, err := ensureAssistantPatchNoteRootTarget(context, targetID)
 	if nil != err {
 		return nil, err
 	}
-	return &AssistantPatchApplyResult{AppliedTargetID: firstAssistantAINonEmpty(blockID, contextID(context)), Transactions: transactions, Summary: "applied append-note"}, nil
+	transactions, blockID, err := performAssistantPatchAppendContent(targetID, content, operation.DataType)
+	if nil != err {
+		return nil, err
+	}
+	appliedID := firstAssistantAINonEmpty(blockID, targetID)
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: appliedID,
+		Transactions:    transactions,
+		Summary:         "applied append-note",
+		Notebook:        strings.TrimSpace(targetBlock.Box),
+		Path:            strings.TrimSpace(targetBlock.Path),
+	}, nil
 }
 
 func applyAssistantPatchInsertAfterBlock(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
-	markdown := strings.TrimSpace(operation.After)
+	content := strings.TrimSpace(operation.After)
 	targetID := strings.TrimSpace(firstAssistantAINonEmpty(operation.TargetID, contextCurrentBlockID(context), contextID(context)))
-	if "" == targetID || "" == markdown {
+	if "" == targetID || "" == content {
 		return nil, fmt.Errorf("insert-after-block patch target and content are required")
 	}
 	if targetID == contextID(context) {
@@ -224,12 +355,13 @@ func applyAssistantPatchInsertAfterBlock(context *AssistantAINoteContext, operat
 	if nil != err {
 		return nil, err
 	}
-	transactions, blockID, err := performAssistantPatchInsertAfter(targetID, markdown)
+	transactions, blockID, err := performAssistantPatchInsertAfter(targetID, content, operation.DataType)
 	if nil != err {
 		return nil, err
 	}
+	appliedID := firstAssistantAINonEmpty(blockID, targetID)
 	return &AssistantPatchApplyResult{
-		AppliedTargetID: firstAssistantAINonEmpty(blockID, targetID),
+		AppliedTargetID: appliedID,
 		Transactions:    transactions,
 		Summary:         "applied insert-after-block",
 		Notebook:        strings.TrimSpace(block.Box),
@@ -430,9 +562,27 @@ func ensureAssistantPatchTargetBlock(context *AssistantAINoteContext, blockID st
 	return block, nil
 }
 
-func performAssistantPatchAppendMarkdown(parentID, markdown string) ([]*Transaction, string, error) {
+func ensureAssistantPatchNoteRootTarget(context *AssistantAINoteContext, blockID string) (*sql.Block, error) {
+	blockID = strings.TrimSpace(blockID)
+	if "" == blockID {
+		return nil, fmt.Errorf("append-note patch target note ID is required")
+	}
+	block := sql.GetBlock(blockID)
+	if nil == block {
+		return nil, fmt.Errorf("append-note patch target note was not found")
+	}
+	if strings.TrimSpace(block.ID) != strings.TrimSpace(block.RootID) {
+		return nil, fmt.Errorf("append-note patch target must be a note root")
+	}
+	if "" != contextNotebook(context) && "" != strings.TrimSpace(block.Box) && strings.TrimSpace(block.Box) != contextNotebook(context) {
+		return nil, fmt.Errorf("append-note patch target is outside the current notebook")
+	}
+	return block, nil
+}
+
+func performAssistantPatchAppendContent(parentID, content string, dataType string) ([]*Transaction, string, error) {
 	luteEngine := util.NewLute()
-	data, err := dataBlockDOMForAssistant(markdown, luteEngine)
+	data, err := assistantPatchBlockDOM(content, dataType, luteEngine)
 	if nil != err {
 		return nil, "", err
 	}
@@ -448,9 +598,9 @@ func performAssistantPatchAppendMarkdown(parentID, markdown string) ([]*Transact
 	return transactions, firstAssistantPatchOperationID(transactions), nil
 }
 
-func performAssistantPatchInsertAfter(blockID, markdown string) ([]*Transaction, string, error) {
+func performAssistantPatchInsertAfter(blockID, content string, dataType string) ([]*Transaction, string, error) {
 	luteEngine := util.NewLute()
-	data, err := dataBlockDOMForAssistant(markdown, luteEngine)
+	data, err := assistantPatchBlockDOM(content, dataType, luteEngine)
 	if nil != err {
 		return nil, "", err
 	}
@@ -470,6 +620,17 @@ func performAssistantPatchInsertAfter(blockID, markdown string) ([]*Transaction,
 	PerformTransactions(&transactions)
 	FlushTxQueue()
 	return transactions, firstAssistantPatchOperationID(transactions), nil
+}
+
+func assistantPatchBlockDOM(content string, dataType string, luteEngine *lute.Lute) (string, error) {
+	if strings.TrimSpace(dataType) == "dom" {
+		data := strings.TrimSpace(content)
+		if "" == data {
+			return "", fmt.Errorf("assistant patch DOM content is required")
+		}
+		return data, nil
+	}
+	return dataBlockDOMForAssistant(content, luteEngine)
 }
 
 func performAssistantPatchReplaceMarkdown(blockID, markdown string) ([]*Transaction, error) {

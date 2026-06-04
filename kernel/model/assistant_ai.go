@@ -269,7 +269,6 @@ func getAssistantAIDB() (ret *dbsql.DB, err error) {
 		_ = db.Close()
 		return nil, err
 	}
-	syncAssistantAILegacyConfig(db)
 
 	assistantAIDB = db
 	return assistantAIDB, nil
