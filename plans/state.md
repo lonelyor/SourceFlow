@@ -1,6 +1,6 @@
 # SourceFlow 当前状态
 
-更新日期：2026-06-03
+更新日期：2026-06-04
 
 ## 已确认
 
@@ -36,6 +36,8 @@
 - 2026-06-03 AI 助手生产级加固阶段 A/B/C 已完成：新增后端 `/api/assistant/patch/apply` 统一应用入口，patch 接受前经过安全内核、当前笔记边界和实时原文校验；前端接受 patch 不再直调普通块/文件树写接口；写工具默认返回 `previewPatch` 进入审阅，兼容直写必须显式请求；来源上下文返回 `items/dropped/truncated/maxChars` 并使用后端全局预算，`@` 空 query 后端返回空结果。
 - 2026-06-03 本阶段验证已通过：`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:assistant-patch-review`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app run test:editor-structure-guide-bugfix`、`go test ./conf/ -v`、`go test -vet=off ./api -run TestDoesNotExist -count=1`、`go test -vet=off ./model -run TestBuildAssistantContextPack -count=1`、`go test -vet=off ./model -run TestAssistantAITool -count=1`、`go test -vet=off ./model -run TestAssistantPatchTextOccurrences -count=1`、`go test -vet=off ./model -run TestAssistantAIProfileAPIKeyActions -count=1`、`go test -vet=off ./model -run TestAssistantEmbeddingConfigAPIKeyActions -count=1` 和 `git diff --check`。`pnpm --dir app run lint` 仍失败在既有 `app/build-linux-portable/...` 打包产物 lint 范围，不属于本阶段源码改动。
 - 2026-06-03 全局笔记软件设计一致性终审：已修复左侧活动栏"更多"按钮插在中间的问题，现在渲染在所有 rail 按钮之后；补充 `test:ai-dock-entry-state` 静态回归。审计保留的后续差距为：AI Profile 旧 `Conf.AI.OpenAI` 反向同步仍待独立迁移，Agent 队列/历史仍待后端持久审计，部分用户显式 AI 写入按钮仍直调普通块/文件树 API，安全内核第 4 层绕过检测尚未形成独立判定模块。
+- 2026-06-04 因 plans 与实现审计发现冲突：`todo.md` 曾将“单次提权接入真实操作流程”标为完成，但当前实现仅完成前端弹窗和客户端 `allowOnce` 布尔重试，未达到 `spec.md` 要求的后端一次性凭证语义。用户已确认按生产级方案修复，本轮以“后端签发、绑定、短期过期、消费一次的 escalation token”作为完成标准；AI 写入动作按“改写/插入/建链必须走 patch apply，普通保存报告/成果箱仍按用户显式保存命令处理”的产品口径落地。
+- 2026-06-04 AI Profile 真相源收敛口径确认：`ai_profiles` 为 AI 助手生产配置唯一真相源；旧 `Conf.AI.OpenAI` 保留一次性迁移读取和非 AI 助手兼容调用边界，AI Profile 保存/删除不再反向同步旧配置。
 - 2026-06-03 四性审计第一批低风险修复完成：`/api/file/putFile` 改为有界流式写入并关闭上传句柄；`/api/import/importData` 复用 `saveImportUpload` 的统一上传限制；`WriteFileSaferByReader` 失败路径会关闭并清理临时文件；同步间隔前后端拒绝/修正非法数值；Embedding 全量索引和语义搜索在失败回调中恢复按钮/loading；`test:assistant-patch-review` 补齐安全检查 mock。
 - 2026-06-03 本批核对：AI/security 关键修复（能力开关全关幂等、Profile API Key 脱敏与空值保留、HTTP client timeout 缓存按 profile timeout 区分、BlockTree recover 防 panic）已存在于当前 HEAD；本批未提交 diff 仅包含资源边界、错误恢复和测试 mock。
 - 2026-06-03 本批验证已通过 `go test -vet=off ./model -count=1`、`go test -vet=off ./api -count=1`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run test:assistant-patch-review` 和 `git diff --check`。
