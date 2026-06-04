@@ -91,6 +91,25 @@ assert(
 );
 
 assert(
+    dialogScreen.includes("renderWorkbenchSearchBar") &&
+        dialogScreen.includes("renderWorkbenchQuickFilters") &&
+        dialogScreen.includes("renderWorkbenchAdvancedFilters") &&
+        dialogScreen.includes("renderWorkbenchMoreActions"),
+    "workbench should keep the first screen focused with progressive filter/action sections",
+);
+
+assert(
+    dialogScreen.includes('id="workbenchResultLayer"') &&
+        dialogScreen.includes('id="workbenchDashboard"') &&
+        dialogScreen.includes('id="workbenchViewTemplate"') &&
+        dialogScreen.includes('data-action="download-csv"') &&
+        dialogScreen.includes('data-action="assistant-summary"') &&
+        dialogScreen.includes('data-action="bind-current-view"') &&
+        dialogScreen.includes('data-action="insert-results"'),
+    "workbench progressive action sections should preserve existing control targets",
+);
+
+assert(
     fetchUtil.includes("returned non-JSON response") &&
         fetchUtil.includes("returned invalid JSON"),
     "sync fetch failures should produce readable errors for workbench diagnostics",
