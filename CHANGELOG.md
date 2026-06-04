@@ -2,6 +2,32 @@
 
 All notable changes to SourceFlow will be documented in this file.
 
+## [0.1.7] - 2026-06-04
+
+### AI Assistant
+
+- AI write actions now produce reviewable patches first and apply through the backend patch safety entrypoint.
+- One-time safety escalation now uses backend-issued short-lived tokens instead of client-side approval flags.
+- AI Profile and Embedding API key saves use explicit keep / replace / clear actions without returning real keys.
+- `@` source context now reports included, dropped, truncated, and budget status and handles empty queries safely.
+
+### Workbench
+
+- Fixed crashes caused by backend `tags:null` values by normalizing Workbench item tags at the data entrypoint.
+- Related-block search failures now degrade locally instead of breaking the main Workbench list.
+- Simplified the first-screen workflow around views, search, quick filters, selected-item actions, and results.
+
+### Security And Stability
+
+- AI security mode is propagated through chat, streaming, edit, tool execution, source search, and context building.
+- Upload/import paths enforce bounded streaming, shared limits, cleanup on failure, and capped provider error reads.
+- SQL ID/hash list queries use placeholder helpers, and search filters normalize empty values and escaped literals.
+- Exit sync failures caused by local tree-index loss now point users to Settings > About > Rebuild index.
+
+### Build And Release
+
+- Build and release scripts now include duration summaries, parallel release asset upload, parallel SHA256 calculation, reusable Windows portable archives, and graceful Ctrl+C cancellation.
+
 ## [0.1.6] - 2026-06-01
 
 ### Stability And Safety
