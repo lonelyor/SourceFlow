@@ -50,11 +50,18 @@ func chatGPTWithAction(c *gin.Context) {
 		return
 	}
 
-	idsArg := arg["ids"].([]interface{})
+	idsArg, ok := arg["ids"].([]interface{})
+	if !ok {
+		return
+	}
 	var ids []string
 	for _, id := range idsArg {
-		ids = append(ids, id.(string))
+		s, ok := id.(string)
+		if !ok {
+			return
+		}
+		ids = append(ids, s)
 	}
-	action := arg["action"].(string)
+	action, _ := arg["action"].(string)
 	ret.Data = model.ChatGPTWithAction(ids, action)
 }

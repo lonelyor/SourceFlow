@@ -2,8 +2,10 @@ package model
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -241,6 +243,43 @@ func TestResolveAssistantAIOpenAICompatibleAPIKeyOllamaLocal(t *testing.T) {
 
 	if got := resolveAssistantAIOpenAICompatibleAPIKey(profile); "ollama" != got {
 		t.Fatalf("expected ollama local API key fallback, got %q", got)
+	}
+}
+
+func TestAssistantAIHTTPClientCacheRespectsTimeout(t *testing.T) {
+	assistantAIHTTPClientsMu.Lock()
+	oldClients := assistantAIHTTPClients
+	assistantAIHTTPClients = map[string]*http.Client{}
+	assistantAIHTTPClientsMu.Unlock()
+	t.Cleanup(func() {
+		assistantAIHTTPClientsMu.Lock()
+		assistantAIHTTPClients = oldClients
+		assistantAIHTTPClientsMu.Unlock()
+	})
+
+	first, err := newAssistantAIHTTPClient(&AssistantAIProfile{
+		Proxy:    "",
+		Settings: map[string]interface{}{"timeout": 3},
+	})
+	if err != nil {
+		t.Fatalf("create first client: %s", err)
+	}
+	second, err := newAssistantAIHTTPClient(&AssistantAIProfile{
+		Proxy:    "",
+		Settings: map[string]interface{}{"timeout": 90},
+	})
+	if err != nil {
+		t.Fatalf("create second client: %s", err)
+	}
+
+	if first.Timeout != 3*time.Second {
+		t.Fatalf("first timeout = %s, want 3s", first.Timeout)
+	}
+	if second.Timeout != 90*time.Second {
+		t.Fatalf("second timeout = %s, want 90s", second.Timeout)
+	}
+	if first == second {
+		t.Fatal("clients with different timeout should not share a cache entry")
 	}
 }
 

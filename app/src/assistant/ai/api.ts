@@ -1,4 +1,6 @@
 import {fetchSyncPost} from "../../util/fetch";
+import type {TSecurityMode} from "../security/types";
+import type {TAssistantAPIKeyAction} from "../secrets";
 
 export interface IAssistantAIProviderType {
     id: string;
@@ -14,6 +16,8 @@ export interface IAssistantAIProfile {
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
+    hasAPIKey?: boolean;
     model: string;
     userAgent: string;
     proxy: string;
@@ -30,6 +34,7 @@ export interface IAssistantAISession {
     mode: string;
     title: string;
     summary: string;
+    pinnedAt: number;
     messageCount: number;
     userMessageCount: number;
     assistantMessageCount: number;
@@ -82,6 +87,16 @@ export interface IAssistantAIInputAttachment {
     name: string;
     mimeType: string;
     data: string;
+}
+
+export interface IAssistantAISourceCitation {
+    id: string;
+    type: string;
+    title: string;
+    notebook?: string;
+    path?: string;
+    hPath?: string;
+    children?: IAssistantAISourceCitation[];
 }
 
 export interface IAssistantAIToolDefinition {
@@ -181,9 +196,11 @@ export interface IAssistantAIModelEntry {
 }
 
 export const testAssistantAIConnection = async (payload: {
+    id?: string;
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     proxy: string;
     userAgent: string;
 }) => {
@@ -191,9 +208,11 @@ export const testAssistantAIConnection = async (payload: {
 };
 
 export const listAssistantAIModels = async (payload: {
+    id?: string;
     provider: string;
     baseURL: string;
     apiKey: string;
+    apiKeyAction?: TAssistantAPIKeyAction;
     proxy: string;
     userAgent: string;
 }) => {
@@ -239,6 +258,10 @@ export const renameAssistantAISession = async (id: string, title: string) => {
     ensureOK(await fetchSyncPost("/api/assistant/ai/session/rename", {id, title}));
 };
 
+export const setAssistantAISessionPinned = async (id: string, pinned: boolean) => {
+    ensureOK(await fetchSyncPost("/api/assistant/ai/session/pin", {id, pinned}));
+};
+
 export const deleteAssistantAISession = async (id: string) => {
     ensureOK(await fetchSyncPost("/api/assistant/ai/session/delete", {id}));
 };
@@ -263,8 +286,10 @@ export const chatAssistantAI = async (payload: {
     message: string;
     system?: string;
     enableTools?: boolean;
+    securityMode?: TSecurityMode;
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
+    sources?: IAssistantAISourceCitation[];
 }, options: { signal?: AbortSignal } = {}) => {
     const data = ensureOK(await fetchSyncPost("/api/assistant/ai/chat", payload, {signal: options.signal})) as IAssistantAIChatResult;
     return {
@@ -281,9 +306,12 @@ export const streamAssistantAI = async (payload: {
     message: string;
     system?: string;
     enableTools?: boolean;
+    securityMode?: TSecurityMode;
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
+    sources?: IAssistantAISourceCitation[];
 }, options?: {
+    signal?: AbortSignal;
     onDelta?: (delta: string) => void;
     onEvent?: (event: IAssistantAIChatStreamEvent) => void;
 }) => {
@@ -292,6 +320,7 @@ export const streamAssistantAI = async (payload: {
         headers: {
             "Content-Type": "application/json",
         },
+        signal: options?.signal,
         body: JSON.stringify(payload),
     });
     const contentType = response.headers.get("content-type") || "";
@@ -339,19 +368,23 @@ export const streamAssistantAI = async (payload: {
             };
         }
     };
-    while (true) {
-        const {done, value} = await reader.read();
-        buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
-        let lineBreakIndex = buffer.indexOf("\n");
-        while (lineBreakIndex > -1) {
-            const line = buffer.slice(0, lineBreakIndex);
-            buffer = buffer.slice(lineBreakIndex + 1);
-            flushLine(line);
-            lineBreakIndex = buffer.indexOf("\n");
+    try {
+        while (true) {
+            const {done, value} = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
+            let lineBreakIndex = buffer.indexOf("\n");
+            while (lineBreakIndex > -1) {
+                const line = buffer.slice(0, lineBreakIndex);
+                buffer = buffer.slice(lineBreakIndex + 1);
+                flushLine(line);
+                lineBreakIndex = buffer.indexOf("\n");
+            }
+            if (done) {
+                break;
+            }
         }
-        if (done) {
-            break;
-        }
+    } finally {
+        reader.cancel().catch(() => undefined);
     }
     if (buffer.trim()) {
         flushLine(buffer);
@@ -369,9 +402,12 @@ export const editAssistantAIMessageStream = async (payload: {
     message: string;
     system?: string;
     enableTools?: boolean;
+    securityMode?: TSecurityMode;
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
+    sources?: IAssistantAISourceCitation[];
 }, options?: {
+    signal?: AbortSignal;
     onDelta?: (delta: string) => void;
     onEvent?: (event: IAssistantAIChatStreamEvent) => void;
 }) => {
@@ -380,6 +416,7 @@ export const editAssistantAIMessageStream = async (payload: {
         headers: {
             "Content-Type": "application/json",
         },
+        signal: options?.signal,
         body: JSON.stringify(payload),
     });
     const contentType = response.headers.get("content-type") || "";
@@ -431,19 +468,23 @@ export const editAssistantAIMessageStream = async (payload: {
             };
         }
     };
-    while (true) {
-        const {done, value} = await reader.read();
-        buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
-        let lineBreakIndex = buffer.indexOf("\n");
-        while (lineBreakIndex > -1) {
-            const line = buffer.slice(0, lineBreakIndex);
-            buffer = buffer.slice(lineBreakIndex + 1);
-            flushLine(line);
-            lineBreakIndex = buffer.indexOf("\n");
+    try {
+        while (true) {
+            const {done, value} = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
+            let lineBreakIndex = buffer.indexOf("\n");
+            while (lineBreakIndex > -1) {
+                const line = buffer.slice(0, lineBreakIndex);
+                buffer = buffer.slice(lineBreakIndex + 1);
+                flushLine(line);
+                lineBreakIndex = buffer.indexOf("\n");
+            }
+            if (done) {
+                break;
+            }
         }
-        if (done) {
-            break;
-        }
+    } finally {
+        reader.cancel().catch(() => undefined);
     }
     if (buffer.trim()) {
         flushLine(buffer);
@@ -471,6 +512,7 @@ export const executeAssistantAITool = async (payload: {
     sessionId?: string;
     messageId?: string;
     auditId?: string;
+    securityMode?: TSecurityMode;
     context?: IAssistantAINoteContext | null;
     toolId: string;
     args?: Record<string, unknown>;
@@ -483,6 +525,7 @@ export const confirmAssistantAITool = async (payload: {
     sessionId: string;
     messageId: string;
     auditId?: string;
+    securityMode?: TSecurityMode;
     context?: IAssistantAINoteContext | null;
     toolId: string;
     args?: Record<string, unknown>;

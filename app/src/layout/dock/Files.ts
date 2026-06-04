@@ -32,6 +32,7 @@ import {ipcRenderer} from "electron";
 import {hideTooltip, showTooltip} from "../../dialog/tooltip";
 import {selectOpenTab} from "./util";
 import {buildWorkbenchViewNoteMenu} from "../../workbench/viewNoteMenu";
+import {ASSISTANT_AT_AI_LABEL} from "../../assistant/constants";
 import {applyFileTreeAppearanceToPanel} from "../../appearance/fileTreeAppearance";
 import {
     clearFileTreeDropClasses,
@@ -1479,6 +1480,22 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
                 }),
             }).element);
         }
+        const aiTarget = getNewFilePath(false);
+        window.sourceflow.menus.menu.append(new MenuItem({
+            icon: "iconAI",
+            label: ASSISTANT_AT_AI_LABEL,
+            click: () => {
+                void import("../../assistant/ai/AIDockInstance").then(({openAssistantAIDock}) => {
+                    openAssistantAIDock({
+                        message: aiTarget.currentPath
+                            ? (window.sourceflow.config.lang === "zh_CN" ? `分析这个文件夹下的所有笔记：${aiTarget.currentPath}` : `Analyze all notes in this folder: ${aiTarget.currentPath}`)
+                            : (window.sourceflow.config.lang === "zh_CN" ? "分析当前笔记本" : "Analyze current notebook"),
+                        pinCurrentNote: false,
+                        includeCurrentNote: false,
+                    });
+                });
+            }
+        }).element);
         window.sourceflow.menus.menu.append(new MenuItem({
             icon: "iconRefresh",
             label: window.sourceflow.languages.rebuildIndex,

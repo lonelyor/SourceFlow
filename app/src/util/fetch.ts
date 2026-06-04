@@ -123,6 +123,18 @@ export const fetchPost = (
     });
 };
 
+const getFetchErrorMessage = (error: unknown) => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return `${error || "unknown error"}`;
+};
+
+const summarizeResponseText = (text: string) => {
+    const normalized = `${text || ""}`.replace(/\s+/g, " ").trim();
+    return normalized.length > 200 ? `${normalized.slice(0, 200)}...` : normalized;
+};
+
 export const fetchSyncPost = async (url: string, data?: any, options: Pick<RequestInit, "signal"> = {}) => {
     const init: RequestInit = {
         method: "POST",
@@ -135,8 +147,29 @@ export const fetchSyncPost = async (url: string, data?: any, options: Pick<Reque
             init.body = JSON.stringify(data);
         }
     }
-    const res = await fetch(url, init);
-    const res2 = await res.json() as IWebSocketData;
+    let res: Response;
+    try {
+        res = await fetch(url, init);
+    } catch (error) {
+        throw new Error(`POST ${url} failed: ${getFetchErrorMessage(error)}`);
+    }
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+        let text = "";
+        try {
+            text = summarizeResponseText(await res.text());
+        } catch (error) {
+            text = getFetchErrorMessage(error);
+        }
+        const status = `${res.status}${res.statusText ? ` ${res.statusText}` : ""}`;
+        throw new Error(`POST ${url} returned non-JSON response (${status})${text ? `: ${text}` : ""}`);
+    }
+    let res2: IWebSocketData;
+    try {
+        res2 = await res.json() as IWebSocketData;
+    } catch (error) {
+        throw new Error(`POST ${url} returned invalid JSON: ${getFetchErrorMessage(error)}`);
+    }
     processMessage(res2);
     return res2;
 };

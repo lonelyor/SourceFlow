@@ -39,6 +39,11 @@ const compileModule = (entryPath, requireMap = {}) => {
 
 const appRoot = path.join(__dirname, "..");
 const patchRoot = path.join(appRoot, "src", "assistant", "patch");
+const skillExecuteSource = fs.readFileSync(path.join(appRoot, "src", "assistant", "skills", "execute.ts"), "utf8");
+const translateReplaceSource = fs.readFileSync(path.join(appRoot, "src", "assistant", "inline", "translateBubbleReplace.ts"), "utf8");
+assert(!/\/api\/block\/(?:insertBlock|appendBlock|updateBlock)/.test(skillExecuteSource), "assistant skills must not directly write ordinary block APIs");
+assert(!/\/api\/attr\/setBlockAttrs/.test(skillExecuteSource), "assistant skills must not directly write attrs outside patch apply");
+assert(!/\/api\/block\/updateBlock/.test(translateReplaceSource), "inline translation replacement must use patch review");
 const requireMap = {
     "../constants": {
         assistantText: (zh, en) => zh || en,
@@ -155,33 +160,42 @@ const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
         showMessage: (message) => fetchCalls.push({url: "message", payload: message}),
     },
     "../../util/fetch": {
+        fetchPost: (url, payload, cb) => {
+            fetchCalls.push({url, payload});
+            if (url === "/api/assistant/security/checkPermission") {
+                cb({code: 0, data: {decision: "allow"}});
+                return;
+            }
+            cb({code: 0, data: {}});
+        },
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
-            if (url === "/api/block/getBlockInfo") {
-                if (payload.id === "block-1") {
-                    return {code: 0, data: {rootID: "root-1"}};
-                }
-                if (payload.id === "empty-block") {
-                    return {code: 0, data: {rootID: "root-1"}};
-                }
-                if (payload.id === "unknown-block") {
-                    return {code: 0, data: {}};
-                }
-                return {code: 0, data: {rootID: payload.id}};
+            if (url === "/api/assistant/patch/issueEscalation") {
+                return {code: 0, data: {token: "token-needs-confirm", expiresAt: Date.now() + 60000}};
             }
-            if (url === "/api/block/getBlockKramdown") {
-                if (payload.id === "block-1") {
-                    return {code: 0, data: {kramdown: "重复。重复。"}};
+            if (url === "/api/assistant/patch/apply") {
+                const operation = payload.operation || {};
+                if (operation.id === "needs-confirm" && !payload.escalationToken) {
+                    return {code: 0, data: {requiresConfirm: true, security: {decision: "deny", escalatable: true, reason: "needs confirmation"}}};
                 }
-                if (payload.id === "empty-block") {
-                    return {code: 0, data: {kramdown: ""}};
+                if (operation.id === "needs-confirm" && payload.escalationToken !== "token-needs-confirm") {
+                    return {code: -1, msg: "missing escalation token"};
                 }
-                return {code: -1};
+                if (operation.id === "dup") {
+                    return {code: -1, msg: "selected source appears multiple times in the target block"};
+                }
+                if (operation.id === "stale-selection") {
+                    return {code: -1, msg: "selected source no longer exists in the target block"};
+                }
+                if (operation.targetId === "root-1" && (operation.type === "delete-block" || operation.type === "replace-block")) {
+                    return {code: -1, msg: "patch operation cannot modify the whole note root"};
+                }
+                if (operation.targetId === "unknown-block") {
+                    return {code: -1, msg: "patch target block was not found"};
+                }
+                return {code: 0, data: {appliedTargetId: operation.type === "create-note" ? "doc-created" : operation.targetId || "block-created"}};
             }
-            if (url === "/api/filetree/createDocWithMd") {
-                return {code: 0, data: "doc-created"};
-            }
-            return {code: 0, data: [{doOperations: [{id: "block-created"}]}]};
+            return {code: -1, msg: `unexpected legacy patch endpoint: ${url}`};
         },
     },
     "../../util/highlightById": {
@@ -192,6 +206,10 @@ const applyModule = compileModule(path.join(patchRoot, "apply.ts"), {
     },
     "../common/note": {
         invalidateAssistantNoteContextCache: () => undefined,
+    },
+    "../security/escalation": {
+        requestSecurityEscalation: async () => "allow-once",
+        securityEscalationRejectedMessage: () => "rejected",
     },
 });
 
@@ -234,6 +252,7 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     return applyModule.applyAssistantPatchOperation(attrsPatch, attrsPatch.operations[0], applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "attrs patch should apply");
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "set-attrs"));
     return applyModule.applyAssistantPatchOperation({
         ...insertPatch,
         operations: [{
@@ -252,8 +271,9 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     }, applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "create-note patch should apply");
-    assert(fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
-    assert(fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd" && item.payload.path === "/AI/新笔记"));
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "create-note"));
+    assert(!fetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
+    assert(!fetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd"));
     return applyModule.applyAssistantPatchOperation({
         id: "safe-replace-block",
         source: "skill",
@@ -272,7 +292,8 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
     }, applyContext);
 }).then((ok) => {
     assert.strictEqual(ok, true, "replace-block should still update non-root blocks");
-    assert(fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "block-1"));
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.type === "replace-block" && item.payload.operation.targetId === "block-1"));
+    assert(!fetchCalls.some((item) => item.url === "/api/block/updateBlock"));
     return applyModule.applyAssistantPatchOperation({
         id: "unsafe-delete-root",
         source: "skill",
@@ -326,6 +347,27 @@ applyModule.applyAssistantPatchOperation(replacePatch, {
 }).then((ok) => {
     assert.strictEqual(ok, false, "replace-block must not replace the root document");
     assert(!fetchCalls.some((item) => item.url === "/api/block/updateBlock" && item.payload.id === "root-1"));
+    return applyModule.applyAssistantPatchOperation({
+        id: "confirm-patch",
+        source: "skill",
+        target: "selection",
+        risk: "L3",
+        summary: "需要确认",
+        operations: [],
+        createdAt: Date.now(),
+    }, {
+        id: "needs-confirm",
+        type: "replace-selection",
+        targetId: "block-1",
+        before: "重复。",
+        after: "确认后替换",
+        status: "pending",
+    }, applyContext);
+}).then((ok) => {
+    assert.strictEqual(ok, true, "one-time escalation token should allow the confirmed operation");
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/issueEscalation"));
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && item.payload.operation.id === "needs-confirm" && item.payload.escalationToken === "token-needs-confirm"));
+    assert(!fetchCalls.some((item) => item.url === "/api/assistant/patch/apply" && Object.prototype.hasOwnProperty.call(item.payload, "allowOnce")));
     console.log("[assistant-patch-review] ok");
 }).catch((error) => {
     console.error(error);

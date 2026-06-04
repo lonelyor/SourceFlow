@@ -10,6 +10,9 @@ import type {
     IAssistantAIToolPolicy,
 } from "./api";
 import type {TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
+import type {IMentionSource} from "../mentions/types";
+import type {IMentionTriggerState} from "../mentions/trigger";
+import type {TSecurityMode} from "../security/types";
 
 export type IAssistantAINotePreview = ICurrentNoteContext;
 
@@ -46,6 +49,11 @@ export interface IAssistantAIDockRuntime {
     editingMessageId: string;
     draftBackup: string;
     attachmentsBackup: IAssistantAIInputAttachment[] | null;
+    sources: IMentionSource[];
+    sourcesPanelVisible: boolean;
+    mentionState: IMentionTriggerState;
+    securityMode: TSecurityMode;
+    securityDropdownVisible: boolean;
     render(): void;
     focusComposer(): void;
     scrollToBottom(): void;
@@ -99,6 +107,8 @@ export interface IAssistantAIDockRuntime {
     renameCurrentSession(): Promise<void>;
     clearCurrentSession(): Promise<void>;
     deleteCurrentSession(): Promise<void>;
+    deleteSession(sessionId: string): Promise<void>;
+    setSessionPinned(sessionId: string, pinned: boolean): Promise<void>;
     clearAllSessions(): Promise<void>;
     sendMessage(): Promise<void>;
     confirmTool(messageId: string, toolIndex: number): Promise<void>;
@@ -116,4 +126,13 @@ export interface IAssistantAIDockRuntime {
     saveAnalysis(): Promise<void>;
     insertLastReply(): Promise<void>;
     upsertSession(session: IAssistantAISession): void;
+    clearSources(): void;
+    addSource(source: IMentionSource): void;
+    removeSource(id: string): void;
+    toggleSourceIncluded(index: number): void;
+    toggleSourceChildIncluded(sourceIndex: number, childIndex: number): void;
+    toggleSourceExpanded(index: number): void;
+    toggleSourcesPanel(): void;
+    setSecurityMode(mode: TSecurityMode): void;
+    toggleSecurityDropdown(): void;
 }

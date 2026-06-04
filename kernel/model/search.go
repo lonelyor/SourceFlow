@@ -223,8 +223,14 @@ func GetEmbedBlock(embedBlockID string, includeIDs []string, headingMode int, br
 }
 
 func getEmbedBlock(embedBlockID string, includeIDs []string, headingMode int, breadcrumb bool) (ret []*EmbedBlock) {
-	stmt := "SELECT * FROM `blocks` WHERE `id` IN ('" + strings.Join(includeIDs, "','") + "')"
-	sqlBlocks := sql.SelectBlocksRawStmtNoParse(stmt, 1024)
+	sqlBlocks := sql.GetBlocks(includeIDs)
+	nonNilBlocks := make([]*sql.Block, 0, len(sqlBlocks))
+	for _, block := range sqlBlocks {
+		if nil != block {
+			nonNilBlocks = append(nonNilBlocks, block)
+		}
+	}
+	sqlBlocks = nonNilBlocks
 
 	// 根据 includeIDs 的顺序排序 Improve `//!js` query embed block result sorting https://github.com/lonelyor/SourceFlow/issues/9977
 	m := map[string]int{}
@@ -1351,11 +1357,20 @@ func buildBoxesFilter(boxes []string) string {
 	}
 	builder := bytes.Buffer{}
 	builder.WriteString(" AND (")
-	for i, box := range boxes {
-		builder.WriteString(fmt.Sprintf("box = '%s'", box))
-		if i < len(boxes)-1 {
+	written := 0
+	for _, box := range boxes {
+		box = strings.TrimSpace(box)
+		if "" == box {
+			continue
+		}
+		if 0 < written {
 			builder.WriteString(" OR ")
 		}
+		builder.WriteString(fmt.Sprintf("box = '%s'", escapeSQLStringLiteral(box)))
+		written++
+	}
+	if 0 == written {
+		return ""
 	}
 	builder.WriteString(")")
 	return builder.String()
@@ -1367,14 +1382,27 @@ func buildPathsFilter(paths []string) string {
 	}
 	builder := bytes.Buffer{}
 	builder.WriteString(" AND (")
-	for i, path := range paths {
-		builder.WriteString(fmt.Sprintf("path LIKE '%s%%'", path))
-		if i < len(paths)-1 {
+	written := 0
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if "" == path {
+			continue
+		}
+		if 0 < written {
 			builder.WriteString(" OR ")
 		}
+		builder.WriteString(fmt.Sprintf("path LIKE '%s%%'", escapeSQLStringLiteral(path)))
+		written++
+	}
+	if 0 == written {
+		return ""
 	}
 	builder.WriteString(")")
 	return builder.String()
+}
+
+func escapeSQLStringLiteral(value string) string {
+	return strings.ReplaceAll(value, "'", "''")
 }
 
 func buildOrderBy(query string, method, orderBy int) string {

@@ -191,9 +191,7 @@ func IndexNote(rootID string) error {
 	}
 
 	text := kramdown
-	if len(text) > vectorFileMaxLen {
-		text = text[:vectorFileMaxLen]
-	}
+	text = truncateVectorText(text, vectorFileMaxLen)
 
 	vector, err := GenerateEmbedding(text, cfg)
 	if err != nil {
@@ -253,6 +251,17 @@ func cloneVector(vector []float64) []float64 {
 	ret := make([]float64, len(vector))
 	copy(ret, vector)
 	return ret
+}
+
+func truncateVectorText(text string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	runes := []rune(text)
+	if len(runes) <= maxLen {
+		return text
+	}
+	return string(runes[:maxLen])
 }
 
 func fmtEmbeddingDisabled() error {

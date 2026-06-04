@@ -673,7 +673,13 @@ func setSyncInterval(c *gin.Context) {
 	if !ok {
 		return
 	}
-	interval := int(arg["interval"].(float64))
+	intervalRaw, ok := arg["interval"].(float64)
+	if !ok {
+		ret.Code = -1
+		ret.Msg = "invalid sync interval"
+		return
+	}
+	interval := int(intervalRaw)
 	model.SetSyncInterval(interval)
 }
 

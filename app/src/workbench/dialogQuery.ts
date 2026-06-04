@@ -256,7 +256,17 @@ export const fetchRelatedBlocks = async (query: string, pageSize = 12) => {
         page: 1,
         pageSize,
     });
+    if (typeof response.code === "number" && response.code < 0) {
+        throw new Error(response.msg || "fullTextSearchBlock failed");
+    }
     return response.data?.blocks as IWorkbenchSearchBlock[] || [];
+};
+
+const getWorkbenchQueryErrorMessage = (error: unknown) => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return `${error || "unknown error"}`;
 };
 
 export const getWorkbenchBlockRootID = (block: IWorkbenchSearchBlock) => block.rootID || block.id;
@@ -351,6 +361,18 @@ export const getEmptyWorkbenchSummary = (total = 0, filtered = 0): IWorkbenchSum
     subFileTotal: 0,
 });
 
+export const normalizeWorkbenchItems = (items: unknown): IWorkbenchItem[] => {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+    return items.filter(Boolean).map((item) => {
+        const workbenchItem = item as IWorkbenchItem;
+        return Object.assign({}, workbenchItem, {
+            tags: Array.isArray(workbenchItem.tags) ? workbenchItem.tags.map((tag) => `${tag || ""}`.trim()).filter(Boolean) : [],
+        });
+    });
+};
+
 export const buildWorkbenchQueryCacheKey = (state: IWorkbenchState, limit: number) => JSON.stringify({
     limit,
     activeTab: state.activeTab,
@@ -400,8 +422,11 @@ export const fetchWorkbenchData = async (state: IWorkbenchState, limit = 2048): 
             sortBy: state.sortBy,
             sortOrder: state.sortOrder,
         });
-        const items = response.data?.allItems as IWorkbenchItem[] || [];
-        const visibleItems = response.data?.items as IWorkbenchItem[] || [];
+        if (typeof response.code === "number" && response.code < 0) {
+            throw new Error(response.msg || "queryWorkbenchItems failed");
+        }
+        const items = normalizeWorkbenchItems(response.data?.allItems);
+        const visibleItems = normalizeWorkbenchItems(response.data?.items);
         const data = {
             items: visibleItems,
             allItems: items,
@@ -429,17 +454,31 @@ export interface IWorkbenchResolvedContext {
     parsed: ReturnType<typeof parseQuery>;
     blockScopeItems: IWorkbenchItem[];
     blocks: IWorkbenchSearchBlock[];
+    blockError: string;
 }
 
 export const resolveWorkbenchContext = async (state: IWorkbenchState, itemLimit = 2048, blockLimit = 256): Promise<IWorkbenchResolvedContext> => {
     const response = await fetchWorkbenchData(state, itemLimit);
     const parsed = parseQuery(state.query);
     let blockScopeItems = response.items;
+    let blockError = "";
     if (parsed.text.length) {
         const filterOnlyQuery = buildFilterOnlyQuery(parsed);
         if (filterOnlyQuery !== state.query.trim()) {
-            const scopeResponse = await fetchWorkbenchData(Object.assign({}, state, {resultLayer: "items" as TWorkbenchResultLayer, query: filterOnlyQuery}), itemLimit);
-            blockScopeItems = scopeResponse.items;
+            try {
+                const scopeResponse = await fetchWorkbenchData(Object.assign({}, state, {resultLayer: "items" as TWorkbenchResultLayer, query: filterOnlyQuery}), itemLimit);
+                blockScopeItems = scopeResponse.items;
+            } catch (error) {
+                blockError = getWorkbenchQueryErrorMessage(error);
+            }
+        }
+    }
+    let blocks: IWorkbenchSearchBlock[] = [];
+    if (!blockError) {
+        try {
+            blocks = await resolveWorkbenchBlocks(state, blockScopeItems, parsed, blockLimit);
+        } catch (error) {
+            blockError = getWorkbenchQueryErrorMessage(error);
         }
     }
     return {
@@ -448,6 +487,7 @@ export const resolveWorkbenchContext = async (state: IWorkbenchState, itemLimit 
         summary: response.summary,
         parsed,
         blockScopeItems,
-        blocks: await resolveWorkbenchBlocks(state, blockScopeItems, parsed, blockLimit),
+        blocks,
+        blockError,
     };
 };

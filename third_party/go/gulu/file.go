@@ -81,6 +81,17 @@ func (GuluFile) WriteFileSaferByReader(writePath string, reader io.Reader, perm 
 	if nil != err {
 		return
 	}
+	tmpPath := f.Name()
+	closed := false
+	cleanup := true
+	defer func() {
+		if !closed {
+			_ = f.Close()
+		}
+		if cleanup {
+			_ = os.Remove(tmpPath)
+		}
+	}()
 
 	if _, err = io.Copy(f, reader); nil != err {
 		return
@@ -93,6 +104,7 @@ func (GuluFile) WriteFileSaferByReader(writePath string, reader io.Reader, perm 
 	if err = f.Close(); nil != err {
 		return
 	}
+	closed = true
 
 	if err = os.Chmod(f.Name(), perm); nil != err {
 		return
@@ -101,6 +113,7 @@ func (GuluFile) WriteFileSaferByReader(writePath string, reader io.Reader, perm 
 	for i := 0; i < 3; i++ {
 		err = os.Rename(f.Name(), writePath) // Windows 上重命名是非原子的
 		if nil == err {
+			cleanup = false
 			os.Remove(f.Name())
 			return
 		}

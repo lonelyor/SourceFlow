@@ -515,6 +515,11 @@ func putFile(c *gin.Context) {
 			ret.Msg = "form file is nil"
 			return
 		}
+		if fileHeader.Size < 0 || fileHeader.Size > gulu.MaxZipTotalUncompressedSize {
+			ret.Code = http.StatusBadRequest
+			ret.Msg = fmt.Sprintf("upload exceeds size limit (%d > %d)", fileHeader.Size, gulu.MaxZipTotalUncompressedSize)
+			return
+		}
 
 		for {
 			dir := filepath.Dir(fileAbsPath)
@@ -530,16 +535,15 @@ func putFile(c *gin.Context) {
 				break
 			}
 
-			var data []byte
-			data, err = io.ReadAll(f)
-			if err != nil {
-				logging.LogErrorf("read file failed: %s", err)
-				break
-			}
-
-			err = filelock.WriteFile(fileAbsPath, data)
+			err = filelock.WriteFileByReader(fileAbsPath, &uploadSizeLimitReader{reader: f, remaining: gulu.MaxZipTotalUncompressedSize})
+			closeErr := f.Close()
 			if err != nil {
 				logging.LogErrorf("write file [%s] failed: %s", fileAbsPath, err)
+				break
+			}
+			if closeErr != nil {
+				logging.LogErrorf("close upload file failed: %s", closeErr)
+				err = closeErr
 				break
 			}
 			break
@@ -577,4 +581,25 @@ func millisecond2Time(t int64) time.Time {
 	sec := t / 1000
 	msec := t % 1000
 	return time.Unix(sec, msec*int64(time.Millisecond))
+}
+
+type uploadSizeLimitReader struct {
+	reader    io.Reader
+	remaining int64
+}
+
+func (reader *uploadSizeLimitReader) Read(p []byte) (int, error) {
+	if reader.remaining < 0 {
+		return 0, fmt.Errorf("upload exceeds size limit (%d)", gulu.MaxZipTotalUncompressedSize)
+	}
+	maxRead := reader.remaining + 1
+	if int64(len(p)) > maxRead {
+		p = p[:int(maxRead)]
+	}
+	n, err := reader.reader.Read(p)
+	reader.remaining -= int64(n)
+	if reader.remaining < 0 {
+		return n, fmt.Errorf("upload exceeds size limit (%d)", gulu.MaxZipTotalUncompressedSize)
+	}
+	return n, err
 }

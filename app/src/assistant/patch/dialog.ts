@@ -8,6 +8,7 @@ import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../histo
 import {applyAssistantPatch, applyAssistantPatchOperation} from "./apply";
 import {formatAssistantPatchMarkdown, renderAssistantPatchHTML} from "./format";
 import type {IAssistantEditPatch} from "./types";
+import type {TSecurityMode} from "../security/types";
 
 interface IAssistantPatchReviewOptions {
     patch: IAssistantEditPatch;
@@ -15,6 +16,8 @@ interface IAssistantPatchReviewOptions {
     title: string;
     subtitle?: string;
     sessionId?: string;
+    securityMode?: TSecurityMode;
+    onSecurityModeChange?: (mode: TSecurityMode) => Promise<void> | void;
     onContinue?: () => Promise<boolean> | boolean;
     onSettled?: () => void;
     onClose?: () => void;
@@ -90,7 +93,10 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
             if (action === "accept-op") {
                 const opID = target.getAttribute("data-op-id") || "";
                 const operation = patch.operations.find((item) => item.id === opID);
-                if (operation && await applyAssistantPatchOperation(patch, operation, context)) {
+                if (operation && await applyAssistantPatchOperation(patch, operation, context, {
+                    securityMode: options.securityMode,
+                    onSecurityModeChange: options.onSecurityModeChange,
+                })) {
                     recordAssistantPatchHistory(patch, buildPatchDialogHistoryMetadata(options));
                     if (!hasPendingOperations(patch)) {
                         cleanup();
@@ -116,7 +122,10 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
                 return;
             }
             if (action === "accept-all") {
-                if (await applyAssistantPatch(patch, context)) {
+                if (await applyAssistantPatch(patch, context, {
+                    securityMode: options.securityMode,
+                    onSecurityModeChange: options.onSecurityModeChange,
+                })) {
                     recordAssistantPatchHistory(patch, buildPatchDialogHistoryMetadata(options));
                     cleanup();
                     dialog.destroy();

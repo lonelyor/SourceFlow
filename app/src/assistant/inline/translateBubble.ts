@@ -137,12 +137,12 @@ export const openAssistantTranslateBubble = async (options: IOpenTranslateBubble
             if (!translation) {
                 return;
             }
-            const replaced = await replaceCurrentSelection({protyle, range: options.range, selectedText}, translation);
+            const replaced = await replaceCurrentSelection({protyle, note, range: options.range, selectedText}, translation);
             if (replaced) {
                 closeAssistantTranslateBubble();
-                showMessage(assistantText("已替换选区内容", "Selection replaced"), 2000);
+                showMessage(assistantText("已打开替换审阅", "Opened replacement review"), 2000);
             } else {
-                showMessage(assistantText("替换失败，请手动替换。", "Replace failed. Please replace manually."), 4000, "error");
+                showMessage(assistantText("无法生成替换补丁，请手动处理。", "Failed to create a replacement patch. Please handle it manually."), 4000, "error");
             }
             return;
         }

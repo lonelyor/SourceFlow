@@ -187,7 +187,7 @@ export const renderAIDockSessionPanel = (ctx: TAssistantAIDockRenderRuntime) => 
 
 export const renderAIDockProfilesPanel = (ctx: TAssistantAIDockRenderRuntime) => {
     if (!ctx.profiles.length) {
-        return panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("先配置一个提供商，再回来开始对话。", "Configure a provider first, then come back to chat."), assistantText("打开配置", "Open Profiles"), "configure-profile");
+        return panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("请先配置真实提供商和模型，再开始对话。", "Configure a real provider and model before chatting."), assistantText("打开 AI 配置", "Open AI settings"), "configure-profile");
     }
     return `<div class="assistant-ai__panel-stack">
     <div class="assistant-ai__floating-copy ft__secondary">${escapeHTML(assistantText("这里把模型切换收纳到底部左侧，避免顶部工具栏继续膨胀。", "The model switcher lives at the lower-left so the main toolbar stays compact."))}</div>

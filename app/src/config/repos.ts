@@ -1127,7 +1127,10 @@ export const repos = {
         });
         const syncIntervalElement = repos.element.querySelector("#syncInterval") as HTMLInputElement;
         syncIntervalElement.addEventListener("change", () => {
-            let interval = parseInt(syncIntervalElement.value);
+            let interval = parseInt(syncIntervalElement.value, 10);
+            if (!Number.isFinite(interval)) {
+                interval = window.sourceflow.config.sync.interval || 30;
+            }
             if (30 > interval) {
                 interval = 30;
             }

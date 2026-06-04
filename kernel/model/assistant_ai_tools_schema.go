@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -367,7 +368,9 @@ func buildAssistantAIToolContextSystemPart(context *AssistantAINoteContext) stri
 func extractAssistantAIToolCallArgs(argsJSON string) map[string]interface{} {
 	args := map[string]interface{}{}
 	if "" != strings.TrimSpace(argsJSON) {
-		_ = json.Unmarshal([]byte(argsJSON), &args)
+		if jsonErr := json.Unmarshal([]byte(argsJSON), &args); nil != jsonErr {
+			logging.LogWarnf("parse assistant AI tool call args failed: %s", jsonErr)
+		}
 	}
 	return args
 }

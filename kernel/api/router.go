@@ -506,6 +506,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/ai/session/list", model.CheckAuth, model.CheckAdminRole, assistantAISessionList)
 	ginServer.Handle("POST", "/api/assistant/ai/session/create", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionCreate)
 	ginServer.Handle("POST", "/api/assistant/ai/session/rename", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionRename)
+	ginServer.Handle("POST", "/api/assistant/ai/session/pin", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionPin)
 	ginServer.Handle("POST", "/api/assistant/ai/session/delete", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionDelete)
 	ginServer.Handle("POST", "/api/assistant/ai/session/clear", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionClear)
 	ginServer.Handle("POST", "/api/assistant/ai/session/clearAll", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAISessionClearAll)
@@ -529,6 +530,15 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/embedding/search", model.CheckAuth, model.CheckAdminRole, ServeSemanticSearch)
 	ginServer.Handle("POST", "/api/assistant/embedding/index", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ServeIndexNote)
 	ginServer.Handle("POST", "/api/assistant/embedding/indexAll", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ServeIndexAllNotes)
+
+	ginServer.Handle("POST", "/api/assistant/context/search", model.CheckAuth, model.CheckAdminRole, assistantContextSearch)
+	ginServer.Handle("POST", "/api/assistant/context/buildContextPack", model.CheckAuth, model.CheckAdminRole, assistantContextBuildPack)
+	ginServer.Handle("POST", "/api/assistant/patch/issueEscalation", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchIssueEscalation)
+	ginServer.Handle("POST", "/api/assistant/patch/apply", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchApply)
+
+	ginServer.Handle("POST", "/api/assistant/security/getConfig", model.CheckAuth, model.CheckAdminRole, assistantSecurityGetConfig)
+	ginServer.Handle("POST", "/api/assistant/security/setConfig", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantSecuritySetConfig)
+	ginServer.Handle("POST", "/api/assistant/security/checkPermission", model.CheckAuth, model.CheckAdminRole, assistantSecurityCheckPermission)
 
 	ginServer.Handle("POST", "/api/petal/loadPetals", model.CheckAuth, loadPetals)
 	ginServer.Handle("POST", "/api/petal/setPetalEnabled", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setPetalEnabled)

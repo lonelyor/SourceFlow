@@ -16,22 +16,22 @@ type anthropicStreamEvent struct {
 	Type         string `json:"type"`
 	Index        int    `json:"index,omitempty"`
 	ContentBlock *struct {
-		Type string `json:"type"`
-		ID   string `json:"id,omitempty"`
-		Name string `json:"name,omitempty"`
-		Text string `json:"text,omitempty"`
+		Type  string          `json:"type"`
+		ID    string          `json:"id,omitempty"`
+		Name  string          `json:"name,omitempty"`
+		Text  string          `json:"text,omitempty"`
 		Input json.RawMessage `json:"input,omitempty"`
 	} `json:"content_block,omitempty"`
 	Delta *struct {
-		Type          string `json:"type"`
-		Text          string `json:"text,omitempty"`
-		PartialJSON   string `json:"partial_json,omitempty"`
-		StopReason    string `json:"stop_reason,omitempty"`
+		Type        string `json:"type"`
+		Text        string `json:"text,omitempty"`
+		PartialJSON string `json:"partial_json,omitempty"`
+		StopReason  string `json:"stop_reason,omitempty"`
 	} `json:"delta,omitempty"`
 	Message *struct {
-		ID      string `json:"id"`
-		Model   string `json:"model"`
-		Usage   struct {
+		ID    string `json:"id"`
+		Model string `json:"model"`
+		Usage struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
@@ -43,8 +43,8 @@ type anthropicStreamEvent struct {
 }
 
 type anthropicToolCallAccumulator struct {
-	id       string
-	name     string
+	id        string
+	name      string
 	inputJSON strings.Builder
 }
 
@@ -103,8 +103,8 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 	defer resp.Body.Close()
 
 	if 400 <= resp.StatusCode {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Anthropic stream request failed (status %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("Anthropic stream request failed (status %d): %s", resp.StatusCode, sanitizeAIProviderErrorBody(string(body)))
 	}
 
 	return parseAnthropicSSEStream(resp.Body, onDelta)

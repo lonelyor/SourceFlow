@@ -27,15 +27,16 @@ func withAssistantEmbeddingTestDataDir(t *testing.T) {
 	})
 }
 
-func TestAssistantEmbeddingConfigViewHidesAPIKeyAndBlankSavePreservesKey(t *testing.T) {
+func TestAssistantEmbeddingConfigAPIKeyActions(t *testing.T) {
 	withAssistantEmbeddingTestDataDir(t)
 
 	if err := SetAssistantEmbeddingConfig(&AssistantEmbeddingConfig{
-		Provider: "openai-compatible",
-		BaseURL:  "https://example.invalid/v1",
-		APIKey:   "secret-key",
-		Model:    "embed",
-		Enabled:  true,
+		Provider:     "openai-compatible",
+		BaseURL:      "https://example.invalid/v1",
+		APIKey:       "secret-key",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "embed",
+		Enabled:      true,
 	}); err != nil {
 		t.Fatalf("save initial config: %s", err)
 	}
@@ -49,27 +50,67 @@ func TestAssistantEmbeddingConfigViewHidesAPIKeyAndBlankSavePreservesKey(t *test
 	}
 
 	if err := SetAssistantEmbeddingConfig(&AssistantEmbeddingConfig{
-		Provider: "openai-compatible",
-		BaseURL:  "https://example.invalid/v1",
-		Model:    "embed-v2",
-		Enabled:  true,
+		Provider:     "openai-compatible",
+		BaseURL:      "https://example.invalid/v1",
+		APIKeyAction: AssistantAPIKeyActionKeep,
+		Model:        "embed-v2",
+		Enabled:      true,
 	}); err != nil {
-		t.Fatalf("save config with blank key: %s", err)
+		t.Fatalf("save config with keep key action: %s", err)
 	}
 
 	cfg := GetAssistantEmbeddingConfig()
 	if cfg.APIKey != "secret-key" {
-		t.Fatal("blank embedding API key save must preserve the stored key")
+		t.Fatal("keep embedding API key action must preserve the stored key")
 	}
 	if cfg.Model != "embed-v2" {
 		t.Fatalf("non-secret fields must still update, got model %q", cfg.Model)
+	}
+
+	if err := SetAssistantEmbeddingConfig(&AssistantEmbeddingConfig{
+		Provider:     "openai-compatible",
+		BaseURL:      "https://example.invalid/v1",
+		APIKeyAction: AssistantAPIKeyActionClear,
+		Model:        "embed-v3",
+		Enabled:      true,
+	}); err != nil {
+		t.Fatalf("clear embedding API key: %s", err)
+	}
+	cfg = GetAssistantEmbeddingConfig()
+	if cfg.APIKey != "" {
+		t.Fatalf("clear embedding API key action should remove key, got %q", cfg.APIKey)
+	}
+	view = GetAssistantEmbeddingConfigView()
+	if view.HasAPIKey {
+		t.Fatal("embedding config view should report no key after clear")
+	}
+
+	if err := SetAssistantEmbeddingConfig(&AssistantEmbeddingConfig{
+		Provider:     "openai-compatible",
+		BaseURL:      "https://example.invalid/v1",
+		APIKey:       "new-secret",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "embed-v4",
+		Enabled:      true,
+	}); err != nil {
+		t.Fatalf("replace embedding API key: %s", err)
 	}
 
 	data, err := os.ReadFile(filepath.Join(util.DataDir, "storage", "assistant_embedding.json"))
 	if err != nil {
 		t.Fatalf("read saved config: %s", err)
 	}
-	if !strings.Contains(string(data), "secret-key") {
-		t.Fatal("stored embedding config should keep the preserved key on disk")
+	if !strings.Contains(string(data), "new-secret") || strings.Contains(string(data), "secret-key") {
+		t.Fatal("stored embedding config should contain only the replaced key on disk")
+	}
+
+	if err := SetAssistantEmbeddingConfig(&AssistantEmbeddingConfig{
+		Provider:     "openai-compatible",
+		BaseURL:      "https://example.invalid/v1",
+		APIKeyAction: AssistantAPIKeyActionReplace,
+		Model:        "embed-v5",
+		Enabled:      true,
+	}); err == nil {
+		t.Fatal("replace embedding API key action with blank key should fail")
 	}
 }

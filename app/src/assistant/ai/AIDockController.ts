@@ -3,6 +3,7 @@ import {showMessage} from "../../dialog/message";
 import {Custom} from "../../layout/dock/Custom";
 import {getDockByType} from "../../layout/tabUtil";
 import {assistantText, ASSISTANT_AI_DOCK_TYPE} from "../constants";
+import {getActiveEditorProtyle} from "../common/note";
 import type {IAssistantNoteCandidate} from "../common/note";
 import type {
     IAssistantAIInputAttachment,
@@ -62,12 +63,18 @@ import {
     TAssistantAIFloatingPanel,
     TAssistantAIMessageItem,
 } from "./AIDockShared";
+import type {IMentionSource} from "../mentions/types";
+import {createMentionTriggerState, IMentionTriggerState} from "../mentions/trigger";
+import {cloneMentionSources, resolveAndBuildPack} from "../mentions/contextBuilder";
+import type {TSecurityMode} from "../security/types";
+import {getSecurityConfig} from "../security/api";
 import {
     applyAIDockToolPolicyPreset,
     clearAIDockTargetNote,
     clearAllAIDockSessions,
     clearCurrentAIDockSession,
     createAIDockSession,
+    deleteAIDockSession,
     deleteCurrentAIDockSession,
     ensureAIDockSelection,
     followAIDockCurrentNote,
@@ -87,6 +94,7 @@ import {
     searchAIDockTargetNotes,
     selectAIDockSession,
     selectAIDockTargetNote,
+    setAIDockSessionPinned,
     switchAIDockProfile,
     toggleAIDockFloatingPanel,
     toggleAIDockToolEnabled,
@@ -128,6 +136,26 @@ class AssistantAIDock {
     private editingMessageId = "";
     private draftBackup = "";
     private attachmentsBackup: IAssistantAIInputAttachment[] | null = null;
+    private sources: IMentionSource[] = [];
+    private sourcesPanelVisible = false;
+    private sourcesResolveSeq = 0;
+    private mentionState: IMentionTriggerState = createMentionTriggerState();
+    private securityMode: TSecurityMode = "default";
+    private securityDropdownVisible = false;
+    private contextFollowTimer = 0;
+    private readonly handleContextFollowActivity = () => {
+        if (!this.includeCurrentNote || this.pinnedNotePreview) {
+            return;
+        }
+        const rootID = getActiveEditorProtyle()?.block?.rootID || "";
+        if (!rootID || rootID === this.currentNotePreview?.rootID || this.contextFollowTimer) {
+            return;
+        }
+        this.contextFollowTimer = window.setTimeout(() => {
+            this.contextFollowTimer = 0;
+            void this.refreshContextPreview();
+        }, 120);
+    };
 
     constructor(custom: Custom, app: App) {
         this.app = app;
@@ -135,8 +163,17 @@ class AssistantAIDock {
         this.element = custom.element as HTMLElement;
         this.element.classList.add("assistant-dock", "assistant-dock--ai", "fn__flex-column");
         this.bindEvents();
+        this.bindContextFollowEvents();
         void this.refresh(true);
         void this.refreshContextPreview();
+        void this.loadSecurityMode();
+    }
+
+    private async loadSecurityMode() {
+        try {
+            const cfg = await getSecurityConfig();
+            this.securityMode = cfg.defaultMode || "default";
+        } catch (_) { /* ignore */ }
     }
 
     private getRuntime() {
@@ -144,6 +181,11 @@ class AssistantAIDock {
     }
 
     public destroy() {
+        this.unbindContextFollowEvents();
+        if (this.contextFollowTimer) {
+            window.clearTimeout(this.contextFollowTimer);
+            this.contextFollowTimer = 0;
+        }
         this.element.innerHTML = "";
     }
 
@@ -165,6 +207,7 @@ class AssistantAIDock {
         pinCurrentNote?: boolean,
         clearTarget?: boolean,
         sessionId?: string,
+        sources?: IMentionSource[],
     } = {}) {
         this.activePanel = "";
         if (options.clearTarget) {
@@ -173,7 +216,7 @@ class AssistantAIDock {
             this.resetTargetSelection(true);
         } else if (typeof options.includeCurrentNote === "boolean") {
             this.resetTargetSelection(options.includeCurrentNote);
-        } else {
+        } else if (!this.includeCurrentNote) {
             this.resetTargetSelection(true);
         }
         if (`${options.sessionId || ""}`.trim() && options.sessionId !== this.selectedSessionId) {
@@ -186,6 +229,12 @@ class AssistantAIDock {
                 ? `${this.draftMessage.trim()}\n${nextMessage}`
                 : nextMessage;
         }
+        if (options.sources?.length) {
+            options.sources.forEach((source) => {
+                this.addSource(source);
+            });
+            this.sourcesPanelVisible = true;
+        }
         this.render();
         this.focusComposer();
         void this.refreshContextPreview();
@@ -196,6 +245,18 @@ class AssistantAIDock {
 
     private bindEvents() {
         bindAIDockEvents(this.getRuntime());
+    }
+
+    private bindContextFollowEvents() {
+        document.addEventListener("selectionchange", this.handleContextFollowActivity);
+        document.addEventListener("click", this.handleContextFollowActivity, true);
+        window.addEventListener("focus", this.handleContextFollowActivity);
+    }
+
+    private unbindContextFollowEvents() {
+        document.removeEventListener("selectionchange", this.handleContextFollowActivity);
+        document.removeEventListener("click", this.handleContextFollowActivity, true);
+        window.removeEventListener("focus", this.handleContextFollowActivity);
     }
 
     private focusComposer() {
@@ -402,6 +463,14 @@ class AssistantAIDock {
         await deleteCurrentAIDockSession(this.getRuntime());
     }
 
+    private async deleteSession(sessionId: string) {
+        await deleteAIDockSession(this.getRuntime(), sessionId);
+    }
+
+    private async setSessionPinned(sessionId: string, pinned: boolean) {
+        await setAIDockSessionPinned(this.getRuntime(), sessionId, pinned);
+    }
+
     private async clearAllSessions() {
         await clearAllAIDockSessions(this.getRuntime());
     }
@@ -470,6 +539,79 @@ class AssistantAIDock {
         upsertAIDockSession(this.getRuntime(), session);
     }
 
+    private clearSources() {
+        this.sourcesResolveSeq++;
+        this.sources = [];
+        this.sourcesPanelVisible = false;
+    }
+
+    private addSource(source: IMentionSource) {
+        if (this.sources.some((s) => s.id === source.id)) return;
+        this.sources.push(source);
+        this.sourcesPanelVisible = true;
+        void this.resolveSources();
+    }
+
+    private removeSource(id: string) {
+        this.sourcesResolveSeq++;
+        this.sources = this.sources.filter((s) => s.id !== id);
+        if (!this.sources.length) {
+            this.sourcesPanelVisible = false;
+        }
+    }
+
+    private toggleSourceIncluded(index: number) {
+        if (this.sources[index]) {
+            this.sources[index].included = !this.sources[index].included;
+        }
+    }
+
+    private toggleSourceChildIncluded(sourceIndex: number, childIndex: number) {
+        const source = this.sources[sourceIndex];
+        if (source?.children?.[childIndex]) {
+            source.children[childIndex].included = !source.children[childIndex].included;
+        }
+    }
+
+    private toggleSourceExpanded(index: number) {
+        if (this.sources[index]) {
+            this.sources[index].expanded = !this.sources[index].expanded;
+        }
+    }
+
+    private toggleSourcesPanel() {
+        this.sourcesPanelVisible = !this.sourcesPanelVisible;
+    }
+
+    private async resolveSources() {
+        if (!this.sources.length) return;
+        const seq = ++this.sourcesResolveSeq;
+        const sourcesSnapshot = cloneMentionSources(this.sources);
+        try {
+            const resolved = await resolveAndBuildPack(sourcesSnapshot, this.securityMode);
+            if (seq !== this.sourcesResolveSeq) {
+                return;
+            }
+            this.sources = resolved;
+            this.render();
+        } catch (error) {
+            if (seq === this.sourcesResolveSeq) {
+                showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+            }
+        }
+    }
+
+    private setSecurityMode(mode: TSecurityMode) {
+        this.securityMode = mode;
+        this.securityDropdownVisible = false;
+        this.sourcesResolveSeq++;
+        void this.resolveSources();
+    }
+
+    private toggleSecurityDropdown() {
+        this.securityDropdownVisible = !this.securityDropdownVisible;
+    }
+
     private buildRenderContext(): IAssistantAIDockRenderContext {
         return {
             element: this.element,
@@ -496,6 +638,11 @@ class AssistantAIDock {
             sending: this.sending,
             savingProfile: this.savingProfile,
             editingMessageId: this.editingMessageId,
+            sources: this.sources,
+            sourcesPanelVisible: this.sourcesPanelVisible,
+            mentionState: this.mentionState,
+            securityMode: this.securityMode,
+            securityDropdownVisible: this.securityDropdownVisible,
             getSelectedProfile: () => this.getSelectedProfile(),
             getSelectedSession: () => this.getSelectedSession(),
             getMessageById: (messageId: string) => this.getMessageById(messageId),
@@ -545,6 +692,7 @@ export const openAssistantAIDock = (options: {
     pinCurrentNote?: boolean,
     clearTarget?: boolean,
     sessionId?: string,
+    sources?: IMentionSource[],
 } = {}) => {
     const dock = getDockByType(ASSISTANT_AI_DOCK_TYPE);
     if (!dock) {

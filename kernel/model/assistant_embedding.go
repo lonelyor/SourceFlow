@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,11 +18,12 @@ import (
 )
 
 type AssistantEmbeddingConfig struct {
-	Provider string `json:"provider"`
-	BaseURL  string `json:"baseURL"`
-	APIKey   string `json:"apiKey"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	Provider     string `json:"provider"`
+	BaseURL      string `json:"baseURL"`
+	APIKey       string `json:"apiKey"`
+	APIKeyAction string `json:"apiKeyAction,omitempty"`
+	Model        string `json:"model"`
+	Enabled      bool   `json:"enabled"`
 }
 
 type AssistantEmbeddingConfigView struct {
@@ -38,6 +40,9 @@ var (
 	embeddingConfigLock  sync.Mutex
 )
 
+const assistantEmbeddingResponseMaxBytes = 4 * 1024 * 1024
+const assistantEmbeddingErrorMaxBytes = 512 * 1024
+
 func embeddingConfigPath() string {
 	return filepath.Join(util.DataDir, "storage", "assistant_embedding.json")
 }
@@ -48,6 +53,20 @@ func cloneAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *AssistantEmbe
 	}
 	ret := *cfg
 	return &ret
+}
+
+func normalizeAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) *AssistantEmbeddingConfig {
+	ret := cloneAssistantEmbeddingConfig(cfg)
+	ret.Provider = strings.TrimSpace(ret.Provider)
+	ret.BaseURL = strings.TrimRight(strings.TrimSpace(ret.BaseURL), "/")
+	ret.APIKey = strings.TrimSpace(ret.APIKey)
+	if action, err := NormalizeAssistantAPIKeyAction(ret.APIKeyAction, ret.APIKey); nil == err {
+		ret.APIKeyAction = action
+	} else {
+		ret.APIKeyAction = strings.TrimSpace(ret.APIKeyAction)
+	}
+	ret.Model = strings.TrimSpace(ret.Model)
+	return ret
 }
 
 func GetAssistantEmbeddingConfig() *AssistantEmbeddingConfig {
@@ -71,6 +90,7 @@ func getAssistantEmbeddingConfigLocked() *AssistantEmbeddingConfig {
 		logging.LogWarnf("parse embedding config [%s] failed: %s", p, err)
 		cfg = &AssistantEmbeddingConfig{}
 	}
+	cfg = normalizeAssistantEmbeddingConfig(cfg)
 	embeddingConfigCache = cfg
 	return cfg
 }
@@ -93,10 +113,20 @@ func SetAssistantEmbeddingConfig(cfg *AssistantEmbeddingConfig) error {
 	if cfg == nil {
 		cfg = &AssistantEmbeddingConfig{}
 	}
-	cfg = cloneAssistantEmbeddingConfig(cfg)
-	if "" == cfg.APIKey {
+	cfg = normalizeAssistantEmbeddingConfig(cfg)
+	switch cfg.APIKeyAction {
+	case AssistantAPIKeyActionKeep:
 		cfg.APIKey = getAssistantEmbeddingConfigLocked().APIKey
+	case AssistantAPIKeyActionReplace:
+		if "" == cfg.APIKey {
+			return fmt.Errorf("embedding API key is required when replacing")
+		}
+	case AssistantAPIKeyActionClear:
+		cfg.APIKey = ""
+	default:
+		return fmt.Errorf("unsupported API key action [%s]", cfg.APIKeyAction)
 	}
+	cfg.APIKeyAction = ""
 	dir := filepath.Dir(embeddingConfigPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create embedding config dir: %w", err)
@@ -168,13 +198,23 @@ func GenerateEmbedding(text string, cfg *AssistantEmbeddingConfig) ([]float64, e
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, assistantEmbeddingResponseMaxBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read embedding response: %w", err)
 	}
+	responseTooLarge := len(body) > assistantEmbeddingResponseMaxBytes
+	if responseTooLarge {
+		body = body[:assistantEmbeddingResponseMaxBytes]
+	}
 
 	if resp.StatusCode != http.StatusOK {
+		if len(body) > assistantEmbeddingErrorMaxBytes {
+			body = body[:assistantEmbeddingErrorMaxBytes]
+		}
 		return nil, fmt.Errorf("embedding API returned status %d: %s", resp.StatusCode, string(body))
+	}
+	if responseTooLarge {
+		return nil, fmt.Errorf("embedding API response exceeds %d bytes", assistantEmbeddingResponseMaxBytes)
 	}
 
 	var embResp embeddingResponse

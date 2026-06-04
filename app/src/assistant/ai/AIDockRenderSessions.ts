@@ -20,7 +20,7 @@ export const renderAIDockSessions = (ctx: TAssistantAIDockRenderRuntime) => {
         return `<div class="assistant-ai__sessions-head">
     <div class="assistant-ai__sessions-title">${assistantText("会话", "Sessions")}</div>
     ${headActionsHTML()}
-</div>${panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("先配置提供商，再开始多轮对话。", "Configure a provider first, then start chatting."), assistantText("打开配置", "Open Profiles"), "configure-profile")}`;
+</div>${panelEmptyHTML(assistantText("还没有 AI 配置", "No AI profile yet"), assistantText("请先配置真实提供商和模型，再开始多轮对话。", "Configure a real provider and model before chatting."), assistantText("打开 AI 配置", "Open AI settings"), "configure-profile")}`;
     }
     if (!ctx.sessions.length) {
         return `<div class="assistant-ai__sessions-head">
@@ -37,11 +37,24 @@ export const renderAIDockSessions = (ctx: TAssistantAIDockRenderRuntime) => {
 </div>
 <div class="assistant-ai__session-list">${ctx.sessions.map((item) => {
         const sessionHint = ctx.getSessionItemHint(item);
+        const pinned = (item.pinnedAt || 0) > 0;
+        const pinLabel = pinned ? assistantText("取消置顶", "Unpin") : assistantText("置顶", "Pin");
+        const deleteLabel = assistantText("删除会话", "Delete session");
         return `
-<button type="button" class="assistant-ai__session${item.id === ctx.selectedSessionId ? " assistant-ai__session--active" : ""}" data-session-id="${escapeAttr(item.id)}" aria-label="${escapeAttr(sessionHint)}" title="${escapeAttr(sessionHint)}">
-    <span class="assistant-ai__session-title">${escapeHTML(item.title || assistantText("未命名会话", "Untitled Session"))}</span>
-    <span class="assistant-ai__session-meta">${assistantText("消息", "Messages")} ${item.messageCount}</span>
-    <span class="assistant-ai__session-time">${formatDateTime(item.updatedAt || item.createdAt)}</span>
-</button>`;
+<div class="assistant-ai__session${item.id === ctx.selectedSessionId ? " assistant-ai__session--active" : ""}${pinned ? " assistant-ai__session--pinned" : ""}">
+    <button type="button" class="assistant-ai__session-main" data-session-id="${escapeAttr(item.id)}" aria-label="${escapeAttr(sessionHint)}" title="${escapeAttr(sessionHint)}">
+        <span class="assistant-ai__session-title">${pinned ? `<span class="assistant-ai__session-pin-mark" aria-hidden="true"><svg><use xlink:href="#iconPin"></use></svg></span>` : ""}${escapeHTML(item.title || assistantText("未命名会话", "Untitled Session"))}</span>
+        <span class="assistant-ai__session-meta">${assistantText("消息", "Messages")} ${item.messageCount}</span>
+        <span class="assistant-ai__session-time">${formatDateTime(item.updatedAt || item.createdAt)}</span>
+    </button>
+    <div class="assistant-ai__session-inline-actions">
+        <button type="button" class="assistant-ai__session-mini" data-action="toggle-session-pin" data-session-target-id="${escapeAttr(item.id)}" data-pinned="${pinned ? "true" : "false"}" aria-label="${escapeAttr(pinLabel)}" title="${escapeAttr(pinLabel)}">
+            <svg><use xlink:href="#${pinned ? "iconUnpin" : "iconPin"}"></use></svg>
+        </button>
+        <button type="button" class="assistant-ai__session-mini assistant-ai__session-mini--danger" data-action="delete-session-by-id" data-session-target-id="${escapeAttr(item.id)}" aria-label="${escapeAttr(deleteLabel)}" title="${escapeAttr(deleteLabel)}">
+            <svg><use xlink:href="#iconTrashcan"></use></svg>
+        </button>
+    </div>
+</div>`;
     }).join("")}</div>`;
 };

@@ -25,6 +25,7 @@ export interface IAssistantPatchOperation {
     targetLabel?: string;
     before?: string;
     after?: string;
+    dataType?: "markdown" | "dom";
     attrs?: Record<string, string | null>;
     reason?: string;
     status?: TAssistantPatchOperationStatus;

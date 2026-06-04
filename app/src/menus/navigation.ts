@@ -32,8 +32,44 @@ import {openByMobile} from "../protyle/util/compatibility";
 import {addFilesToDatabase} from "../protyle/render/av/addToDatabase";
 import {buildWorkbenchViewNoteMenu} from "../workbench/viewNoteMenu";
 import {runFolderAIReview} from "../assistant/folderReview";
+import type {IMentionSource} from "../assistant/mentions/types";
+import {ASSISTANT_AT_AI_LABEL} from "../assistant/constants";
 
 const loadHomepageModule = () => import("../homepage");
+
+const getDocTreeAISourceType = (liElement: Element): IMentionSource["type"] => {
+    const childCount = parseInt(liElement.getAttribute("data-count") || "0", 10);
+    return childCount > 0 ? "folder" : "note";
+};
+
+const openDocTreeAIDock = (options: {
+    notebookId: string;
+    pathString: string;
+    rootID: string;
+    name: string;
+    type: IMentionSource["type"];
+}) => {
+    const title = options.name || getNotebookName(options.notebookId) || "AI";
+    const hPath = options.pathString && options.pathString !== "/"
+        ? pathPosix().join(getNotebookName(options.notebookId), getDisplayName(options.pathString, false, true))
+        : getNotebookName(options.notebookId);
+    const source: IMentionSource = {
+        id: options.rootID,
+        type: options.type,
+        title,
+        notebook: options.notebookId,
+        path: options.pathString,
+        hPath,
+        included: true,
+    };
+    void import("../assistant/ai/AIDockInstance").then(({openAssistantAIDock}) => {
+        openAssistantAIDock({
+            message: `@${title} `,
+            includeCurrentNote: false,
+            sources: [source],
+        });
+    });
+};
 
 const getSiblingFileItems = (liElement: HTMLElement) => {
     return Array.from(liElement.parentElement.children).filter((item): item is HTMLElement => {
@@ -254,6 +290,20 @@ export const initNavigationMenu = (app: App, liElement: HTMLElement) => {
     const notebookId = liElement.parentElement.getAttribute("data-url");
     const navigationPath = liElement.getAttribute("data-path") || "/";
     const name = getNotebookName(notebookId);
+    window.sourceflow.menus.menu.append(new MenuItem({
+        id: "assistantAtAI",
+        icon: "iconAI",
+        label: ASSISTANT_AT_AI_LABEL,
+        click: () => {
+            openDocTreeAIDock({
+                notebookId,
+                pathString: navigationPath,
+                rootID: notebookId,
+                name,
+                type: "folder",
+            });
+        }
+    }).element);
     if (!window.sourceflow.config.readonly) {
         const lang = window.sourceflow.config.lang;
         window.sourceflow.menus.menu.append(new MenuItem({
@@ -552,6 +602,21 @@ export const initFileMenu = (app: App, notebookId: string, pathString: string, l
     let name = liElement.getAttribute("data-name");
     name = getDisplayName(name, false, true);
     const fileLiElement = liElement as HTMLElement;
+    window.sourceflow.menus.menu.append(new MenuItem({
+        id: "assistantAtAI",
+        icon: "iconAI",
+        label: ASSISTANT_AT_AI_LABEL,
+        click: () => {
+            openDocTreeAIDock({
+                notebookId,
+                pathString,
+                rootID: id,
+                name,
+                type: getDocTreeAISourceType(liElement),
+            });
+        }
+    }).element);
+    window.sourceflow.menus.menu.append(new MenuItem({id: "separator_assistant_ai", type: "separator"}).element);
     if (!window.sourceflow.config.readonly) {
         const topElement = hasTopClosestByTag(liElement, "UL");
         if (window.sourceflow.config.fileTree.sort === 6 || (topElement && topElement.dataset.sortmode === "6")) {

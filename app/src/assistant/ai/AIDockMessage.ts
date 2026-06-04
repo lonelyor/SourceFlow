@@ -13,6 +13,7 @@ import {
     streamAssistantAI,
 } from "./api";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
+import {buildIncludedContextText, buildSourceCitationsFromMentionSources, cloneMentionSources} from "../mentions/contextBuilder";
 import {
     assistantAIComposerAttachmentLimit,
     assistantAIComposerAttachmentMaxBytes,
@@ -308,13 +309,27 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     }
     const previousMessages = ctx.messages.slice();
     const messagePreview = ctx.buildUserMessagePreview(message, attachments) || assistantText("图片消息", "Image message");
+    const sourcesSnapshot = cloneMentionSources(ctx.sources);
+    const sourceCitations = buildSourceCitationsFromMentionSources(sourcesSnapshot);
+    const messageMetadata: Record<string, unknown> = {};
+    if (attachments.length) {
+        messageMetadata.attachments = attachments.map((item) => ({...item}));
+    }
+    if (sourceCitations.length) {
+        messageMetadata.sources = sourceCitations;
+    }
     const optimisticUser = isEditing
         ? (() => {
             const nextMetadata = {...(editingMessage?.metadata || {})} as Record<string, unknown>;
-            if (attachments.length) {
-                nextMetadata.attachments = attachments.map((item) => ({...item}));
+            if (messageMetadata.attachments) {
+                nextMetadata.attachments = messageMetadata.attachments;
             } else {
                 delete nextMetadata.attachments;
+            }
+            if (messageMetadata.sources) {
+                nextMetadata.sources = messageMetadata.sources;
+            } else {
+                delete nextMetadata.sources;
             }
             nextMetadata.editedAt = Date.now();
             return {
@@ -324,13 +339,14 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             } as TAssistantAIMessageItem;
         })()
         : ctx.buildLocalMessage("user", messagePreview, {
-            metadata: attachments.length ? {attachments} : {},
+            metadata: messageMetadata,
         });
     const optimisticAssistant = ctx.buildLocalMessage("assistant", assistantText("正在处理...", "Thinking..."), {
         localPending: true,
     });
     ctx.draftMessage = "";
     ctx.attachments = [];
+    ctx.clearSources();
     if (isEditing) {
         const editingIndex = previousMessages.findIndex((item) => item.id === editingMessageId);
         ctx.messages = [...previousMessages.slice(0, editingIndex), optimisticUser, optimisticAssistant];
@@ -349,6 +365,16 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
                 system = buildAssistantNoteContext(currentNote);
             }
         }
+        if (sourcesSnapshot.length) {
+            const sourceContext = buildIncludedContextText(sourcesSnapshot);
+            if (sourceContext) {
+                const sourceBlock = `\n\n---\n${assistantText(
+                "用户引用了以下来源，回答时请基于这些来源，并在相关段落末尾标注来源笔记标题（格式：[📄 笔记标题]）：",
+                "The user referenced the following sources. Answer based on these sources, and cite the source note title at the end of relevant paragraphs (format: [📄 Note Title]):"
+            )}\n\n${sourceContext}`;
+                system += sourceBlock;
+            }
+        }
         let partialReply = "";
         let previewTimer = 0;
         const flushOptimisticReply = () => {
@@ -363,8 +389,10 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             message,
             system,
             enableTools: ctx.enableTools,
+            securityMode: ctx.securityMode,
             context: currentNote,
             attachments,
+            sources: sourceCitations,
         };
         const result = await (isEditing
             ? editAssistantAIMessageStream({
@@ -409,6 +437,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         const errorText = error instanceof Error ? error.message : String(error);
         ctx.draftMessage = message;
         ctx.attachments = attachments;
+        ctx.sources = cloneMentionSources(sourcesSnapshot);
+        ctx.sourcesPanelVisible = sourcesSnapshot.length > 0;
         if (isEditing) {
             ctx.editingMessageId = editingMessageId;
             ctx.messages = previousMessages;
@@ -453,6 +483,7 @@ export const confirmAIDockTool = async (ctx: IAssistantAIDockRuntime, messageId:
             sessionId: session.id,
             messageId,
             auditId: `${tool.auditId || ""}`,
+            securityMode: ctx.securityMode,
             context: tool.context as never,
             toolId: `${tool.toolId || ""}`,
             args: (tool.args || {}) as Record<string, unknown>,
@@ -528,20 +559,27 @@ export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, message
     ctx.render();
     try {
         const metadata = buildAIDockPatchHistoryMetadata(ctx, context);
+        const securityOptions = {
+            securityMode: ctx.securityMode,
+            onSecurityModeChange: async (mode: typeof ctx.securityMode) => {
+                ctx.setSecurityMode(mode);
+                ctx.render();
+            },
+        };
         if (operationId) {
             const operation = patch.operations.find((item) => item.id === operationId);
             if (!operation) {
                 showMessage(assistantText("没有找到要应用的补丁项", "Patch operation not found"), 4000, "error");
                 return;
             }
-            if (await applyAssistantPatchOperation(patch, operation, context)) {
+            if (await applyAssistantPatchOperation(patch, operation, context, securityOptions)) {
                 recordAssistantPatchHistory(patch, metadata);
             } else {
                 recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);
             }
             return;
         }
-        if (await applyAssistantPatch(patch, context)) {
+        if (await applyAssistantPatch(patch, context, securityOptions)) {
             recordAssistantPatchHistory(patch, metadata);
         } else {
             recordAssistantPatchFailure(patch, assistantText("应用工具补丁失败", "Failed to apply tool patch"), metadata);

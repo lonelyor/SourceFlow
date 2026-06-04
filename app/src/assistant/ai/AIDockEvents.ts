@@ -1,11 +1,33 @@
 import {openSettingTab} from "../../config";
+import {Constants} from "../../constants";
+import {openFileById} from "../../editor/util";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
 import {rollbackAssistantOperationHistoryItem} from "../history/operations";
+import {detectMentionTrigger, searchAndShowMentions, insertMentionChip} from "../mentions/trigger";
+import type {IMentionSource} from "../mentions/types";
+import type {TSecurityMode} from "../security/types";
 
 export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
     ctx.element.addEventListener("click", (event: MouseEvent) => {
         let target = event.target as HTMLElement;
+
+        if (ctx.securityDropdownVisible) {
+            if (!target.closest("[data-role=\"security-dropdown\"]") && !target.closest("[data-action=\"toggle-security-mode\"]")) {
+                ctx.securityDropdownVisible = false;
+                ctx.render();
+                return;
+            }
+        }
+
+        if (ctx.mentionState.active) {
+            if (!target.closest("[data-role=\"message\"]") && !target.closest("[data-role=\"mention-popover\"]")) {
+                ctx.mentionState.active = false;
+                ctx.mentionState.results = [];
+                ctx.render();
+            }
+        }
+
         while (target && !target.isEqualNode(ctx.element)) {
             const noteRootID = target.getAttribute("data-note-root-id");
             if (noteRootID) {
@@ -47,6 +69,87 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     event.preventDefault();
                     return;
                 }
+                if (action === "open-source-note") {
+                    const noteId = target.getAttribute("data-note-id") || "";
+                    if (noteId) {
+                        void openFileById({
+                            app: ctx.app,
+                            id: noteId,
+                            action: [Constants.CB_GET_FOCUS, Constants.CB_GET_SCROLL],
+                        });
+                    }
+                    event.preventDefault();
+                    return;
+                }
+                if (action === "select-mention") {
+                    const index = parseInt(target.getAttribute("data-mention-index") || "0", 10);
+                    const result = ctx.mentionState.results[index];
+                    const textarea = ctx.element.querySelector("[data-role='message']") as HTMLTextAreaElement;
+                    if (result && textarea) {
+                        const {newValue, newCursorPos} = insertMentionChip(textarea, result);
+                        textarea.value = newValue;
+                        textarea.selectionStart = newCursorPos;
+                        textarea.selectionEnd = newCursorPos;
+                        ctx.draftMessage = newValue;
+                        const source: IMentionSource = {
+                            id: result.id,
+                            type: result.type,
+                            title: result.title,
+                            notebook: result.notebook,
+                            path: result.path,
+                            hPath: result.hPath,
+                            included: true,
+                        };
+                        ctx.mentionState.active = false;
+                        ctx.mentionState.results = [];
+                        ctx.addSource(source);
+                    }
+                    event.preventDefault();
+                    return;
+                }
+                if (action === "toggle-source") {
+                    const index = parseInt(target.getAttribute("data-source-index") || "0", 10);
+                    ctx.toggleSourceIncluded(index);
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
+                if (action === "toggle-source-child") {
+                    const sourceIndex = parseInt(target.getAttribute("data-source-index") || "0", 10);
+                    const childIndex = parseInt(target.getAttribute("data-child-index") || "0", 10);
+                    ctx.toggleSourceChildIncluded(sourceIndex, childIndex);
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
+                if (action === "toggle-source-expand") {
+                    const index = parseInt(target.getAttribute("data-source-index") || "0", 10);
+                    ctx.toggleSourceExpanded(index);
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
+                if (action === "toggle-sources-panel") {
+                    ctx.toggleSourcesPanel();
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
+                if (action === "toggle-security-mode") {
+                    ctx.toggleSecurityDropdown();
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
+                if (action === "set-security-mode") {
+                    const mode = target.getAttribute("data-mode") as TSecurityMode;
+                    if (mode) {
+                        ctx.setSecurityMode(mode);
+                    }
+                    event.preventDefault();
+                    ctx.render();
+                    return;
+                }
                 if (action === "toggle-panel") {
                     ctx.toggleFloatingPanel((target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel);
                     event.preventDefault();
@@ -65,6 +168,22 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
         const role = target.getAttribute("data-role");
         if (role === "message") {
             ctx.draftMessage = target.value;
+            if (target instanceof HTMLTextAreaElement) {
+                const mentionInfo = detectMentionTrigger(target, target.value, target.selectionStart);
+                if (mentionInfo) {
+                    ctx.mentionState.active = true;
+                    ctx.mentionState.query = mentionInfo.query;
+                    ctx.mentionState.seq++;
+                    void searchAndShowMentions(mentionInfo.query, ctx.mentionState.seq, ctx.mentionState, ctx.securityMode, () => {
+                        ctx.render();
+                    });
+                } else {
+                    if (ctx.mentionState.active) {
+                        ctx.mentionState.active = false;
+                        ctx.mentionState.results = [];
+                    }
+                }
+            }
             return;
         }
         if (role === "note-search") {
@@ -112,6 +231,51 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
 
     ctx.element.addEventListener("keydown", (event: KeyboardEvent) => {
         const target = event.target as HTMLElement;
+        if (target.getAttribute("data-role") === "message" && ctx.mentionState.active && ctx.mentionState.results.length > 0) {
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                ctx.mentionState.selectedIndex = (ctx.mentionState.selectedIndex + 1) % ctx.mentionState.results.length;
+                ctx.render();
+                return;
+            }
+            if (event.key === "ArrowUp") {
+                event.preventDefault();
+                ctx.mentionState.selectedIndex = (ctx.mentionState.selectedIndex - 1 + ctx.mentionState.results.length) % ctx.mentionState.results.length;
+                ctx.render();
+                return;
+            }
+            if (event.key === "Enter" || event.key === "Tab") {
+                event.preventDefault();
+                const result = ctx.mentionState.results[ctx.mentionState.selectedIndex];
+                if (result && target instanceof HTMLTextAreaElement) {
+                    const {newValue, newCursorPos} = insertMentionChip(target, result);
+                    target.value = newValue;
+                    target.selectionStart = newCursorPos;
+                    target.selectionEnd = newCursorPos;
+                    ctx.draftMessage = newValue;
+                    const source: IMentionSource = {
+                        id: result.id,
+                        type: result.type,
+                        title: result.title,
+                        notebook: result.notebook,
+                        path: result.path,
+                        hPath: result.hPath,
+                        included: true,
+                    };
+                    ctx.mentionState.active = false;
+                    ctx.mentionState.results = [];
+                    ctx.addSource(source);
+                }
+                return;
+            }
+            if (event.key === "Escape") {
+                event.preventDefault();
+                ctx.mentionState.active = false;
+                ctx.mentionState.results = [];
+                ctx.render();
+                return;
+            }
+        }
         if (target.getAttribute("data-role") === "message" && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
             void ctx.sendMessage();
@@ -142,6 +306,12 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
             ctx.noteSearchKeyword = "";
             ctx.noteSearchResults = [];
             ctx.noteSearchLoading = false;
+            ctx.render();
+            return;
+        }
+        if (event.key === "Escape" && ctx.securityDropdownVisible) {
+            event.preventDefault();
+            ctx.securityDropdownVisible = false;
             ctx.render();
             return;
         }
@@ -216,6 +386,7 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
     const operationId = target?.getAttribute("data-op-id") || "";
     const taskId = target?.getAttribute("data-task-id") || "";
     const itemId = target?.getAttribute("data-item-id") || "";
+    const sessionTargetId = target?.getAttribute("data-session-target-id") || "";
     switch (action) {
         case "open-profiles":
         case "configure-profile":
@@ -252,6 +423,12 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             ctx.activePanel = "";
             ctx.render();
             await ctx.deleteCurrentSession();
+            return;
+        case "delete-session-by-id":
+            await ctx.deleteSession(sessionTargetId);
+            return;
+        case "toggle-session-pin":
+            await ctx.setSessionPinned(sessionTargetId, target?.getAttribute("data-pinned") !== "true");
             return;
         case "clear-all-sessions":
             await ctx.clearAllSessions();

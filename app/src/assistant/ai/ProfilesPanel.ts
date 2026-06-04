@@ -17,6 +17,14 @@ import {
     listAssistantAIModels,
 } from "./api";
 import {applyAssistantAIRecommendedSettings, assistantAISettingDefaults} from "./presets";
+import {
+    ASSISTANT_SECRET_MASK,
+    clearAssistantSecretMaskBeforeEdit,
+    getAssistantSecretInputValue,
+    getAssistantSecretPayload,
+    normalizeAssistantSecretInputAfterEdit,
+    shouldClearAssistantSecretMaskForKey,
+} from "../secrets";
 
 export interface IAssistantAIProfilesPanelOptions {
     compact?: boolean;
@@ -118,7 +126,8 @@ const createDraft = (providers: IAssistantAIProviderType[], profile?: IAssistant
         name: profile?.name || "",
         provider,
         baseURL: profile?.baseURL || providerInfo?.baseURL || "",
-        apiKey: profile?.apiKey || "",
+        apiKey: getAssistantSecretInputValue(!!profile?.hasAPIKey),
+        hasAPIKey: !!profile?.hasAPIKey,
         model,
         userAgent: profile?.userAgent || "",
         proxy: profile?.proxy || "",
@@ -216,6 +225,8 @@ const renderProviderOptions = (state: IAssistantAIProfilesPanelState) => {
 
 const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAssistantAIProfilesPanelOptions) => {
     const settings = cloneSettings(state.draft.settings as Record<string, unknown> | undefined);
+    const apiKeyValue = `${state.draft.apiKey || ""}`;
+    const apiKeyMasked = !!state.draft.hasAPIKey && apiKeyValue === ASSISTANT_SECRET_MASK;
     const advancedSummary = assistantText("超时、输出长度、Temperature 和上下文预算。", "Timeout, output size, temperature, and context budget.");
     const toolSummary = assistantText("读取/写入范围、留痕和各工具权限。", "Read/write scope, trace mode, and per-tool permissions.");
     const wrapperClasses = ["assistant-profiles", "fn__flex"];
@@ -262,7 +273,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 </label>
                 <label class="fn__flex-column assistant-profiles__field">
                     <span>API Key</span>
-                    <input type="password" class="b3-text-field" data-field="apiKey" value="${escapeAttr(state.draft.apiKey || "")}" placeholder="sk-...">
+                    <input type="password" class="b3-text-field" data-field="apiKey" data-secret-masked="${apiKeyMasked ? "true" : "false"}" autocomplete="off" value="${escapeAttr(apiKeyValue)}" placeholder="sk-...">
                 </label>
             </div>
             <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
@@ -477,6 +488,20 @@ export class AssistantAIProfilesPanel {
             }
         });
 
+        this.element.addEventListener("keydown", (event: KeyboardEvent) => {
+            this.prepareSecretInputEdit(event);
+        });
+
+        this.element.addEventListener("paste", (event: ClipboardEvent) => {
+            const target = event.target as HTMLInputElement;
+            if (target?.getAttribute("data-field") !== "apiKey") {
+                return;
+            }
+            if (clearAssistantSecretMaskBeforeEdit(target)) {
+                this.syncField("apiKey", "");
+            }
+        });
+
         this.element.addEventListener("input", (event: Event) => {
             this.syncFromEvent(event.target as HTMLInputElement | HTMLSelectElement);
         });
@@ -484,6 +509,20 @@ export class AssistantAIProfilesPanel {
         this.element.addEventListener("change", (event: Event) => {
             this.syncFromEvent(event.target as HTMLInputElement | HTMLSelectElement);
         });
+    }
+
+    private prepareSecretInputEdit(event: KeyboardEvent) {
+        const target = event.target as HTMLInputElement;
+        if (target?.getAttribute("data-field") !== "apiKey" || !shouldClearAssistantSecretMaskForKey(event)) {
+            return;
+        }
+        if (!clearAssistantSecretMaskBeforeEdit(target)) {
+            return;
+        }
+        this.syncField("apiKey", "");
+        if (event.key === "Backspace" || event.key === "Delete") {
+            event.preventDefault();
+        }
     }
 
     private syncFromEvent(target: HTMLInputElement | HTMLSelectElement) {
@@ -510,6 +549,10 @@ export class AssistantAIProfilesPanel {
         }
         const field = target.getAttribute("data-field");
         if (!field) {
+            return;
+        }
+        if (field === "apiKey" && target instanceof HTMLInputElement) {
+            this.syncField(field, normalizeAssistantSecretInputAfterEdit(target));
             return;
         }
         if (target instanceof HTMLInputElement && target.type === "checkbox") {
@@ -707,8 +750,10 @@ export class AssistantAIProfilesPanel {
         this.state.saving = true;
         this.render();
         try {
+            const secret = getAssistantSecretPayload(!!this.state.draft.hasAPIKey, `${this.state.draft.apiKey || ""}`);
             const saved = await saveAssistantAIProfile({
                 ...this.state.draft,
+                ...secret,
                 settings: cloneSettings(this.state.draft.settings as Record<string, unknown> | undefined),
             });
             this.state.saving = false;
@@ -743,10 +788,13 @@ export class AssistantAIProfilesPanel {
         this.state.testResult = null;
         this.render();
         try {
+            const secret = getAssistantSecretPayload(!!this.state.draft.hasAPIKey, `${this.state.draft.apiKey || ""}`);
             const result = await testAssistantAIConnection({
+                id: this.state.draft.id || "",
                 provider: this.state.draft.provider || "",
                 baseURL: this.state.draft.baseURL || "",
-                apiKey: this.state.draft.apiKey || "",
+                apiKey: secret.apiKey,
+                apiKeyAction: secret.apiKeyAction,
                 proxy: this.state.draft.proxy || "",
                 userAgent: this.state.draft.userAgent || "",
             });
@@ -764,10 +812,13 @@ export class AssistantAIProfilesPanel {
         this.state.modelCandidates = [];
         this.render();
         try {
+            const secret = getAssistantSecretPayload(!!this.state.draft.hasAPIKey, `${this.state.draft.apiKey || ""}`);
             const data = await listAssistantAIModels({
+                id: this.state.draft.id || "",
                 provider: this.state.draft.provider || "",
                 baseURL: this.state.draft.baseURL || "",
-                apiKey: this.state.draft.apiKey || "",
+                apiKey: secret.apiKey,
+                apiKeyAction: secret.apiKeyAction,
                 proxy: this.state.draft.proxy || "",
                 userAgent: this.state.draft.userAgent || "",
             });

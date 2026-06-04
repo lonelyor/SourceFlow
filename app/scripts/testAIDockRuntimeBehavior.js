@@ -102,6 +102,15 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
             openSettingCalls.push(args);
         },
     },
+    "../../constants": {
+        Constants: {
+            CB_GET_FOCUS: "focus",
+            CB_GET_SCROLL: "scroll",
+        },
+    },
+    "../../editor/util": {
+        openFileById: async () => undefined,
+    },
     "./AIDockShared": {
         getImageFilesFromDataTransfer: (dt) => {
             if (dt && dt._hasImages) {
@@ -110,13 +119,34 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
             }
             return [];
         },
+        TAssistantAIFloatingPanel: {},
     },
     "../history/operations": {
         rollbackAssistantOperationHistoryItem: async () => true,
     },
+    "../mentions/trigger": {
+        detectMentionTrigger: () => null,
+        searchAndShowMentions: async () => {},
+        insertMentionChip: () => ({newValue: "", newCursorPos: 0}),
+    },
+    "../mentions/types": {},
+    "../security/types": {},
 });
 
 const {bindAIDockEvents, handleAIDockAction} = eventsModule;
+const mentionSearchCalls = [];
+const mentionModule = compileModule(path.join(appRoot, "src", "assistant", "mentions", "trigger.ts"), {
+    "./api": {
+        searchMentionItems: async (query) => {
+            mentionSearchCalls.push(query);
+            return [];
+        },
+    },
+    "../common/dom": {
+        escapeAttr: (value) => String(value),
+        escapeHTML: (value) => String(value),
+    },
+});
 
 const createRuntime = () => {
     const element = new FakeElement();
@@ -137,6 +167,11 @@ const createRuntime = () => {
         noteSearchLoading: false,
         selectedProfileId: "",
         messages: [],
+        sources: [],
+        sourcesPanelVisible: false,
+        mentionState: {active: false, query: "", selectedIndex: 0, results: [], seq: 0, anchorRect: null},
+        securityMode: "default",
+        securityDropdownVisible: false,
         renderCount: 0,
         switchProfileCalls: [],
         refreshToolCatalogCalls: [],
@@ -151,6 +186,8 @@ const createRuntime = () => {
         retryAgentTaskItemCalls: [],
         applyAgentPatchCalls: [],
         rejectAgentPatchCalls: [],
+        deleteSessionCalls: [],
+        setSessionPinnedCalls: [],
         sendMessageCalls: [],
         clearEditingMessageCalls: [],
         startEditingMessageCalls: [],
@@ -233,6 +270,12 @@ const createRuntime = () => {
         async renameCurrentSession() {},
         async clearCurrentSession() {},
         async deleteCurrentSession() {},
+        async deleteSession(sessionId) {
+            this.deleteSessionCalls.push(sessionId);
+        },
+        async setSessionPinned(sessionId, pinned) {
+            this.setSessionPinnedCalls.push({sessionId, pinned});
+        },
         async clearAllSessions() {},
         async saveTranscript() {},
         async saveAnalysis() {},
@@ -252,6 +295,14 @@ const createRuntime = () => {
         setComposerDropActive(active) {
             this.setComposerDropActiveCalls.push(active);
         },
+        addSource() {},
+        clearSources() {},
+        toggleSourceIncluded() {},
+        toggleSourceChildIncluded() {},
+        toggleSourceExpanded() {},
+        toggleSourcesPanel() {},
+        setSecurityMode() {},
+        toggleSecurityDropdown() {},
     };
 };
 
@@ -463,6 +514,39 @@ const createFakeKeyboardEvent = (target, key) => ({
 
     await handleAIDockAction(rt10, "send-message");
     assert.strictEqual(rt10.sendMessageCalls.length, 1);
+
+    const rt11 = createRuntime();
+    bindAIDockEvents(rt11);
+
+    rt11.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "delete-session-by-id", "data-session-target-id": "session-1"}),
+    ));
+    assert.deepStrictEqual(rt11.deleteSessionCalls, ["session-1"]);
+
+    rt11.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "toggle-session-pin", "data-session-target-id": "session-1", "data-pinned": "false"}),
+    ));
+    assert.deepStrictEqual(rt11.setSessionPinnedCalls, [{sessionId: "session-1", pinned: true}]);
+
+    await mentionModule.searchAndShowMentions("", 1, {
+        active: true,
+        query: "",
+        selectedIndex: 0,
+        results: [{id: "old"}],
+        seq: 1,
+        anchorRect: null,
+    }, "default", () => {});
+    assert.deepStrictEqual(mentionSearchCalls, []);
+
+    await mentionModule.searchAndShowMentions("note", 2, {
+        active: true,
+        query: "note",
+        selectedIndex: 0,
+        results: [],
+        seq: 2,
+        anchorRect: null,
+    }, "default", () => {});
+    assert.deepStrictEqual(mentionSearchCalls, ["note"]);
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {

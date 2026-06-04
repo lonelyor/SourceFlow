@@ -1,56 +1,58 @@
-import {fetchSyncPost} from "../../util/fetch";
 import {hasClosestBlock} from "../../protyle/util/hasClosest";
-import {invalidateAssistantNoteContextCache} from "../common/note";
+import {assistantText} from "../constants";
+import type {ICurrentNoteContext} from "../common/note";
+import {createAssistantPatchID} from "../patch/build";
+import {openAssistantPatchReviewDialog} from "../patch/dialog";
+import type {IAssistantSkillContext} from "../skills/types";
+import type {IAssistantEditPatch} from "../patch/types";
 
 interface IReplaceSelectionOptions {
     protyle: IProtyle;
+    note: ICurrentNoteContext;
     range?: Range | null;
     selectedText: string;
 }
 
-const countTextOccurrences = (text: string, needle: string) => {
-    if (!needle) {
-        return 0;
-    }
-    let count = 0;
-    let index = text.indexOf(needle);
-    while (index > -1) {
-        count += 1;
-        index = text.indexOf(needle, index + needle.length);
-    }
-    return count;
-};
-
 export const replaceCurrentSelection = async (options: IReplaceSelectionOptions, translation: string) => {
     const selection = getSelection();
     const range = options.range || (selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null);
-    if (!range) {
+    const block = range ? hasClosestBlock(range.startContainer) as HTMLElement | null : null;
+    const blockID = block?.getAttribute("data-node-id") || options.note.currentBlockID || "";
+    const before = `${options.selectedText || options.note.selectedText || ""}`.trim();
+    const after = `${translation || ""}`.trim();
+    if (!blockID || !before || !after) {
         return false;
     }
-    const block = hasClosestBlock(range.startContainer) as HTMLElement | null;
-    const blockID = block?.getAttribute("data-node-id") || "";
-    if (!blockID || !options.selectedText || !translation) {
-        return false;
-    }
-    const blockResponse = await fetchSyncPost("/api/block/getBlockInfo", {id: blockID});
-    if (blockResponse.code !== 0) {
-        return false;
-    }
-    const blockMarkdown = `${blockResponse.data?.root?.content || blockResponse.data?.content || ""}`;
-    if (!blockMarkdown) {
-        return false;
-    }
-    const before = options.selectedText;
-    if (countTextOccurrences(blockMarkdown, before) !== 1) {
-        return false;
-    }
-    const response = await fetchSyncPost("/api/block/updateBlock", {
-        id: blockID,
-        data: blockMarkdown.replace(before, translation),
-        dataType: "markdown",
+    const context: IAssistantSkillContext = {
+        note: options.note,
+        protyle: options.protyle,
+        range,
+        hasSelection: true,
+        selectedText: before,
+    };
+    const patch: IAssistantEditPatch = {
+        id: createAssistantPatchID("patch"),
+        skillId: "selection-translate",
+        source: "skill",
+        target: "selection",
+        risk: "L3",
+        summary: assistantText("翻译选区替换", "Translate selection replacement"),
+        operations: [{
+            id: createAssistantPatchID("op"),
+            type: "replace-selection",
+            targetId: blockID,
+            targetLabel: assistantText("当前选区", "Current selection"),
+            before,
+            after,
+            reason: assistantText("用 AI 翻译结果替换当前选区。", "Replace the current selection with the AI translation."),
+            status: "pending",
+        }],
+        createdAt: Date.now(),
+    };
+    openAssistantPatchReviewDialog({
+        patch,
+        context,
+        title: assistantText("翻译选中内容", "Translate Selection"),
     });
-    if (response.code === 0) {
-        invalidateAssistantNoteContextCache(blockID);
-    }
-    return response.code === 0;
+    return true;
 };

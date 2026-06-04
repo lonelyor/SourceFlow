@@ -120,6 +120,25 @@ import {buildWorkbenchAIPrompt, buildWorkbenchDraft, buildWorkbenchViewTemplate,
 const workbenchQueryInputTimer = 0;
 let workbenchRenderToken = 0;
 
+const workbenchText = (zh: string, en: string) => window.sourceflow.config.lang === "zh_CN" ? zh : en;
+
+const getWorkbenchErrorMessage = (error: unknown) => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return `${error || workbenchText("未知错误", "Unknown error")}`;
+};
+
+const renderWorkbenchLoadingHTML = () => `<div class="fn__flex-center fn__flex-column" style="min-height: 360px;gap: 12px;padding: 32px;">
+    <div class="ft__secondary">${escapeHTML(window.sourceflow.languages.loading || workbenchText("加载中", "Loading"))}</div>
+</div>`;
+
+const renderWorkbenchErrorHTML = (message: string) => `<div class="fn__flex-center fn__flex-column" style="min-height: 360px;gap: 12px;padding: 32px;text-align: center;">
+    <strong>${escapeHTML(workbenchText("工作台加载失败", "Workbench failed to load"))}</strong>
+    <div class="ft__secondary" style="max-width: 560px;word-break: break-word;">${escapeHTML(message)}</div>
+    <button class="b3-button b3-button--outline" data-action="retry-workbench">${escapeHTML(window.sourceflow.languages.refresh)}</button>
+</div>`;
+
 export const openWorkbenchBoundViewByID = async (app: App, id: string) => {
     const response = await fetchSyncPost("/api/attr/getBlockAttrs", {id});
     const boundView = parseWorkbenchBoundViewAttrs(response.data || {});
@@ -147,64 +166,84 @@ export const openWorkbenchAssistant = async (app: App, mode: "summary" | "plan" 
 
 const renderWorkbench = async (dialog: Dialog, app: App, state: IWorkbenchState, selected: Set<string>, focusQuery = false) => {
     const renderToken = ++workbenchRenderToken;
-    state.sortBy = normalizeWorkbenchSortBy(state.resultLayer, state.sortBy);
-    if (state.resultLayer === "blocks") {
-        state.groupBy = "none";
-    }
-    saveState(state);
-    const context = await resolveWorkbenchContext(state);
-    if (renderToken !== workbenchRenderToken || !dialog.element.isConnected) {
+    const bodyElement = dialog.element.querySelector(".workbench-content") as HTMLElement;
+    if (!bodyElement) {
+        console.error("[workbench] content element missing");
+        showMessage(workbenchText("工作台入口异常", "Workbench entry is unavailable"), 5000, "error");
         return;
     }
-    const items = context.allItems;
-    const visibleItems = context.visibleItems;
-    const summary = context.summary;
-    const activeView = getActiveView(state);
-    const viewOptions = getViewOptions(state.activeTab, state.resultLayer);
-    const relatedBlocks = context.blocks;
-    const selectedVisible = state.resultLayer === "items" ? visibleItems.filter((item) => selected.has(item.id)) : [];
-    const isSavedViewsMode = state.activeTab === "library" &&
-        state.resultLayer === "items" &&
-        (context.parsed.filters["has"] || []).includes("view") &&
-        (context.parsed.filters["type"] || []).includes("doc");
-    const blockSummary = state.resultLayer === "blocks"
-        ? window.sourceflow.languages.workbenchBlockSummary
-            .replace("${x}", String(relatedBlocks.length))
-            .replace("${y}", String(context.blockScopeItems.length))
-        : "";
-    const shouldDeferPanel = shouldDeferWorkbenchPanelRender(state, visibleItems, relatedBlocks);
-    const panelLoadingHTML = `<div class="ft__secondary" style="padding: 24px 0;">${escapeHTML(window.sourceflow.languages.loading)}</div>`;
-    const bodyElement = dialog.element.querySelector(".workbench-content") as HTMLElement;
-    bodyElement.innerHTML = buildWorkbenchDialogHTML({
-        state,
-        summary,
-        items,
-        visibleItems,
-        relatedBlocks,
-        selectedVisible,
-        activeView,
-        viewOptions,
-        isSavedViewsMode,
-        blockSummary,
-        shouldDeferPanel,
-        panelLoadingHTML,
-        hasTextQuery: !!context.parsed.text.length,
-    });
-    bindWorkbenchDialogEvents({
-        app,
-        bodyElement,
-        state,
-        selected,
-        items,
-        visibleItems,
-        relatedBlocks,
-        focusQuery,
-        rerender: (nextFocus = false) => {
-            void renderWorkbench(dialog, app, state, selected, nextFocus);
-        },
-        openAssistant: openWorkbenchAssistant,
-        openBoundView: (targetApp, id) => openWorkbenchBoundViewByID(targetApp, id),
-    });
+    bodyElement.innerHTML = renderWorkbenchLoadingHTML();
+    try {
+        state.sortBy = normalizeWorkbenchSortBy(state.resultLayer, state.sortBy);
+        if (state.resultLayer === "blocks") {
+            state.groupBy = "none";
+        }
+        saveState(state);
+        const context = await resolveWorkbenchContext(state);
+        if (renderToken !== workbenchRenderToken || !dialog.element.isConnected) {
+            return;
+        }
+        const items = context.allItems;
+        const visibleItems = context.visibleItems;
+        const summary = context.summary;
+        const activeView = getActiveView(state);
+        const viewOptions = getViewOptions(state.activeTab, state.resultLayer);
+        const relatedBlocks = context.blocks;
+        const selectedVisible = state.resultLayer === "items" ? visibleItems.filter((item) => selected.has(item.id)) : [];
+        const isSavedViewsMode = state.activeTab === "library" &&
+            state.resultLayer === "items" &&
+            (context.parsed.filters["has"] || []).includes("view") &&
+            (context.parsed.filters["type"] || []).includes("doc");
+        const blockSummary = state.resultLayer === "blocks"
+            ? window.sourceflow.languages.workbenchBlockSummary
+                .replace("${x}", String(relatedBlocks.length))
+                .replace("${y}", String(context.blockScopeItems.length))
+            : "";
+        const shouldDeferPanel = shouldDeferWorkbenchPanelRender(state, visibleItems, relatedBlocks);
+        const panelLoadingHTML = `<div class="ft__secondary" style="padding: 24px 0;">${escapeHTML(window.sourceflow.languages.loading)}</div>`;
+        bodyElement.innerHTML = buildWorkbenchDialogHTML({
+            state,
+            summary,
+            items,
+            visibleItems,
+            relatedBlocks,
+            selectedVisible,
+            activeView,
+            viewOptions,
+            isSavedViewsMode,
+            blockSummary,
+            shouldDeferPanel,
+            panelLoadingHTML,
+            hasTextQuery: !!context.parsed.text.length,
+            blockError: context.blockError,
+        });
+        bindWorkbenchDialogEvents({
+            app,
+            bodyElement,
+            state,
+            selected,
+            items,
+            visibleItems,
+            relatedBlocks,
+            focusQuery,
+            rerender: (nextFocus = false) => {
+                void renderWorkbench(dialog, app, state, selected, nextFocus);
+            },
+            openAssistant: openWorkbenchAssistant,
+            openBoundView: (targetApp, id) => openWorkbenchBoundViewByID(targetApp, id),
+        });
+    } catch (error) {
+        if (renderToken !== workbenchRenderToken || !dialog.element.isConnected) {
+            return;
+        }
+        const message = getWorkbenchErrorMessage(error);
+        console.error("[workbench] render failed", error);
+        bodyElement.innerHTML = renderWorkbenchErrorHTML(message);
+        bodyElement.querySelector('[data-action="retry-workbench"]')?.addEventListener("click", () => {
+            void renderWorkbench(dialog, app, state, selected, focusQuery);
+        });
+        showMessage(`${workbenchText("工作台加载失败", "Workbench failed to load")}: ${message}`, 5000, "error");
+    }
 };
 export const getWorkbenchDashboardPresets = () => getState().dashboards;
 

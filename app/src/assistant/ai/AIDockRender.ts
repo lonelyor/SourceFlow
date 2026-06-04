@@ -2,6 +2,12 @@ import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {IAssistantAIInputAttachment, IAssistantAIMessage, IAssistantAIProfile, IAssistantAISession, IAssistantAIToolAudit, IAssistantAIToolDefinition, IAssistantAIToolPolicy} from "./api";
 import type {IAssistantAINotePreview} from "./AIDockContract";
+import type {IMentionSource} from "../mentions/types";
+import type {IMentionTriggerState} from "../mentions/trigger";
+import type {TSecurityMode} from "../security/types";
+import {renderMentionPopover} from "../mentions/trigger";
+import {renderSourcesPanel} from "../sources/panel";
+import {renderSecurityModeSwitcher, renderSecurityModeDropdown} from "../security/modeSwitcher";
 import {TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
 import {
     buildAIDockHoverHint,
@@ -68,6 +74,11 @@ export interface IAssistantAIDockRenderContext {
     sending: boolean;
     savingProfile: boolean;
     editingMessageId: string;
+    sources: IMentionSource[];
+    sourcesPanelVisible: boolean;
+    mentionState: IMentionTriggerState;
+    securityMode: TSecurityMode;
+    securityDropdownVisible: boolean;
     getSelectedProfile(): IAssistantAIProfile | undefined;
     getSelectedSession(): IAssistantAISession | undefined;
     getMessageById(messageId: string): TAssistantAIMessageItem | undefined;
@@ -153,7 +164,14 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
     const sessionTitle = session?.title || (ctx.messages.length ? assistantText("当前对话", "Current chat") : assistantText("新对话", "New chat"));
     const profilesConfigHint = ctx.getProfilesConfigHint();
     const sessionsBackdropHint = ctx.getSessionsToggleHint();
-    const canSend = !!ctx.profiles.length && !ctx.sending && (!!ctx.draftMessage.trim() || !!ctx.attachments.length);
+    const hasProfile = !!ctx.profiles.length;
+    const canSend = hasProfile && !ctx.sending && (!!ctx.draftMessage.trim() || !!ctx.attachments.length);
+    const composerHint = hasProfile
+        ? assistantText("可上传图片，也可直接粘贴截图或拖拽到这里。", "Upload images, or paste a screenshot / drag files here.")
+        : assistantText("请先配置 AI 提供商和模型，配置完成后即可开始对话。", "Configure an AI provider and model before chatting.");
+    const composerPlaceholder = hasProfile
+        ? assistantText("输入消息或直接发图片，Enter 发送，Shift+Enter 换行", "Type a message or just send images. Enter to send, Shift+Enter for newline")
+        : assistantText("配置 AI 后即可开始对话", "Set up AI before chatting");
     ctx.element.innerHTML = `<div class="assistant-dock__header">
     <div class="assistant-dock__header-main">
         <div class="assistant-dock__headline">
@@ -175,7 +193,13 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
             <div class="assistant-ai__conversation">
                 <div class="assistant-ai__conversation-title">${escapeHTML(truncateText(sessionTitle, 58))}</div>
             </div>
-            <div class="assistant-ai__conversation-actions">${ctx.renderSessionActions(session)}</div>
+            <div class="assistant-ai__conversation-actions">
+                <div class="assistant-ai__security-mode-wrap">
+                    ${renderSecurityModeSwitcher(ctx.securityMode)}
+                    ${renderSecurityModeDropdown(ctx.securityMode, ctx.securityDropdownVisible)}
+                </div>
+                ${ctx.renderSessionActions(session)}
+            </div>
         </div>
         <div class="assistant-ai__toolbar">
             ${ctx.renderQuickActions()}
@@ -193,12 +217,14 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                         <button type="button" class="assistant-ai__composer-edit-action" data-action="cancel-edit-message">${escapeHTML(assistantText("取消编辑", "Cancel"))}</button>
                     </div>` : ""}
                     ${ctx.renderComposerAttachments()}
-                    <div class="assistant-ai__composer-hint">${escapeHTML(assistantText("可上传图片，也可直接粘贴截图或拖拽到这里。", "Upload images, or paste a screenshot / drag files here."))}</div>
-                    <textarea class="b3-text-field assistant-ai__textarea" data-role="message" placeholder="${escapeAttr(assistantText("输入消息或直接发图片，Enter 发送，Shift+Enter 换行", "Type a message or just send images. Enter to send, Shift+Enter for newline"))}">${escapeAttr(ctx.draftMessage)}</textarea>
+                    ${ctx.sourcesPanelVisible ? renderSourcesPanel(ctx.sources) : ""}
+                    <div class="assistant-ai__composer-hint">${escapeHTML(composerHint)}</div>
+                    <textarea class="b3-text-field assistant-ai__textarea" data-role="message" placeholder="${escapeAttr(composerPlaceholder)}"${hasProfile ? "" : " disabled"}>${escapeAttr(ctx.draftMessage)}</textarea>
+                    ${renderMentionPopover(ctx.mentionState)}
                     <div class="assistant-ai__composer-bottom">
                         <div class="assistant-ai__launcher-group">
                             ${ctx.renderModelLauncher(profile)}
-                            <button type="button" class="assistant-ai__icon-button assistant-ai__icon-button--compact" data-action="pick-attachments" aria-label="${escapeAttr(assistantText("上传图片", "Upload images"))}" title="${escapeAttr(assistantText("上传图片", "Upload images"))}">
+                            <button type="button" class="assistant-ai__icon-button assistant-ai__icon-button--compact" data-action="pick-attachments" aria-label="${escapeAttr(assistantText("上传图片", "Upload images"))}" title="${escapeAttr(assistantText("上传图片", "Upload images"))}"${hasProfile ? "" : " disabled"}>
                                 <svg><use xlink:href="#iconImage"></use></svg>
                             </button>
                             <button type="button" class="assistant-ai__icon-button assistant-ai__icon-button--compact" data-action="open-profiles" aria-label="${escapeAttr(profilesConfigHint)}" title="${escapeAttr(profilesConfigHint)}">
@@ -207,6 +233,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                             <input class="fn__none" type="file" data-role="message-attachments" accept="image/*" multiple>
                         </div>
                         <div class="assistant-ai__composer-main-actions">
+                            ${hasProfile ? "" : `<button type="button" class="b3-button b3-button--outline assistant-ai__send-button" data-action="configure-profile">${assistantText("配置 AI", "Set up AI")}</button>`}
                             <button type="button" class="b3-button b3-button--outline assistant-ai__send-button" data-action="send-message"${canSend ? "" : " disabled"}>${ctx.sending ? assistantText("发送中...", "Sending...") : (editingMessage ? assistantText("保存并重生成", "Save & Regenerate") : assistantText("发送", "Send"))}</button>
                         </div>
                     </div>

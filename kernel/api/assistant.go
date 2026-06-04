@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lonelyor/sourceflow/kernel/model"
@@ -18,11 +20,13 @@ type assistantAIIDRequest struct {
 }
 
 type assistantAIProfileTestRequest struct {
-	Provider  string `json:"provider"`
-	BaseURL   string `json:"baseURL"`
-	APIKey    string `json:"apiKey"`
-	Proxy     string `json:"proxy"`
-	UserAgent string `json:"userAgent"`
+	ID           string `json:"id"`
+	Provider     string `json:"provider"`
+	BaseURL      string `json:"baseURL"`
+	APIKey       string `json:"apiKey"`
+	APIKeyAction string `json:"apiKeyAction"`
+	Proxy        string `json:"proxy"`
+	UserAgent    string `json:"userAgent"`
 }
 
 type assistantAISessionCreateRequest struct {
@@ -34,6 +38,11 @@ type assistantAISessionCreateRequest struct {
 type assistantAISessionRenameRequest struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+}
+
+type assistantAISessionPinRequest struct {
+	ID     string `json:"id"`
+	Pinned bool   `json:"pinned"`
 }
 
 type assistantAISessionMessagesRequest struct {
@@ -51,13 +60,14 @@ type assistantAIToolAuditListRequest struct {
 }
 
 type assistantAIToolExecuteRequest struct {
-	ProfileID string                        `json:"profileId"`
-	SessionID string                        `json:"sessionId"`
-	MessageID string                        `json:"messageId"`
-	AuditID   string                        `json:"auditId"`
-	Context   *model.AssistantAINoteContext `json:"context"`
-	ToolID    string                        `json:"toolId"`
-	Args      map[string]interface{}        `json:"args"`
+	ProfileID    string                        `json:"profileId"`
+	SessionID    string                        `json:"sessionId"`
+	MessageID    string                        `json:"messageId"`
+	AuditID      string                        `json:"auditId"`
+	SecurityMode string                        `json:"securityMode"`
+	Context      *model.AssistantAINoteContext `json:"context"`
+	ToolID       string                        `json:"toolId"`
+	Args         map[string]interface{}        `json:"args"`
 }
 
 type assistantAIChatStreamEvent struct {
@@ -83,7 +93,7 @@ func assistantAIProfileList(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+	ret.Data = model.SanitizeAssistantAIProfiles(data)
 }
 
 func assistantAIProfileSave(c *gin.Context) {
@@ -103,7 +113,7 @@ func assistantAIProfileSave(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+	ret.Data = model.SanitizeAssistantAIProfile(data)
 }
 
 func assistantAIProfileDelete(c *gin.Context) {
@@ -133,7 +143,13 @@ func assistantAIProfileTest(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
+	apiKey, err := assistantAIProfileRequestAPIKey(req)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = model.TestAssistantAIConnection(req.Provider, req.BaseURL, apiKey, req.Proxy, req.UserAgent)
 }
 
 func assistantAIProfileModels(c *gin.Context) {
@@ -146,7 +162,40 @@ func assistantAIProfileModels(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
-	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, req.APIKey, req.Proxy, req.UserAgent)
+	apiKey, err := assistantAIProfileRequestAPIKey(req)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = model.ListAssistantAIModels(req.Provider, req.BaseURL, apiKey, req.Proxy, req.UserAgent)
+}
+
+func assistantAIProfileRequestAPIKey(req *assistantAIProfileTestRequest) (string, error) {
+	if nil == req {
+		return "", nil
+	}
+	action, err := model.NormalizeAssistantAPIKeyAction(req.APIKeyAction, req.APIKey)
+	if nil != err {
+		return "", err
+	}
+	switch action {
+	case model.AssistantAPIKeyActionReplace:
+		if "" == strings.TrimSpace(req.APIKey) {
+			return "", fmt.Errorf("assistant AI API key is required when replacing")
+		}
+		return req.APIKey, nil
+	case model.AssistantAPIKeyActionClear:
+		return "", nil
+	}
+	if "" == strings.TrimSpace(req.ID) {
+		return "", nil
+	}
+	profile, err := model.GetAssistantAIProfile(req.ID)
+	if nil != err || nil == profile {
+		return "", nil
+	}
+	return profile.APIKey, nil
 }
 
 func assistantAISessionList(c *gin.Context) {
@@ -194,6 +243,23 @@ func assistantAISessionRename(c *gin.Context) {
 	}
 
 	if err := model.RenameAssistantAISession(req.ID, req.Title); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+	}
+}
+
+func assistantAISessionPin(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	req := &assistantAISessionPinRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ret.Code = -1
+		ret.Msg = "parses request failed"
+		return
+	}
+
+	if err := model.SetAssistantAISessionPinned(req.ID, req.Pinned); err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
 	}
@@ -449,11 +515,12 @@ func assistantAIToolExecute(c *gin.Context) {
 	}
 
 	data, err := model.ExecuteAssistantAITool(&model.AssistantAIToolRequest{
-		ProfileID: req.ProfileID,
-		SessionID: req.SessionID,
-		Context:   req.Context,
-		ToolID:    req.ToolID,
-		Args:      req.Args,
+		ProfileID:    req.ProfileID,
+		SessionID:    req.SessionID,
+		SecurityMode: model.AISecurityMode(req.SecurityMode),
+		Context:      req.Context,
+		ToolID:       req.ToolID,
+		Args:         req.Args,
 	})
 	if err != nil {
 		ret.Code = -1
@@ -475,13 +542,14 @@ func assistantAIToolConfirm(c *gin.Context) {
 	}
 
 	data, err := model.ConfirmAssistantAITool(&model.AssistantAIToolConfirmRequest{
-		ProfileID: req.ProfileID,
-		SessionID: req.SessionID,
-		MessageID: req.MessageID,
-		AuditID:   req.AuditID,
-		Context:   req.Context,
-		ToolID:    req.ToolID,
-		Args:      req.Args,
+		ProfileID:    req.ProfileID,
+		SessionID:    req.SessionID,
+		MessageID:    req.MessageID,
+		AuditID:      req.AuditID,
+		SecurityMode: model.AISecurityMode(req.SecurityMode),
+		Context:      req.Context,
+		ToolID:       req.ToolID,
+		Args:         req.Args,
 	})
 	if err != nil {
 		ret.Code = -1

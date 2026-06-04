@@ -10,7 +10,7 @@ import type {
 
 const patchableSkillActions = new Set(["replace-selection", "insert-below", "append-note"]);
 
-const createAssistantPatchID = (prefix: string) => {
+export const createAssistantPatchID = (prefix: string) => {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
@@ -109,6 +109,7 @@ const buildStructuredAssistantPatch = (
         const attrs = raw.attrs && typeof raw.attrs === "object" && !Array.isArray(raw.attrs)
             ? raw.attrs as Record<string, string | null>
             : undefined;
+        const dataType = `${raw.dataType || ""}`.trim() === "dom" ? "dom" : undefined;
         if (!type || (!after && type !== "delete-block" && type !== "set-attrs")) {
             return null;
         }
@@ -128,6 +129,7 @@ const buildStructuredAssistantPatch = (
             targetLabel: `${raw.targetLabel || ""}`.trim(),
             before,
             after,
+            dataType,
             attrs,
             reason: `${raw.reason || ""}`.trim(),
             status: "pending",
