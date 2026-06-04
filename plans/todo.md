@@ -4,6 +4,9 @@
 
 ## 本轮
 
+- [x] 工作台 `null.length` 根因定位与修复：后端无标签条目的 `tags:null` 被前端当数组渲染，已在工作台数据入口归一化 `items/allItems[].tags` 为数组。
+- [x] 本轮工作台 `null.length` 验证：`pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app` 通过。
+
 - [x] 退出同步 `tree not found` 提示优化：仅在退出同步失败详情命中本地笔记树索引缺失特征时，追加“设置 - 关于 - 重建索引”引导，避免网络/权限/密钥类失败误导用户。
 - [x] 本轮退出提示验证：`go test -vet=off ./api -run TestShouldSuggestRebuildIndexForExitSync -count=1` 通过。
 

@@ -77,6 +77,14 @@ assert(
 );
 
 assert(
+    dialogQuery.includes("export const normalizeWorkbenchItems = (items: unknown): IWorkbenchItem[]") &&
+        dialogQuery.includes("tags: Array.isArray(workbenchItem.tags)") &&
+        dialogQuery.includes("const items = normalizeWorkbenchItems(response.data?.allItems);") &&
+        dialogQuery.includes("const visibleItems = normalizeWorkbenchItems(response.data?.items);"),
+    "workbench API items should normalize nullable tag arrays before rendering",
+);
+
+assert(
     dialogScreen.includes("workbenchRelatedResultsFailed") &&
         dialogScreen.includes("blockErrorHTML"),
     "related block search failures should render a local warning",

@@ -361,6 +361,18 @@ export const getEmptyWorkbenchSummary = (total = 0, filtered = 0): IWorkbenchSum
     subFileTotal: 0,
 });
 
+export const normalizeWorkbenchItems = (items: unknown): IWorkbenchItem[] => {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+    return items.filter(Boolean).map((item) => {
+        const workbenchItem = item as IWorkbenchItem;
+        return Object.assign({}, workbenchItem, {
+            tags: Array.isArray(workbenchItem.tags) ? workbenchItem.tags.map((tag) => `${tag || ""}`.trim()).filter(Boolean) : [],
+        });
+    });
+};
+
 export const buildWorkbenchQueryCacheKey = (state: IWorkbenchState, limit: number) => JSON.stringify({
     limit,
     activeTab: state.activeTab,
@@ -413,8 +425,8 @@ export const fetchWorkbenchData = async (state: IWorkbenchState, limit = 2048): 
         if (typeof response.code === "number" && response.code < 0) {
             throw new Error(response.msg || "queryWorkbenchItems failed");
         }
-        const items = response.data?.allItems as IWorkbenchItem[] || [];
-        const visibleItems = response.data?.items as IWorkbenchItem[] || [];
+        const items = normalizeWorkbenchItems(response.data?.allItems);
+        const visibleItems = normalizeWorkbenchItems(response.data?.items);
         const data = {
             items: visibleItems,
             allItems: items,
