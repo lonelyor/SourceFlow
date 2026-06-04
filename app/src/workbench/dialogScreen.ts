@@ -34,6 +34,7 @@ export interface IWorkbenchDialogScreenInput {
     shouldDeferPanel: boolean;
     panelLoadingHTML: string;
     hasTextQuery: boolean;
+    blockError: string;
 }
 
 export const buildWorkbenchDialogHTML = (input: IWorkbenchDialogScreenInput) => {
@@ -51,7 +52,10 @@ export const buildWorkbenchDialogHTML = (input: IWorkbenchDialogScreenInput) => 
         shouldDeferPanel,
         panelLoadingHTML,
         hasTextQuery,
+        blockError,
     } = input;
+    const blockErrorTemplate = window.sourceflow.languages.workbenchRelatedResultsFailed || "Related block search failed; primary results are still available: ${x}";
+    const blockErrorHTML = blockError ? `<div class="b3-label__text" style="margin-bottom: 12px;color: var(--b3-theme-error);">${escapeHTML(blockErrorTemplate.replace("${x}", blockError))}</div>` : "";
     return `<div class="fn__flex" style="gap: 8px;flex-wrap: wrap;align-items: center;margin-bottom: 12px;">
     <button class="b3-button ${state.activeTab === "inbox" ? "b3-button--text" : "b3-button--outline"}" data-action="switch-tab" data-tab="inbox">${window.sourceflow.languages.inbox} <span class="ft__secondary">${summary.inboxCount}</span></button>
     <button class="b3-button ${state.activeTab === "library" ? "b3-button--text" : "b3-button--outline"}" data-action="switch-tab" data-tab="library">${window.sourceflow.languages.workbenchLibrary} <span class="ft__secondary">${summary.docCount}</span></button>
@@ -166,6 +170,7 @@ ${state.resultLayer === "items" ? `<div class="fn__flex" style="gap: 12px;flex-w
     ${renderFacetSection(window.sourceflow.languages.workbenchFacetProject, summary.projects || [])}
     ${renderFacetSection(window.sourceflow.languages.workbenchFacetTag, summary.tags || [], (facet) => `#${facet.name}`)}
 </div>` : ""}
+${blockErrorHTML}
 <div class="workbench-panel">${shouldDeferPanel ? panelLoadingHTML : renderWorkbenchPanelContent(state, visibleItems, items, relatedBlocks)}</div>
 ${state.resultLayer === "items" && hasTextQuery ? `<div class="b3-card" style="padding:16px;margin-top:16px;">
     <div class="fn__flex" style="justify-content:space-between;align-items:center;margin-bottom:12px;">

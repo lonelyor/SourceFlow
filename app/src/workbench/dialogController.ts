@@ -215,6 +215,7 @@ const renderWorkbench = async (dialog: Dialog, app: App, state: IWorkbenchState,
             shouldDeferPanel,
             panelLoadingHTML,
             hasTextQuery: !!context.parsed.text.length,
+            blockError: context.blockError,
         });
         bindWorkbenchDialogEvents({
             app,

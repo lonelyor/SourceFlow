@@ -4,6 +4,8 @@
 
 ## 已确认
 
+- 2026-06-04 工作台加载失败根因修复完成：工作台主查询继续作为硬依赖，关联块搜索和二段 scope 查询改为增强层局部降级，失败时记录 `blockError` 并在工作台内显示提示，主列表/主工作台不再被 `/api/search/fullTextSearchBlock` 失败拖垮；同步补齐工作台缺失语言键 `content` 和关联块降级提示；`fetchSyncPost` 对网络失败、非 JSON 响应和坏 JSON 响应输出可读错误，便于定位真实后端/网络原因。
+- 2026-06-04 本轮工作台修复验证已通过：`pnpm --dir app run test:workbench-stability`、`pnpm --dir app run typecheck:app`、`go test ./conf/ -v`、`pnpm --dir app run test:editor-structure-guide`、`pnpm --dir app run test:editor-structure-guide-bugfix`、变更文件范围 eslint 和 `git diff --check`。全量 `pnpm --dir app run lint` 仍被既有 `app/build-linux-portable/...` 打包产物阻断，非本轮源码改动引入。
 - 2026-06-04 构建/发布提速阶段完成：`编译.py` 默认继续使用自动并行作业（`--jobs 0` 解析为 CPU 自适应并行，当前上限 4），新增阶段耗时汇总用于定位瓶颈；installer 与 portable 仍保持串行，避免 Windows portable 复用 `win-unpacked` 时与 `app/build` 产生竞态；`发布.py` 默认并行上传 Release 资产（默认 3，`--upload-jobs 1` 可串行排障），SHA256 并行计算，Windows portable zip 通过本地 manifest 复用未变化压缩包，最终仍执行远端资产一致性校验。
 - 2026-06-04 本阶段验证已通过：`python -m py_compile 编译.py 发布.py`、`python 发布.py --preview --skip-export --skip-release --skip-push --reuse-release-assets`、本地 mock 并行上传同步、`python 编译.py --stability-gate-only --jobs 4`。本次稳定性门耗时显示主要瓶颈为前端 typecheck，其次为 Go 回归测试。
 - 2026-06-04 编译/发布优雅中断完成：`编译.py` 和 `发布.py` 均使用统一取消信号与活跃子进程登记；第一次 Ctrl+C 会停止已登记进程，短等待后强杀仍存活进程，第二次 Ctrl+C 立即强杀；发布上传连接会在取消时主动关闭，上传循环按 chunk 检查取消；顶层取消统一返回 130，不再输出 Python traceback；输出增加 `[RUN]`、`[OK]`、`[FAIL]`、`[CANCEL]` 状态行。

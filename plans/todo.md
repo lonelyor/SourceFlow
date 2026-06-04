@@ -4,6 +4,9 @@
 
 ## 本轮
 
+- [x] 工作台加载失败根因修复：主查询失败仍显示可重试错误页，关联块搜索和二段 scope 查询失败改为局部降级提示，不再拖垮主工作台；补齐工作台语言键并让同步请求错误更可读。
+- [x] 本轮工作台修复验证：`test:workbench-stability`、`typecheck:app`、Go conf 测试、两个编辑器结构提示回归、变更文件范围 eslint 和 `git diff --check` 均通过；全量 lint 仍被既有打包产物阻断。
+
 - [x] 构建/发布提速：`编译.py` 增加阶段耗时汇总，保留 installer 与 portable 串行打包，默认继续启用自动并行编译；`发布.py` 默认并行上传 GitHub Release 资产，并行计算 SHA256，Windows portable zip 支持 manifest 命中复用。
 - [x] 本轮构建发布脚本验证：`python -m py_compile 编译.py 发布.py`、`python 发布.py --preview --skip-export --skip-release --skip-push --reuse-release-assets`、本地 mock 并行上传同步、`python 编译.py --stability-gate-only --jobs 4` 均通过。
 - [x] 编译/发布优雅中断与输出美化：`编译.py` / `发布.py` 统一 Ctrl+C 取消控制，登记并清理活跃子进程，发布上传连接可主动关闭，并行任务停止提交未启动任务，取消统一返回 130 且不输出 Python traceback；输出补充 `[RUN]`、`[OK]`、`[FAIL]`、`[CANCEL]` 状态行。
