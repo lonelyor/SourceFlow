@@ -4,6 +4,8 @@
 
 ## 本轮
 
+- [x] 全量前端 lint 阻断修复：ESLint flat config 忽略 `build-*/**` 等平台打包产物目录，`pnpm --dir app run lint` 已通过；剩余 unused warning 保持为历史基线。
+
 - [x] AI 收件箱保存原子化：新增后端 `/api/assistant/inbox/create`，创建 AI 笔记和设置收件箱属性一次完成；属性失败时清理本次新建目标，已有同名笔记不会被误删；前端成功返回 ID 后才写保存审计。
 - [x] 本轮 AI 收件箱原子保存验证：前端收件箱原子 API 回归、AI 历史回归、`typecheck:app`、变更文件范围 eslint、Go API 原子/属性目标测试、API 编译型测试、Go conf、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有打包产物阻断。
 
