@@ -4,6 +4,8 @@
 
 ## 本轮
 
+- [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
+
 - [x] 全量前端 lint 阻断修复：ESLint flat config 忽略 `build-*/**` 等平台打包产物目录，`pnpm --dir app run lint` 已通过；剩余 unused warning 保持为历史基线。
 
 - [x] AI 收件箱保存原子化：新增后端 `/api/assistant/inbox/create`，创建 AI 笔记和设置收件箱属性一次完成；属性失败时清理本次新建目标，已有同名笔记不会被误删；前端成功返回 ID 后才写保存审计。

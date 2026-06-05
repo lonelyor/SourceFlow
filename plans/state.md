@@ -4,6 +4,7 @@
 
 ## 已确认
 
+- 2026-06-05 前端 `no-unused-vars` warning 基线清理第一批完成：本轮作为独立工程卫生阶段处理，只清理 10 个高集中 Protyle/Workbench 文件中的 unused import 和 2 个内部事件注册未用参数，不混入功能修复。全量 warning 从 4994 降到 3908，第一批目标文件 warning 清零；`pnpm --dir app run lint`、目标文件 ESLint、`pnpm --dir app run typecheck:app` 和 `git diff --check` 已通过。
 - 2026-06-05 全量前端 lint 阻断已解除：根因为 ESLint flat config 只忽略了 `build`，未覆盖 `build-linux-portable` 等 `build-*` 平台打包目录，导致 `eslint . --fix --cache` 扫描压缩后的发行产物。现已将 `build/**`、`build-*/**`、`stage/**` 等生成目录纳入 ESLint ignore；`pnpm --dir app run lint` 已通过，剩余 4994 个 `no-unused-vars` warning 为既有历史基线，不阻断命令。
 - 2026-06-05 AI 收件箱保存原子化完成：新增后端 `/api/assistant/inbox/create`，一次完成 AI Markdown 笔记创建和收件箱属性写入；属性写入失败时会删除本次新建的目标笔记并返回失败，若目标路径本来已存在则不会误删已有同名笔记。前端 `saveAssistantInboxItem` 不再先调普通创建接口再调属性接口，只有原子 API 成功返回 ID 后才写入 AI 保存审计和派发收件箱刷新事件。
 - 2026-06-05 本轮 AI 收件箱原子保存验证已通过：`pnpm --dir app run test:assistant-source-save`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run typecheck:app`、变更文件范围 `pnpm --dir app exec eslint ...`、`go test -vet=off ./api -run TestCreateAssistantInboxDoc -count=1`、`go test -vet=off ./api -run TestNormalizeBlockAttrValuesRejectsNonStringAttrs -count=1`、`go test -vet=off ./api -run TestDoesNotExist -count=1`、`go test ./conf/ -v`、两个编辑器结构提示回归和 `git diff --check`。全量 `pnpm --dir app run lint` 仍被既有 `app/build-linux-portable/...` 打包产物阻断，本轮变更文件无 eslint error。
