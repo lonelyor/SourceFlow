@@ -4,6 +4,7 @@
 
 ## 已确认
 
+- 2026-06-05 AI Dock 复用硬原则已固化：凡是用户和 AI 对话、需要来源/历史/停止生成/Profile/工具权限/Agent/patch 审阅/审计的入口，都必须复用现有 AI Dock；轻量内联 AI 仅限当前选区即时操作，且仍复用统一上下文、模型、安全、patch 和审计边界；禁止新增平级问答浮层、独立聊天 dialog、独立来源面板或第二套对话真相源。
 - 2026-06-05 用户确认 AI 入口应像 Kilo 一样复用现有 AI 助手 Dock，不新增“单次问答”浮层或第二套真相源；本轮以单 Dock 模式实现 `问 AI`/连续对话/Agent 的显式模式切换，并优先补齐普通对话停止生成功能。
 - 2026-06-05 SF Kilo 式 AI Dock 已完成：现有 AI Dock 增加 `ask/chat/agent` 模式切换；`问 AI`、文档树、文件树和选区/右键入口复用同一 Dock 与来源面板；普通发送和编辑重生成支持停止生成，用户主动停止保留已生成部分并标记“已停止”，不按失败处理。本阶段验证通过：`pnpm --dir app run test:ai-dock-runtime`、`pnpm --dir app run test:assistant-skill-context`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run lint`、`go test ./conf/ -v`、两个编辑器结构提示回归和 `git diff --check`；全量 lint 仍有 3908 个既有 warning，命令退出码为 0。
 - 2026-06-05 前端 `no-unused-vars` warning 基线清理第一批完成：本轮作为独立工程卫生阶段处理，只清理 10 个高集中 Protyle/Workbench 文件中的 unused import 和 2 个内部事件注册未用参数，不混入功能修复。全量 warning 从 4994 降到 3908，第一批目标文件 warning 清零；`pnpm --dir app run lint`、目标文件 ESLint、`pnpm --dir app run typecheck:app` 和 `git diff --check` 已通过。
