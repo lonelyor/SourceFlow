@@ -942,20 +942,8 @@ func createDocWithMd(c *gin.Context) {
 		id = idArg.(string)
 	}
 
-	hPath := arg["path"].(string)
+	hPath := normalizeCreateDocHPath(arg["path"].(string))
 	markdown := arg["markdown"].(string)
-
-	baseName := path.Base(hPath)
-	dir := path.Dir(hPath)
-	r, _ := regexp.Compile("\r\n|\r|\n|\u2028|\u2029|\t|/")
-	baseName = r.ReplaceAllString(baseName, "")
-	if 512 < utf8.RuneCountInString(baseName) {
-		baseName = gulu.Str.SubStr(baseName, 512)
-	}
-	hPath = path.Join(dir, baseName)
-	if !strings.HasPrefix(hPath, "/") {
-		hPath = "/" + hPath
-	}
 
 	withMath := false
 	withMathArg := arg["withMath"]
@@ -985,6 +973,21 @@ func createDocWithMd(c *gin.Context) {
 	box := model.Conf.Box(notebook)
 	b, _ := model.GetBlock(id, nil)
 	pushCreate(box, b.Path, arg)
+}
+
+func normalizeCreateDocHPath(hPath string) string {
+	baseName := path.Base(hPath)
+	dir := path.Dir(hPath)
+	r, _ := regexp.Compile("\r\n|\r|\n|\u2028|\u2029|\t|/")
+	baseName = r.ReplaceAllString(baseName, "")
+	if 512 < utf8.RuneCountInString(baseName) {
+		baseName = gulu.Str.SubStr(baseName, 512)
+	}
+	hPath = path.Join(dir, baseName)
+	if !strings.HasPrefix(hPath, "/") {
+		hPath = "/" + hPath
+	}
+	return hPath
 }
 
 func getDocCreateSavePath(c *gin.Context) {

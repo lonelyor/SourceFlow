@@ -162,6 +162,91 @@ const contextBuilder = compileModule(path.join(srcRoot, "assistant", "mentions",
     const appendCall = fetchCalls.find((item) => item.url === "/api/block/appendBlock");
     assert.strictEqual(appendCall.payload.sanitizeIDs, true, "AI appends must regenerate block IDs");
 
+    const inboxFetchCalls = [];
+    const inboxHistoryCalls = [];
+    const inboxEvents = [];
+    let inboxCreateSucceeds = true;
+    const inboxStore = compileModule(path.join(srcRoot, "assistant", "inbox", "store.ts"), {
+        "../../dialog/message": {
+            showMessage: () => undefined,
+        },
+        "../../util/fetch": {
+            fetchSyncPost: async (url, payload) => {
+                inboxFetchCalls.push({url, payload});
+                if (url === "/api/assistant/inbox/create") {
+                    return inboxCreateSucceeds
+                        ? {code: 0, data: {id: "inbox-doc"}}
+                        : {code: -1, msg: "attrs failed"};
+                }
+                return {code: 0, data: {}};
+            },
+        },
+        "../common/note": {
+            getAssistantNoteCreatePath: (title) => `/AI/${title}`,
+            invalidateAssistantNoteContextCache: () => undefined,
+            resolveAssistantNoteNotebook: async () => "box-1",
+        },
+        "../constants": {
+            assistantText: (zh, en) => zh || en,
+        },
+        "../../workbench/constants": {
+            WorkbenchAttr: {
+                type: "custom-type",
+                status: "custom-status",
+                inbox: "custom-inbox",
+                project: "custom-project",
+                goal: "custom-goal",
+                nextStep: "custom-next-step",
+                capturedAt: "custom-captured-at",
+            },
+        },
+        "../history/operations": {
+            recordAssistantExplicitSaveHistory: (payload) => inboxHistoryCalls.push(payload),
+        },
+    }, {
+        window: {
+            dispatchEvent: (event) => inboxEvents.push(event),
+            sourceflow: {},
+        },
+        CustomEvent: class CustomEvent {
+            constructor(type, init) {
+                this.type = type;
+                this.detail = init?.detail;
+            }
+        },
+    });
+
+    const inboxID = await inboxStore.saveAssistantInboxItem({
+        title: "结果",
+        content: "markdown",
+        kind: "search",
+        goal: "整理",
+    });
+    assert.strictEqual(inboxID, "inbox-doc");
+    const inboxCreateCall = inboxFetchCalls.find((item) => item.url === "/api/assistant/inbox/create");
+    assert(inboxCreateCall, "AI inbox save should use the atomic backend API");
+    assert.strictEqual(inboxCreateCall.payload.notebook, "box-1");
+    assert.strictEqual(inboxCreateCall.payload.sanitizeIDs, true);
+    assert.strictEqual(inboxCreateCall.payload.attrs["custom-inbox"], "true");
+    assert(inboxCreateCall.payload.tags.includes("assistant-ai"));
+    assert(!inboxFetchCalls.some((item) => item.url === "/api/attr/setBlockAttrs"));
+    assert(!inboxFetchCalls.some((item) => item.url === "/api/filetree/createDocWithMd"));
+    assert.strictEqual(inboxHistoryCalls.length, 1, "successful atomic inbox save should be audited once");
+    assert.strictEqual(inboxHistoryCalls[0].noteId, "inbox-doc");
+    assert.strictEqual(inboxEvents.length, 1);
+
+    inboxCreateSucceeds = false;
+    inboxFetchCalls.length = 0;
+    inboxHistoryCalls.length = 0;
+    inboxEvents.length = 0;
+    const failedInboxID = await inboxStore.saveAssistantInboxItem({
+        title: "失败",
+        content: "markdown",
+    });
+    assert.strictEqual(failedInboxID, null);
+    assert.strictEqual(inboxHistoryCalls.length, 0, "failed atomic inbox save must not create an applied audit record");
+    assert.strictEqual(inboxEvents.length, 0);
+
     const semanticSource = fs.readFileSync(path.join(srcRoot, "assistant", "search", "semanticSearch.ts"), "utf8");
     assert(semanticSource.includes("let searchSeq = 0;"));
     assert(semanticSource.includes("currentSeq !== searchSeq"));

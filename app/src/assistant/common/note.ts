@@ -57,9 +57,11 @@ const rootNoteContextCache = new Map<string, {
     value: ICurrentNoteContext | null;
 }>();
 
-const sanitizeDocName = (value: string) => {
+export const sanitizeAssistantDocName = (value: string) => {
     return value.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim() || "Assistant";
 };
+
+export const getAssistantNoteCreatePath = (title: string) => `/AI/${sanitizeAssistantDocName(title)}`;
 
 export const getActiveEditorProtyle = () => {
     /// #if MOBILE
@@ -430,23 +432,29 @@ export const appendMarkdownToCurrentNote = async (markdown: string) => {
     return false;
 };
 
-export const saveMarkdownAsAssistantNote = async (title: string, markdown: string) => {
+export const resolveAssistantNoteNotebook = async () => {
     const context = await getCurrentNoteContext();
-    let notebook = context?.notebook;
-    if (!notebook) {
-        const notebooksResponse = await fetchSyncPost("/api/notebook/lsNotebooks", {});
-        if (notebooksResponse.code !== 0 || !notebooksResponse.data?.notebooks?.length) {
-            showMessage(window.sourceflow.languages.emptyContent || "没有可用的笔记本", 3000, "error");
-            return null;
-        }
-        notebook = notebooksResponse.data.notebooks[0].id;
+    if (context?.notebook) {
+        return context.notebook;
     }
-    const docTitle = sanitizeDocName(title);
+    const notebooksResponse = await fetchSyncPost("/api/notebook/lsNotebooks", {});
+    if (notebooksResponse.code !== 0 || !notebooksResponse.data?.notebooks?.length) {
+        showMessage(window.sourceflow.languages.emptyContent || "没有可用的笔记本", 3000, "error");
+        return null;
+    }
+    return notebooksResponse.data.notebooks[0].id as string;
+};
+
+export const saveMarkdownAsAssistantNote = async (title: string, markdown: string) => {
+    const notebook = await resolveAssistantNoteNotebook();
+    if (!notebook) {
+        return null;
+    }
     let response: IWebSocketData;
     try {
         response = await fetchSyncPost("/api/filetree/createDocWithMd", {
             notebook,
-            path: `/AI/${docTitle}`,
+            path: getAssistantNoteCreatePath(title),
             markdown,
             sanitizeIDs: true,
         });
@@ -466,7 +474,7 @@ export const saveMarkdownAsAssistantNote = async (title: string, markdown: strin
 };
 
 export const formatTranscriptMarkdown = (title: string, messages: Array<{ role: string, content: string, createdAt?: number }>) => {
-    const sections = [`# ${sanitizeDocName(title)}`, ""];
+    const sections = [`# ${sanitizeAssistantDocName(title)}`, ""];
     messages.forEach((message, index) => {
         const role = message.role === "assistant" ? "AI" : (message.role === "user" ? "User" : message.role);
         sections.push(`## ${index + 1}. ${role}`);

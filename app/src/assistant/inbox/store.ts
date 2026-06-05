@@ -1,7 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {App} from "../../index";
 import {fetchSyncPost} from "../../util/fetch";
-import {saveMarkdownAsAssistantNote} from "../common/note";
+import {getAssistantNoteCreatePath, invalidateAssistantNoteContextCache, resolveAssistantNoteNotebook} from "../common/note";
 import {assistantText} from "../constants";
 import {WorkbenchAttr} from "../../workbench/constants";
 import {recordAssistantExplicitSaveHistory} from "../history/operations";
@@ -50,34 +50,52 @@ const buildAssistantInboxMarkdown = (options: ISaveAssistantInboxItemOptions) =>
 export const saveAssistantInboxItem = async (options: ISaveAssistantInboxItemOptions) => {
     const title = normalizeAssistantInboxTitle(options.title);
     const markdown = buildAssistantInboxMarkdown(options);
-    const id = await saveMarkdownAsAssistantNote(title, markdown);
+    const notebook = await resolveAssistantNoteNotebook();
+    if (!notebook) {
+        showMessage(assistantText("保存到 AI 收件箱失败", "Failed to save to AI Inbox"), 4000, "error");
+        return null;
+    }
+
+    const tags = [ASSISTANT_INBOX_TAG, "assistant-inbox", options.kind ? `assistant-${options.kind}` : ""].filter(Boolean).join(",");
+    let response: IWebSocketData;
+    try {
+        response = await fetchSyncPost("/api/assistant/inbox/create", {
+            notebook,
+            path: getAssistantNoteCreatePath(title),
+            markdown,
+            tags,
+            sanitizeIDs: true,
+            attrs: {
+                [WorkbenchAttr.type]: "note",
+                [WorkbenchAttr.status]: "open",
+                [WorkbenchAttr.inbox]: "true",
+                [WorkbenchAttr.project]: assistantText("AI 收件箱", "AI Inbox"),
+                [WorkbenchAttr.goal]: `${options.goal || ""}`.trim(),
+                [WorkbenchAttr.nextStep]: `${options.nextStep || ""}`.trim(),
+                [WorkbenchAttr.capturedAt]: new Date().toISOString(),
+                tags,
+            },
+        });
+    } catch (error) {
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        return null;
+    }
+    if (response.code !== 0) {
+        showMessage(response.msg || assistantText("保存到 AI 收件箱失败", "Failed to save to AI Inbox"), 4000, "error");
+        return null;
+    }
+    const id = typeof response.data === "string" ? response.data : response.data?.id as string;
     if (!id) {
         showMessage(assistantText("保存到 AI 收件箱失败", "Failed to save to AI Inbox"), 4000, "error");
         return null;
     }
+    invalidateAssistantNoteContextCache();
     recordAssistantExplicitSaveHistory({
         source: "automation",
         summary: title,
         noteId: id,
         targetLabel: title,
     });
-    const response = await fetchSyncPost("/api/attr/setBlockAttrs", {
-        id,
-        attrs: {
-            [WorkbenchAttr.type]: "note",
-            [WorkbenchAttr.status]: "open",
-            [WorkbenchAttr.inbox]: "true",
-            [WorkbenchAttr.project]: assistantText("AI 收件箱", "AI Inbox"),
-            [WorkbenchAttr.goal]: `${options.goal || ""}`.trim(),
-            [WorkbenchAttr.nextStep]: `${options.nextStep || ""}`.trim(),
-            [WorkbenchAttr.capturedAt]: new Date().toISOString(),
-            tags: [ASSISTANT_INBOX_TAG, "assistant-inbox", options.kind ? `assistant-${options.kind}` : ""].filter(Boolean).join(","),
-        },
-    });
-    if (response.code !== 0) {
-        showMessage(response.msg || assistantText("保存到 AI 收件箱失败", "Failed to save to AI Inbox"), 4000, "error");
-        return null;
-    }
     window.dispatchEvent(new CustomEvent("assistant-inbox-updated", {
         detail: {
             id,
