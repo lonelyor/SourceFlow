@@ -3,13 +3,11 @@ package model
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type anthropicStreamEvent struct {
@@ -77,9 +75,8 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 		return nil, marshalErr
 	}
 
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	ctx, cancel := contextWithTimeout(time.Duration(timeout) * time.Second)
-	defer cancel()
+	ctx, idleGuard := assistantAIStreamContext(profile, opts)
+	defer idleGuard.Stop()
 
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(data))
 	if nil != reqErr {
@@ -92,12 +89,15 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 		req.Header.Set("User-Agent", userAgent)
 	}
 
-	client, clientErr := newAssistantAIHTTPClient(profile)
+	client, clientErr := newAssistantAIStreamingHTTPClient(profile)
 	if nil != clientErr {
 		return nil, clientErr
 	}
 	resp, respErr := client.Do(req)
 	if nil != respErr {
+		if idleGuard.TimedOut() {
+			return nil, idleGuard.TimeoutError()
+		}
 		return nil, respErr
 	}
 	defer resp.Body.Close()
@@ -107,10 +107,10 @@ func chatAssistantAIAnthropicStream(profile *AssistantAIProfile, systemPrompt st
 		return nil, fmt.Errorf("Anthropic stream request failed (status %d): %s", resp.StatusCode, sanitizeAIProviderErrorBody(string(body)))
 	}
 
-	return parseAnthropicSSEStream(resp.Body, onDelta)
+	return parseAnthropicSSEStream(resp.Body, onDelta, idleGuard)
 }
 
-func parseAnthropicSSEStream(body io.Reader, onDelta func(string) error) (ret *assistantAIProviderReply, err error) {
+func parseAnthropicSSEStream(body io.Reader, onDelta func(string) error, idleGuard *assistantAIStreamIdleGuard) (ret *assistantAIProviderReply, err error) {
 	builder := &strings.Builder{}
 	providerMessageID := ""
 	modelName := ""
@@ -124,6 +124,7 @@ func parseAnthropicSSEStream(body io.Reader, onDelta func(string) error) (ret *a
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	for scanner.Scan() {
+		idleGuard.Reset()
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
 			continue
@@ -181,6 +182,12 @@ func parseAnthropicSSEStream(body io.Reader, onDelta func(string) error) (ret *a
 			}
 		}
 	}
+	if scanErr := scanner.Err(); nil != scanErr {
+		if idleGuard.TimedOut() {
+			return nil, idleGuard.TimeoutError()
+		}
+		return nil, scanErr
+	}
 
 	ret = &assistantAIProviderReply{
 		Content:           strings.TrimSpace(builder.String()),
@@ -214,8 +221,4 @@ func parseAnthropicSSEStream(body io.Reader, onDelta func(string) error) (ret *a
 	}
 
 	return ret, nil
-}
-
-func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), timeout)
 }

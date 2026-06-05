@@ -1,8 +1,12 @@
 # SourceFlow 当前任务队列
 
-更新日期：2026-06-04
+更新日期：2026-06-05
 
 ## 本轮
+
+- [x] AI 对话 `context deadline exceeded` 根因定位：后端 provider 层把 profile timeout 当作流式回答总耗时上限，导致长回复被主动取消；前端普通 Dock 对话没有固定总时长截断。
+- [x] AI 流式超时修复：普通非流式请求保留总超时，流式请求改为无 provider 数据/无网络进展 idle 超时并在收到 chunk 后重置；聊天、流式聊天和编辑重发透传 Gin request context，前端取消会释放后端请求。
+- [x] 本轮 AI 超时验证：新增 OpenAI-compatible SSE 回归，目标 Go 测试、API 编译型测试、前端 typecheck、AI Dock runtime 和 `git diff --check` 均通过。
 
 - [x] v0.1.7 发布准备：同步 `app/package.json`、`kernel/util/working.go`、Windows Appx manifest、`CHANGELOG.md`、`app/changelogs/v0.1.7/` 与 plans，确认必须重新生成匹配 `0.1.7` 的发布产物。
 - [x] v0.1.7 编译验证：`python 编译.py` 通过，生成并验证与版本号一致的 Windows x64 安装包和便携包。

@@ -1,6 +1,6 @@
 # SourceFlow 架构与设计摘要
 
-更新日期：2026-06-04
+更新日期：2026-06-05
 
 ## AI 助手
 
@@ -18,6 +18,7 @@
 - Agent 面板创建批量任务时复用 Dock 当前输入作为任务列表，任务项必须保存待审阅 patch 与最小笔记上下文；暂停/取消需要中止当前执行请求，恢复/重试必须重新进入同一执行器。
 - AI 操作历史先采用本地持久化审计模型，记录 patch、session/profile、目标、状态、应用结果和失败原因；低风险回滚覆盖追加/插入块以及 AI 创建的新笔记，后端审计表留待确认存储边界后再引入。
 - Provider 配置列表应返回默认 baseURL、默认模型和推荐参数，前端 ProfilesPanel 使用这些字段初始化新 profile；模型列表失败必须向用户展示后端错误原因。
+- AI Profile `settings.timeout` 对普通非流式请求表示请求总超时；对流式对话表示无 provider 数据/无网络进展超时，不得作为整段 AI 回答的固定总耗时上限。流式请求收到任意 provider chunk 后必须重置 idle 超时，用户取消或前端断开时后端必须跟随释放请求。
 - AI 助手验收必须提供不依赖外部服务的 `fake` Provider：默认 baseURL 为 `sourceflow://fake`，默认模型为 `sourceflow-fake-chat`，不要求 API Key，支持配置连通测试、静态模型列表、确定性普通回复、mock stream，以及工具 dry-run patch 预览。该 Provider 仅用于本地测试和产品验收，不应作为真实生产模型接入。
 - 前端 patch apply 必须复用后端 AI 写工具的安全边界：`delete-block` 和 `replace-block` 只能作用于非根内容块；无法确认目标块根文档关系时必须失败关闭，禁止直接删除或整体替换笔记根文档。
 - AI/Assistant 产生的外部 Markdown 写入必须重新生成块 ID，避免导入内容携带的 ID 与现有笔记碰撞；普通块 API 默认保持兼容，仅在 `sanitizeIDs` 显式开启时执行。

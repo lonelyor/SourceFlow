@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -280,6 +281,68 @@ func TestAssistantAIHTTPClientCacheRespectsTimeout(t *testing.T) {
 	}
 	if first == second {
 		t.Fatal("clients with different timeout should not share a cache entry")
+	}
+}
+
+func TestAssistantAIOpenAICompatibleStreamUsesIdleTimeoutNotTotalDeadline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if "/v1/chat/completions" != r.URL.Path {
+			http.NotFound(w, r)
+			return
+		}
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming is unsupported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		writeChunk := func(payload string) bool {
+			if _, err := w.Write([]byte("data: " + payload + "\n\n")); nil != err {
+				t.Errorf("write stream chunk: %s", err)
+				return false
+			}
+			flusher.Flush()
+			return true
+		}
+		if !writeChunk(`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":0,"model":"test-model","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}`) {
+			return
+		}
+		time.Sleep(600 * time.Millisecond)
+		if !writeChunk(`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":0,"model":"test-model","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}`) {
+			return
+		}
+		time.Sleep(600 * time.Millisecond)
+		if !writeChunk(`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":0,"model":"test-model","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":"stop"}]}`) {
+			return
+		}
+		writeChunk("[DONE]")
+	}))
+	defer server.Close()
+
+	profile := &AssistantAIProfile{
+		Provider: AssistantAIProviderOpenAICompatible,
+		BaseURL:  server.URL + "/v1",
+		APIKey:   "test-key",
+		Model:    "test-model",
+		Settings: map[string]interface{}{"timeout": 1},
+	}
+	var deltas []string
+	startedAt := time.Now()
+	reply, err := chatAssistantAIOpenAICompatibleStream(profile, "", []*AssistantAIMessage{{Role: "user", Content: "hello"}}, func(delta string) error {
+		deltas = append(deltas, delta)
+		return nil
+	}, &assistantAIChatOptions{})
+	if nil != err {
+		t.Fatalf("stream should not hit a total deadline while data keeps flowing: %s", err)
+	}
+	if time.Since(startedAt) < time.Second {
+		t.Fatal("test stream should run longer than the configured 1s timeout")
+	}
+	if "hello world!" != reply.Content {
+		t.Fatalf("unexpected reply content %q", reply.Content)
+	}
+	if "hello world!" != strings.Join(deltas, "") {
+		t.Fatalf("unexpected stream deltas %q", strings.Join(deltas, ""))
 	}
 }
 
