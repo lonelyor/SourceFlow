@@ -16,14 +16,15 @@
 - 产品级目标要求 Dock 写工具优先返回 `previewPatch` 并进入 patch review；用户接受 patch operation 后才调用正式写入 API。旧的工具确认 API 保留兼容，但前端不应把"确认执行工具"作为默认写入路径。
 - 当前 Agent 能力边界为队列与历史外壳；产品级 Agent 需要独立执行器，负责任务逐项调度、取消、暂停、恢复、失败重试、超时和逐项 patch 审阅。
 - Agent 面板创建批量任务时复用 Dock 当前输入作为任务列表，任务项必须保存待审阅 patch 与最小笔记上下文；暂停/取消需要中止当前执行请求，恢复/重试必须重新进入同一执行器。
-- AI 操作历史先采用本地持久化审计模型，记录 patch、session/profile、目标、状态、应用结果和失败原因；低风险回滚覆盖追加/插入块以及 AI 创建的新笔记，后端审计表留待确认存储边界后再引入。
+- AI 操作历史升级为后端持久可逆事务模型，记录 patch、session/profile、目标、状态、应用结果、失败原因和最小可逆快照；撤回和取消撤回以后端历史记录为真相源，旧前端 localStorage 历史仅作为兼容展示来源。
 - Provider 配置列表应返回默认 baseURL、默认模型和推荐参数，前端 ProfilesPanel 使用这些字段初始化新 profile；模型列表失败必须向用户展示后端错误原因。
 - AI Profile `settings.timeout` 对普通非流式请求表示请求总超时；对流式对话表示无 provider 数据/无网络进展超时，不得作为整段 AI 回答的固定总耗时上限。流式请求收到任意 provider chunk 后必须重置 idle 超时，用户取消或前端断开时后端必须跟随释放请求。
 - AI 助手验收必须提供不依赖外部服务的 `fake` Provider：默认 baseURL 为 `sourceflow://fake`，默认模型为 `sourceflow-fake-chat`，不要求 API Key，支持配置连通测试、静态模型列表、确定性普通回复、mock stream，以及工具 dry-run patch 预览。该 Provider 仅用于本地测试和产品验收，不应作为真实生产模型接入。
 - 前端 patch apply 必须复用后端 AI 写工具的安全边界：`delete-block` 和 `replace-block` 只能作用于非根内容块；无法确认目标块根文档关系时必须失败关闭，禁止直接删除或整体替换笔记根文档。
 - AI/Assistant 产生的外部 Markdown 写入必须重新生成块 ID，避免导入内容携带的 ID 与现有笔记碰撞；普通块 API 默认保持兼容，仅在 `sanitizeIDs` 显式开启时执行。
 - AI Dock 普通发送和 Agent 执行前必须基于当前 `@` 来源快照解析后端 context pack；system prompt 和消息来源 metadata 使用同一份已解析来源，避免来源面板显示已引用但 prompt 中缺少摘要。
-- AI 生成内容通过用户显式保存命令创建新 Markdown 文档时，不属于改写已有笔记的强制 patch 路径，但必须开启 `sanitizeIDs`、处理后端创建 ID 和失败提示；对话记录保存、分析结果保存、成果箱保存和文件夹复盘报告保存必须写入现有 AI 操作历史审计。审计记录只保存目标、来源、摘要、session/profile 等元数据，不复制保存正文全文。
+- AI 生成内容通过用户显式保存命令创建新 Markdown 文档时，不属于改写已有笔记的强制 patch 路径，但必须开启 `sanitizeIDs`、处理后端创建 ID 和失败提示；对话记录保存、分析结果保存、成果箱保存和文件夹复盘报告保存必须写入 AI 操作历史审计。为支持撤回后的取消撤回，显式保存的新文档需要保存该次 AI 生成 Markdown 的 forward snapshot；其他改写只保存受影响块/属性/标题的最小前后快照，不保存无关来源全文或整篇工作空间内容。
+- AI 收件箱保存必须走后端原子入口 `/api/assistant/inbox/create`，由后端一次完成 Markdown 笔记创建和收件箱属性写入；属性写入失败时只允许删除本次新建的目标笔记并返回失败，前端只有在该入口整体成功并拿到 ID 后才写入保存审计。
 - Embedding 配置 API 不得回显已保存 API Key；语义搜索结果限制最多 50 条，删除笔记时必须清理对应向量索引。
 - AI Profile 与 Embedding 的 API Key 语义必须显式化：后端响应只返回 `hasAPIKey`，不得回显真实密钥；前端有密钥时只显示掩码 `******`，无密钥时显示空；保存请求必须携带 `apiKeyAction`，取值为 `keep`、`replace`、`clear`。`keep` 仅保留后端已有密钥，`replace` 使用本次输入的新密钥，`clear` 写入空密钥。掩码只作为 UI 展示状态，不得作为真实密钥存储或发送给模型服务。
 - Embedding 全量索引和语义搜索等异步 UI 必须在成功、业务失败和网络失败路径都恢复按钮/loading 状态，不允许让用户停留在永久“索引中/搜索中”。
@@ -41,7 +42,20 @@
 - `@` 引用与来源上下文 API 必须对空 query 返回空结果，不把用户输入过程中的临时空查询视作错误；上下文包构建必须返回被纳入和被丢弃来源的可解释状态，避免用户误以为未读取成功的来源已进入 prompt。
 - 来源上下文必须有全局字符/token 预算，预算常量集中在后端模型层；文件夹、批量来源和前端拼接都必须以预算后的后端 context pack 为准。
 - AI Profile 当前生产配置源为 `ai_profiles` 表；旧 `Conf.AI.OpenAI` 只应作为一次性迁移来源或非 AI 助手兼容边界，不再由 AI Profile 保存/删除反向同步。旧 `model/ai.go` 仍属于非 AI 助手兼容边界，后续如迁移需单独确认调用方。
-- Agent 队列和 AI 操作历史当前仍有本地持久化边界；产品级持久审计和多窗口执行锁需要迁移到后端任务/审计表，作为独立阶段处理。
+- AI 操作历史的产品级持久审计以 `storage/assistant_operation_history.json` 为本地后端真相源，支持多窗口和重启后的撤回/取消撤回；Agent 队列的后端执行锁仍作为独立阶段处理。
+
+### AI 写入可逆事务
+
+详细设计见 `plans/20260605-AI写入可逆事务设计.md`。
+
+- 所有 AI 改写已有笔记内容的动作必须遵循：预览 -> 审阅 -> 接受 -> 后端写入 -> 后端审计。
+- `/api/assistant/patch/apply` 是 AI 正式写入和审计记录创建的统一边界；成功写入返回 `historyId`，需要人工确认或写入失败时不得伪造成功历史。
+- AI 操作历史持久化在 `storage/assistant_operation_history.json`，默认保留最近 200 条；读写必须加锁并使用临时文件安全写入。
+- 历史状态统一为 `applied`、`reverted`、`reapplied`、`failed`、`revert-failed`、`reapply-failed`。
+- 撤回接口 `/api/assistant/history/revert` 只允许撤回 `applied` 或 `reapplied` 记录；取消撤回接口 `/api/assistant/history/reapply` 只允许重新应用 `reverted` 记录。
+- 撤回和取消撤回执行前必须校验当前目标仍处于期望状态；如果用户在 AI 写入后手动改过目标块、标题或属性，必须失败关闭，不覆盖用户后续编辑。
+- 可逆快照只保存完成撤回/取消撤回所需的最小内容：受影响块 Markdown/DOM、属性前后值、标题前后值、创建文档的 AI 生成 Markdown、目标父子位置等。
+- 旧 localStorage AI 历史不再作为生产级撤回入口；前端历史面板应以后端列表为准。
 
 ### AI 原生笔记助手架构（v2，2026-06-02 定稿）
 
