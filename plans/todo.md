@@ -9,8 +9,8 @@
 
 - [x] AI 写入可逆事务生产级设计：明确 AI 写入继续遵循 patch review，正式写入由后端 `/api/assistant/patch/apply` 生成审计记录，历史真相源迁移到 `storage/assistant_operation_history.json`，撤回/取消撤回通过后端最小快照和状态校验完成。
 - [x] AI 写入可逆事务设计评审：确认旧“显式保存只存元数据”与取消撤回需求冲突，已按用户最新确认的可逆事务需求更新 spec/state/todo，设计评审通过。
-- [ ] AI 写入可逆事务代码落地：新增后端 AI 操作历史持久化、历史列表/撤回/取消撤回 API，扩展 patch apply 审计与最小快照，前端历史面板改为以后端历史为准。
-- [ ] AI 写入可逆事务代码评审与迭代：覆盖替换、追加/插入、删除、重命名、属性、新建笔记/显式保存的撤回和取消撤回测试，确保设计、文档和代码一致。
+- [x] AI 写入可逆事务代码落地：新增后端 AI 操作历史持久化、历史列表/撤回/取消撤回 API，扩展 patch apply 审计与最小快照，前端历史面板改为以后端历史为准。
+- [x] AI 写入可逆事务代码评审与迭代：补齐 historyError 广播边界、安全内核检查、模块行数拆分和后端/前端目标回归，确保设计、文档和代码一致。
 
 - [x] AI 助手再审计第一批低风险修复：发送/Agent 执行前解析 `@` 来源快照，保存和追加 AI Markdown 时开启 `sanitizeIDs`，修复 AI 新建笔记保存 ID 返回值误判，补齐语义搜索 loading/并发旧响应保护和结果面板刷新异常处理。
 - [x] 本轮 AI 再审计验证：`test:assistant-source-save`、`test:ai-dock-runtime`、`test:assistant-agent-history`、`test:assistant-patch-review`、`typecheck:app`、变更文件范围 eslint、Go conf 测试、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有全仓 lint 基线阻断。

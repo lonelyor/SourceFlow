@@ -115,6 +115,12 @@ const requireMap = {
     "../../util/fetch": {
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
+            if (url === "/api/assistant/history/reapply") {
+                return {code: 0, data: {item: {id: payload.id, status: "reapplied"}}};
+            }
+            if (url === "/api/assistant/history/list") {
+                return {code: 0, data: historyStore.readAssistantOperationHistory()};
+            }
             deleted.push(payload.id);
             return {code: 0};
         },
@@ -204,6 +210,23 @@ const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyI
     assert.strictEqual(ok, true);
     assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "saved-doc"));
     assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === explicitSaveItem.id).status, "rolled-back");
+    historyStore.writeAssistantOperationHistory([{
+        id: "aihist-reverted",
+        patch,
+        status: "reverted",
+        source: "skill",
+        risk: "L2",
+        operationId: "op-1",
+        operationType: "insert-after-block",
+        results: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    }]);
+    return operations.syncAssistantOperationHistoryFromBackend()
+        .then(() => operations.reapplyAssistantOperationHistoryItem("aihist-reverted"));
+}).then((ok) => {
+    assert.strictEqual(ok, true);
+    assert(fetchCalls.some((item) => item.url === "/api/assistant/history/reapply" && item.payload.id === "aihist-reverted"));
 });
 
 Promise.all([executorPromise, historyPromise]).then(() => {

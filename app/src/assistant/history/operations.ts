@@ -6,13 +6,22 @@ import {
     addAssistantOperationHistory,
     readAssistantOperationHistory,
     updateAssistantOperationHistoryStatus,
+    writeAssistantOperationHistory,
 } from "./store";
-import type {IAssistantOperationHistoryMetadata} from "./store";
+import type {IAssistantOperationHistoryItem, IAssistantOperationHistoryMetadata} from "./store";
 
 const rollbackableOperationTypes = new Set(["insert-after-block", "append-note", "create-note", "create-child-note"]);
 
 export const canRollbackAssistantPatchOperation = (operation: IAssistantPatchOperation) => {
     return rollbackableOperationTypes.has(operation.type) && !!operation.appliedTargetId;
+};
+
+export const canRevertAssistantOperationHistoryItem = (item: IAssistantOperationHistoryItem) => {
+    return item.status === "applied" || item.status === "reapplied";
+};
+
+export const canReapplyAssistantOperationHistoryItem = (item: IAssistantOperationHistoryItem) => {
+    return item.status === "reverted";
 };
 
 const buildPatchHistoryMetadata = (
@@ -34,6 +43,19 @@ const buildPatchHistoryMetadata = (
     };
 };
 
+export const syncAssistantOperationHistoryFromBackend = async (limit = 50) => {
+    try {
+        const response = await fetchSyncPost("/api/assistant/history/list", {limit});
+        if (response.code !== 0 || !Array.isArray(response.data)) {
+            return readAssistantOperationHistory();
+        }
+        writeAssistantOperationHistory(response.data as IAssistantOperationHistoryItem[]);
+        return readAssistantOperationHistory();
+    } catch (_error) {
+        return readAssistantOperationHistory();
+    }
+};
+
 export const recordAssistantExplicitSaveHistory = (options: {
     source: TAssistantPatchSource;
     summary: string;
@@ -42,6 +64,9 @@ export const recordAssistantExplicitSaveHistory = (options: {
     sessionId?: string;
     profileId?: string;
     risk?: TAssistantPatchRisk;
+    markdown?: string;
+    notebook?: string;
+    path?: string;
 }) => {
     const noteId = `${options.noteId || ""}`.trim();
     if (!noteId) {
@@ -66,12 +91,27 @@ export const recordAssistantExplicitSaveHistory = (options: {
         }],
         createdAt: now,
     };
-    return addAssistantOperationHistory(patch, "applied", buildPatchHistoryMetadata(patch, {
+    const item = addAssistantOperationHistory(patch, "applied", buildPatchHistoryMetadata(patch, {
         sessionId: options.sessionId,
         profileId: options.profileId,
         targetId: noteId,
         targetLabel: options.targetLabel || summary,
     }));
+    if (options.markdown?.trim()) {
+        void fetchSyncPost("/api/assistant/history/recordExplicitSave", {
+            source,
+            summary,
+            noteId,
+            targetLabel: options.targetLabel || summary,
+            sessionId: options.sessionId,
+            profileId: options.profileId,
+            risk: options.risk || "L2",
+            markdown: options.markdown,
+            notebook: options.notebook,
+            path: options.path,
+        }).then(() => syncAssistantOperationHistoryFromBackend()).catch(() => undefined);
+    }
+    return item;
 };
 
 export const recordAssistantPatchHistory = (
@@ -98,8 +138,22 @@ export const recordAssistantPatchFailure = (
 
 export const rollbackAssistantOperationHistoryItem = async (id: string) => {
     const item = readAssistantOperationHistory().find((entry) => entry.id === id);
-    if (!item || item.status !== "applied") {
+    if (!item || !canRevertAssistantOperationHistoryItem(item)) {
         return false;
+    }
+    const backendHistory = !id.startsWith("history-") || !!item.operationId || !!item.operationType;
+    if (backendHistory) {
+        const backendResponse = await fetchSyncPost("/api/assistant/history/revert", {id});
+        if (backendResponse.code === 0 && backendResponse.data) {
+            await syncAssistantOperationHistoryFromBackend();
+            showMessage(assistantText("AI 写入已撤回", "AI write reverted"));
+            return true;
+        }
+        if (backendResponse.msg && !/not found|was not found/i.test(backendResponse.msg)) {
+            await syncAssistantOperationHistoryFromBackend();
+            showMessage(backendResponse.msg, 5000, "error");
+            return false;
+        }
     }
     const rollbackOps = item.patch.operations.filter(canRollbackAssistantPatchOperation);
     if (!rollbackOps.length) {
@@ -118,5 +172,21 @@ export const rollbackAssistantOperationHistoryItem = async (id: string) => {
     }
     updateAssistantOperationHistoryStatus(id, "rolled-back");
     showMessage(assistantText("AI 写入已回滚", "AI write rolled back"));
+    return true;
+};
+
+export const reapplyAssistantOperationHistoryItem = async (id: string) => {
+    const item = readAssistantOperationHistory().find((entry) => entry.id === id);
+    if (!item || !canReapplyAssistantOperationHistoryItem(item)) {
+        return false;
+    }
+    const response = await fetchSyncPost("/api/assistant/history/reapply", {id});
+    if (response.code !== 0 || !response.data) {
+        await syncAssistantOperationHistoryFromBackend();
+        showMessage(response.msg || assistantText("取消撤回失败", "Failed to reapply the AI write"), 5000, "error");
+        return false;
+    }
+    await syncAssistantOperationHistoryFromBackend();
+    showMessage(assistantText("AI 写入已重新应用", "AI write reapplied"));
     return true;
 };

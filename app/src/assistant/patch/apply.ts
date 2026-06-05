@@ -11,13 +11,20 @@ import type {ISecurityPermissionResult, TSecurityMode} from "../security/types";
 interface IAssistantPatchApplyOptions {
     securityMode?: TSecurityMode;
     onSecurityModeChange?: (mode: TSecurityMode) => Promise<void> | void;
+    audit?: {
+        sessionId?: string;
+        profileId?: string;
+        targetLabel?: string;
+    };
 }
 
 interface IAssistantPatchApplyResult {
     appliedTargetId?: string;
+    historyId?: string;
     requiresConfirm?: boolean;
     security?: ISecurityPermissionResult;
     summary?: string;
+    historyError?: string;
 }
 
 interface IAssistantPatchEscalationResult {
@@ -58,6 +65,7 @@ const requestBackendPatchApply = async (
     context: IAssistantSkillContext,
     securityMode: TSecurityMode | undefined,
     escalationToken: string,
+    audit: IAssistantPatchApplyOptions["audit"],
 ): Promise<IAssistantPatchApplyResult | null> => {
     const noteContext = buildBackendPatchContext(context);
     if (!noteContext) {
@@ -70,6 +78,7 @@ const requestBackendPatchApply = async (
         context: noteContext,
         securityMode,
         escalationToken,
+        audit,
     });
     if (response.code !== 0) {
         showMessage(response.msg || assistantText("应用修改失败，请改用复制结果。", "Failed to apply the edit. Copy the result instead."), 5000, "error");
@@ -111,7 +120,7 @@ const applyBackendPatchOperation = async (
     securityMode: TSecurityMode | undefined,
     escalationToken: string,
 ): Promise<IAssistantPatchApplyResult | null> => {
-    const result = await requestBackendPatchApply(patch, operation, context, securityMode, escalationToken);
+    const result = await requestBackendPatchApply(patch, operation, context, securityMode, escalationToken, options.audit);
     if (!result) {
         return null;
     }
@@ -162,6 +171,10 @@ export const applyAssistantPatchOperation = async (
     }
     operation.status = "accepted";
     operation.appliedTargetId = result.appliedTargetId || operation.targetId;
+    operation.historyId = result.historyId || operation.historyId;
+    if (result.historyError) {
+        showMessage(assistantText("AI 写入已完成，但历史记录失败，无法保证撤回。", "The AI write was applied, but history recording failed, so revert may be unavailable"), 7000, "error");
+    }
     invalidateAssistantNoteContextCache(context.note.rootID);
     highlightPatchTarget(context, operation.appliedTargetId || operation.targetId);
     showMessage(patch.operations.length > 1

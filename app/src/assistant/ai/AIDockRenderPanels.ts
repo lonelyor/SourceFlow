@@ -12,7 +12,7 @@ import {
 } from "./AIDockShared";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
 import {getAssistantAgentTaskProgress, readAssistantAgentTasks} from "../agent/queue";
-import {canRollbackAssistantPatchOperation} from "../history/operations";
+import {canReapplyAssistantOperationHistoryItem, canRevertAssistantOperationHistoryItem} from "../history/operations";
 import {readAssistantOperationHistory} from "../history/store";
 import {renderAssistantPatchHTML} from "../patch/format";
 
@@ -117,7 +117,8 @@ export const renderAIDockAgentPanel = (ctx: TAssistantAIDockRenderRuntime) => {
 </div>`;
     }).join("") : `<div class="assistant-ai__context-line ft__secondary">${escapeHTML(assistantText("当前没有批量 Agent 任务", "No batch Agent tasks yet"))}</div>`;
     const historyHTML = history.length ? history.slice(0, 20).map((item) => {
-        const canRollback = item.status === "applied" && item.patch.operations.some(canRollbackAssistantPatchOperation);
+        const canRevert = canRevertAssistantOperationHistoryItem(item);
+        const canReapply = canReapplyAssistantOperationHistoryItem(item);
         const metaParts = [
             item.patch.source,
             item.patch.risk,
@@ -132,7 +133,8 @@ export const renderAIDockAgentPanel = (ctx: TAssistantAIDockRenderRuntime) => {
     <div class="assistant-ai__agent-meta">${escapeHTML(metaParts.join(" · "))}</div>
     ${item.error ? `<div class="assistant-ai__agent-error">${escapeHTML(item.error)}</div>` : ""}
     <div class="assistant-ai__panel-actions">
-        ${canRollback ? `<button type="button" class="b3-button b3-button--outline b3-button--error" data-action="rollback-history" data-history-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("回滚", "Rollback"))}</button>` : ""}
+        ${canRevert ? `<button type="button" class="b3-button b3-button--outline b3-button--error" data-action="rollback-history" data-history-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("撤回", "Revert"))}</button>` : ""}
+        ${canReapply ? `<button type="button" class="b3-button b3-button--outline" data-action="reapply-history" data-history-id="${escapeAttr(item.id)}">${escapeHTML(assistantText("取消撤回", "Reapply"))}</button>` : ""}
     </div>
 </div>`;
     }).join("") : `<div class="assistant-ai__context-line ft__secondary">${escapeHTML(assistantText("当前还没有 AI 写入历史", "No AI write history yet"))}</div>`;

@@ -571,6 +571,7 @@ export const applyAIDockToolPatch = async (ctx: IAssistantAIDockRuntime, message
         const metadata = buildAIDockPatchHistoryMetadata(ctx, context);
         const securityOptions = {
             securityMode: ctx.securityMode,
+            audit: metadata,
             onSecurityModeChange: async (mode: typeof ctx.securityMode) => {
                 ctx.setSecurityMode(mode);
                 ctx.render();
@@ -675,6 +676,7 @@ export const saveAIDockTranscript = async (ctx: IAssistantAIDockRuntime) => {
             targetLabel: title,
             sessionId: session.id,
             profileId: session.profileId,
+            markdown,
         });
         showMessage(assistantText("对话已保存到笔记", "Transcript saved to a note"));
     }
@@ -698,6 +700,7 @@ export const saveAIDockAnalysis = async (ctx: IAssistantAIDockRuntime) => {
                 targetLabel: title,
                 sessionId: session.id,
                 profileId: profile.id,
+                markdown,
             });
             showMessage(assistantText("分析结果已保存到笔记", "Analysis saved to a note"));
         }

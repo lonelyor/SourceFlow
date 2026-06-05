@@ -209,6 +209,7 @@ export const runFolderAIReview = async (app: App, options: {
             summary: scopeName,
             noteId: savedID,
             targetLabel: scopeName,
+            markdown: content,
         });
         openFileById({
             app,

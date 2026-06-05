@@ -95,6 +95,8 @@ export const saveAssistantInboxItem = async (options: ISaveAssistantInboxItemOpt
         summary: title,
         noteId: id,
         targetLabel: title,
+        markdown,
+        notebook,
     });
     window.dispatchEvent(new CustomEvent("assistant-inbox-updated", {
         detail: {

@@ -3,7 +3,11 @@ import {Constants} from "../../constants";
 import {openFileById} from "../../editor/util";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
-import {rollbackAssistantOperationHistoryItem} from "../history/operations";
+import {
+    reapplyAssistantOperationHistoryItem,
+    rollbackAssistantOperationHistoryItem,
+    syncAssistantOperationHistoryFromBackend,
+} from "../history/operations";
 import {detectMentionTrigger, searchAndShowMentions, insertMentionChip} from "../mentions/trigger";
 import type {IMentionSource} from "../mentions/types";
 import type {TSecurityMode} from "../security/types";
@@ -151,7 +155,11 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     return;
                 }
                 if (action === "toggle-panel") {
-                    ctx.toggleFloatingPanel((target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel);
+                    const panel = (target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel;
+                    ctx.toggleFloatingPanel(panel);
+                    if (panel === "agent") {
+                        void syncAssistantOperationHistoryFromBackend().then(() => ctx.render());
+                    }
                     event.preventDefault();
                     return;
                 }
@@ -486,6 +494,10 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "rollback-history":
             await rollbackAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
+            ctx.render();
+            return;
+        case "reapply-history":
+            await reapplyAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
             ctx.render();
             return;
         case "pin-current-note":

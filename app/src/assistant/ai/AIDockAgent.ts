@@ -317,6 +317,7 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
         let ok = false;
         const securityOptions = {
             securityMode: ctx.securityMode,
+            audit: metadata,
             onSecurityModeChange: async (mode: typeof ctx.securityMode) => {
                 ctx.setSecurityMode(mode);
                 ctx.render();

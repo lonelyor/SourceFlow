@@ -535,6 +535,10 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/context/buildContextPack", model.CheckAuth, model.CheckAdminRole, assistantContextBuildPack)
 	ginServer.Handle("POST", "/api/assistant/patch/issueEscalation", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchIssueEscalation)
 	ginServer.Handle("POST", "/api/assistant/patch/apply", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchApply)
+	ginServer.Handle("POST", "/api/assistant/history/list", model.CheckAuth, model.CheckAdminRole, assistantHistoryList)
+	ginServer.Handle("POST", "/api/assistant/history/revert", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantHistoryRevert)
+	ginServer.Handle("POST", "/api/assistant/history/reapply", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantHistoryReapply)
+	ginServer.Handle("POST", "/api/assistant/history/recordExplicitSave", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantHistoryRecordExplicitSave)
 	ginServer.Handle("POST", "/api/assistant/inbox/create", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantInboxCreate)
 
 	ginServer.Handle("POST", "/api/assistant/security/getConfig", model.CheckAuth, model.CheckAdminRole, assistantSecurityGetConfig)
