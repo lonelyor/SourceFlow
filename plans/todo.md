@@ -7,6 +7,9 @@
 - [x] AI 助手再审计第一批低风险修复：发送/Agent 执行前解析 `@` 来源快照，保存和追加 AI Markdown 时开启 `sanitizeIDs`，修复 AI 新建笔记保存 ID 返回值误判，补齐语义搜索 loading/并发旧响应保护和结果面板刷新异常处理。
 - [x] 本轮 AI 再审计验证：`test:assistant-source-save`、`test:ai-dock-runtime`、`test:assistant-agent-history`、`test:assistant-patch-review`、`typecheck:app`、变更文件范围 eslint、Go conf 测试、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有全仓 lint 基线阻断。
 
+- [x] AI 大规模生产稳定性阶段 1：后端安全内核补齐第 4 层绕过检测第一批规则，目标范围不明确或累计影响数接近批量阈值的写风险操作必须进入人工确认。
+- [x] 本阶段验证：AI 安全 Go 目标测试、patch review、Agent/history、`typecheck:app` 和 `git diff --check` 通过。
+
 - [x] AI 对话 `context deadline exceeded` 根因定位：后端 provider 层把 profile timeout 当作流式回答总耗时上限，导致长回复被主动取消；前端普通 Dock 对话没有固定总时长截断。
 - [x] AI 流式超时修复：普通非流式请求保留总超时，流式请求改为无 provider 数据/无网络进展 idle 超时并在收到 chunk 后重置；聊天、流式聊天和编辑重发透传 Gin request context，前端取消会释放后端请求。
 - [x] 本轮 AI 超时验证：新增 OpenAI-compatible SSE 回归，目标 Go 测试、API 编译型测试、前端 typecheck、AI Dock runtime 和 `git diff --check` 均通过。
@@ -150,5 +153,5 @@
 - [x] 全局设计一致性终审小修：左侧活动栏"更多"按钮渲染到所有 rail 按钮之后，并补回归。
 - [ ] AI 助手生产级后续阶段：Agent 队列/历史迁移到后端持久审计与执行锁。
 - [ ] AI 助手后续审计项：继续评估保存复盘报告、保存到成果箱、保存聊天记录等用户显式保存命令是否需要额外审计记录；当前不纳入 AI 改写已有笔记的强制 patch 路径。
-- [ ] AI 安全后续审计项：补齐第 4 层绕过检测的独立判定模块，覆盖分批规避、组合低风险写入和模糊大范围目标。
+- [ ] AI 安全后续审计项：继续扩展第 4 层绕过检测，覆盖跨请求组合低风险写入、直接底层 API 绕过和更完整的影响范围追踪。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

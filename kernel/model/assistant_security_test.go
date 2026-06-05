@@ -116,6 +116,49 @@ func TestCheckAISecurityBatchThreshold(t *testing.T) {
 	}
 }
 
+func TestCheckAISecurityAmbiguousWriteTargetConfirms(t *testing.T) {
+	withTempAISecurityConfig(t)
+
+	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:       AISecurityModeFullAccess,
+		Risk:       AISecurityRiskL2,
+		TargetType: "note",
+		TargetIDs:  []string{},
+		Capability: AISecurityCapabilityWrite,
+	})
+	if result.Decision != AISecurityConfirm {
+		t.Errorf("ambiguous write target should confirm, got %s", result.Decision)
+	}
+	if !result.Escalatable {
+		t.Error("ambiguous write confirmation should be escalatable")
+	}
+	if result.Reason == "" {
+		t.Error("ambiguous write confirmation should explain the reason")
+	}
+}
+
+func TestCheckAISecurityNearBatchThresholdConfirms(t *testing.T) {
+	withTempAISecurityConfig(t)
+
+	result := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
+		Mode:              AISecurityModeFullAccess,
+		Risk:              AISecurityRiskL2,
+		TargetType:        "note",
+		TargetIDs:         []string{"note-1", "note-2"},
+		SessionBatchCount: AISecurityDefaultBatchThreshold - AISecurityBypassNearBatchMargin,
+		Capability:        AISecurityCapabilityWrite,
+	})
+	if result.Decision != AISecurityConfirm {
+		t.Errorf("near-threshold batched write should confirm, got %s", result.Decision)
+	}
+	if !result.Escalatable {
+		t.Error("near-threshold confirmation should be escalatable")
+	}
+	if result.Reason == "" {
+		t.Error("near-threshold confirmation should explain the reason")
+	}
+}
+
 func TestCheckAISecurityBlacklist(t *testing.T) {
 	withTempAISecurityConfig(t)
 

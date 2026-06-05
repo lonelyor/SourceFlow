@@ -76,6 +76,7 @@ var (
 const (
 	AISecurityDefaultBatchThreshold = 10
 	AISecurityMaxBatchThreshold     = 100
+	AISecurityBypassNearBatchMargin = 1
 
 	AISecurityCapabilityRead        = "read"
 	AISecurityCapabilityWrite       = "write"
@@ -344,6 +345,10 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 		}
 	}
 
+	if result := detectAISecurityBypassAttempt(cfg, risk, targetType, targetIDs, sessionBatchCount); nil != result {
+		return result
+	}
+
 	if sessionBatchCount >= cfg.BatchThreshold && isWriteRisk(risk) {
 		return &AISecurityPermissionResult{
 			Decision:      AISecurityConfirm,
@@ -579,6 +584,47 @@ func isLowRiskWhitelistMatch(whitelist []AISecurityRule, targetType string, targ
 		}
 	}
 	return true
+}
+
+func detectAISecurityBypassAttempt(cfg *AISecurityConfig, risk AISecurityRiskLevel, targetType string, targetIDs []string, sessionBatchCount int) *AISecurityPermissionResult {
+	if nil == cfg || !isWriteRisk(risk) {
+		return nil
+	}
+	if hasAmbiguousAISecurityTarget(targetType, targetIDs) {
+		return &AISecurityPermissionResult{
+			Decision:    AISecurityConfirm,
+			Reason:      "AI 写入目标范围不明确，需要人工确认影响范围",
+			Escalatable: true,
+		}
+	}
+	if isNearAISecurityBatchThreshold(cfg.BatchThreshold, sessionBatchCount) {
+		return &AISecurityPermissionResult{
+			Decision:      AISecurityConfirm,
+			Reason:        fmt.Sprintf("本次操作累计影响 %d 篇笔记，接近批量阈值 %d，疑似分批规避，需要人工确认", sessionBatchCount, cfg.BatchThreshold),
+			Escalatable:   true,
+			AffectedItems: buildAffectedItems(targetIDs, targetType),
+		}
+	}
+	return nil
+}
+
+func hasAmbiguousAISecurityTarget(targetType string, targetIDs []string) bool {
+	if 0 < len(targetIDs) {
+		return false
+	}
+	switch strings.TrimSpace(targetType) {
+	case "note", "folder", "notebook":
+		return true
+	default:
+		return false
+	}
+}
+
+func isNearAISecurityBatchThreshold(threshold int, sessionBatchCount int) bool {
+	if threshold <= 1 || sessionBatchCount <= 1 || sessionBatchCount >= threshold {
+		return false
+	}
+	return threshold-sessionBatchCount <= AISecurityBypassNearBatchMargin
 }
 
 func isInWhitelist(whitelist []AISecurityRule, targetType string, id string) bool {
