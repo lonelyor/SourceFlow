@@ -16,12 +16,22 @@ export const canRollbackAssistantPatchOperation = (operation: IAssistantPatchOpe
     return rollbackableOperationTypes.has(operation.type) && !!operation.appliedTargetId;
 };
 
+export const isBackendAssistantOperationHistoryItem = (item: IAssistantOperationHistoryItem) => {
+    return !item.id.startsWith("history-") || !!item.operationId || !!item.operationType;
+};
+
 export const canRevertAssistantOperationHistoryItem = (item: IAssistantOperationHistoryItem) => {
-    return item.status === "applied" || item.status === "reapplied";
+    if (item.status !== "applied" && item.status !== "reapplied") {
+        return false;
+    }
+    if (isBackendAssistantOperationHistoryItem(item)) {
+        return true;
+    }
+    return item.patch.operations.some(canRollbackAssistantPatchOperation);
 };
 
 export const canReapplyAssistantOperationHistoryItem = (item: IAssistantOperationHistoryItem) => {
-    return item.status === "reverted";
+    return item.status === "reverted" && isBackendAssistantOperationHistoryItem(item);
 };
 
 const buildPatchHistoryMetadata = (
@@ -141,8 +151,7 @@ export const rollbackAssistantOperationHistoryItem = async (id: string) => {
     if (!item || !canRevertAssistantOperationHistoryItem(item)) {
         return false;
     }
-    const backendHistory = !id.startsWith("history-") || !!item.operationId || !!item.operationType;
-    if (backendHistory) {
+    if (isBackendAssistantOperationHistoryItem(item)) {
         const backendResponse = await fetchSyncPost("/api/assistant/history/revert", {id});
         if (backendResponse.code === 0 && backendResponse.data) {
             await syncAssistantOperationHistoryFromBackend();

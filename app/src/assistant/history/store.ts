@@ -97,7 +97,6 @@ export const writeAssistantOperationHistory = (items: IAssistantOperationHistory
     }
 };
 
-
 export const addAssistantOperationHistory = (
     patch: IAssistantEditPatch,
     status: TAssistantOperationHistoryStatus = "applied",

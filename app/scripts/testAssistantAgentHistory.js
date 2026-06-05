@@ -158,6 +158,43 @@ assert.strictEqual(historyItem.profileId, "profile-1");
 assert.strictEqual(historyItem.targetLabel, "目标笔记");
 assert.strictEqual(historyItem.results[0].appliedTargetId, "inserted-block");
 assert.strictEqual(historyStore.readAssistantOperationHistory().length, 1);
+assert.strictEqual(operations.canRevertAssistantOperationHistoryItem(historyItem), true);
+
+const localReplaceHistoryItem = {
+    id: "history-local-replace",
+    patch: {
+        id: "patch-replace",
+        source: "skill",
+        target: "block",
+        risk: "L3",
+        summary: "替换内容",
+        operations: [{
+            id: "op-replace",
+            type: "replace-block",
+            targetId: "block-1",
+            status: "accepted",
+        }],
+        createdAt: Date.now(),
+    },
+    status: "applied",
+    source: "skill",
+    risk: "L3",
+    results: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+};
+assert.strictEqual(operations.canRevertAssistantOperationHistoryItem(localReplaceHistoryItem), false);
+assert.strictEqual(operations.canReapplyAssistantOperationHistoryItem({
+    ...localReplaceHistoryItem,
+    status: "reverted",
+}), false);
+assert.strictEqual(operations.canReapplyAssistantOperationHistoryItem({
+    ...localReplaceHistoryItem,
+    id: "aihist-reverted",
+    status: "reverted",
+    operationId: "op-1",
+    operationType: "replace-block",
+}), true);
 
 const failureItem = operations.recordAssistantPatchFailure(patch, "写入失败", {targetLabel: "失败目标"});
 assert.strictEqual(failureItem.status, "failed");

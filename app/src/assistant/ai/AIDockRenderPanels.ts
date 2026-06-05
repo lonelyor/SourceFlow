@@ -16,6 +16,44 @@ import {canReapplyAssistantOperationHistoryItem, canRevertAssistantOperationHist
 import {readAssistantOperationHistory} from "../history/store";
 import {renderAssistantPatchHTML} from "../patch/format";
 
+const getAssistantHistoryStatusLabel = (status: string) => {
+    switch (status) {
+        case "applied":
+            return assistantText("已写入", "Applied");
+        case "reverted":
+            return assistantText("已撤回", "Reverted");
+        case "reapplied":
+            return assistantText("已取消撤回", "Reapplied");
+        case "failed":
+            return assistantText("失败", "Failed");
+        case "revert-failed":
+            return assistantText("撤回失败", "Revert failed");
+        case "reapply-failed":
+            return assistantText("取消撤回失败", "Reapply failed");
+        case "rolled-back":
+            return assistantText("已回滚", "Rolled back");
+        default:
+            return status;
+    }
+};
+
+const getAssistantHistorySourceLabel = (source: string) => {
+    switch (source) {
+        case "agent":
+            return assistantText("Agent", "Agent");
+        case "dock":
+            return assistantText("对话", "Chat");
+        case "inline":
+            return assistantText("内联", "Inline");
+        case "skill":
+            return assistantText("技能", "Skill");
+        case "tool":
+            return assistantText("工具", "Tool");
+        default:
+            return source;
+    }
+};
+
 export const renderAIDockFloatingPanel = (ctx: TAssistantAIDockRenderRuntime) => {
     if (!ctx.activePanel) {
         return "";
@@ -120,15 +158,15 @@ export const renderAIDockAgentPanel = (ctx: TAssistantAIDockRenderRuntime) => {
         const canRevert = canRevertAssistantOperationHistoryItem(item);
         const canReapply = canReapplyAssistantOperationHistoryItem(item);
         const metaParts = [
-            item.patch.source,
-            item.patch.risk,
+            getAssistantHistorySourceLabel(item.patch.source || item.source || ""),
+            getToolRiskLabel(item.patch.risk || item.risk || ""),
             item.targetLabel || item.targetId || "",
-            new Date(item.createdAt).toLocaleString(),
+            formatDateTime(item.createdAt),
         ].filter(Boolean);
         return `<div class="assistant-ai__agent-item">
     <div class="assistant-ai__agent-head">
         <span class="assistant-ai__agent-title">${escapeHTML(item.patch.summary || assistantText("AI 修改", "AI edit"))}</span>
-        <span class="b3-chip b3-chip--small">${escapeHTML(item.status)}</span>
+        <span class="b3-chip b3-chip--small">${escapeHTML(getAssistantHistoryStatusLabel(item.status))}</span>
     </div>
     <div class="assistant-ai__agent-meta">${escapeHTML(metaParts.join(" · "))}</div>
     ${item.error ? `<div class="assistant-ai__agent-error">${escapeHTML(item.error)}</div>` : ""}
