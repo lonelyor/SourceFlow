@@ -243,6 +243,9 @@ class AssistantResultsDock {
                     };
                 })
                 .sort((left: IAssistantResultCard, right: IAssistantResultCard) => (right.item.capturedTs || right.item.updatedAt || 0) - (left.item.capturedTs || left.item.updatedAt || 0));
+        } catch (error) {
+            this.items = [];
+            showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
         } finally {
             this.loading = false;
             this.render();

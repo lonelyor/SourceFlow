@@ -4,6 +4,9 @@
 
 ## 本轮
 
+- [x] AI 助手再审计第一批低风险修复：发送/Agent 执行前解析 `@` 来源快照，保存和追加 AI Markdown 时开启 `sanitizeIDs`，修复 AI 新建笔记保存 ID 返回值误判，补齐语义搜索 loading/并发旧响应保护和结果面板刷新异常处理。
+- [x] 本轮 AI 再审计验证：`test:assistant-source-save`、`test:ai-dock-runtime`、`test:assistant-agent-history`、`test:assistant-patch-review`、`typecheck:app`、变更文件范围 eslint、Go conf 测试、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有全仓 lint 基线阻断。
+
 - [x] AI 对话 `context deadline exceeded` 根因定位：后端 provider 层把 profile timeout 当作流式回答总耗时上限，导致长回复被主动取消；前端普通 Dock 对话没有固定总时长截断。
 - [x] AI 流式超时修复：普通非流式请求保留总超时，流式请求改为无 provider 数据/无网络进展 idle 超时并在收到 chunk 后重置；聊天、流式聊天和编辑重发透传 Gin request context，前端取消会释放后端请求。
 - [x] 本轮 AI 超时验证：新增 OpenAI-compatible SSE 回归，目标 Go 测试、API 编译型测试、前端 typecheck、AI Dock runtime 和 `git diff --check` 均通过。

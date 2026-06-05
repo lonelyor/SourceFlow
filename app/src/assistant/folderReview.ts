@@ -194,6 +194,7 @@ export const runFolderAIReview = async (app: App, options: {
             path: reportPath,
             markdown: content,
             tags: "ai,review",
+            sanitizeIDs: true,
         });
         if (saveResponse.code !== 0) {
             throw new Error(saveResponse.msg || folderReviewText("保存复盘报告失败", "Failed to save the review note"));

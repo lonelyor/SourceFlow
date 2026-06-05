@@ -13,7 +13,7 @@ import {
     streamAssistantAI,
 } from "./api";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
-import {buildIncludedContextText, buildSourceCitationsFromMentionSources, cloneMentionSources} from "../mentions/contextBuilder";
+import {buildIncludedContextText, buildSourceCitationsFromMentionSources, cloneMentionSources, resolveSourcesForPrompt} from "../mentions/contextBuilder";
 import {
     assistantAIComposerAttachmentLimit,
     assistantAIComposerAttachmentMaxBytes,
@@ -310,7 +310,18 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     const previousMessages = ctx.messages.slice();
     const messagePreview = ctx.buildUserMessagePreview(message, attachments) || assistantText("图片消息", "Image message");
     const sourcesSnapshot = cloneMentionSources(ctx.sources);
-    const sourceCitations = buildSourceCitationsFromMentionSources(sourcesSnapshot);
+    ctx.sending = true;
+    ctx.render();
+    let resolvedSourcesSnapshot = sourcesSnapshot;
+    try {
+        resolvedSourcesSnapshot = await resolveSourcesForPrompt(sourcesSnapshot, ctx.securityMode);
+    } catch (error) {
+        ctx.sending = false;
+        ctx.render();
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        return;
+    }
+    const sourceCitations = buildSourceCitationsFromMentionSources(resolvedSourcesSnapshot);
     const messageMetadata: Record<string, unknown> = {};
     if (attachments.length) {
         messageMetadata.attachments = attachments.map((item) => ({...item}));
@@ -353,7 +364,6 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     } else {
         ctx.messages = [...ctx.messages, optimisticUser, optimisticAssistant];
     }
-    ctx.sending = true;
     ctx.render();
     ctx.scrollToBottom();
     try {
@@ -365,8 +375,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
                 system = buildAssistantNoteContext(currentNote);
             }
         }
-        if (sourcesSnapshot.length) {
-            const sourceContext = buildIncludedContextText(sourcesSnapshot);
+        if (resolvedSourcesSnapshot.length) {
+            const sourceContext = buildIncludedContextText(resolvedSourcesSnapshot);
             if (sourceContext) {
                 const sourceBlock = `\n\n---\n${assistantText(
                 "用户引用了以下来源，回答时请基于这些来源，并在相关段落末尾标注来源笔记标题（格式：[📄 笔记标题]）：",
