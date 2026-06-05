@@ -109,6 +109,11 @@ import {getAVViewAttr, getFullWidthAttr} from "../../../util/attrCompat";
 
 import {emojiToMd, escapeInline, setEmptyOutline} from "../helpers";
 import type {WYSIWYGEditorEventState, WYSIWYGEventContext} from "../shared";
+import {
+    canWriteInternalSourceFlowClipboard,
+    resolveSelectionScope,
+    sanitizeStandardClipboardHTML
+} from "../../util/selectionScope";
 
 export const registerCutEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle, state: WYSIWYGEditorEventState) => {
         wysiwyg.element.addEventListener("cut", async (event: ClipboardEvent & { target: HTMLElement }) => {
@@ -147,6 +152,7 @@ export const registerCutEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle
                 nodeElement.classList.add("protyle-wysiwyg--select");
                 selectElements = [nodeElement];
             }
+            const clipboardSelectionScope = resolveSelectionScope(range, protyle.wysiwyg.element);
             let html = "";
             let textPlain = "";
             let isInCodeBlock = false;
@@ -380,8 +386,14 @@ export const registerCutEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle
                 enableLuteMarkdownSyntax(protyle);
                 const textSourceFlow = selectTableElement ? protyle.lute.HTML2BlockDOM(html) : html;
                 restoreLuteMarkdownSyntax(protyle);
-                event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
-                const textHTML = appendSourceFlowClipboardHTMLComment(textSourceFlow, removeZWJ(selectTableElement ? html : protyle.lute.BlockDOM2HTML(selectAVElement ? textPlain : html)));
+                const sourceFlowTemplate = document.createElement("template");
+                sourceFlowTemplate.innerHTML = textSourceFlow;
+                const canWriteSourceFlowHTML = canWriteInternalSourceFlowClipboard(clipboardSelectionScope, sourceFlowTemplate.content);
+                const standardHTML = sanitizeStandardClipboardHTML(removeZWJ(selectTableElement ? html : protyle.lute.BlockDOM2HTML(selectAVElement ? textPlain : html)));
+                const textHTML = canWriteSourceFlowHTML ? appendSourceFlowClipboardHTMLComment(textSourceFlow, standardHTML) : standardHTML;
+                if (canWriteSourceFlowHTML) {
+                    event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
+                }
                 event.clipboardData.setData("text/html", textHTML);
                 if (needClipboardWrite) {
                     try {

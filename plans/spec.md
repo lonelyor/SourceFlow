@@ -154,6 +154,7 @@
 - 单块 inline 粘贴只能修改一个块；`insertHTML()` 等 inline 路径在执行 `range.deleteContents()` 前必须确认 selection 未跨块。
 - 普通跨块文本选区不得走单块 `update` 事务；必须自动生成覆盖受影响块的多块文本事务，无法证明结构安全时自动降级为纯文本流事务，不向用户暴露块边界或失败提示。
 - 跨块文本替换必须在 detached DOM 中构造覆盖所有受影响块的原子事务，不得先修改真实 DOM 再推导事务。
+- 当前实现以 `protyle/util/selectionScope.ts` 作为选择范围唯一判定入口，以 `protyle/util/multiBlockPaste.ts` 处理跨块普通文本替换；同父级普通段落/标题生成原子多块事务，复杂结构半选区会自动折叠到起始安全落点再执行普通插入，避免半删除表格、数据库视图、代码块、HTML 块或资源块。
 
 ## 文档树拖拽
 

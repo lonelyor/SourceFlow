@@ -272,6 +272,10 @@ const runProtyleBlockDOMPreservationTest = () => {
     return runNodeScript("testProtyleBlockDOMPreservation.js");
 };
 
+const runProtylePasteSelectionSafetyTest = () => {
+    return runNodeScript("testProtylePasteSelectionSafety.js");
+};
+
 const runTypecheck = (targetName) => {
     const tempDir = fs.mkdtempSync(path.join(appRoot, `.typecheck-${targetName}-`));
     const tempSrcDir = path.join(tempDir, "src");
@@ -495,6 +499,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] protyle block dom preservation");
 exitCode = runProtyleBlockDOMPreservationTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] protyle paste selection safety");
+exitCode = runProtylePasteSelectionSafetyTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

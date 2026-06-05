@@ -20,6 +20,7 @@ import {base64ToURL} from "../../util/image";
 import {resolveLinkDest, genLinkText} from "../toolbar/util";
 import {MindmapAttr} from "../render/mindmapConstants";
 import {genIconHTML} from "../render/util";
+import {resolveSelectionScope} from "./selectionScope";
 
 const getMindElixirPlainText = (blockElement: HTMLElement) => {
     return blockElement.getAttribute(MindmapAttr.index) || window.sourceflow.languages.mindmap;
@@ -40,6 +41,15 @@ const renderPastedBlocks = (protyle: IProtyle) => {
 const buildHTMLBlock = (sanitizedHTML: string) => {
     const id = Lute.NewNodeID();
     return `<div data-node-id="${id}" data-type="NodeHTMLBlock" class="render-node" data-subtype="block" updated="${id.substring(0, 14)}">${genIconHTML()}<div><protyle-html data-content="${Lute.EscapeHTMLStr(sanitizedHTML)}"></protyle-html><span style="position: absolute">${Constants.ZWSP}</span></div><div class="protyle-attr" contenteditable="false">${Constants.ZWSP}</div></div>`;
+};
+
+const containsBlockDOM = (html: string) => {
+    if (!html) {
+        return false;
+    }
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    return !!template.content.querySelector("[data-node-id]");
 };
 
 const waitForSnapshotReady = async (element: HTMLElement) => {
@@ -534,6 +544,12 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
     });
     const code = htmlPasteMode === "smart" ? processPasteCode(textHTML, textPlain, originalTextHTML, protyle) : "";
     const range = getEditorRange(protyle.wysiwyg.element);
+    const pasteScope = resolveSelectionScope(range, protyle.wysiwyg.element);
+    if (sourceflowHTML && containsBlockDOM(sourceflowHTML) &&
+        !pasteScope.isExplicitBlockSelection &&
+        ["single-block-text", "multi-block-text"].includes(pasteScope.kind)) {
+        sourceflowHTML = "";
+    }
     if (nodeElement.getAttribute("data-type") === "NodeCodeBlock" ||
         protyle.toolbar.getCurrentType(range).includes("code")) {
         // https://github.com/lonelyor/SourceFlow/issues/13552

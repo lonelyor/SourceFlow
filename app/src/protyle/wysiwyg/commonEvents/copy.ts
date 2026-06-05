@@ -109,6 +109,11 @@ import {getAVViewAttr, getFullWidthAttr} from "../../../util/attrCompat";
 
 import {emojiToMd} from "../helpers";
 import type {WYSIWYGEventContext} from "../shared";
+import {
+    canWriteInternalSourceFlowClipboard,
+    resolveSelectionScope,
+    sanitizeStandardClipboardHTML
+} from "../../util/selectionScope";
 
 export const registerCopyEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle) => {
         wysiwyg.element.addEventListener("copy", async (event: ClipboardEvent & { target: HTMLElement }) => {
@@ -341,9 +346,16 @@ export const registerCopyEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyl
             if (!isInCodeBlock) {
                 enableLuteMarkdownSyntax(protyle);
                 const textSourceFlow = selectTableElement ? protyle.lute.HTML2BlockDOM(html) : html;
-                event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
                 restoreLuteMarkdownSyntax(protyle);
-                const textHTML = appendSourceFlowClipboardHTMLComment(textSourceFlow, removeZWJ(selectTableElement ? html : protyle.lute.BlockDOM2HTML(selectAVElement ? textPlain : html)));
+                const sourceFlowTemplate = document.createElement("template");
+                sourceFlowTemplate.innerHTML = textSourceFlow;
+                const selectionScope = resolveSelectionScope(range, protyle.wysiwyg.element);
+                const canWriteSourceFlowHTML = canWriteInternalSourceFlowClipboard(selectionScope, sourceFlowTemplate.content);
+                const standardHTML = sanitizeStandardClipboardHTML(removeZWJ(selectTableElement ? html : protyle.lute.BlockDOM2HTML(selectAVElement ? textPlain : html)));
+                const textHTML = canWriteSourceFlowHTML ? appendSourceFlowClipboardHTMLComment(textSourceFlow, standardHTML) : standardHTML;
+                if (canWriteSourceFlowHTML) {
+                    event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
+                }
                 event.clipboardData.setData("text/html", textHTML);
                 if (needClipboardWrite) {
                     try {

@@ -65,6 +65,7 @@
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:editor-structure-guide": "node ./scripts/testEditorStructureGuide.js",
     "test:editor-structure-guide-bugfix": "node ./scripts/testStructureGuideBugfix.js",
+    "test:protyle-paste-selection-safety": "node ./scripts/testProtylePasteSelectionSafety.js",
     "test:protyle-blockdom-preservation": "node ./scripts/testProtyleBlockDOMPreservation.js",
     "test:file-tree-appearance-settings": "node ./scripts/testFileTreeAppearanceSettings.js",
     "test:workbench-stability": "node ./scripts/testWorkbenchStability.js",
