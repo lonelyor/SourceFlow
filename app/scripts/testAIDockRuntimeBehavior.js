@@ -166,6 +166,9 @@ const createRuntime = () => {
         noteSearchResults: [],
         noteSearchLoading: false,
         selectedProfileId: "",
+        conversationMode: "chat",
+        activeRequestController: null,
+        userStoppedGenerating: false,
         messages: [],
         sources: [],
         sourcesPanelVisible: false,
@@ -189,6 +192,8 @@ const createRuntime = () => {
         deleteSessionCalls: [],
         setSessionPinnedCalls: [],
         sendMessageCalls: [],
+        stopGeneratingCalls: [],
+        setConversationModeCalls: [],
         clearEditingMessageCalls: [],
         startEditingMessageCalls: [],
         addComposerAttachmentsCalls: [],
@@ -253,6 +258,13 @@ const createRuntime = () => {
         },
         async sendMessage() {
             this.sendMessageCalls.push(1);
+        },
+        stopGenerating() {
+            this.stopGeneratingCalls.push(1);
+        },
+        setConversationMode(mode) {
+            this.conversationMode = mode;
+            this.setConversationModeCalls.push(mode);
         },
         clearEditingMessage(restore) {
             this.clearEditingMessageCalls.push(restore);
@@ -377,6 +389,17 @@ const createFakeKeyboardEvent = (target, key) => ({
     assert.deepStrictEqual(rt2.startAgentCalls, [1]);
 
     rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "set-conversation-mode", "data-mode": "ask"}),
+    ));
+    assert.deepStrictEqual(rt2.setConversationModeCalls, ["ask"]);
+    assert.strictEqual(rt2.conversationMode, "ask");
+
+    rt2.element.dispatch("click", createFakeClickEvent(
+        new FakeInputElement({"data-action": "stop-message"}),
+    ));
+    assert.deepStrictEqual(rt2.stopGeneratingCalls, [1]);
+
+    rt2.element.dispatch("click", createFakeClickEvent(
         new FakeInputElement({"data-action": "resume-agent-task", "data-task-id": "task-1"}),
     ));
     assert.deepStrictEqual(rt2.runAgentTaskCalls, ["task-1"]);
@@ -450,6 +473,13 @@ const createFakeKeyboardEvent = (target, key) => ({
         "Escape",
     ));
     assert.deepStrictEqual(rt6.clearEditingMessageCalls, []);
+
+    rt6.sending = true;
+    rt6.element.dispatch("keydown", createFakeKeyboardEvent(
+        new FakeTextAreaElement({"data-role": "message"}),
+        "Escape",
+    ));
+    assert.deepStrictEqual(rt6.stopGeneratingCalls, [1]);
 
     // --- 图片附件测试 ---
 

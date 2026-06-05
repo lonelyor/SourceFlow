@@ -6,6 +6,7 @@ import {nl2br, truncateText} from "../common/dom";
 import {
     analyzeAssistantAISession,
     confirmAssistantAITool,
+    createAssistantAISession,
     editAssistantAIMessageStream,
     IAssistantAIInputAttachment,
     IAssistantAINoteContext,
@@ -297,11 +298,15 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     if ((!message && !attachments.length) || ctx.sending) {
         return;
     }
+    const requestController = new AbortController();
+    ctx.activeRequestController = requestController;
+    ctx.userStoppedGenerating = false;
     const editingMessageId = ctx.editingMessageId;
     const editingMessage = editingMessageId ? ctx.getMessageById(editingMessageId) : null;
     const isEditing = !!editingMessage;
-    const session = ctx.getSelectedSession();
+    let session = ctx.getSelectedSession();
     if (isEditing && (!session || !editingMessage)) {
+        ctx.activeRequestController = null;
         ctx.clearEditingMessage(false);
         ctx.render();
         showMessage(assistantText("原始消息不存在，无法编辑", "The original message is no longer available to edit"), 5000, "error");
@@ -315,8 +320,40 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     let resolvedSourcesSnapshot = sourcesSnapshot;
     try {
         resolvedSourcesSnapshot = await resolveSourcesForPrompt(sourcesSnapshot, ctx.securityMode);
+        if (requestController.signal.aborted) {
+            ctx.sending = false;
+            ctx.activeRequestController = null;
+            ctx.userStoppedGenerating = false;
+            ctx.render();
+            return;
+        }
+        if (!session && !isEditing) {
+            session = await createAssistantAISession(
+                profile.id,
+                ctx.conversationMode,
+                truncateText(messagePreview, 30) || assistantText("新对话", "New Chat"),
+            );
+            ctx.selectedSessionId = session.id;
+            ctx.selectedProfileId = profile.id;
+            ctx.upsertSession(session);
+        }
+        if (requestController.signal.aborted) {
+            ctx.sending = false;
+            ctx.activeRequestController = null;
+            ctx.userStoppedGenerating = false;
+            ctx.render();
+            return;
+        }
     } catch (error) {
         ctx.sending = false;
+        ctx.activeRequestController = null;
+        if (ctx.userStoppedGenerating && requestController.signal.aborted) {
+            ctx.userStoppedGenerating = false;
+            ctx.render();
+            showMessage(assistantText("已停止生成", "Generation stopped"));
+            return;
+        }
+        ctx.userStoppedGenerating = false;
         ctx.render();
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
         return;
@@ -366,6 +403,14 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     }
     ctx.render();
     ctx.scrollToBottom();
+    let partialReply = "";
+    let previewTimer = 0;
+    const flushOptimisticReply = () => {
+        previewTimer = 0;
+        optimisticAssistant.content = partialReply;
+        ctx.updateMessageContent(optimisticAssistant.id, partialReply || assistantText("正在处理...", "Thinking..."));
+        ctx.scrollToBottom();
+    };
     try {
         let currentNote = null;
         let system = "";
@@ -385,20 +430,12 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
                 system += sourceBlock;
             }
         }
-        let partialReply = "";
-        let previewTimer = 0;
-        const flushOptimisticReply = () => {
-            previewTimer = 0;
-            optimisticAssistant.content = partialReply;
-            ctx.updateMessageContent(optimisticAssistant.id, partialReply || assistantText("正在处理...", "Thinking..."));
-            ctx.scrollToBottom();
-        };
         const payload = {
             profileId: session?.profileId || profile.id,
             sessionId: session?.id,
             message,
             system,
-            enableTools: ctx.enableTools,
+            enableTools: ctx.conversationMode === "ask" ? false : ctx.enableTools,
             securityMode: ctx.securityMode,
             context: currentNote,
             attachments,
@@ -410,6 +447,7 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
                 sessionId: session!.id,
                 messageId: editingMessageId,
             }, {
+                signal: requestController.signal,
                 onDelta: (delta) => {
                     partialReply += delta;
                     if (!previewTimer) {
@@ -419,9 +457,10 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             })
             : streamAssistantAI({
                 ...payload,
-                mode: "chat",
+                mode: ctx.conversationMode,
                 title: session?.title || truncateText(messagePreview, 30) || assistantText("新对话", "New Chat"),
             }, {
+                signal: requestController.signal,
                 onDelta: (delta) => {
                     partialReply += delta;
                     if (!previewTimer) {
@@ -444,6 +483,27 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         await ctx.refreshAudits();
         ctx.render();
     } catch (error) {
+        const stoppedByUser = ctx.userStoppedGenerating && requestController.signal.aborted;
+        if (stoppedByUser) {
+            if (previewTimer) {
+                window.clearTimeout(previewTimer);
+                flushOptimisticReply();
+            }
+            const stoppedContent = partialReply.trim() || assistantText("已停止生成。", "Generation stopped.");
+            ctx.messages = ctx.messages.map((item) => {
+                if (item.id !== optimisticAssistant.id) {
+                    return item;
+                }
+                return {
+                    ...item,
+                    content: stoppedContent,
+                    localPending: false,
+                    localStopped: true,
+                };
+            });
+            showMessage(assistantText("已停止生成", "Generation stopped"));
+            return;
+        }
         const errorText = error instanceof Error ? error.message : String(error);
         ctx.draftMessage = message;
         ctx.attachments = attachments;
@@ -468,6 +528,10 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
     } finally {
         ctx.sending = false;
+        if (ctx.activeRequestController === requestController) {
+            ctx.activeRequestController = null;
+        }
+        ctx.userStoppedGenerating = false;
         ctx.render();
         ctx.scrollToBottom();
     }

@@ -46,9 +46,42 @@ import {writeText} from "../../protyle/util/compatibility";
 export type TAssistantAIMessageItem = IAssistantAIMessage & {
     localPending?: boolean;
     localError?: boolean;
+    localStopped?: boolean;
 };
 
 export type TAssistantAIFloatingPanel = "" | "target" | "context" | "audit" | "profiles" | "tools" | "session" | "agent";
+export type TAssistantAIConversationMode = "ask" | "chat" | "agent";
+
+export const normalizeAssistantAIConversationMode = (mode: string | null | undefined): TAssistantAIConversationMode => {
+    if (mode === "ask" || mode === "agent") {
+        return mode;
+    }
+    return "chat";
+};
+
+export const getAssistantAIConversationModeLabel = (mode: TAssistantAIConversationMode) => {
+    switch (mode) {
+        case "ask":
+            return assistantText("问 AI", "Ask AI");
+        case "agent":
+            return assistantText("Agent", "Agent");
+        case "chat":
+        default:
+            return assistantText("连续对话", "Chat");
+    }
+};
+
+export const getAssistantAIConversationModeHint = (mode: TAssistantAIConversationMode) => {
+    switch (mode) {
+        case "ask":
+            return assistantText("只读问答，默认不启用写入工具。", "Read-only Q&A. Write tools stay off by default.");
+        case "agent":
+            return assistantText("批量任务、逐项审阅和可回滚写入。", "Batch tasks, item review, and reversible writes.");
+        case "chat":
+        default:
+            return assistantText("保留上下文和历史，适合多轮追问。", "Keeps context and history for follow-up chat.");
+    }
+};
 
 export const assistantAIToolReadScopeOptions = [
     {value: "current-note", label: assistantText("当前笔记", "Current note")},

@@ -1,7 +1,7 @@
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, providerDisplayName} from "../common/dom";
 import {IAssistantAISession} from "./api";
-import {getToolTargetLabel} from "./AIDockShared";
+import {getAssistantAIConversationModeLabel, getToolTargetLabel} from "./AIDockShared";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
 
 export const getAIDockTargetSummary = (ctx: TAssistantAIDockRenderRuntime) => {
@@ -174,5 +174,5 @@ export const renderAIDockToolSummary = (ctx: TAssistantAIDockRenderRuntime) => {
     }).length;
     const toolSummary = `${ctx.enableTools ? assistantText("能力", "Tools") : assistantText("能力关闭", "Tools off")} ${enabledCount}/${ctx.toolCatalog.length}`;
     const scopeSummary = `${getToolTargetLabel(ctx.toolPolicy.readScope)} / ${getToolTargetLabel(ctx.toolPolicy.writeScope)}`;
-    return escapeHTML(`${providerSummary} · ${toolSummary} · ${scopeSummary}`);
+    return escapeHTML(`${getAssistantAIConversationModeLabel(ctx.conversationMode)} · ${providerSummary} · ${toolSummary} · ${scopeSummary}`);
 };

@@ -154,6 +154,14 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     ctx.render();
                     return;
                 }
+                if (action === "set-conversation-mode") {
+                    const mode = target.getAttribute("data-mode");
+                    if (mode === "ask" || mode === "chat" || mode === "agent") {
+                        ctx.setConversationMode(mode);
+                    }
+                    event.preventDefault();
+                    return;
+                }
                 if (action === "toggle-panel") {
                     const panel = (target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel;
                     ctx.toggleFloatingPanel(panel);
@@ -291,6 +299,10 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
         }
         if (target.getAttribute("data-role") === "message" && event.key === "Escape") {
             event.preventDefault();
+            if (ctx.sending) {
+                ctx.stopGenerating();
+                return;
+            }
             if (ctx.editingMessageId) {
                 ctx.clearEditingMessage(true);
                 ctx.render();
@@ -537,6 +549,9 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "send-message":
             await ctx.sendMessage();
+            return;
+        case "stop-message":
+            ctx.stopGenerating();
             return;
         default:
             return;

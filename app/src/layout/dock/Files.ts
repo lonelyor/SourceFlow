@@ -1492,6 +1492,7 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
                             : (window.sourceflow.config.lang === "zh_CN" ? "分析当前笔记本" : "Analyze current notebook"),
                         pinCurrentNote: false,
                         includeCurrentNote: false,
+                        mode: "ask",
                     });
                 });
             }

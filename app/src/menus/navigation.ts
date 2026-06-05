@@ -66,6 +66,7 @@ const openDocTreeAIDock = (options: {
         openAssistantAIDock({
             message: `@${title} `,
             includeCurrentNote: false,
+            mode: "ask",
             sources: [source],
         });
     });

@@ -1,10 +1,14 @@
 import {MenuItem} from "../../menus/Menu";
+import {showMessage} from "../../dialog/message";
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML} from "../common/dom";
+import {getNoteContextFromProtyle} from "../common/note";
+import {buildMentionSourcesFromNoteContext} from "../common/source";
 import {runAssistantFeature} from "../runtime";
 
 const loadAssistantSkillModule = () => import("./execute");
 const loadAssistantInlineModule = () => import("../inline/commands");
+const loadAssistantAIDockModule = () => import("../ai/AIDock");
 
 interface IAppendAssistantContextActionsOptions {
     protyle: IProtyle;
@@ -29,7 +33,10 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
     <div class="assistant-context-actions__row">${buttonsHTML}</div>
 </div>`;
     };
-    const noteButtons = [
+    const noteButtonItems: Array<{skillId?: string; action?: string; label: string}> = [
+        {skillId: "ask-ai", label: assistantText("问 AI", "Ask AI")},
+        {action: "add-to-current-chat", label: assistantText("加入当前对话", "Add to Chat")},
+        {action: "start-new-chat", label: assistantText("开启新对话", "New Chat")},
         {skillId: "note-create", label: assistantText("创作", "Create")},
         {skillId: "note-continue-writing", label: assistantText("续写", "Continue")},
         {skillId: "note-summarize", label: assistantText("总结", "Summarize")},
@@ -38,8 +45,8 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
         {skillId: "note-qa", label: assistantText("问答", "Q&A")},
         {skillId: "note-translate-mixed", label: assistantText("全文翻译", "Full Translate")},
         {skillId: "note-batch-instruct", label: assistantText("批量指令", "Batch")},
-        {skillId: "ask-ai", label: assistantText("问 AI", "Ask AI")},
-    ].map((item) => `<button class="assistant-context-actions__button" type="button" data-skill-id="${escapeAttr(item.skillId)}">${escapeHTML(item.label)}</button>`).join("");
+    ];
+    const noteButtons = noteButtonItems.map((item) => `<button class="assistant-context-actions__button" type="button"${item.skillId ? ` data-skill-id="${escapeAttr(item.skillId)}"` : ""}${item.action ? ` data-action="${escapeAttr(item.action)}"` : ""}>${escapeHTML(item.label)}</button>`).join("");
     const selectionButtons = hasSelection ? [
         {skillId: "", action: "inline-instruction", label: assistantText("内联指令", "Inline")},
         {skillId: "selection-summarize", label: assistantText("总结为笔记", "Summarize")},
@@ -80,6 +87,25 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
                                 range: options.range,
                                 fallbackSelectionText: options.fallbackSelectionText,
                             });
+                        });
+                        window.sourceflow.menus.menu.remove();
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return;
+                    }
+                    if (action === "add-to-current-chat" || action === "start-new-chat") {
+                        void getNoteContextFromProtyle(options.protyle, options.range, options.fallbackSelectionText || "").then((note) => {
+                            const sources = buildMentionSourcesFromNoteContext(note);
+                            runAssistantFeature(`context-actions:${action}`, loadAssistantAIDockModule, ({openAssistantAIDock}) => {
+                                openAssistantAIDock({
+                                    includeCurrentNote: false,
+                                    mode: "chat",
+                                    newSession: action === "start-new-chat",
+                                    sources,
+                                });
+                            });
+                        }).catch((error) => {
+                            showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
                         });
                         window.sourceflow.menus.menu.remove();
                         event.preventDefault();

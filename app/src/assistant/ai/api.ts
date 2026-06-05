@@ -341,7 +341,7 @@ export const streamAssistantAI = async (payload: {
         throw new Error(`Assistant API request failed with status ${response.status}`);
     }
     if (!response.body) {
-        return chatAssistantAI(payload);
+        return chatAssistantAI(payload, {signal: options?.signal});
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -437,7 +437,7 @@ export const editAssistantAIMessageStream = async (payload: {
         throw new Error(`Assistant AI edit request failed with status ${response.status}`);
     }
     if (!response.body) {
-        const data = ensureOK(await fetchSyncPost("/api/assistant/ai/message/edit/stream", payload)) as IAssistantAIChatResult;
+        const data = ensureOK(await fetchSyncPost("/api/assistant/ai/message/edit/stream", payload, {signal: options?.signal})) as IAssistantAIChatResult;
         return {
             ...data,
             messages: ensureArray(data?.messages),

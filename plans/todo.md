@@ -4,6 +4,10 @@
 
 ## 本轮
 
+- [x] AI 助手 Kilo 式 Dock 交互：不新增问答浮层，复用现有 AI Dock，同一来源面板、消息、权限和审计真相源，补齐 `ask/chat/agent` 模式状态。
+- [x] AI 普通对话停止生成：Dock 发送和编辑重生成使用 `AbortController`，UI 提供停止入口，用户主动停止保留部分回答且不按失败处理。
+- [x] `问 AI` 入口收敛：现有 `ask-ai` skill、右键/选区入口打开 AI Dock 并切到只读 `ask` 模式；`加入当前对话`/`开启新对话` 复用来源面板，不自动写入笔记。
+
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 
 - [x] 全量前端 lint 阻断修复：ESLint flat config 忽略 `build-*/**` 等平台打包产物目录，`pnpm --dir app run lint` 已通过；剩余 unused warning 保持为历史基线。
