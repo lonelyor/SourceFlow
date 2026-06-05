@@ -1,7 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {fetchSyncPost} from "../../util/fetch";
 import {assistantText} from "../constants";
-import type {IAssistantEditPatch, IAssistantPatchOperation} from "../patch/types";
+import type {IAssistantEditPatch, IAssistantPatchOperation, TAssistantPatchRisk, TAssistantPatchSource} from "../patch/types";
 import {
     addAssistantOperationHistory,
     readAssistantOperationHistory,
@@ -32,6 +32,46 @@ const buildPatchHistoryMetadata = (
             appliedTargetId: operation.appliedTargetId,
         })),
     };
+};
+
+export const recordAssistantExplicitSaveHistory = (options: {
+    source: TAssistantPatchSource;
+    summary: string;
+    noteId: string;
+    targetLabel?: string;
+    sessionId?: string;
+    profileId?: string;
+    risk?: TAssistantPatchRisk;
+}) => {
+    const noteId = `${options.noteId || ""}`.trim();
+    if (!noteId) {
+        return null;
+    }
+    const now = Date.now();
+    const summary = `${options.summary || ""}`.trim() || assistantText("AI 保存内容", "AI saved content");
+    const source = options.source || "dock";
+    const patch: IAssistantEditPatch = {
+        id: `explicit-save-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        source,
+        target: "note",
+        risk: options.risk || "L2",
+        summary,
+        operations: [{
+            id: `explicit-save-op-${now}-${Math.random().toString(36).slice(2, 8)}`,
+            type: "create-note",
+            targetId: noteId,
+            targetLabel: options.targetLabel || summary,
+            status: "accepted",
+            appliedTargetId: noteId,
+        }],
+        createdAt: now,
+    };
+    return addAssistantOperationHistory(patch, "applied", buildPatchHistoryMetadata(patch, {
+        sessionId: options.sessionId,
+        profileId: options.profileId,
+        targetId: noteId,
+        targetLabel: options.targetLabel || summary,
+    }));
 };
 
 export const recordAssistantPatchHistory = (

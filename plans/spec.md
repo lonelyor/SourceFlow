@@ -23,7 +23,7 @@
 - 前端 patch apply 必须复用后端 AI 写工具的安全边界：`delete-block` 和 `replace-block` 只能作用于非根内容块；无法确认目标块根文档关系时必须失败关闭，禁止直接删除或整体替换笔记根文档。
 - AI/Assistant 产生的外部 Markdown 写入必须重新生成块 ID，避免导入内容携带的 ID 与现有笔记碰撞；普通块 API 默认保持兼容，仅在 `sanitizeIDs` 显式开启时执行。
 - AI Dock 普通发送和 Agent 执行前必须基于当前 `@` 来源快照解析后端 context pack；system prompt 和消息来源 metadata 使用同一份已解析来源，避免来源面板显示已引用但 prompt 中缺少摘要。
-- AI 生成内容通过用户显式保存命令创建新 Markdown 文档时，不属于改写已有笔记的强制 patch 路径，但必须开启 `sanitizeIDs`、处理后端创建 ID 和失败提示；保存复盘报告、成果箱和聊天记录是否补充独立审计记录仍作为后续审计项处理。
+- AI 生成内容通过用户显式保存命令创建新 Markdown 文档时，不属于改写已有笔记的强制 patch 路径，但必须开启 `sanitizeIDs`、处理后端创建 ID 和失败提示；对话记录保存、分析结果保存、成果箱保存和文件夹复盘报告保存必须写入现有 AI 操作历史审计。审计记录只保存目标、来源、摘要、session/profile 等元数据，不复制保存正文全文。
 - Embedding 配置 API 不得回显已保存 API Key；语义搜索结果限制最多 50 条，删除笔记时必须清理对应向量索引。
 - AI Profile 与 Embedding 的 API Key 语义必须显式化：后端响应只返回 `hasAPIKey`，不得回显真实密钥；前端有密钥时只显示掩码 `******`，无密钥时显示空；保存请求必须携带 `apiKeyAction`，取值为 `keep`、`replace`、`clear`。`keep` 仅保留后端已有密钥，`replace` 使用本次输入的新密钥，`clear` 写入空密钥。掩码只作为 UI 展示状态，不得作为真实密钥存储或发送给模型服务。
 - Embedding 全量索引和语义搜索等异步 UI 必须在成功、业务失败和网络失败路径都恢复按钮/loading 状态，不允许让用户停留在永久“索引中/搜索中”。

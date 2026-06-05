@@ -175,6 +175,21 @@ const createPatch = {
 const createHistoryItem = operations.recordAssistantPatchHistory(createPatch);
 assert(createHistoryItem.id, "create-note history item should be recorded");
 
+const explicitSaveItem = operations.recordAssistantExplicitSaveHistory({
+    source: "dock",
+    summary: "对话记录",
+    noteId: "saved-doc",
+    targetLabel: "对话记录",
+    sessionId: "session-2",
+    profileId: "profile-2",
+});
+assert(explicitSaveItem.id, "explicit AI save history item should be recorded");
+assert.strictEqual(explicitSaveItem.source, "dock");
+assert.strictEqual(explicitSaveItem.sessionId, "session-2");
+assert.strictEqual(explicitSaveItem.profileId, "profile-2");
+assert.strictEqual(explicitSaveItem.patch.operations[0].type, "create-note");
+assert.strictEqual(explicitSaveItem.patch.operations[0].appliedTargetId, "saved-doc");
+
 const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyItem.id).then((ok) => {
     assert.strictEqual(ok, true);
     assert.deepStrictEqual(deleted, ["inserted-block"]);
@@ -184,6 +199,11 @@ const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyI
     assert.strictEqual(ok, true);
     assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "created-doc"));
     assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === createHistoryItem.id).status, "rolled-back");
+    return operations.rollbackAssistantOperationHistoryItem(explicitSaveItem.id);
+}).then((ok) => {
+    assert.strictEqual(ok, true);
+    assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "saved-doc"));
+    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === explicitSaveItem.id).status, "rolled-back");
 });
 
 Promise.all([executorPromise, historyPromise]).then(() => {

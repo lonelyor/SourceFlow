@@ -7,6 +7,7 @@ import {App} from "../index";
 import {getDisplayName, getNotebookName, pathPosix} from "../util/pathName";
 import * as dayjs from "dayjs";
 import {Constants} from "../constants";
+import {recordAssistantExplicitSaveHistory} from "./history/operations";
 
 interface IFolderReviewDocEntry {
     id: string;
@@ -199,9 +200,19 @@ export const runFolderAIReview = async (app: App, options: {
         if (saveResponse.code !== 0) {
             throw new Error(saveResponse.msg || folderReviewText("保存复盘报告失败", "Failed to save the review note"));
         }
+        const savedID = typeof saveResponse.data === "string" ? saveResponse.data : saveResponse.data?.id;
+        if (!savedID) {
+            throw new Error(folderReviewText("保存复盘报告失败：缺少新笔记 ID", "Failed to save the review note: missing note ID"));
+        }
+        recordAssistantExplicitSaveHistory({
+            source: "automation",
+            summary: scopeName,
+            noteId: savedID,
+            targetLabel: scopeName,
+        });
         openFileById({
             app,
-            id: saveResponse.data,
+            id: savedID,
             action: [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS],
         });
         showMessage(folderReviewText("AI 复盘报告已生成", "AI review note created"), 4000, "info");

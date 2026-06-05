@@ -22,7 +22,7 @@ import {
     readAssistantAIImageFile,
     TAssistantAIMessageItem,
 } from "./AIDockShared";
-import {recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
+import {recordAssistantExplicitSaveHistory, recordAssistantPatchFailure, recordAssistantPatchHistory} from "../history/operations";
 import {applyAssistantPatch, applyAssistantPatchOperation} from "../patch/apply";
 import type {IAssistantEditPatch} from "../patch/types";
 import type {IAssistantSkillContext} from "../skills/types";
@@ -668,6 +668,14 @@ export const saveAIDockTranscript = async (ctx: IAssistantAIDockRuntime) => {
     })));
     const id = await saveMarkdownAsAssistantNote(title, markdown);
     if (id) {
+        recordAssistantExplicitSaveHistory({
+            source: "dock",
+            summary: title,
+            noteId: id,
+            targetLabel: title,
+            sessionId: session.id,
+            profileId: session.profileId,
+        });
         showMessage(assistantText("对话已保存到笔记", "Transcript saved to a note"));
     }
 };
@@ -683,6 +691,14 @@ export const saveAIDockAnalysis = async (ctx: IAssistantAIDockRuntime) => {
         const title = `${session.title || assistantText("AI 对话", "AI Chat")} ${assistantText("分析", "Analysis")}`;
         const id = await saveMarkdownAsAssistantNote(title, markdown);
         if (id) {
+            recordAssistantExplicitSaveHistory({
+                source: "dock",
+                summary: title,
+                noteId: id,
+                targetLabel: title,
+                sessionId: session.id,
+                profileId: profile.id,
+            });
             showMessage(assistantText("分析结果已保存到笔记", "Analysis saved to a note"));
         }
     } catch (error) {

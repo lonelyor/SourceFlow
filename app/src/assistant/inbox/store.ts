@@ -4,6 +4,7 @@ import {fetchSyncPost} from "../../util/fetch";
 import {saveMarkdownAsAssistantNote} from "../common/note";
 import {assistantText} from "../constants";
 import {WorkbenchAttr} from "../../workbench/constants";
+import {recordAssistantExplicitSaveHistory} from "../history/operations";
 
 export const ASSISTANT_INBOX_TAG = "assistant-ai";
 export const ASSISTANT_INBOX_QUERY = `tag:${ASSISTANT_INBOX_TAG}`;
@@ -54,6 +55,12 @@ export const saveAssistantInboxItem = async (options: ISaveAssistantInboxItemOpt
         showMessage(assistantText("保存到 AI 收件箱失败", "Failed to save to AI Inbox"), 4000, "error");
         return null;
     }
+    recordAssistantExplicitSaveHistory({
+        source: "automation",
+        summary: title,
+        noteId: id,
+        targetLabel: title,
+    });
     const response = await fetchSyncPost("/api/attr/setBlockAttrs", {
         id,
         attrs: {
