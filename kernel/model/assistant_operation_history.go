@@ -271,7 +271,9 @@ func applyAssistantOperationHistory(id string, revert bool) (*AssistantOperation
 		}
 		item.Error = err.Error()
 		item.UpdatedAt = now
-		_ = writeAssistantOperationHistoryLocked(items)
+		if writeErr := writeAssistantOperationHistoryLocked(items); nil != writeErr {
+			return nil, fmt.Errorf("%w; record assistant operation failure status failed: %v", err, writeErr)
+		}
 		return nil, err
 	}
 	if revert {

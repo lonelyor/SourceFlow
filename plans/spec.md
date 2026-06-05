@@ -53,6 +53,7 @@
 - AI 操作历史持久化在 `storage/assistant_operation_history.json`，默认保留最近 200 条；读写必须加锁并使用临时文件安全写入。
 - 历史状态统一为 `applied`、`reverted`、`reapplied`、`failed`、`revert-failed`、`reapply-failed`。
 - 撤回接口 `/api/assistant/history/revert` 只允许撤回 `applied` 或 `reapplied` 记录；取消撤回接口 `/api/assistant/history/reapply` 只允许重新应用 `reverted` 记录。
+- 撤回或取消撤回执行失败时，历史记录必须持久化为 `revert-failed` 或 `reapply-failed` 并保存错误原因；如果失败状态本身无法写回，接口必须返回该持久化错误，禁止吞掉错误造成 UI 与真实历史不一致。
 - 撤回和取消撤回执行前必须校验当前目标仍处于期望状态；如果用户在 AI 写入后手动改过目标块、标题或属性，必须失败关闭，不覆盖用户后续编辑。
 - 可逆快照只保存完成撤回/取消撤回所需的最小内容：受影响块 Markdown/DOM、属性前后值、标题前后值、创建文档的 AI 生成 Markdown、目标父子位置等。
 - 旧 localStorage AI 历史不再作为生产级撤回入口；前端历史面板应以后端列表为准。兼容旧本地历史时，只有能由前端确认具备低风险回滚路径的记录才显示撤回按钮，不得展示点击后才失败的不可执行入口。
@@ -152,6 +153,7 @@
 
 - 普通文本选择和显式块选择必须有明确边界：文本选择不得因为片段里包含 `[data-node-id]` 就被当作 SourceFlow 内部 Block DOM 粘贴；块级复制粘贴只应由显式块选择、块菜单或 gutter 块操作触发。
 - 单块 inline 粘贴只能修改一个块；`insertHTML()` 等 inline 路径在执行 `range.deleteContents()` 前必须确认 selection 未跨块。
+- 普通文本选区粘贴时如果丢弃了 SourceFlow 内部 Block DOM MIME，回退使用的 `text/html` 必须先剥离 SourceFlow 剪贴板注释并走标准 DOMParser + `Lute.Sanitize` 清洗；代码粘贴识别必须发生在降级和清洗之后，不能让内部 MIME 绕过普通 HTML 清洗路径。
 - 普通跨块文本选区不得走单块 `update` 事务；必须自动生成覆盖受影响块的多块文本事务，无法证明结构安全时自动降级为纯文本流事务，不向用户暴露块边界或失败提示。
 - 跨块文本替换必须在 detached DOM 中构造覆盖所有受影响块的原子事务，不得先修改真实 DOM 再推导事务。
 - 当前实现以 `protyle/util/selectionScope.ts` 作为选择范围唯一判定入口，以 `protyle/util/multiBlockPaste.ts` 处理跨块普通文本替换；同父级普通段落/标题生成原子多块事务，复杂结构半选区会自动折叠到起始安全落点再执行普通插入，避免半删除表格、数据库视图、代码块、HTML 块或资源块。

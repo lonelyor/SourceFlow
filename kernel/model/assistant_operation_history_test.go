@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/lonelyor/sourceflow/kernel/util"
@@ -9,10 +10,54 @@ import (
 func withTempAssistantOperationHistory(t *testing.T) {
 	t.Helper()
 	oldDataDir := util.DataDir
+	aiSecurityConfigLock.Lock()
+	oldCache := aiSecurityConfigCache
+	aiSecurityConfigCache = nil
+	aiSecurityConfigLock.Unlock()
 	util.DataDir = t.TempDir()
 	t.Cleanup(func() {
+		aiSecurityConfigLock.Lock()
+		aiSecurityConfigCache = oldCache
+		aiSecurityConfigLock.Unlock()
 		util.DataDir = oldDataDir
 	})
+}
+
+func addAssistantOperationHistoryForTest(t *testing.T, status AssistantOperationHistoryStatus, snapshot *AssistantOperationSnapshot) *AssistantOperationHistoryItem {
+	t.Helper()
+	operationType := "test-transaction"
+	if nil != snapshot && "" != strings.TrimSpace(snapshot.OperationType) {
+		operationType = strings.TrimSpace(snapshot.OperationType)
+	}
+	item, err := addAssistantOperationHistoryItem(&AssistantOperationHistoryItem{
+		ID:            "aihist-test-" + strings.TrimSpace(string(status)),
+		PatchID:       "patch-test",
+		OperationID:   "op-test",
+		OperationType: operationType,
+		Patch: &AssistantEditPatch{
+			ID:      "patch-test",
+			Source:  "test",
+			Target:  "note",
+			Risk:    "L1",
+			Summary: "test operation",
+			Operations: []*AssistantPatchOperation{{
+				ID:       "op-test",
+				Type:     operationType,
+				TargetID: "doc-test",
+				Status:   "accepted",
+			}},
+			CreatedAt: 1,
+		},
+		Status:   status,
+		Source:   "test",
+		Risk:     "L1",
+		TargetID: "doc-test",
+		Snapshot: snapshot,
+	})
+	if err != nil {
+		t.Fatalf("addAssistantOperationHistoryItem: %v", err)
+	}
+	return item
 }
 
 func TestRecordAssistantPatchOperationHistoryPersistsAuditAndSnapshot(t *testing.T) {
@@ -102,5 +147,73 @@ func TestRecordAssistantExplicitSaveHistoryPersistsForwardSnapshot(t *testing.T)
 	}
 	if got.Snapshot.Notebook != "box" || got.Snapshot.Path != "/AI/对话记录" {
 		t.Fatalf("explicit save target missing: %+v", got.Snapshot)
+	}
+}
+
+func TestAssistantOperationHistoryRejectsInvalidStatusTransitions(t *testing.T) {
+	withTempAssistantOperationHistory(t)
+	reverted := addAssistantOperationHistoryForTest(t, AssistantOperationHistoryReverted, nil)
+	if _, err := RevertAssistantOperationHistory(reverted.ID); err == nil || !strings.Contains(err.Error(), "cannot be reverted") {
+		t.Fatalf("RevertAssistantOperationHistory error = %v, want invalid status error", err)
+	}
+
+	applied := addAssistantOperationHistoryForTest(t, AssistantOperationHistoryApplied, nil)
+	if _, err := ReapplyAssistantOperationHistory(applied.ID); err == nil || !strings.Contains(err.Error(), "cannot be reapplied") {
+		t.Fatalf("ReapplyAssistantOperationHistory error = %v, want invalid status error", err)
+	}
+
+	items := ListAssistantOperationHistory(10)
+	if len(items) != 2 {
+		t.Fatalf("history length = %d, want 2", len(items))
+	}
+	if items[0].Status != AssistantOperationHistoryApplied || items[0].Error != "" {
+		t.Fatalf("invalid reapply should not mutate applied item: %+v", items[0])
+	}
+	if items[1].Status != AssistantOperationHistoryReverted || items[1].Error != "" {
+		t.Fatalf("invalid revert should not mutate reverted item: %+v", items[1])
+	}
+}
+
+func TestAssistantOperationHistoryPersistsRevertFailureStatus(t *testing.T) {
+	withTempAssistantOperationHistory(t)
+	item := addAssistantOperationHistoryForTest(t, AssistantOperationHistoryApplied, &AssistantOperationSnapshot{
+		OperationType: "test-transaction",
+		TargetID:      "doc-test",
+	})
+
+	if _, err := RevertAssistantOperationHistory(item.ID); err == nil || !strings.Contains(err.Error(), "transaction snapshot is missing") {
+		t.Fatalf("RevertAssistantOperationHistory error = %v, want transaction snapshot error", err)
+	}
+	items := ListAssistantOperationHistory(10)
+	if len(items) != 1 {
+		t.Fatalf("history length = %d, want 1", len(items))
+	}
+	if items[0].Status != AssistantOperationHistoryRevertFailed {
+		t.Fatalf("status = %s, want revert-failed", items[0].Status)
+	}
+	if !strings.Contains(items[0].Error, "transaction snapshot is missing") {
+		t.Fatalf("error not persisted: %+v", items[0])
+	}
+}
+
+func TestAssistantOperationHistoryPersistsReapplyFailureStatus(t *testing.T) {
+	withTempAssistantOperationHistory(t)
+	item := addAssistantOperationHistoryForTest(t, AssistantOperationHistoryReverted, &AssistantOperationSnapshot{
+		OperationType: "test-transaction",
+		TargetID:      "doc-test",
+	})
+
+	if _, err := ReapplyAssistantOperationHistory(item.ID); err == nil || !strings.Contains(err.Error(), "transaction snapshot is missing") {
+		t.Fatalf("ReapplyAssistantOperationHistory error = %v, want transaction snapshot error", err)
+	}
+	items := ListAssistantOperationHistory(10)
+	if len(items) != 1 {
+		t.Fatalf("history length = %d, want 1", len(items))
+	}
+	if items[0].Status != AssistantOperationHistoryReapplyFailed {
+		t.Fatalf("status = %s, want reapply-failed", items[0].Status)
+	}
+	if !strings.Contains(items[0].Error, "transaction snapshot is missing") {
+		t.Fatalf("error not persisted: %+v", items[0])
 	}
 }

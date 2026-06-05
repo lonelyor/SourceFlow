@@ -16,6 +16,8 @@
 - [x] 编辑器跨块复制粘贴安全强化设计：明确文本选择和块选择分离，普通跨块文本选区不写 SourceFlow 内部 Block DOM MIME，inline 粘贴不得用单块事务处理跨块 selection；跨块 CV 必须自动归一化为多块文本事务或纯文本流事务，不向用户暴露失败提示。
 - [x] 编辑器跨块复制粘贴无感安全闸落地：新增 selection scope helper，复制/剪切内部 MIME 写入条件收紧，`insertHTML()` 跨块 inline 粘贴改为同父级普通文本块多块事务，复杂结构自动折叠到起始安全落点，并补 `test:protyle-paste-selection-safety`。
 - [x] 编辑器跨块复制粘贴代码评审与验证：覆盖普通跨块文本不写内部 MIME、内部 Block DOM MIME 在普通文本选区被丢弃、跨块 inline 粘贴先于 `range.deleteContents()` 分流、多块事务/复杂结构安全降级、无失败提示；目标测试、typecheck、结构提示回归、Go conf、变更文件范围 eslint 和 `git diff --check` 通过。
+- [x] 细节审计追加修复：普通文本选区丢弃内部 Block DOM MIME 后，回退 `text/html` 会剥离 SourceFlow 剪贴板注释并重新走标准 HTML 清洗，代码粘贴识别后移到降级清洗之后；AI 操作历史撤回/取消撤回失败状态和错误原因可靠写回。
+- [x] 本轮细节审计验证：粘贴安全回归、`typecheck:app`、变更文件范围 eslint、AI 操作历史 Go 目标测试、Go conf、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有打包产物阻断。
 
 - [x] AI 助手再审计第一批低风险修复：发送/Agent 执行前解析 `@` 来源快照，保存和追加 AI Markdown 时开启 `sanitizeIDs`，修复 AI 新建笔记保存 ID 返回值误判，补齐语义搜索 loading/并发旧响应保护和结果面板刷新异常处理。
 - [x] 本轮 AI 再审计验证：`test:assistant-source-save`、`test:ai-dock-runtime`、`test:assistant-agent-history`、`test:assistant-patch-review`、`typecheck:app`、变更文件范围 eslint、Go conf 测试、两个编辑器结构提示回归和 `git diff --check` 通过；全量 lint 仍被既有全仓 lint 基线阻断。

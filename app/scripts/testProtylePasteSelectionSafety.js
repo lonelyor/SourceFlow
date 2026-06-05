@@ -70,6 +70,25 @@ assert(
     paste.includes("sourceflowHTML = \"\";"),
     "paste must discard internal Block DOM MIME for ordinary text selections"
 );
+assert(
+    paste.includes("const sanitizeClipboardTextHTML = (html: string) =>") &&
+    paste.includes("textHTML = sanitizeClipboardTextHTML(textHTML);"),
+    "paste must centralize standard clipboard HTML cleanup"
+);
+const discardSourceflowIndex = paste.indexOf("sourceflowHTML = \"\";");
+const stripSourceflowCommentIndex = paste.indexOf("const textObj = getTextSourceFlowFromTextHTML(textHTML);", discardSourceflowIndex);
+const resanitizeHTMLIndex = paste.indexOf("textHTML = sanitizeClipboardTextHTML(textObj.textHtml);", discardSourceflowIndex);
+const processPasteCodeIndex = paste.indexOf("const code = htmlPasteMode === \"smart\" ? processPasteCode", discardSourceflowIndex);
+assert(
+    discardSourceflowIndex > -1 &&
+    stripSourceflowCommentIndex > discardSourceflowIndex &&
+    resanitizeHTMLIndex > stripSourceflowCommentIndex,
+    "discarded internal MIME must strip SourceFlow comments and re-sanitize text/html before fallback paste"
+);
+assert(
+    processPasteCodeIndex > resanitizeHTMLIndex,
+    "paste code detection must run after ordinary text selections downgrade and sanitize clipboard HTML"
+);
 
 [copy, cut].forEach((source, index) => {
     const name = index === 0 ? "copy" : "cut";

@@ -52,6 +52,20 @@ const containsBlockDOM = (html: string) => {
     return !!template.content.querySelector("[data-node-id]");
 };
 
+const sanitizeClipboardTextHTML = (html: string) => {
+    let sanitizedHTML = html;
+    // process word
+    const doc = new DOMParser().parseFromString(sanitizedHTML, "text/html");
+    if (doc.body && doc.body.innerHTML) {
+        sanitizedHTML = doc.body.innerHTML;
+    }
+    // windows 剪切板
+    if (sanitizedHTML.startsWith("\n<!--StartFragment-->") && sanitizedHTML.endsWith("<!--EndFragment-->\n\n")) {
+        sanitizedHTML = doc.body.innerHTML.trim().replace("<!--StartFragment-->", "").replace("<!--EndFragment-->", "");
+    }
+    return Lute.Sanitize(sanitizedHTML);
+};
+
 const waitForSnapshotReady = async (element: HTMLElement) => {
     const imagePromises = Array.from(element.querySelectorAll("img")).map((image) => {
         if (image.complete) {
@@ -486,16 +500,7 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
     }
     // 剪切复制中首位包含空格或仅有空格 https://github.com/lonelyor/SourceFlow/issues/5667
     if (!sourceflowHTML) {
-        // process word
-        const doc = new DOMParser().parseFromString(textHTML, "text/html");
-        if (doc.body && doc.body.innerHTML) {
-            textHTML = doc.body.innerHTML;
-        }
-        // windows 剪切板
-        if (textHTML.startsWith("\n<!--StartFragment-->") && textHTML.endsWith("<!--EndFragment-->\n\n")) {
-            textHTML = doc.body.innerHTML.trim().replace("<!--StartFragment-->", "").replace("<!--EndFragment-->", "");
-        }
-        textHTML = Lute.Sanitize(textHTML);
+        textHTML = sanitizeClipboardTextHTML(textHTML);
     }
 
     if (protyle && protyle.app && protyle.app.plugins) {
@@ -542,14 +547,16 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
     protyle.wysiwyg.element.querySelectorAll(".protyle-wysiwyg--hl").forEach(item => {
         item.classList.remove("protyle-wysiwyg--hl");
     });
-    const code = htmlPasteMode === "smart" ? processPasteCode(textHTML, textPlain, originalTextHTML, protyle) : "";
     const range = getEditorRange(protyle.wysiwyg.element);
     const pasteScope = resolveSelectionScope(range, protyle.wysiwyg.element);
     if (sourceflowHTML && containsBlockDOM(sourceflowHTML) &&
         !pasteScope.isExplicitBlockSelection &&
         ["single-block-text", "multi-block-text"].includes(pasteScope.kind)) {
         sourceflowHTML = "";
+        const textObj = getTextSourceFlowFromTextHTML(textHTML);
+        textHTML = sanitizeClipboardTextHTML(textObj.textHtml);
     }
+    const code = htmlPasteMode === "smart" ? processPasteCode(textHTML, textPlain, originalTextHTML, protyle) : "";
     if (nodeElement.getAttribute("data-type") === "NodeCodeBlock" ||
         protyle.toolbar.getCurrentType(range).includes("code")) {
         // https://github.com/lonelyor/SourceFlow/issues/13552
