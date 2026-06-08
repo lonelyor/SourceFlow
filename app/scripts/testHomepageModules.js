@@ -52,6 +52,7 @@ const homepageRoot = path.join(appRoot, "src", "homepage");
 const constantsPath = path.join(homepageRoot, "constants.ts");
 const statePath = path.join(homepageRoot, "state.ts");
 const actionsPath = path.join(homepageRoot, "actions.ts");
+const shortcutsPath = path.join(homepageRoot, "shortcuts.ts");
 const runtimePath = path.join(homepageRoot, "runtime.ts");
 const tabPath = path.join(homepageRoot, "tab.ts");
 const templateFiles = [
@@ -93,6 +94,26 @@ const actionsModule = compileModule(actionsPath, {
             CB_GET_FOCUS: "cb-get-focus",
         },
     },
+    "../dialog": {
+        Dialog: class {
+            constructor() {
+                this.element = {
+                    querySelector() {
+                        return null;
+                    },
+                    querySelectorAll() {
+                        return [];
+                    },
+                };
+            }
+            bindInput() {
+                return undefined;
+            }
+            destroy() {
+                return undefined;
+            }
+        },
+    },
     "../dialog/message": {
         showMessage() {
             return undefined;
@@ -109,8 +130,16 @@ const actionsModule = compileModule(actionsPath, {
         },
     },
     "../util/fetch": {
+        fetchPost() {
+            return undefined;
+        },
         fetchSyncPost(...args) {
             return fetchSyncPostMock(...args);
+        },
+    },
+    "../util/escape": {
+        escapeHtml(value) {
+            return `${value || ""}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         },
     },
     "./constants": constantsModule,
@@ -123,6 +152,67 @@ const actionsModule = compileModule(actionsPath, {
     "../editor/util": {
         openFileById() {
             return Promise.resolve();
+        },
+    },
+}, hostWindow);
+
+let insertedShortcutHTML = "";
+const shortcutsModule = compileModule(shortcutsPath, {
+    "../constants": {
+        Constants: {
+            SOURCEFLOW_GET: "sourceflow-get",
+            ZWSP: "\u200b",
+        },
+    },
+    "../dialog": {
+        Dialog: class {
+            constructor() {
+                this.element = {
+                    querySelector() {
+                        return null;
+                    },
+                    querySelectorAll() {
+                        return [];
+                    },
+                };
+            }
+            bindInput() {
+                return undefined;
+            }
+            destroy() {
+                return undefined;
+            }
+        },
+    },
+    "../dialog/message": {
+        showMessage() {
+            return undefined;
+        },
+    },
+    "../protyle/util/insertHTML": {
+        insertHTML(value) {
+            insertedShortcutHTML = value;
+        },
+    },
+    "../protyle/util/selection": {
+        focusByRange() {
+            return undefined;
+        },
+    },
+    "../util/escape": {
+        escapeAttr(value) {
+            return `${value || ""}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+        },
+        escapeHtml(value) {
+            return `${value || ""}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        },
+    },
+    "./constants": constantsModule,
+    electron: {
+        ipcRenderer: {
+            invoke() {
+                return Promise.resolve({canceled: true, filePaths: []});
+            },
         },
     },
 }, hostWindow);
@@ -167,19 +257,30 @@ for (const relativePath of templateFiles) {
 }
 
 const actionsSource = fs.readFileSync(actionsPath, "utf8");
+const shortcutsSource = fs.readFileSync(shortcutsPath, "utf8");
 const runtimeSource = fs.readFileSync(runtimePath, "utf8");
 const tabSource = fs.readFileSync(tabPath, "utf8");
 
 assert.ok(actionsSource.includes("openFileById"));
 assert.ok(actionsSource.includes("/api/block/getBlockInfo"));
+assert.ok(actionsSource.includes("/api/filetree/searchDocs"));
 assert.ok(actionsSource.includes("clearBinding"));
 assert.ok(actionsSource.includes("catch (error)"));
 assert.ok(runtimeSource.includes("尚未创建主页"));
 assert.ok(runtimeSource.includes("主页暂时无法打开"));
 assert.ok(runtimeSource.includes("create-homepage-note"));
+assert.ok(runtimeSource.includes("select-homepage-note"));
+assert.ok(shortcutsSource.includes("HOMEPAGE_SHORTCUT_SLASH_VALUE"));
+assert.ok(shortcutsSource.includes("showOpenDialog"));
 assert.ok(tabSource.includes("openHomepageNote"));
 
-for (const source of [actionsSource, runtimeSource, tabSource]) {
+assert.strictEqual(shortcutsModule.normalizeHomepageShortcutTarget({kind: "url", target: "example.com"}), "https://example.com");
+assert.strictEqual(shortcutsModule.normalizeHomepageShortcutTarget({kind: "file", target: "D:\\Work\\Plan.xmind"}), "file:///D:/Work/Plan.xmind");
+assert.ok(shortcutsModule.buildHomepageShortcutHTML({kind: "folder", target: "D:\\Work", title: "项目资料"}).includes('data-type="a"'));
+shortcutsModule.insertHomepageShortcut({}, {kind: "url", target: "sourceflow.dev", title: "SourceFlow"});
+assert.ok(insertedShortcutHTML.includes('data-href="https://sourceflow.dev"'));
+
+for (const source of [actionsSource, shortcutsSource, runtimeSource, tabSource]) {
     assert.ok(!source.includes("runHomepageTemplateScript"));
     assert.ok(!source.includes("normalizeTemplatePath"));
     assert.ok(!source.includes("shell.openExternal"));

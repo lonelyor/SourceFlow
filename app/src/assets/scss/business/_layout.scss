@@ -825,6 +825,13 @@ body.body--activitybar-unified {
     font-weight: 600;
   }
 
+  &__empty-desc {
+    color: var(--b3-theme-on-surface-light);
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 420px;
+  }
+
   &__empty-actions {
     display: flex;
     flex-wrap: wrap;
@@ -842,6 +849,43 @@ body.body--activitybar-unified {
         height: 14px;
         flex: 0 0 auto;
       }
+    }
+  }
+}
+
+.homepage-note-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__list {
+    max-height: 320px;
+    min-height: 160px;
+    overflow: auto;
+  }
+}
+
+.homepage-shortcut-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &__types,
+  &__pickers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .b3-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
     }
   }
 }

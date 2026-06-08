@@ -1,9 +1,11 @@
 import {App} from "../index";
 import {Constants} from "../constants";
+import {Dialog} from "../dialog";
 import {showMessage} from "../dialog/message";
 import {getAllModels} from "../layout/getAll";
 import {newFile} from "../util/newFile";
-import {fetchSyncPost} from "../util/fetch";
+import {fetchPost, fetchSyncPost} from "../util/fetch";
+import {escapeHtml} from "../util/escape";
 import {homepageText} from "./constants";
 import {clearHomepage, getHomepageState, normalizeHomepageNoteId, setHomepageSourceToNote} from "./state";
 /// #if MOBILE
@@ -16,6 +18,24 @@ interface IHomepageNoteReadiness {
     readable: boolean;
     clearBinding: boolean;
 }
+
+interface IHomepageSearchDoc {
+    box: string;
+    hPath: string;
+    path: string;
+    rootID: string;
+}
+
+const renderHomepageSearchResults = (docs: IHomepageSearchDoc[]) => {
+    const noteDocs = docs.filter((item) => normalizeHomepageNoteId(item.rootID));
+    if (noteDocs.length === 0) {
+        return `<li class="b3-list--empty">${escapeHtml(homepageText("未找到匹配笔记", "No matching notes"))}</li>`;
+    }
+    return noteDocs.map((item, index) => `<li class="b3-list-item${index === 0 ? " b3-list-item--focus" : ""}" data-homepage-note-id="${escapeHtml(item.rootID)}">
+    <svg class="b3-list-item__graphic"><use xlink:href="#iconFile"></use></svg>
+    <span class="b3-list-item__showall">${escapeHtml(item.hPath || item.path || item.rootID)}</span>
+</li>`).join("");
+};
 
 export const getCurrentHomepageCandidateNoteId = () => {
     /// #if MOBILE
@@ -80,6 +100,71 @@ export const createHomepageNote = (app: App) => {
             setHomepageSourceToNote(id);
             showMessage(homepageText("已创建主页", "Homepage created"));
         },
+    });
+};
+
+export const openHomepageNotePicker = (app: App) => {
+    let requestId = 0;
+    const dialog = new Dialog({
+        title: homepageText("选择主页笔记", "Choose Homepage Note"),
+        width: "560px",
+        content: `<div class="b3-dialog__content homepage-note-picker">
+    <input class="b3-text-field fn__block" data-homepage-note-search spellcheck="false" placeholder="${escapeHtml(homepageText("搜索已有笔记", "Search existing notes"))}">
+    <ul class="b3-list b3-list--background homepage-note-picker__list" data-homepage-note-list>
+        <li class="b3-list--empty">${escapeHtml(homepageText("输入标题搜索已有笔记", "Type to search existing notes"))}</li>
+    </ul>
+</div>
+<div class="b3-dialog__action">
+    <button class="b3-button b3-button--cancel" type="button" data-homepage-note-cancel>${escapeHtml(window.sourceflow.languages.cancel)}</button>
+</div>`,
+    });
+    const inputElement = dialog.element.querySelector("[data-homepage-note-search]") as HTMLInputElement;
+    const listElement = dialog.element.querySelector("[data-homepage-note-list]") as HTMLElement;
+    const search = (event?: InputEvent) => {
+        if (event?.isComposing) {
+            return;
+        }
+        const keyword = inputElement.value.trim();
+        if (!keyword) {
+            listElement.innerHTML = `<li class="b3-list--empty">${escapeHtml(homepageText("输入标题搜索已有笔记", "Type to search existing notes"))}</li>`;
+            return;
+        }
+        const currentRequestId = ++requestId;
+        fetchPost("/api/filetree/searchDocs", {
+            k: keyword,
+            flashcard: false,
+            excludeIDs: [],
+        }, (response) => {
+            if (currentRequestId !== requestId) {
+                return;
+            }
+            listElement.innerHTML = renderHomepageSearchResults(response.data || []);
+        }, undefined, () => {
+            if (currentRequestId === requestId) {
+                listElement.innerHTML = `<li class="b3-list--empty">${escapeHtml(homepageText("搜索失败", "Search failed"))}</li>`;
+            }
+        });
+    };
+    listElement.addEventListener("click", (event) => {
+        if (!(event.target instanceof Element)) {
+            return;
+        }
+        const target = event.target.closest("[data-homepage-note-id]") as HTMLElement;
+        const noteId = normalizeHomepageNoteId(target?.getAttribute("data-homepage-note-id"));
+        if (!noteId) {
+            return;
+        }
+        setHomepageSourceToNote(noteId);
+        showMessage(homepageText("已设为主页", "Set as homepage"));
+        dialog.destroy({focus: "false"});
+        void openHomepageNote(app, noteId);
+    });
+    dialog.element.querySelector("[data-homepage-note-cancel]")?.addEventListener("click", () => dialog.destroy());
+    inputElement.addEventListener("compositionend", search);
+    inputElement.addEventListener("input", search);
+    dialog.bindInput(inputElement, () => {
+        const firstNote = listElement.querySelector("[data-homepage-note-id]") as HTMLElement;
+        firstNote?.click();
     });
 };
 

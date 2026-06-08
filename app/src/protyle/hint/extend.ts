@@ -22,6 +22,7 @@ import {unicode2Emoji} from "../../emoji";
 import {avRender} from "../render/av/render";
 import {MIND_ELIXIR_SLASH_VALUE} from "../render/mindmapConstants";
 import {getAVStaticTextAttr} from "../../util/attrCompat";
+import {HOMEPAGE_SHORTCUT_SLASH_VALUE} from "../../homepage/shortcuts";
 
 const getHotkeyOrMarker = (hotkey: string, marker: string) => {
     if (hotkey) {
@@ -31,6 +32,8 @@ const getHotkeyOrMarker = (hotkey: string, marker: string) => {
     }
     return "";
 };
+
+const getShortcutLabel = () => window.sourceflow.config.lang === "zh_CN" ? "快捷入口" : "Shortcut";
 
 export const hintSlash = (key: string, protyle: IProtyle) => {
     const allList: IHintData[] = [{
@@ -191,6 +194,11 @@ export const hintSlash = (key: string, protyle: IProtyle) => {
         id: "emoji",
         value: "emoji",
         html: `<div class="b3-list-item__first"><svg class="b3-list-item__graphic"><use xlink:href="#iconEmoji"></use></svg><span class="b3-list-item__text">${window.sourceflow.languages.emoji}</span><span class="b3-list-item__meta">:</span></div>`,
+    }, {
+        filter: [getShortcutLabel(), "shortcut", "quick link", "快捷入口", "kuaijierukou", "kjrk"],
+        id: "homepageShortcut",
+        value: HOMEPAGE_SHORTCUT_SLASH_VALUE,
+        html: `<div class="b3-list-item__first"><svg class="b3-list-item__graphic"><use xlink:href="#iconOpen"></use></svg><span class="b3-list-item__text">${getShortcutLabel()}</span></div>`,
     }, {
         filter: [window.sourceflow.languages.link, "link", "a", "链接", "lianjie", "lj"],
         id: "link",
