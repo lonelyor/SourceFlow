@@ -184,5 +184,6 @@
 - [x] 本阶段 Agent 验证：`go test -vet=off ./model -run TestAssistantAgent -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint 通过。
 - [x] AI 助手后续审计项：保存复盘报告、保存到成果箱、保存聊天记录和保存分析结果已纳入现有 AI 操作历史审计；当前仍不纳入 AI 改写已有笔记的强制 patch 路径。
 - [x] AI 安全后续审计项设计：第 4 层继续扩展跨请求组合低风险写入、直接底层 API 绕过和更完整的影响范围追踪，统一在后端安全内核判定。
-- [ ] AI 安全后续审计项落地：补齐第 4 层新增规则与回归验证。
+- [x] AI 安全后续审计项落地：补齐第 4 层新增规则与回归验证。
+- [x] 本阶段安全验证：`go test -vet=off ./model -run Test.*AISecurity -count=1`、`go test -vet=off ./model -run TestAssistantPatch -count=1`、`go test -vet=off ./model -run TestAssistantOperationHistory -count=1`、`go test -vet=off ./model -run TestCountAssistantOperationHistorySessionWriteTargets -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint 通过。
 - [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。

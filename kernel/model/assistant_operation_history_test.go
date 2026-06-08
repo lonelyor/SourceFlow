@@ -150,6 +150,41 @@ func TestRecordAssistantExplicitSaveHistoryPersistsForwardSnapshot(t *testing.T)
 	}
 }
 
+func TestCountAssistantOperationHistorySessionWriteTargets(t *testing.T) {
+	withTempAssistantOperationHistory(t)
+	for _, noteID := range []string{"doc-1", "doc-2"} {
+		if _, err := RecordAssistantExplicitSaveHistory(&AssistantExplicitSaveHistoryRequest{
+			Source:    "dock",
+			Summary:   "AI save",
+			NoteID:    noteID,
+			SessionID: "session-cross-write",
+			Risk:      "L2",
+			Markdown:  "content",
+		}); nil != err {
+			t.Fatalf("RecordAssistantExplicitSaveHistory: %v", err)
+		}
+	}
+	if _, err := RecordAssistantExplicitSaveHistory(&AssistantExplicitSaveHistoryRequest{
+		Source:    "dock",
+		Summary:   "other session",
+		NoteID:    "doc-other",
+		SessionID: "session-other",
+		Risk:      "L2",
+		Markdown:  "content",
+	}); nil != err {
+		t.Fatalf("RecordAssistantExplicitSaveHistory other: %v", err)
+	}
+
+	count := CountAssistantOperationHistorySessionWriteTargets("session-cross-write", []string{"doc-3"})
+	if count != 3 {
+		t.Fatalf("session write target count = %d, want 3", count)
+	}
+	duplicateCount := CountAssistantOperationHistorySessionWriteTargets("session-cross-write", []string{"doc-2"})
+	if duplicateCount != 2 {
+		t.Fatalf("duplicate target count = %d, want 2", duplicateCount)
+	}
+}
+
 func TestAssistantOperationHistoryRejectsInvalidStatusTransitions(t *testing.T) {
 	withTempAssistantOperationHistory(t)
 	reverted := addAssistantOperationHistoryForTest(t, AssistantOperationHistoryReverted, nil)

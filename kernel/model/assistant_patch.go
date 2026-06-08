@@ -182,6 +182,9 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 	targetType := "note"
 	targetIDs := assistantPatchSecurityTargetIDs(context, operation)
 	batchCount := assistantPatchPendingOperationCount(req.Patch)
+	if sessionCount := CountAssistantOperationHistorySessionWriteTargets(req.AuditSessionID(), targetIDs); sessionCount > batchCount {
+		batchCount = sessionCount
+	}
 	capability := assistantPatchOperationCapability(operation)
 	security := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
 		Mode:              req.SecurityMode,
@@ -190,6 +193,10 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 		TargetIDs:         targetIDs,
 		SessionBatchCount: batchCount,
 		Capability:        capability,
+		ToolID:            strings.TrimSpace(req.Patch.ToolID),
+		Source:            AISecuritySourceAssistantPatch,
+		SessionID:         req.AuditSessionID(),
+		OperationType:     strings.TrimSpace(operation.Type),
 	})
 	scope := &AISecurityEscalationScope{
 		Kind:              "assistant-patch",
@@ -199,6 +206,7 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 		TargetIDs:         targetIDs,
 		SessionBatchCount: batchCount,
 		Capability:        capability,
+		ToolID:            strings.TrimSpace(req.Patch.ToolID),
 		PatchID:           strings.TrimSpace(req.Patch.ID),
 		OperationID:       strings.TrimSpace(operation.ID),
 		OperationType:     strings.TrimSpace(operation.Type),

@@ -307,11 +307,42 @@ func checkAssistantOperationHistorySecurity(item *AssistantOperationHistoryItem)
 		TargetIDs:         targetIDs,
 		SessionBatchCount: 1,
 		Capability:        AISecurityCapabilityWrite,
+		Source:            AISecuritySourceAssistantHistory,
+		SessionID:         strings.TrimSpace(item.SessionID),
+		OperationType:     strings.TrimSpace(item.OperationType),
 	})
 	if result.Decision != AISecurityAllow {
 		return fmt.Errorf(firstAssistantAINonEmpty(result.Reason, "assistant operation history is blocked by AI security"))
 	}
 	return nil
+}
+
+func CountAssistantOperationHistorySessionWriteTargets(sessionID string, targetIDs []string) int {
+	sessionID = strings.TrimSpace(sessionID)
+	normalizedTargets := normalizeAISecurityTargetIDs(resolveAssistantHistorySecurityTargets(targetIDs))
+	seen := map[string]struct{}{}
+	for _, id := range normalizedTargets {
+		seen[id] = struct{}{}
+	}
+	if "" == sessionID {
+		return len(seen)
+	}
+
+	assistantOperationHistoryLock.Lock()
+	defer assistantOperationHistoryLock.Unlock()
+	for _, item := range readAssistantOperationHistoryLocked() {
+		if nil == item || strings.TrimSpace(item.SessionID) != sessionID || !isWriteRisk(normalizeAISecurityRiskLevel(AISecurityRiskLevel(item.Risk))) {
+			continue
+		}
+		for _, id := range resolveAssistantHistorySecurityTargets([]string{firstAssistantAINonEmpty(item.TargetID, item.SnapshotTargetID())}) {
+			id = strings.TrimSpace(id)
+			if "" == id {
+				continue
+			}
+			seen[id] = struct{}{}
+		}
+	}
+	return len(seen)
 }
 
 func resolveAssistantHistorySecurityTargets(ids []string) []string {
