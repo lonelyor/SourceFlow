@@ -84,6 +84,68 @@ const assertHomepageState = (actual, noteId) => {
     assert.strictEqual(actual.noteId, noteId);
     assert.deepStrictEqual(Object.keys(actual), ["noteId"]);
 };
+let fetchSyncPostMock = async () => ({code: 0, data: {rootID: ""}});
+const actionsModule = compileModule(actionsPath, {
+    "../index": {},
+    "../constants": {
+        Constants: {
+            CB_GET_SCROLL: "cb-get-scroll",
+            CB_GET_FOCUS: "cb-get-focus",
+        },
+    },
+    "../dialog/message": {
+        showMessage() {
+            return undefined;
+        },
+    },
+    "../layout/getAll": {
+        getAllModels() {
+            return {editor: []};
+        },
+    },
+    "../util/newFile": {
+        newFile() {
+            return undefined;
+        },
+    },
+    "../util/fetch": {
+        fetchSyncPost(...args) {
+            return fetchSyncPostMock(...args);
+        },
+    },
+    "./constants": constantsModule,
+    "./state": stateModule,
+    "../mobile/editor": {
+        openMobileFileById() {
+            return undefined;
+        },
+    },
+    "../editor/util": {
+        openFileById() {
+            return Promise.resolve();
+        },
+    },
+}, hostWindow);
+
+const assertReadiness = async (noteId, responseOrError, expected) => {
+    fetchSyncPostMock = async () => {
+        if (responseOrError instanceof Error) {
+            throw responseOrError;
+        }
+        return responseOrError;
+    };
+    const originalWarn = console.warn;
+    if (responseOrError instanceof Error) {
+        console.warn = () => undefined;
+    }
+    try {
+        const actual = await actionsModule.getHomepageNoteReadiness(noteId);
+        assert.strictEqual(actual.readable, expected.readable);
+        assert.strictEqual(actual.clearBinding, expected.clearBinding);
+    } finally {
+        console.warn = originalWarn;
+    }
+};
 
 assert.strictEqual(constantsModule.DEFAULT_TEMPLATE_PATH, undefined);
 assert.strictEqual(stateModule.normalizeHomepageNoteId(" 20260608000000-abcdefg "), "20260608000000-abcdefg");
@@ -110,7 +172,10 @@ const tabSource = fs.readFileSync(tabPath, "utf8");
 
 assert.ok(actionsSource.includes("openFileById"));
 assert.ok(actionsSource.includes("/api/block/getBlockInfo"));
+assert.ok(actionsSource.includes("clearBinding"));
+assert.ok(actionsSource.includes("catch (error)"));
 assert.ok(runtimeSource.includes("尚未创建主页"));
+assert.ok(runtimeSource.includes("主页暂时无法打开"));
 assert.ok(runtimeSource.includes("create-homepage-note"));
 assert.ok(tabSource.includes("openHomepageNote"));
 
@@ -121,4 +186,24 @@ for (const source of [actionsSource, runtimeSource, tabSource]) {
     assert.ok(!source.includes("new Function("));
 }
 
-console.log("[homepage-modules] ok");
+(async () => {
+    await assertReadiness("doc-2", {code: 0, data: {rootID: "doc-2"}}, {readable: true, clearBinding: false});
+    await assertReadiness("doc-2", {code: 3, data: null}, {readable: false, clearBinding: false});
+    await assertReadiness("doc-2", {code: -1, data: null}, {readable: false, clearBinding: true});
+    await assertReadiness("doc-2", new Error("network down"), {readable: false, clearBinding: false});
+
+    stateModule.setHomepageSourceToNote("doc-indexing");
+    fetchSyncPostMock = async () => ({code: 3, data: null});
+    assert.strictEqual(await actionsModule.openHomepageNote({}, "doc-indexing"), false);
+    assertHomepageState(stateModule.getHomepageState(), "doc-indexing");
+
+    stateModule.setHomepageSourceToNote("doc-deleted");
+    fetchSyncPostMock = async () => ({code: -1, data: null});
+    assert.strictEqual(await actionsModule.openHomepageNote({}, "doc-deleted"), false);
+    assertHomepageState(stateModule.getHomepageState(), "");
+
+    console.log("[homepage-modules] ok");
+})().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

@@ -12,6 +12,11 @@ import {openMobileFileById} from "../mobile/editor";
 import {openFileById} from "../editor/util";
 /// #endif
 
+interface IHomepageNoteReadiness {
+    readable: boolean;
+    clearBinding: boolean;
+}
+
 export const getCurrentHomepageCandidateNoteId = () => {
     /// #if MOBILE
     return normalizeHomepageNoteId(window.sourceflow.mobile?.editor?.protyle?.block?.rootID);
@@ -23,19 +28,28 @@ export const getCurrentHomepageCandidateNoteId = () => {
     /// #endif
 };
 
-export const isHomepageNoteReadable = async (noteId: string) => {
+export const getHomepageNoteReadiness = async (noteId: string): Promise<IHomepageNoteReadiness> => {
     const normalized = normalizeHomepageNoteId(noteId);
     if (!normalized) {
-        return false;
+        return {readable: false, clearBinding: true};
     }
-    const response = await fetchSyncPost("/api/block/getBlockInfo", {id: normalized});
-    return response.code === 0 && response.data?.rootID === normalized;
+    try {
+        const response = await fetchSyncPost("/api/block/getBlockInfo", {id: normalized});
+        if (response.code === 0) {
+            return {readable: response.data?.rootID === normalized, clearBinding: response.data?.rootID !== normalized};
+        }
+        return {readable: false, clearBinding: response.code === -1};
+    } catch (error) {
+        console.warn("check homepage note failed", error);
+        return {readable: false, clearBinding: false};
+    }
 };
 
 export const openHomepageNote = async (app: App, noteId: string) => {
     const normalized = normalizeHomepageNoteId(noteId);
-    if (!await isHomepageNoteReadable(normalized)) {
-        if (getHomepageState().noteId === normalized) {
+    const readiness = await getHomepageNoteReadiness(normalized);
+    if (!readiness.readable) {
+        if (readiness.clearBinding && getHomepageState().noteId === normalized) {
             clearHomepage();
         }
         return false;
@@ -43,7 +57,12 @@ export const openHomepageNote = async (app: App, noteId: string) => {
     /// #if MOBILE
     openMobileFileById(app, normalized, [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS]);
     /// #else
-    await openFileById({app, id: normalized, action: [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS]});
+    try {
+        await openFileById({app, id: normalized, action: [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS]});
+    } catch (error) {
+        console.warn("open homepage note failed", error);
+        return false;
+    }
     /// #endif
     return true;
 };

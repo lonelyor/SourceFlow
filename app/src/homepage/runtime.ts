@@ -6,10 +6,13 @@ import {getHomepageState} from "./state";
 
 const renderHomepageEmpty = (container: HTMLElement) => {
     const canSetCurrent = !!getCurrentHomepageCandidateNoteId();
+    const title = getHomepageState().noteId
+        ? homepageText("主页暂时无法打开", "Homepage is temporarily unavailable")
+        : homepageText("尚未创建主页", "No homepage yet");
     container.innerHTML = `<div class="homepage-page__empty">
     <div class="homepage-page__empty-main">
         <div class="homepage-page__empty-icon"><svg><use xlink:href="#iconLayout"></use></svg></div>
-        <div class="homepage-page__empty-title">${escapeHTML(homepageText("尚未创建主页", "No homepage yet"))}</div>
+        <div class="homepage-page__empty-title">${escapeHTML(title)}</div>
         <div class="homepage-page__empty-actions">
             ${window.sourceflow.config.readonly ? "" : `<button class="b3-button" type="button" data-homepage-action="create-homepage-note">
                 <svg><use xlink:href="#iconFile"></use></svg><span>${escapeHTML(homepageText("创建主页", "Create Homepage"))}</span>
