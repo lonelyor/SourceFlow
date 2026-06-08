@@ -186,4 +186,5 @@
 - [x] AI 安全后续审计项设计：第 4 层继续扩展跨请求组合低风险写入、直接底层 API 绕过和更完整的影响范围追踪，统一在后端安全内核判定。
 - [x] AI 安全后续审计项落地：补齐第 4 层新增规则与回归验证。
 - [x] 本阶段安全验证：`go test -vet=off ./model -run Test.*AISecurity -count=1`、`go test -vet=off ./model -run TestAssistantPatch -count=1`、`go test -vet=off ./model -run TestAssistantOperationHistory -count=1`、`go test -vet=off ./model -run TestCountAssistantOperationHistorySessionWriteTargets -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint 通过。
-- [ ] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。
+- [x] 发布后 24 小时内按 `docs/OPERATIONS.md` 检查启动、便携包、插件集市、同步诊断和崩溃日志。
+- [x] 本轮发布后检查：v0.1.7 本地产物和远端 Release 资产存在；便携目录 marker/exe/resources 存在；诊断包生成成功；插件集市 version/stage 拉取成功；本机 SourceFlow CrashDumps 为空；日志尾部无崩溃，存在本地备份 refs/tags 缺失的 snapshot protection 警告；GitHub 开放 issue 未见阻断性回归标签。
