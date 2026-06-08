@@ -481,13 +481,13 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             await ctx.startAgentFromDraft();
             return;
         case "pause-agent-task":
-            ctx.pauseAgentTask(taskId);
+            await ctx.pauseAgentTask(taskId);
             return;
         case "resume-agent-task":
             await ctx.runAgentTask(taskId);
             return;
         case "cancel-agent-task":
-            ctx.cancelAgentTask(taskId);
+            await ctx.cancelAgentTask(taskId);
             return;
         case "retry-agent-item":
             await ctx.retryAgentTaskItem(taskId, itemId);
@@ -499,10 +499,10 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             await ctx.applyAgentPatch(taskId, itemId);
             return;
         case "reject-agent-patch-op":
-            ctx.rejectAgentPatch(taskId, itemId, operationId);
+            await ctx.rejectAgentPatch(taskId, itemId, operationId);
             return;
         case "reject-agent-patch-all":
-            ctx.rejectAgentPatch(taskId, itemId);
+            await ctx.rejectAgentPatch(taskId, itemId);
             return;
         case "rollback-history":
             await rollbackAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");

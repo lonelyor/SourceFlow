@@ -6,6 +6,7 @@
 
 - 2026-06-08 用户确认继续完成全部未完成开发任务，并确认“旧的直接删掉，只保留新的”：Agent 队列不做旧 `localStorage` 兼容迁移，生产真相源改为后端 `storage/assistant_agent_tasks.json` 与 `/api/assistant/agent/*` API；前端旧本地队列只允许作为待删除实现细节，不作为兼容来源。
 - 2026-06-08 Agent 后端持久审计与执行锁设计确认：任务创建、列表、状态更新、任务项 patch/context/error/retryCount、取消剩余项都由后端 API 持久化；运行前必须获取后端任务级 lease token，暂停/取消/完成释放 lease，过期 lease 可被后续运行接管，避免多窗口重复执行同一 Agent 任务。
+- 2026-06-08 Agent 后端持久审计与执行锁已落地：新增 `storage/assistant_agent_tasks.json` 后端任务队列、`/api/assistant/agent/*` API 和任务级 lease token；前端 Agent 队列删除旧 `localStorage` 真相源，创建/暂停/取消/任务项 patch 状态和执行器进度均通过后端 API 持久化。验证已通过：`go test -vet=off ./model -run TestAssistantAgent -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint。
 - 2026-06-08 AI 安全第 4 层扩展方向确认：继续在后端安全内核收紧跨请求组合低风险写入、直接底层 API 绕过和影响范围追踪；这属于安全边界收紧，原本可自动放行的可疑 AI 写入可能改为确认或拒绝。
 - 2026-06-05 AI Dock 复用硬原则已固化：凡是用户和 AI 对话、需要来源/历史/停止生成/Profile/工具权限/Agent/patch 审阅/审计的入口，都必须复用现有 AI Dock；轻量内联 AI 仅限当前选区即时操作，且仍复用统一上下文、模型、安全、patch 和审计边界；禁止新增平级问答浮层、独立聊天 dialog、独立来源面板或第二套对话真相源。
 - 2026-06-05 用户确认 AI 入口应像 Kilo 一样复用现有 AI 助手 Dock，不新增“单次问答”浮层或第二套真相源；本轮以单 Dock 模式实现 `问 AI`/连续对话/Agent 的显式模式切换，并优先补齐普通对话停止生成功能。

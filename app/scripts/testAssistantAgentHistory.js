@@ -48,14 +48,91 @@ const fakeWindow = {
     },
 };
 
-const queue = compileModule(path.join(appRoot, "src", "assistant", "agent", "queue.ts"), {}, {window: fakeWindow});
-const task = queue.createAssistantAgentTask("批量审查", [{title: "A"}, {title: "B", targetId: "block-b"}]);
-assert.strictEqual(task.items.length, 2);
-assert.deepStrictEqual(plain(queue.getAssistantAgentTaskProgress(task)), {total: 2, done: 0, review: 0, failed: 0});
-assert.strictEqual(queue.updateAssistantAgentTaskStatus(task.id, "paused").status, "paused");
-assert.strictEqual(queue.updateAssistantAgentTaskStatus(task.id, "canceled").items[0].status, "canceled");
+let backendTasks = [];
+let nextAgentId = 1;
+let activeLease = "";
+const createBackendId = (prefix) => `${prefix}-${nextAgentId++}`;
+const upsertBackendTask = (task) => {
+    const index = backendTasks.findIndex((item) => item.id === task.id);
+    if (index >= 0) {
+        backendTasks[index] = plain(task);
+    } else {
+        backendTasks = [plain(task)].concat(backendTasks);
+    }
+    return plain(task);
+};
+const fakeAgentFetch = async (url, payload) => {
+    if (url === "/api/assistant/agent/list") {
+        return {code: 0, data: plain(backendTasks)};
+    }
+    if (url === "/api/assistant/agent/create") {
+        const now = Date.now();
+        const task = {
+            id: createBackendId("agent"),
+            title: payload.title || "AI Agent Task",
+            status: "running",
+            items: payload.items.map((item) => ({
+                id: createBackendId("item"),
+                title: item.title || "Task item",
+                targetId: item.targetId || "",
+                context: item.context,
+                status: "pending",
+            })),
+            createdAt: now,
+            updatedAt: now,
+        };
+        return {code: 0, data: upsertBackendTask(task)};
+    }
+    if (url === "/api/assistant/agent/updateStatus") {
+        const task = backendTasks.find((item) => item.id === payload.id);
+        task.status = payload.status;
+        if (payload.status === "canceled") {
+            task.items = task.items.map((item) => item.status === "done" || item.status === "review" ? item : {...item, status: "canceled"});
+        }
+        return {code: 0, data: upsertBackendTask(task)};
+    }
+    if (url === "/api/assistant/agent/updateItem") {
+        const task = backendTasks.find((item) => item.id === payload.taskId);
+        task.items = task.items.map((item) => item.id === payload.itemId ? plain(payload.item) : item);
+        upsertBackendTask(task);
+        return {code: 0, data: plain(payload.item)};
+    }
+    if (url === "/api/assistant/agent/updateItems") {
+        const task = backendTasks.find((item) => item.id === payload.taskId);
+        task.items = plain(payload.items);
+        return {code: 0, data: upsertBackendTask(task)};
+    }
+    if (url === "/api/assistant/agent/cancelPending") {
+        const task = backendTasks.find((item) => item.id === payload.taskId);
+        task.items = task.items.map((item) => item.status === "done" || item.status === "review" ? item : {...item, status: "canceled"});
+        return {code: 0, data: upsertBackendTask(task)};
+    }
+    if (url === "/api/assistant/agent/acquireLease") {
+        if (activeLease) {
+            return {code: -1, msg: "assistant agent task is already running"};
+        }
+        activeLease = createBackendId("lease");
+        const task = backendTasks.find((item) => item.id === payload.taskId);
+        task.status = "running";
+        return {code: 0, data: {task: upsertBackendTask(task), token: activeLease, expiresAt: Date.now() + 10000}};
+    }
+    if (url === "/api/assistant/agent/releaseLease") {
+        assert.strictEqual(payload.leaseToken, activeLease);
+        activeLease = "";
+        const task = backendTasks.find((item) => item.id === payload.taskId);
+        return {code: 0, data: upsertBackendTask(task)};
+    }
+    throw new Error(`unexpected agent API ${url}`);
+};
 
-const executor = compileModule(path.join(appRoot, "src", "assistant", "agent", "executor.ts"), {}, {
+const queueRequireMap = {
+    "../../util/fetch": {
+        fetchSyncPost: fakeAgentFetch,
+    },
+};
+const queue = compileModule(path.join(appRoot, "src", "assistant", "agent", "queue.ts"), queueRequireMap, {window: fakeWindow});
+
+const executor = compileModule(path.join(appRoot, "src", "assistant", "agent", "executor.ts"), {"./queue": queue}, {
     window: fakeWindow,
     AbortController,
     setTimeout,
@@ -71,40 +148,6 @@ const agentPatchContext = {
     currentBlockMarkdown: "",
     selectedText: "",
 };
-const runTask = queue.createAssistantAgentTask("执行测试", [{title: "生成补丁"}, {title: "直接完成"}]);
-const executorPromise = executor.runAssistantAgentTask(runTask.id, async (item) => {
-    if (item.title === "生成补丁") {
-        return {
-            patchId: "patch-1",
-            context: agentPatchContext,
-            patch: {
-                id: "patch-1",
-                source: "agent",
-                target: "note",
-                risk: "L2",
-                summary: "Agent 补丁",
-                operations: [{
-                    id: "op-agent-1",
-                    type: "append-note",
-                    targetId: "doc-1",
-                    after: "生成内容",
-                    status: "pending",
-                }],
-                createdAt: Date.now(),
-            },
-        };
-    }
-    return {};
-}, {itemTimeoutMs: 1000}).then((updatedTask) => {
-    assert(updatedTask, "agent executor should return task");
-    const latest = queue.readAssistantAgentTasks().find((entry) => entry.id === runTask.id);
-    assert.strictEqual(latest.items[0].status, "review");
-    assert.strictEqual(latest.items[0].patchId, "patch-1");
-    assert.strictEqual(latest.items[0].patch.summary, "Agent 补丁");
-    assert.strictEqual(latest.items[0].context.rootID, "doc-1");
-    assert.strictEqual(latest.items[1].status, "done");
-    assert.strictEqual(latest.status, "review");
-});
 
 const deleted = [];
 const fetchCalls = [];
@@ -266,7 +309,49 @@ const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyI
     assert(fetchCalls.some((item) => item.url === "/api/assistant/history/reapply" && item.payload.id === "aihist-reverted"));
 });
 
-Promise.all([executorPromise, historyPromise]).then(() => {
+const agentPromise = (async () => {
+    const task = await queue.createAssistantAgentTask("批量审查", [{title: "A"}, {title: "B", targetId: "block-b"}]);
+    assert.strictEqual(task.items.length, 2);
+    assert.deepStrictEqual(plain(queue.getAssistantAgentTaskProgress(task)), {total: 2, done: 0, review: 0, failed: 0});
+    assert.strictEqual((await queue.updateAssistantAgentTaskStatus(task.id, "paused")).status, "paused");
+    assert.strictEqual((await queue.updateAssistantAgentTaskStatus(task.id, "canceled")).items[0].status, "canceled");
+
+    const runTask = await queue.createAssistantAgentTask("执行测试", [{title: "生成补丁"}, {title: "直接完成"}]);
+    const updatedTask = await executor.runAssistantAgentTask(runTask.id, async (item) => {
+        if (item.title === "生成补丁") {
+            return {
+                patchId: "patch-1",
+                context: agentPatchContext,
+                patch: {
+                    id: "patch-1",
+                    source: "agent",
+                    target: "note",
+                    risk: "L2",
+                    summary: "Agent 补丁",
+                    operations: [{
+                        id: "op-agent-1",
+                        type: "append-note",
+                        targetId: "doc-1",
+                        after: "生成内容",
+                        status: "pending",
+                    }],
+                    createdAt: Date.now(),
+                },
+            };
+        }
+        return {};
+    }, {itemTimeoutMs: 1000});
+    assert(updatedTask, "agent executor should return task");
+    const latest = queue.readAssistantAgentTasks().find((entry) => entry.id === runTask.id);
+    assert.strictEqual(latest.items[0].status, "review");
+    assert.strictEqual(latest.items[0].patchId, "patch-1");
+    assert.strictEqual(latest.items[0].patch.summary, "Agent 补丁");
+    assert.strictEqual(latest.items[0].context.rootID, "doc-1");
+    assert.strictEqual(latest.items[1].status, "done");
+    assert.strictEqual(latest.status, "review");
+})();
+
+Promise.all([agentPromise, historyPromise]).then(() => {
     console.log("[assistant-agent-history] ok");
 }).catch((error) => {
     console.error(error);

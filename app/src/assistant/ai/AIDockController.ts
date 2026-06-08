@@ -528,12 +528,12 @@ class AssistantAIDock {
         await runAIDockAgentTask(this.getRuntime(), taskId);
     }
 
-    private pauseAgentTask(taskId: string) {
-        pauseAIDockAgentTask(this.getRuntime(), taskId);
+    private async pauseAgentTask(taskId: string) {
+        await pauseAIDockAgentTask(this.getRuntime(), taskId);
     }
 
-    private cancelAgentTask(taskId: string) {
-        cancelAIDockAgentTask(this.getRuntime(), taskId);
+    private async cancelAgentTask(taskId: string) {
+        await cancelAIDockAgentTask(this.getRuntime(), taskId);
     }
 
     private async retryAgentTaskItem(taskId: string, itemId: string) {
@@ -544,8 +544,8 @@ class AssistantAIDock {
         await applyAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
     }
 
-    private rejectAgentPatch(taskId: string, itemId: string, operationId = "") {
-        rejectAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
+    private async rejectAgentPatch(taskId: string, itemId: string, operationId = "") {
+        await rejectAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
     }
 
     private async saveTranscript() {
