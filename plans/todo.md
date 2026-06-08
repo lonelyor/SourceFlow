@@ -14,6 +14,7 @@
 - [x] AI 助手 Kilo 式 Dock 交互：不新增问答浮层，复用现有 AI Dock，同一来源面板、消息、权限和审计真相源，补齐 `ask/chat/agent` 模式状态。
 - [x] AI 普通对话停止生成：Dock 发送和编辑重生成使用 `AbortController`，UI 提供停止入口，用户主动停止保留部分回答且不按失败处理。
 - [x] `问 AI` 入口收敛：现有 `ask-ai` skill、右键/选区入口打开 AI Dock 并切到只读 `ask` 模式；`加入当前对话`/`开启新对话` 复用来源面板，不自动写入笔记。
+- [x] AI 历史旧兼容删除与验证闸门收敛：前端历史不再读写 localStorage，不再走普通块/文件树回滚兜底；历史展示、撤回、取消撤回只依赖后端历史 API；把遗漏的专项稳定性脚本纳入 `typecheck:app`。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 

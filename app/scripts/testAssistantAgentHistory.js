@@ -149,8 +149,19 @@ const agentPatchContext = {
     selectedText: "",
 };
 
-const deleted = [];
 const fetchCalls = [];
+let backendHistory = [];
+const historyStore = compileModule(path.join(appRoot, "src", "assistant", "history", "store.ts"), {}, {window: fakeWindow});
+const upsertBackendHistory = (item) => {
+    const next = plain(item);
+    const index = backendHistory.findIndex((entry) => entry.id === next.id);
+    if (index >= 0) {
+        backendHistory[index] = next;
+    } else {
+        backendHistory = [next].concat(backendHistory);
+    }
+    return plain(next);
+};
 const requireMap = {
     "../../dialog/message": {
         showMessage: () => undefined,
@@ -158,22 +169,72 @@ const requireMap = {
     "../../util/fetch": {
         fetchSyncPost: async (url, payload) => {
             fetchCalls.push({url, payload});
+            if (url === "/api/assistant/history/revert") {
+                const item = backendHistory.find((entry) => entry.id === payload.id);
+                if (!item) {
+                    return {code: -1, msg: "assistant operation history was not found"};
+                }
+                item.status = "reverted";
+                item.updatedAt = Date.now();
+                return {code: 0, data: {item: plain(item)}};
+            }
             if (url === "/api/assistant/history/reapply") {
-                return {code: 0, data: {item: {id: payload.id, status: "reapplied"}}};
+                const item = backendHistory.find((entry) => entry.id === payload.id);
+                if (!item) {
+                    return {code: -1, msg: "assistant operation history was not found"};
+                }
+                item.status = "reapplied";
+                item.updatedAt = Date.now();
+                return {code: 0, data: {item: plain(item)}};
             }
             if (url === "/api/assistant/history/list") {
-                return {code: 0, data: historyStore.readAssistantOperationHistory()};
+                return {code: 0, data: plain(backendHistory)};
             }
-            deleted.push(payload.id);
-            return {code: 0};
+            if (url === "/api/assistant/history/recordExplicitSave") {
+                const now = Date.now();
+                return {code: 0, data: upsertBackendHistory({
+                    id: `aihist-explicit-${payload.noteId}`,
+                    patchId: `explicit-save-${payload.noteId}`,
+                    operationId: `explicit-op-${payload.noteId}`,
+                    operationType: "create-note",
+                    patch: {
+                        id: `explicit-save-${payload.noteId}`,
+                        source: payload.source,
+                        target: "note",
+                        risk: payload.risk || "L2",
+                        summary: payload.summary,
+                        operations: [{
+                            id: `explicit-op-${payload.noteId}`,
+                            type: "create-note",
+                            targetId: payload.noteId,
+                            targetLabel: payload.targetLabel,
+                            status: "accepted",
+                            appliedTargetId: payload.noteId,
+                            after: payload.markdown,
+                        }],
+                        createdAt: now,
+                    },
+                    status: "applied",
+                    source: payload.source,
+                    risk: payload.risk || "L2",
+                    sessionId: payload.sessionId,
+                    profileId: payload.profileId,
+                    targetId: payload.noteId,
+                    targetLabel: payload.targetLabel,
+                    results: [],
+                    createdAt: now,
+                    updatedAt: now,
+                })};
+            }
+            throw new Error(`unexpected history API ${url}`);
         },
     },
     "../constants": {
         assistantText: (zh, en) => zh || en,
     },
+    "./store": historyStore,
 };
 const operations = compileModule(path.join(appRoot, "src", "assistant", "history", "operations.ts"), requireMap, {window: fakeWindow});
-const historyStore = compileModule(path.join(appRoot, "src", "assistant", "history", "store.ts"), {}, {window: fakeWindow});
 const patch = {
     id: "patch-1",
     source: "skill",
@@ -189,19 +250,35 @@ const patch = {
     }],
     createdAt: Date.now(),
 };
-const historyItem = operations.recordAssistantPatchHistory(patch, {
+const backendPatchHistoryItem = {
+    id: "aihist-applied",
+    patchId: patch.id,
+    operationId: "op-1",
+    operationType: "insert-after-block",
+    patch,
+    status: "applied",
+    source: "skill",
+    risk: "L2",
     sessionId: "session-1",
     profileId: "profile-1",
     targetId: "root-1",
     targetLabel: "目标笔记",
-});
-assert(historyItem.id, "history item should be recorded");
-assert.strictEqual(historyItem.sessionId, "session-1");
-assert.strictEqual(historyItem.profileId, "profile-1");
-assert.strictEqual(historyItem.targetLabel, "目标笔记");
-assert.strictEqual(historyItem.results[0].appliedTargetId, "inserted-block");
-assert.strictEqual(historyStore.readAssistantOperationHistory().length, 1);
-assert.strictEqual(operations.canRevertAssistantOperationHistoryItem(historyItem), true);
+    results: [{
+        operationId: "op-1",
+        type: "insert-after-block",
+        status: "accepted",
+        appliedTargetId: "inserted-block",
+    }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+};
+assert.strictEqual(operations.recordAssistantPatchHistory(patch, {
+    sessionId: "session-1",
+    profileId: "profile-1",
+    targetId: "root-1",
+    targetLabel: "目标笔记",
+}), null);
+assert.strictEqual(historyStore.readAssistantOperationHistory().length, 0);
 
 const localReplaceHistoryItem = {
     id: "history-local-replace",
@@ -240,57 +317,43 @@ assert.strictEqual(operations.canReapplyAssistantOperationHistoryItem({
 }), true);
 
 const failureItem = operations.recordAssistantPatchFailure(patch, "写入失败", {targetLabel: "失败目标"});
-assert.strictEqual(failureItem.status, "failed");
-assert.strictEqual(failureItem.error, "写入失败");
+assert.strictEqual(failureItem, null);
 
-const createPatch = {
-    id: "patch-create",
-    source: "agent",
-    target: "notebook",
-    risk: "L2",
-    summary: "创建笔记",
-    operations: [{
-        id: "op-create",
-        type: "create-note",
-        status: "accepted",
-        appliedTargetId: "created-doc",
-        after: "内容",
-    }],
-    createdAt: Date.now(),
-};
-const createHistoryItem = operations.recordAssistantPatchHistory(createPatch);
-assert(createHistoryItem.id, "create-note history item should be recorded");
+const historyPromise = (async () => {
+    backendHistory = [plain(backendPatchHistoryItem)];
+    await operations.syncAssistantOperationHistoryFromBackend();
+    const historyItem = historyStore.readAssistantOperationHistory()[0];
+    assert.strictEqual(historyItem.id, "aihist-applied");
+    assert.strictEqual(historyItem.sessionId, "session-1");
+    assert.strictEqual(historyItem.profileId, "profile-1");
+    assert.strictEqual(historyItem.targetLabel, "目标笔记");
+    assert.strictEqual(historyItem.results[0].appliedTargetId, "inserted-block");
+    assert.strictEqual(operations.canRevertAssistantOperationHistoryItem(historyItem), true);
 
-const explicitSaveItem = operations.recordAssistantExplicitSaveHistory({
-    source: "dock",
-    summary: "对话记录",
-    noteId: "saved-doc",
-    targetLabel: "对话记录",
-    sessionId: "session-2",
-    profileId: "profile-2",
-});
-assert(explicitSaveItem.id, "explicit AI save history item should be recorded");
-assert.strictEqual(explicitSaveItem.source, "dock");
-assert.strictEqual(explicitSaveItem.sessionId, "session-2");
-assert.strictEqual(explicitSaveItem.profileId, "profile-2");
-assert.strictEqual(explicitSaveItem.patch.operations[0].type, "create-note");
-assert.strictEqual(explicitSaveItem.patch.operations[0].appliedTargetId, "saved-doc");
+    const explicitSaveItem = await operations.recordAssistantExplicitSaveHistory({
+        source: "dock",
+        summary: "对话记录",
+        noteId: "saved-doc",
+        targetLabel: "对话记录",
+        sessionId: "session-2",
+        profileId: "profile-2",
+        markdown: "保存内容",
+    });
+    assert(explicitSaveItem.id, "explicit AI save history item should be recorded by backend");
+    assert.strictEqual(explicitSaveItem.source, "dock");
+    assert.strictEqual(explicitSaveItem.sessionId, "session-2");
+    assert.strictEqual(explicitSaveItem.profileId, "profile-2");
+    assert.strictEqual(explicitSaveItem.patch.operations[0].type, "create-note");
+    assert.strictEqual(explicitSaveItem.patch.operations[0].appliedTargetId, "saved-doc");
 
-const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyItem.id).then((ok) => {
-    assert.strictEqual(ok, true);
-    assert.deepStrictEqual(deleted, ["inserted-block"]);
-    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === historyItem.id).status, "rolled-back");
-    return operations.rollbackAssistantOperationHistoryItem(createHistoryItem.id);
-}).then((ok) => {
-    assert.strictEqual(ok, true);
-    assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "created-doc"));
-    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === createHistoryItem.id).status, "rolled-back");
-    return operations.rollbackAssistantOperationHistoryItem(explicitSaveItem.id);
-}).then((ok) => {
-    assert.strictEqual(ok, true);
-    assert(fetchCalls.some((item) => item.url === "/api/filetree/removeDocByID" && item.payload.id === "saved-doc"));
-    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === explicitSaveItem.id).status, "rolled-back");
-    historyStore.writeAssistantOperationHistory([{
+    assert.strictEqual(await operations.rollbackAssistantOperationHistoryItem(historyItem.id), true);
+    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === historyItem.id).status, "reverted");
+    assert.strictEqual(await operations.rollbackAssistantOperationHistoryItem(explicitSaveItem.id), true);
+    assert.strictEqual(historyStore.readAssistantOperationHistory().find((item) => item.id === explicitSaveItem.id).status, "reverted");
+    assert(!fetchCalls.some((item) => item.url === "/api/block/deleteBlock" || item.url === "/api/filetree/removeDocByID"),
+        "history rollback must not use old local block/filetree fallback APIs");
+
+    backendHistory = [{
         id: "aihist-reverted",
         patch,
         status: "reverted",
@@ -301,13 +364,12 @@ const historyPromise = operations.rollbackAssistantOperationHistoryItem(historyI
         results: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
-    }]);
-    return operations.syncAssistantOperationHistoryFromBackend()
-        .then(() => operations.reapplyAssistantOperationHistoryItem("aihist-reverted"));
-}).then((ok) => {
+    }];
+    await operations.syncAssistantOperationHistoryFromBackend();
+    const ok = await operations.reapplyAssistantOperationHistoryItem("aihist-reverted");
     assert.strictEqual(ok, true);
     assert(fetchCalls.some((item) => item.url === "/api/assistant/history/reapply" && item.payload.id === "aihist-reverted"));
-});
+})();
 
 const agentPromise = (async () => {
     const task = await queue.createAssistantAgentTask("批量审查", [{title: "A"}, {title: "B", targetId: "block-b"}]);

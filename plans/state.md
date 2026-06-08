@@ -10,6 +10,8 @@
 - 2026-06-08 用户确认主页与笔记体验做适当增强：优先降低心智负担，不恢复模板主页；本阶段聚焦主页空态增强和笔记内“快捷入口”普通链接插入，快捷入口只在用户主动点击普通链接时打开目标，不新增自动打开、脚本、命令参数或 AI 触发本地应用能力。
 - 2026-06-08 主页轻量增强第一阶段已完成：空态新增“选择已有笔记”搜索入口，创建按钮文案改为“创建主页笔记”，并说明主页就是普通笔记；编辑器插入菜单和 `/快捷入口` 新增快捷入口对话框，支持网页链接、本地文件和本地文件夹，最终只插入普通链接，不直接打开目标。验证通过：`pnpm --dir app run test:homepage-modules`、`pnpm --dir app run check:script-runtime-guards`、本轮触达文件 ESLint 0 error；`pnpm --dir app run typecheck:app` 当前被未授权的 `app/src/assistant/history/operations.ts` 等无关工作区改动阻塞，未作为本阶段通过项记录。
 - 2026-06-08 用户确认继续完成全部未完成开发任务，并确认“旧的直接删掉，只保留新的”：Agent 队列不做旧 `localStorage` 兼容迁移，生产真相源改为后端 `storage/assistant_agent_tasks.json` 与 `/api/assistant/agent/*` API；前端旧本地队列只允许作为待删除实现细节，不作为兼容来源。
+- 2026-06-08 用户确认本轮强化方向：AI 历史旧 localStorage 兼容路径直接删除，只保留后端历史真相源；大文件只允许做不改变行为语义的模块拆分；验证闸门、DOM/事务/性能/Workbench 稳定性强化均同意推进。
+- 2026-06-08 AI 历史旧兼容删除与验证闸门收敛阶段完成：前端 AI 操作历史不再读写 `sourceflow.assistant.operation.history` localStorage，不再通过普通块/文件树接口执行旧本地回滚；历史展示、撤回和取消撤回只依赖后端 `/api/assistant/history/*` API。`typecheck:app` 已纳入 assistant secrets、编辑器结构提示、文件树外观和 Workbench 稳定性专项脚本。
 - 2026-06-08 Agent 后端持久审计与执行锁设计确认：任务创建、列表、状态更新、任务项 patch/context/error/retryCount、取消剩余项都由后端 API 持久化；运行前必须获取后端任务级 lease token，暂停/取消/完成释放 lease，过期 lease 可被后续运行接管，避免多窗口重复执行同一 Agent 任务。
 - 2026-06-08 Agent 后端持久审计与执行锁已落地：新增 `storage/assistant_agent_tasks.json` 后端任务队列、`/api/assistant/agent/*` API 和任务级 lease token；前端 Agent 队列删除旧 `localStorage` 真相源，创建/暂停/取消/任务项 patch 状态和执行器进度均通过后端 API 持久化。验证已通过：`go test -vet=off ./model -run TestAssistantAgent -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint。
 - 2026-06-08 AI 安全第 4 层扩展方向确认：继续在后端安全内核收紧跨请求组合低风险写入、直接底层 API 绕过和影响范围追踪；这属于安全边界收紧，原本可自动放行的可疑 AI 写入可能改为确认或拒绝。

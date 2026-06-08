@@ -30,8 +30,6 @@ const getAssistantHistoryStatusLabel = (status: string) => {
             return assistantText("撤回失败", "Revert failed");
         case "reapply-failed":
             return assistantText("取消撤回失败", "Reapply failed");
-        case "rolled-back":
-            return assistantText("已回滚", "Rolled back");
         default:
             return status;
     }

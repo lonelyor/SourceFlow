@@ -236,6 +236,10 @@ const runAIDockRuntimeBehaviorTest = () => {
     return runNodeScript("testAIDockRuntimeBehavior.js");
 };
 
+const runAssistantSecretsTest = () => {
+    return runNodeScript("testAssistantSecrets.js");
+};
+
 const runToolbarInlineMarkModuleTest = () => {
     return runNodeScript("testToolbarInlineMarkModules.js");
 };
@@ -274,6 +278,22 @@ const runProtyleBlockDOMPreservationTest = () => {
 
 const runProtylePasteSelectionSafetyTest = () => {
     return runNodeScript("testProtylePasteSelectionSafety.js");
+};
+
+const runEditorStructureGuideTest = () => {
+    return runNodeScript("testEditorStructureGuide.js");
+};
+
+const runEditorStructureGuideBugfixTest = () => {
+    return runNodeScript("testStructureGuideBugfix.js");
+};
+
+const runFileTreeAppearanceSettingsTest = () => {
+    return runNodeScript("testFileTreeAppearanceSettings.js");
+};
+
+const runWorkbenchStabilityTest = () => {
+    return runNodeScript("testWorkbenchStability.js");
 };
 
 const runTypecheck = (targetName) => {
@@ -437,6 +457,12 @@ if (exitCode !== 0) {
     process.exit(exitCode);
 }
 
+console.log("\n[typecheck] assistant secrets");
+exitCode = runAssistantSecretsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
 console.log("\n[typecheck] av panel handler coverage");
 exitCode = runAVPanelHandlerCoverageTest();
 if (exitCode !== 0) {
@@ -505,6 +531,30 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] protyle paste selection safety");
 exitCode = runProtylePasteSelectionSafetyTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] editor structure guide");
+exitCode = runEditorStructureGuideTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] editor structure guide bugfix");
+exitCode = runEditorStructureGuideBugfixTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] file tree appearance settings");
+exitCode = runFileTreeAppearanceSettingsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] workbench stability");
+exitCode = runWorkbenchStabilityTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }
