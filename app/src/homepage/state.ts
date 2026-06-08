@@ -1,23 +1,12 @@
 import {Constants} from "../constants";
 import {setStorageVal} from "../protyle/util/compatibility";
-import {DEFAULT_TEMPLATE_PATH} from "./constants";
-import {IHomepageState, THomepageSourceType} from "./types";
+import {IHomepageState} from "./types";
 
-export const normalizeTemplatePath = (value?: string) => {
-    const text = `${value || ""}`.trim().replace(/\\/g, "/");
-    if (!text) {
-        return DEFAULT_TEMPLATE_PATH;
-    }
-    return text.startsWith("/") ? text.replace(/\/+$/, "") : `/${text.replace(/^\/+/, "").replace(/\/+$/, "")}`;
-};
+export const normalizeHomepageNoteId = (value?: string) => `${value || ""}`.trim();
 
 export const normalizeHomepageState = (state?: Partial<IHomepageState>): IHomepageState => {
-    const noteId = `${state?.noteId || ""}`.trim();
-    const sourceType: THomepageSourceType = state?.sourceType === "note" && noteId ? "note" : "template";
     return {
-        templatePath: normalizeTemplatePath(state?.templatePath),
-        sourceType,
-        noteId: sourceType === "note" ? noteId : "",
+        noteId: normalizeHomepageNoteId(state?.noteId),
     };
 };
 
@@ -33,18 +22,13 @@ export const saveHomepageState = (state: IHomepageState) => {
 };
 
 export const setHomepageSourceToNote = (noteId: string) => {
-    const state = getHomepageState();
-    state.sourceType = "note";
-    state.noteId = `${noteId || ""}`.trim();
+    const state = {noteId: normalizeHomepageNoteId(noteId)};
     saveHomepageState(state);
     return getHomepageState();
 };
 
-export const resetHomepageToDefault = () => {
-    const state = getHomepageState();
-    state.sourceType = "template";
-    state.noteId = "";
-    state.templatePath = normalizeTemplatePath(state.templatePath || DEFAULT_TEMPLATE_PATH);
+export const clearHomepage = () => {
+    const state = {noteId: ""};
     saveHomepageState(state);
     return getHomepageState();
 };

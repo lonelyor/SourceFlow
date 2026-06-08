@@ -7,7 +7,7 @@ const ts = require("typescript");
 const createHostWindow = () => ({
     sourceflow: {
         config: {
-            lang: "en_US",
+            lang: "zh_CN",
         },
         storage: {},
     },
@@ -51,12 +51,23 @@ const appRoot = path.join(__dirname, "..");
 const homepageRoot = path.join(appRoot, "src", "homepage");
 const constantsPath = path.join(homepageRoot, "constants.ts");
 const statePath = path.join(homepageRoot, "state.ts");
-const templateConfigPath = path.join(homepageRoot, "templateConfig.ts");
-const defaultTemplatePath = path.join(homepageRoot, "templates", "defaultTemplate.ts");
-const standalonePath = path.join(homepageRoot, "templates", "standalone.ts");
+const actionsPath = path.join(homepageRoot, "actions.ts");
+const runtimePath = path.join(homepageRoot, "runtime.ts");
+const tabPath = path.join(homepageRoot, "tab.ts");
+const templateFiles = [
+    "io.ts",
+    "loader.ts",
+    "templateConfig.ts",
+    "templateScriptRuntime.ts",
+    path.join("templates", "defaultTemplate.ts"),
+    path.join("templates", "markdown.ts"),
+    path.join("templates", "note.ts"),
+    path.join("templates", "standalone.ts"),
+];
 
 const hostWindow = createHostWindow();
 const constantsModule = compileModule(constantsPath, {}, hostWindow);
+const savedValues = [];
 const stateModule = compileModule(statePath, {
     "../constants": {
         Constants: {
@@ -64,78 +75,50 @@ const stateModule = compileModule(statePath, {
         },
     },
     "../protyle/util/compatibility": {
-        setStorageVal() {
-            return undefined;
+        setStorageVal(key, value) {
+            savedValues.push({key, value});
         },
     },
-    "./constants": constantsModule,
 }, hostWindow);
-const templateConfigModule = compileModule(templateConfigPath, {
-    "../util/structuredData": compileModule(path.join(appRoot, "src", "util", "structuredData.ts"), {}, hostWindow),
-}, hostWindow);
-const defaultTemplateModule = compileModule(defaultTemplatePath, {
-    "../constants": constantsModule,
-    "../templateConfig": templateConfigModule,
-    "../state": stateModule,
-}, hostWindow);
-const standaloneModule = compileModule(standalonePath, {}, hostWindow);
+const assertHomepageState = (actual, noteId) => {
+    assert.strictEqual(actual.noteId, noteId);
+    assert.deepStrictEqual(Object.keys(actual), ["noteId"]);
+};
 
-const {DEFAULT_TEMPLATE_PATH} = constantsModule;
-const {normalizeTemplatePath, normalizeHomepageState} = stateModule;
-const {parseHomepageTemplateConfig} = templateConfigModule;
-const {getDefaultTemplateBundle, isUpgradeableDefaultHomepageTemplate} = defaultTemplateModule;
-const {extractStandaloneHomepageHTML} = standaloneModule;
+assert.strictEqual(constantsModule.DEFAULT_TEMPLATE_PATH, undefined);
+assert.strictEqual(stateModule.normalizeHomepageNoteId(" 20260608000000-abcdefg "), "20260608000000-abcdefg");
+assertHomepageState(stateModule.normalizeHomepageState({}), "");
+assertHomepageState(stateModule.normalizeHomepageState({sourceType: "template", templatePath: "/data/storage/homepage/default"}), "");
+assertHomepageState(stateModule.normalizeHomepageState({sourceType: "note", noteId: "doc-1"}), "doc-1");
 
-assert.strictEqual(normalizeTemplatePath(""), DEFAULT_TEMPLATE_PATH);
-assert.strictEqual(normalizeTemplatePath("data/storage/homepage/custom/"), "/data/storage/homepage/custom");
-assert.strictEqual(normalizeHomepageState({sourceType: "note", noteId: ""}).sourceType, "template");
-assert.strictEqual(normalizeHomepageState({sourceType: "note", noteId: "doc-1"}).sourceType, "note");
+hostWindow.sourceflow.storage["local-homepage"] = {sourceType: "template", templatePath: "/data/storage/homepage/default"};
+assertHomepageState(stateModule.getHomepageState(), "");
+stateModule.setHomepageSourceToNote(" doc-2 ");
+assertHomepageState(hostWindow.sourceflow.storage["local-homepage"], "doc-2");
+assert.strictEqual(savedValues.at(-1).key, "local-homepage");
+assertHomepageState(savedValues.at(-1).value, "doc-2");
+stateModule.clearHomepage();
+assertHomepageState(hostWindow.sourceflow.storage["local-homepage"], "");
 
-const parsedConfig = parseHomepageTemplateConfig(`
-{
-    // comment
-    templateVersion: 3,
-    title: 'Hello',
-    trailing: true,
+for (const relativePath of templateFiles) {
+    assert.strictEqual(fs.existsSync(path.join(homepageRoot, relativePath)), false, `${relativePath} should be removed`);
 }
-`);
-assert.strictEqual(parsedConfig.templateVersion, 3);
-assert.strictEqual(parsedConfig.title, "Hello");
-assert.strictEqual(parsedConfig.trailing, true);
 
-const standaloneBundle = extractStandaloneHomepageHTML(`
-<!doctype html>
-<html>
-<head>
-    <style>.demo { color: red; }</style>
-</head>
-<body>
-    <main>Hello</main>
-    <script>window.demo = true;</script>
-</body>
-</html>
-`);
-assert.strictEqual(standaloneBundle.html, "<main>Hello</main>");
-assert.ok(standaloneBundle.css.includes(".demo"));
-assert.ok(standaloneBundle.script.includes("window.demo = true;"));
+const actionsSource = fs.readFileSync(actionsPath, "utf8");
+const runtimeSource = fs.readFileSync(runtimePath, "utf8");
+const tabSource = fs.readFileSync(tabPath, "utf8");
 
-const defaultBundle = getDefaultTemplateBundle();
-assert.ok(defaultBundle.html.includes("sourceflow-default-homepage"));
-assert.ok(defaultBundle.css.includes(".sourceflow-home__surface"));
+assert.ok(actionsSource.includes("openFileById"));
+assert.ok(actionsSource.includes("/api/block/getBlockInfo"));
+assert.ok(runtimeSource.includes("尚未创建主页"));
+assert.ok(runtimeSource.includes("create-homepage-note"));
+assert.ok(tabSource.includes("openHomepageNote"));
 
-assert.strictEqual(isUpgradeableDefaultHomepageTemplate(DEFAULT_TEMPLATE_PATH, {
-    ...defaultBundle,
-    config: JSON.stringify({templateVersion: 1}),
-}), true);
-assert.strictEqual(isUpgradeableDefaultHomepageTemplate("/data/storage/homepage/custom", {
-    ...defaultBundle,
-    config: JSON.stringify({templateVersion: 1}),
-}), false);
-assert.strictEqual(isUpgradeableDefaultHomepageTemplate(DEFAULT_TEMPLATE_PATH, {
-    html: "<div>custom</div>",
-    css: ".custom{}",
-    script: "",
-    config: JSON.stringify({templateVersion: 1}),
-}), false);
+for (const source of [actionsSource, runtimeSource, tabSource]) {
+    assert.ok(!source.includes("runHomepageTemplateScript"));
+    assert.ok(!source.includes("normalizeTemplatePath"));
+    assert.ok(!source.includes("shell.openExternal"));
+    assert.ok(!source.includes("new Function("));
+}
 
 console.log("[homepage-modules] ok");

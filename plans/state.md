@@ -4,6 +4,8 @@
 
 ## 已确认
 
+- 2026-06-08 用户确认主页设计收敛为“普通笔记 + 手动点击的本地路径快捷入口”：移除默认模板主页和自定义 HTML/Markdown 模板主页语义；主页只绑定具体笔记 ID，左侧主页入口有有效绑定时直接打开该笔记，无绑定或目标不可读时显示“尚未创建主页”；主页笔记中的本地文件、目录、应用快捷方式和网页链接复用普通笔记链接打开能力，禁止自动执行、任意命令、脚本、带参数执行、模板 JS 调本地能力或 AI 自动触发打开应用。
+- 2026-06-08 主页收敛实现已完成：前端主页状态归一为 `{noteId}`，旧模板主页状态会归一为空主页；左侧主页入口有有效绑定时通过普通编辑器 `openFileById` 打开笔记，绑定失效时清空并显示“尚未创建主页”；空态支持创建普通主页笔记并自动绑定，也支持将当前笔记设为主页；已删除主页模板加载、默认模板、自定义 HTML/Markdown 模板和主页模板脚本运行时。验证通过：`pnpm --dir app run test:homepage-modules`、`pnpm --dir app run check:script-runtime-guards`、`pnpm --dir app run typecheck:app`、`pnpm --dir app run lint`、`go test ./conf/ -v`、两个编辑器结构提示回归和 `git diff --check`；全量 lint 仍为既有 3908 个 warning、0 error。
 - 2026-06-08 用户确认继续完成全部未完成开发任务，并确认“旧的直接删掉，只保留新的”：Agent 队列不做旧 `localStorage` 兼容迁移，生产真相源改为后端 `storage/assistant_agent_tasks.json` 与 `/api/assistant/agent/*` API；前端旧本地队列只允许作为待删除实现细节，不作为兼容来源。
 - 2026-06-08 Agent 后端持久审计与执行锁设计确认：任务创建、列表、状态更新、任务项 patch/context/error/retryCount、取消剩余项都由后端 API 持久化；运行前必须获取后端任务级 lease token，暂停/取消/完成释放 lease，过期 lease 可被后续运行接管，避免多窗口重复执行同一 Agent 任务。
 - 2026-06-08 Agent 后端持久审计与执行锁已落地：新增 `storage/assistant_agent_tasks.json` 后端任务队列、`/api/assistant/agent/*` API 和任务级 lease token；前端 Agent 队列删除旧 `localStorage` 真相源，创建/暂停/取消/任务项 patch 状态和执行器进度均通过后端 API 持久化。验证已通过：`go test -vet=off ./model -run TestAssistantAgent -count=1`、`go test -vet=off ./api -run '^$' -count=1`、`pnpm --dir app run test:assistant-agent-history`、`pnpm --dir app run typecheck:app`、变更文件范围 eslint。
