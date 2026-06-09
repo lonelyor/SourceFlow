@@ -136,6 +136,7 @@
 ## 发布约束
 
 - 发布版本号由 `app/package.json`、`kernel/util/working.go` 和 Windows Appx manifest 共同约束，编译前必须保持一致。
+- 发布前必须运行产品发布就绪审计：检查版本号一致、发布说明存在、plans 当前任务无未完成项、关键前端回归仍接入 `typecheck` 链路、lint 检查入口可用；该审计不得依赖外部网络或真实 AI 服务。
 - 发布说明存放在 `app/changelogs/v<version>/`，中文版作为默认 GitHub Release 正文。
 - `发布.py` 只消费 `编译.py` 已生成并验证的产物，不在发布阶段重新编译。
 - `编译.py` 默认启用自动并行作业，`--jobs 0` 按 CPU 自适应解析，当前默认上限为 4；前端多 bundle、前端与 kernel 准备、Go 测试可以并行，但 installer 与 portable 打包必须保持串行。

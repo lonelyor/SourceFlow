@@ -5,11 +5,15 @@
 ## 必跑命令
 
 ```bash
+pnpm --dir app run test:product-readiness
+pnpm --dir app run lint:check
 python 编译.py --stability-gate-only
 ```
 
 门禁包含：
 
+- 产品发布就绪审计：版本一致、发布说明、plans 完成状态、关键回归接入和 lint check 入口。
+- 前端 lint 检查：`pnpm --dir app run lint:check` 必须 0 error；历史 warning 不阻断但不得增加 error。
 - 脚本语法检查：`编译.py`、`发布.py`、`插件商城.py`、`诊断包.py`。
 - SourceFlow 架构审计：禁止重新引入旧品牌/旧架构命名作为新真相源。
 - Kernel 回归测试：`go test -vet=off ./...`。
@@ -78,6 +82,8 @@ pnpm --dir app run test:ai-dock-runtime
 以下任一失败即不得发布：
 
 - `go test` 失败。
+- 产品发布就绪审计失败。
+- 前端 lint 出现 error。
 - 前端 typecheck 失败。
 - 插件隔离冒烟失败。
 - 安装包或便携包缺少关键文件。

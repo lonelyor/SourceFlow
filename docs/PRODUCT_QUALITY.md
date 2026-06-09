@@ -16,8 +16,12 @@
 每次发布前至少运行：
 
 ```bash
+pnpm --dir app run test:product-readiness
+pnpm --dir app run lint:check
 python 编译.py --stability-gate-only
 ```
+
+`test:product-readiness` 是无外部依赖的静态发布就绪审计，必须检查版本号一致、发布说明存在、plans 当前任务无未完成项、关键前端回归仍接入 `typecheck`、lint 检查入口可用。`lint:check` 只检查 lint 结果，不自动修改源码；当前允许历史 warning 基线存在，但不得出现 error。
 
 生成安装包或便携包时，`编译.py` 还必须执行真实内核 E2E：
 

@@ -7,6 +7,7 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "lint": "eslint . --fix --cache",
+    "lint:check": "eslint . --cache",
     "dev": "webpack --mode development",
     "dev:mobile": "webpack --mode development --config webpack.mobile.js",
     "dev:desktop": "webpack --mode development --config webpack.desktop.js",
@@ -39,6 +40,7 @@
     "check:script-runtime-guards": "node ./scripts/checkScriptRuntimeGuards.js",
     "test:mojibake": "node ./scripts/checkMojibake.js --self-test",
     "test:startup": "node ./scripts/testElectronStartupFailure.js",
+    "test:product-readiness": "node ./scripts/testProductReadiness.js",
     "test:export-builders": "node ./scripts/testExportBuilders.js",
     "test:homepage-modules": "node ./scripts/testHomepageModules.js",
     "test:plugin-sandbox-runtime": "node ./scripts/testPluginSandboxRuntime.js",
