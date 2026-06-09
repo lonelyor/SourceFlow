@@ -18,6 +18,8 @@ python 编译.py --stability-gate-only
 - 产品韧性矩阵：多窗口启动边界、真实桌面/内核烟测入口、慢请求取消、网络异常、大文档裁剪、大量笔记上限。
 - lint warning 预算：当前历史 warning 基线不得继续增加；清零分批独立推进。
 - 前端 lint 检查：`pnpm --dir app run lint:check` 必须 0 error；历史 warning 不阻断但不得增加 error。
+- lint warning 清理批次：必须先保留触达文件 warning 快照，修改后运行目标文件 ESLint、全量 `lint`、`test:lint-budget`、`typecheck:app` 和对应目标回归；只有 warning 总数下降后才能更新预算常量。
+- lint warning 禁止项：不得用关闭规则、扩大 ignore、批量 `eslint-disable`、无语义 `_` 改名、`void` 包裹或删除可能有副作用的调用/初始化器来消除 warning。
 - 脚本语法检查：`编译.py`、`发布.py`、`插件商城.py`、`诊断包.py`。
 - SourceFlow 架构审计：禁止重新引入旧品牌/旧架构命名作为新真相源。
 - Kernel 回归测试：`go test -vet=off ./...`。

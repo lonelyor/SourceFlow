@@ -21,6 +21,7 @@
 - [x] AI 输入稳定性护栏：抽出公共输入焦点恢复/事件边界 helper，补 `test:assistant-input-stability` 并接入 `typecheck:app`，固定 AI 输入区不丢焦点、不跳光标、不被全局上下文跟随误触发。
 - [x] 产品级发布就绪门禁：新增静态发布就绪审计脚本和 `lint:check` 入口，检查版本一致、发布说明、plans 完成状态、关键回归接入和 lint 0 error，作为完全产品级前的自动化护栏。
 - [x] 产品级韧性矩阵：新增 lint warning 预算门禁和产品韧性回归，覆盖多窗口、真实启动烟测入口、慢请求/取消、网络异常、大文档和大量笔记边界；不在同一阶段批量删除 3904 个历史 warning。
+- [x] lint warning 安全清理规划：将 3904 warnings / 0 errors 作为预算上限写入发布约束和测试文档，后续只按 Workbench、Protyle menu/gutter、Protyle 高风险编辑事件、boot/globalEvent 分批独立清理，每批必须快照、验证、下调预算并独立提交。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 

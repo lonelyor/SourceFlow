@@ -148,6 +148,14 @@
 - 构建/发布脚本输出使用统一状态行表达关键状态：`[RUN]`、`[OK]`、`[FAIL]`、`[CANCEL]`；失败和取消摘要必须简洁并包含可行动原因。
 - 前端 lint 范围只覆盖源码、脚本和配置文件；`build/**`、`build-*/**`、`stage/**`、`appearance/**`、依赖目录和生成类型目录等构建/发行产物必须由 ESLint flat config 忽略，避免把压缩打包后的 JS 当源码质量问题处理。
 - 前端 `no-unused-vars` 历史基线清理必须独立于功能改动分批推进；优先清理 unused import 和可证明无副作用的内部签名噪声，每批都要记录 warning 基线变化并通过 `lint` / `typecheck:app`，不得为了降噪删除可能有运行副作用的表达式或调用。
+- 前端 lint warning 当前预算为 3904 warnings / 0 errors，由 `test:lint-budget` 固定。该数字是发布上限，不是可接受终态；功能开发不得增加 warning，清理批次只有在全量 warning 真实下降后才能同步下调预算，不得通过关闭规则、扩大 ignore、批量 `eslint-disable`、无语义 `_` 改名或 `void` 包裹来制造清零。
+- lint warning 清理采用安全优先分批路线：
+  - W0 预算锁定与盘点：保持 `test:lint-budget` 和全量 lint 可运行，作为后续批次的回归基线。
+  - W1 Workbench 低风险批次：只处理 `app/src/workbench/**` 中 unused import、type-only import、未引用本地变量和可证明仅内部使用的未用参数；必须通过 `test:workbench-stability`、目标文件 ESLint、全量 `lint`、`test:lint-budget` 和 `typecheck:app`。
+  - W2 Protyle menu/gutter 叶子模块批次：只处理菜单、gutter、clipboard 等叶子模块的 unused import/type/局部变量；不得调整 Protyle 事务、选择区、剪贴板语义；必须通过粘贴安全回归、编辑器结构提示回归、目标文件 ESLint、全量 `lint`、`test:lint-budget` 和 `typecheck:app`。
+  - W3 Protyle wysiwyg/editorEvents/keydown 高风险批次：每批默认不超过 5 个文件或 150 个 warning，清理前先确认事件签名、浏览器回调参数和事务副作用；必要时先补目标回归，再删除无用符号。
+  - W4 boot/globalEvent 与跨模块运行时批次：只在键盘、启动、多窗口和真实烟测入口覆盖后推进；不得在 warning 清理批次中改变快捷键、全局事件或启动顺序。
+- 每个 lint warning 清理批次必须先生成触达文件的 warning 快照，再做最小补丁；禁止删除可能有副作用的调用、表达式、初始化器、动态 import/require、事件注册、用户可见分支和导出 API 形状。每批完成后必须同步更新 warning 预算、plans 状态和对应验证记录，并以独立 commit 提交。
 - `发布.py` 默认并行上传 GitHub Release 独立资产，默认并行度为 3，可通过 `SOURCEFLOW_RELEASE_UPLOAD_JOBS` 或 `--upload-jobs` 调整，`--upload-jobs 1` 用于串行排障；远端多余资产清理、同名资产删除/替换准备和最终校验必须保持顺序执行。
 - `发布.py` 上传 Release 资产时必须登记活跃上传连接，Ctrl+C 时主动关闭连接；上传循环按 chunk 检查取消信号，重试等待使用可中断等待。
 - `发布.py` 生成 `SHA256SUMS.txt` 时可以并行计算各资产摘要，但输出顺序和文件格式必须保持稳定。

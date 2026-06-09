@@ -26,6 +26,12 @@ python 编译.py --stability-gate-only
 `test:product-readiness` 是无外部依赖的静态发布就绪审计，必须检查版本号一致、发布说明存在、plans 当前任务无未完成项、关键前端回归仍接入 `typecheck`、lint 检查入口可用。`lint:check` 只检查 lint 结果，不自动修改源码；当前允许历史 warning 基线存在，但不得出现 error。
 `test:product-resilience` 覆盖多窗口启动边界、真实桌面/内核烟测入口、慢请求取消、网络异常、大文档裁剪和大量笔记上限。`test:lint-budget` 用当前 warning 基线作为预算，禁止 warning 数继续上升；warning 清零必须作为独立分批工程卫生任务推进。
 
+## lint warning 处理规则
+
+当前前端 lint warning 预算为 3904 warnings / 0 errors。预算只表示发布上限，不表示质量目标；后续每个清理批次都必须在全量 warning 真实下降后下调预算。禁止通过关闭规则、扩大 ignore、批量 `eslint-disable`、无语义改名或删除有副作用代码来降低数字。
+
+清理顺序以风险从低到高推进：Workbench、Protyle menu/gutter 叶子模块、Protyle wysiwyg/editorEvents/keydown、boot/globalEvent。每批只处理 unused import、type-only import、未引用局部变量和已验证无外部契约影响的未用参数；每批必须运行目标回归、全量 lint、`test:lint-budget` 和 `typecheck:app`，并独立提交。
+
 生成安装包或便携包时，`编译.py` 还必须执行真实内核 E2E：
 
 - 创建笔记本和笔记。
