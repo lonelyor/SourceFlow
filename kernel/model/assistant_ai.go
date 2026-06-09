@@ -269,10 +269,6 @@ func getAssistantAIDB() (ret *dbsql.DB, err error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if err = bootstrapAssistantAILegacyProfile(db); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
 
 	assistantAIDB = db
 	return assistantAIDB, nil

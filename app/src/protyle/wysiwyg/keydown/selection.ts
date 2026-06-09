@@ -77,7 +77,6 @@ import {checkFold} from "../../../util/noRelyPCFunction";
 import {AIActions} from "../../../ai/actions";
 import {openLink} from "../../../editor/openLink";
 import {onlyProtyleCommand} from "../../../boot/globalEvent/command/protyle";
-import {AIChat} from "../../../ai/chat";
 import {updateCalloutType} from "../callout";
 import {tabCodeBlock} from "../codeBlock";
 

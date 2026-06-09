@@ -130,7 +130,7 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		}
 	}
 
-	useNativeTools := req.EnableTools && (isAssistantAILegacyCompatibleProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider || AssistantAIProviderGemini == profile.Provider)
+	useNativeTools := req.EnableTools && (isAssistantAINativeToolProvider(profile.Provider) || AssistantAIProviderAnthropic == profile.Provider || AssistantAIProviderGemini == profile.Provider)
 	if req.EnableTools && !useNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {
@@ -327,7 +327,7 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 		}
 	}
 
-	editUseNativeTools := req.EnableTools && isAssistantAILegacyCompatibleProvider(profile.Provider)
+	editUseNativeTools := req.EnableTools && isAssistantAINativeToolProvider(profile.Provider)
 	if req.EnableTools && !editUseNativeTools {
 		toolPrompt := buildAssistantAIToolPrompt(profile, req.Context)
 		if "" != toolPrompt {

@@ -66,7 +66,7 @@
 - 后端 AI 写工具默认只生成 `previewPatch`，不得在 Dock 默认路径中直接执行真实写入；旧工具确认直写能力仅作为兼容路径保留，并应由显式参数或受控调用触发。
 - `@` 引用与来源上下文 API 必须对空 query 返回空结果，不把用户输入过程中的临时空查询视作错误；上下文包构建必须返回被纳入和被丢弃来源的可解释状态，避免用户误以为未读取成功的来源已进入 prompt。
 - 来源上下文必须有全局字符/token 预算，预算常量集中在后端模型层；文件夹、批量来源和前端拼接都必须以预算后的后端 context pack 为准。
-- AI Profile 当前生产配置源为 `ai_profiles` 表；旧 `Conf.AI.OpenAI` 只应作为一次性迁移来源或非 AI 助手兼容边界，不再由 AI Profile 保存/删除反向同步。旧 `model/ai.go` 仍属于非 AI 助手兼容边界，后续如迁移需单独确认调用方。
+- AI Profile 当前生产配置源为 `ai_profiles` 表；旧 `Conf.AI.OpenAI` 不再作为 AI 助手配置来源、迁移来源或兼容读取来源。AI 助手相关入口必须走新的 `ai_profiles`、`/api/assistant/ai/*` 和 Assistant Dock/skill 链路，不得回退到旧 `/api/ai/chatGPT*` 或旧 `model/ai.go`。
 - AI 操作历史的产品级持久审计以 `storage/assistant_operation_history.json` 为本地后端真相源，支持多窗口和重启后的撤回/取消撤回；Agent 队列的产品级持久状态以 `storage/assistant_agent_tasks.json` 为本地后端真相源，支持多窗口、重启后追踪和执行锁防重入。
 
 ### AI 写入可逆事务

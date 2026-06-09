@@ -16,6 +16,7 @@
 - [x] `问 AI` 入口收敛：现有 `ask-ai` skill、右键/选区入口打开 AI Dock 并切到只读 `ask` 模式；`加入当前对话`/`开启新对话` 复用来源面板，不自动写入笔记。
 - [x] AI 历史旧兼容删除与验证闸门收敛：前端历史不再读写 localStorage，不再走普通块/文件树回滚兜底；历史展示、撤回、取消撤回只依赖后端历史 API；把遗漏的专项稳定性脚本纳入 `typecheck:app`。
 - [x] Attribute View 大文件纯拆分：按同包职责文件移动完整函数/类型/常量块，保持外部 API、事务语义、存储格式和运行行为不变。
+- [x] AI 旧配置兼容删除：AI 助手不再从旧 `Conf.AI.OpenAI` 迁移或读取配置，删除旧 `/api/ai/chatGPT*` 和旧 AI 写作弹窗链路，入口统一走 Assistant Dock/skill 与 `ai_profiles`。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 
@@ -72,7 +73,7 @@
 
 - [x] AI 写入路径生产级收敛：内联翻译替换、技能结果插入/替换/建链等 AI 改写已有笔记动作统一生成 patch，并通过 `/api/assistant/patch/apply` 安全入口提交。
 - [x] 单次提权真实化：移除 patch apply 对客户端 `allowOnce` 布尔值的信任，改为后端签发、绑定目标/风险/能力/内容摘要、短期过期且消费一次的 escalation token。
-- [x] AI Profile 真相源收敛：AI Profile 保存/删除不再反向同步旧 `Conf.AI.OpenAI`，旧配置仅作为一次性迁移来源或非 AI 助手兼容边界。
+- [x] AI Profile 真相源收敛：AI Profile 保存/删除不再反向同步旧 `Conf.AI.OpenAI`，AI 助手生产配置以 `ai_profiles` 为真相源。
 - [x] 本轮验证：更新 patch review / AI 安全 / Profile 回归测试，运行前端目标测试、TypeScript、Go 目标测试和 `git diff --check`。
 
 - [x] 输出工作台稳定化与 AI 原生笔记安全设计文档：确认工作台和 AI 独立开发、默认固定侧边栏、工作台空白修复方向、AI 权限/黑白名单/批量阈值/硬禁止/绕过检测。
