@@ -41,6 +41,8 @@
     "test:mojibake": "node ./scripts/checkMojibake.js --self-test",
     "test:startup": "node ./scripts/testElectronStartupFailure.js",
     "test:product-readiness": "node ./scripts/testProductReadiness.js",
+    "test:product-resilience": "node ./scripts/testProductResilienceMatrix.js",
+    "test:lint-budget": "node ./scripts/testLintBudget.js",
     "test:export-builders": "node ./scripts/testExportBuilders.js",
     "test:homepage-modules": "node ./scripts/testHomepageModules.js",
     "test:plugin-sandbox-runtime": "node ./scripts/testPluginSandboxRuntime.js",

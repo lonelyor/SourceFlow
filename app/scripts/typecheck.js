@@ -244,6 +244,10 @@ const runAssistantInputStabilityTest = () => {
     return runNodeScript("testAssistantInputStability.js");
 };
 
+const runProductResilienceMatrixTest = () => {
+    return runNodeScript("testProductResilienceMatrix.js");
+};
+
 const runToolbarInlineMarkModuleTest = () => {
     return runNodeScript("testToolbarInlineMarkModules.js");
 };
@@ -469,6 +473,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] assistant input stability");
 exitCode = runAssistantInputStabilityTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] product resilience");
+exitCode = runProductResilienceMatrixTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

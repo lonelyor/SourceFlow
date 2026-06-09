@@ -20,6 +20,7 @@
 - [x] AI Dock 输入稳定性修复：修复聊天输入、目标笔记搜索、`@` 提及和来源创作笔记搜索过程中因 Dock 内部事件/异步搜索触发整块重绘导致输入框失焦的问题；保持现有对话、来源、目标跟随和搜索语义不变。
 - [x] AI 输入稳定性护栏：抽出公共输入焦点恢复/事件边界 helper，补 `test:assistant-input-stability` 并接入 `typecheck:app`，固定 AI 输入区不丢焦点、不跳光标、不被全局上下文跟随误触发。
 - [x] 产品级发布就绪门禁：新增静态发布就绪审计脚本和 `lint:check` 入口，检查版本一致、发布说明、plans 完成状态、关键回归接入和 lint 0 error，作为完全产品级前的自动化护栏。
+- [x] 产品级韧性矩阵：新增 lint warning 预算门禁和产品韧性回归，覆盖多窗口、真实启动烟测入口、慢请求/取消、网络异常、大文档和大量笔记边界；不在同一阶段批量删除 3904 个历史 warning。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 

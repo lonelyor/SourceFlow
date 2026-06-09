@@ -84,7 +84,11 @@ const checkQualityScripts = () => {
 
     ensure(appScripts["lint:check"] === "eslint . --cache", "app/package.json must expose lint:check without --fix");
     ensure(appScripts["test:product-readiness"] === "node ./scripts/testProductReadiness.js", "app/package.json must expose test:product-readiness");
+    ensure(appScripts["test:product-resilience"] === "node ./scripts/testProductResilienceMatrix.js", "app/package.json must expose test:product-resilience");
+    ensure(appScripts["test:lint-budget"] === "node ./scripts/testLintBudget.js", "app/package.json must expose test:lint-budget");
     ensure(rootScripts["test:product-readiness"] === "node ./app/scripts/testProductReadiness.js", "root package.json must expose test:product-readiness");
+    ensure(rootScripts["test:product-resilience"] === "node ./app/scripts/testProductResilienceMatrix.js", "root package.json must expose test:product-resilience");
+    ensure(rootScripts["test:lint-budget"] === "node ./app/scripts/testLintBudget.js", "root package.json must expose test:lint-budget");
     ensure(String(rootScripts["test:stability"] || "").includes("--stability-gate-only"), "root package.json test:stability must run the stability gate");
 };
 
@@ -93,6 +97,7 @@ const checkCriticalFrontendRegressions = () => {
     const requiredTypecheckScripts = [
         "testAIDockRuntimeBehavior.js",
         "testAssistantInputStability.js",
+        "testProductResilienceMatrix.js",
         "testAssistantSecrets.js",
         "testHomepageModules.js",
         "testPluginSandboxRuntime.js",
@@ -110,6 +115,8 @@ const checkCriticalFrontendRegressions = () => {
     const requiredScripts = [
         "test:ai-dock-runtime",
         "test:assistant-input-stability",
+        "test:product-resilience",
+        "test:lint-budget",
         "test:assistant-secrets",
         "test:homepage-modules",
         "test:protyle-blockdom-preservation",
@@ -129,6 +136,8 @@ const checkQualityDocs = () => {
     const productQuality = readText("docs/PRODUCT_QUALITY.md");
     const requiredMarkers = [
         "test:product-readiness",
+        "test:product-resilience",
+        "test:lint-budget",
         "lint:check",
         "python 编译.py --stability-gate-only",
     ];

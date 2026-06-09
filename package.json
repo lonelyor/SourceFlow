@@ -2,6 +2,8 @@
 	"scripts": {
 		"audit:brand-cleanup": "node ./scripts/audit-brand-cleanup.js",
 		"test:product-readiness": "node ./app/scripts/testProductReadiness.js",
+		"test:product-resilience": "node ./app/scripts/testProductResilienceMatrix.js",
+		"test:lint-budget": "node ./app/scripts/testLintBudget.js",
 		"test:stability": "node -e \"const cp=require('child_process');const list=process.platform==='win32'?[['py',['-3']],['python',[]],['python3',[]]]:[['python3',[]],['python',[]]];for(const [cmd,prefix] of list){const r=cp.spawnSync(cmd,[...prefix,'./编译.py','--stability-gate-only'],{stdio:'inherit'});if(!r.error)process.exit(r.status??0);if(r.error.code!=='ENOENT')throw r.error;}console.error('Python 3 not found');process.exit(1);\"",
 		"test:plugin-system": "node ./scripts/test-plugin-system.js",
 		"smoke:desktop-startup": "node ./scripts/smoke-desktop-startup.js",
