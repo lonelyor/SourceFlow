@@ -18,6 +18,7 @@
 - [x] Attribute View 大文件纯拆分：按同包职责文件移动完整函数/类型/常量块，保持外部 API、事务语义、存储格式和运行行为不变。
 - [x] AI 旧配置兼容删除：AI 助手不再从旧 `Conf.AI.OpenAI` 迁移或读取配置，删除旧 `/api/ai/chatGPT*` 和旧 AI 写作弹窗链路，入口统一走 Assistant Dock/skill 与 `ai_profiles`。
 - [x] AI Dock 输入稳定性修复：修复聊天输入、目标笔记搜索、`@` 提及和来源创作笔记搜索过程中因 Dock 内部事件/异步搜索触发整块重绘导致输入框失焦的问题；保持现有对话、来源、目标跟随和搜索语义不变。
+- [x] AI 输入稳定性护栏：抽出公共输入焦点恢复/事件边界 helper，补 `test:assistant-input-stability` 并接入 `typecheck:app`，固定 AI 输入区不丢焦点、不跳光标、不被全局上下文跟随误触发。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 

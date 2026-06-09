@@ -253,9 +253,9 @@ const contextBuilder = compileModule(path.join(srcRoot, "assistant", "mentions",
     assert(semanticSource.includes("<svg id=\"semanticSearchLoading\""));
 
     const studioSource = fs.readFileSync(path.join(srcRoot, "assistant", "studio", "sourceFlow.ts"), "utf8");
-    assert(studioSource.includes("const restoreSearch ="), "Source Studio note search render must preserve input focus state");
-    assert(studioSource.includes("window.requestAnimationFrame(() =>"), "Source Studio search focus restore must run after render");
-    assert(studioSource.includes("input.setSelectionRange("), "Source Studio search focus restore must preserve cursor selection");
+    assert(studioSource.includes('from "../common/inputStability"'), "Source Studio note search render must use shared input focus helpers");
+    assert(studioSource.includes("captureInputFocus(body"), "Source Studio search render must capture input focus state");
+    assert(studioSource.includes("restoreInputFocus(body"), "Source Studio search render must restore cursor selection");
 
     console.log("[assistant-source-and-save] ok");
 })().catch((error) => {

@@ -3,6 +3,7 @@ import {showMessage} from "../../dialog/message";
 import {Custom} from "../../layout/dock/Custom";
 import {getDockByType} from "../../layout/tabUtil";
 import {assistantText, ASSISTANT_AI_DOCK_TYPE} from "../constants";
+import {isEventInsideContainer} from "../common/inputStability";
 import {getActiveEditorProtyle} from "../common/note";
 import type {IAssistantNoteCandidate} from "../common/note";
 import type {
@@ -148,17 +149,8 @@ class AssistantAIDock {
     private activeRequestController: AbortController | null = null;
     private userStoppedGenerating = false;
     private contextFollowTimer = 0;
-    private isDockEventTarget(event?: Event) {
-        const target = event?.target;
-        if (target instanceof Node && this.element.contains(target)) {
-            return true;
-        }
-        const activeElement = document.activeElement;
-        return activeElement instanceof Node && this.element.contains(activeElement);
-    }
-
     private readonly handleContextFollowActivity = (event?: Event) => {
-        if (this.isDockEventTarget(event)) {
+        if (isEventInsideContainer(this.element, event)) {
             return;
         }
         if (!this.includeCurrentNote || this.pinnedNotePreview) {

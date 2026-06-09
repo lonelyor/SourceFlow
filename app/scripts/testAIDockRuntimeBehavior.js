@@ -55,6 +55,7 @@ class FakeElement {
         this.listeners = new Map();
         this.innerHTMLValue = "";
         this.queryResults = new Map();
+        this.queryAllResults = new Map();
     }
 
     addEventListener(type, handler) {
@@ -79,6 +80,10 @@ class FakeElement {
 
     querySelector(selector) {
         return this.queryResults.get(selector) || null;
+    }
+
+    querySelectorAll(selector) {
+        return this.queryAllResults.get(selector) || [];
     }
 
     set innerHTML(value) {
@@ -745,7 +750,7 @@ const createFakeKeyboardEvent = (target, key) => ({
         _owner: renderRuntime.element,
         value: "abcdef",
     });
-    renderRuntime.element.queryResults.set("[data-role=\"message\"]", nextMessageInput);
+    renderRuntime.element.queryAllResults.set("input[data-role], textarea[data-role]", [nextMessageInput]);
     renderGlobals.document.activeElement = oldMessageInput;
     renderAssistantAIDock(renderRuntime);
     assert.strictEqual(nextMessageInput.focused, true);
@@ -755,9 +760,7 @@ const createFakeKeyboardEvent = (target, key) => ({
     assert.strictEqual(nextMessageInput.scrollTop, 9);
 
     const controllerSource = fs.readFileSync(path.join(aiRoot, "AIDockController.ts"), "utf8");
-    assert.ok(controllerSource.includes("private isDockEventTarget(event?: Event)"), "context follow must identify Dock-local events");
-    assert.ok(controllerSource.includes("this.isDockEventTarget(event)"), "context follow must ignore Dock-local focus and selection events");
-    assert.ok(controllerSource.includes("document.activeElement"), "context follow guard must cover selectionchange from active Dock inputs");
+    assert.ok(controllerSource.includes("isEventInsideContainer(this.element, event)"), "context follow must ignore Dock-local focus and selection events");
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {

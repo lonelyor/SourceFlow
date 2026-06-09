@@ -61,6 +61,7 @@
     "test:assistant-agent-history": "node ./scripts/testAssistantAgentHistory.js",
     "test:assistant-source-save": "node ./scripts/testAssistantSourceAndSave.js",
     "test:assistant-secrets": "node ./scripts/testAssistantSecrets.js",
+    "test:assistant-input-stability": "node ./scripts/testAssistantInputStability.js",
     "test:keymap-consistency": "node ./scripts/testKeymapConsistency.js",
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:editor-structure-guide": "node ./scripts/testEditorStructureGuide.js",

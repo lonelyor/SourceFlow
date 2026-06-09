@@ -240,6 +240,10 @@ const runAssistantSecretsTest = () => {
     return runNodeScript("testAssistantSecrets.js");
 };
 
+const runAssistantInputStabilityTest = () => {
+    return runNodeScript("testAssistantInputStability.js");
+};
+
 const runToolbarInlineMarkModuleTest = () => {
     return runNodeScript("testToolbarInlineMarkModules.js");
 };
@@ -459,6 +463,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] assistant secrets");
 exitCode = runAssistantSecretsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant input stability");
+exitCode = runAssistantInputStabilityTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }
