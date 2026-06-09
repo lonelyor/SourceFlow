@@ -146,6 +146,7 @@
 - `编译.py` 和 `发布.py` 必须支持 Ctrl+C 优雅取消：第一次中断设置全局取消信号、停止活跃子进程并在短等待后强杀仍存活进程，第二次中断立即强杀；顶层取消退出码为 130，且不得输出 Python traceback。
 - 构建/发布脚本启动的长耗时子进程必须通过统一 `run()` 包装器登记；验证中手动启动的进程必须在 `finally` 中清理；清理命令不得被取消标记阻断。
 - 构建/发布脚本输出使用统一状态行表达关键状态：`[RUN]`、`[OK]`、`[FAIL]`、`[CANCEL]`；失败和取消摘要必须简洁并包含可行动原因。
+- `编译.py` 在调用任意 electron-builder 打包前必须清理 pnpm hoisted `node_modules` 中的断链，Windows 下必须识别 junction/reparse point；只允许删除目标不存在的 pnpm 链接，不得删除有效目录或真实依赖内容，避免可选平台包断链阻断 installer/portable 打包。
 - 前端 lint 范围只覆盖源码、脚本和配置文件；`build/**`、`build-*/**`、`stage/**`、`appearance/**`、依赖目录和生成类型目录等构建/发行产物必须由 ESLint flat config 忽略，避免把压缩打包后的 JS 当源码质量问题处理。
 - 前端 `no-unused-vars` 历史基线清理必须独立于功能改动分批推进；优先清理 unused import 和可证明无副作用的内部签名噪声，每批都要记录 warning 基线变化并通过 `lint` / `typecheck:app`，不得为了降噪删除可能有运行副作用的表达式或调用。
 - 前端 lint warning 当前预算为 3904 warnings / 0 errors，由 `test:lint-budget` 固定。该数字是发布上限，不是可接受终态；功能开发不得增加 warning，清理批次只有在全量 warning 真实下降后才能同步下调预算，不得通过关闭规则、扩大 ignore、批量 `eslint-disable`、无语义 `_` 改名或 `void` 包裹来制造清零。

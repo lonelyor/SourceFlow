@@ -13,6 +13,7 @@ import signal
 import shlex
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -1625,6 +1626,28 @@ def rename_path_with_retry(source: Path, target: Path, retries: int = 20, delay_
         raise last_error
 
 
+def is_pnpm_hoisted_link(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    if not IS_WINDOWS:
+        return False
+    try:
+        attributes = path.lstat().st_file_attributes
+    except OSError:
+        return False
+    return bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def remove_pnpm_hoisted_link(path: Path) -> None:
+    try:
+        path.unlink()
+        return
+    except (IsADirectoryError, PermissionError):
+        if not is_pnpm_hoisted_link(path):
+            raise
+        path.rmdir()
+
+
 def clean_broken_pnpm_links() -> None:
     pnpm_root = APP_DIR / "node_modules" / ".pnpm" / "node_modules"
     if not pnpm_root.exists():
@@ -1633,12 +1656,12 @@ def clean_broken_pnpm_links() -> None:
 
     removed: list[str] = []
     scan_roots = [pnpm_root]
-    scan_roots.extend(path for path in pnpm_root.iterdir() if path.is_dir() and not path.is_symlink())
+    scan_roots.extend(path for path in pnpm_root.iterdir() if path.is_dir() and not is_pnpm_hoisted_link(path))
     for directory in scan_roots:
         for child in directory.iterdir():
-            if not child.is_symlink() or child.exists():
+            if not is_pnpm_hoisted_link(child) or child.exists():
                 continue
-            child.unlink()
+            remove_pnpm_hoisted_link(child)
             removed.append(child.relative_to(pnpm_root).as_posix())
 
     if removed:
@@ -3373,6 +3396,7 @@ def build_installer(target: BuildTarget, args: argparse.Namespace) -> None:
     config_name = target.installer_config
     temp_config_path: Path | None = None
     env = electron_builder_env()
+    clean_broken_pnpm_links()
     try:
         if target.platform_key == "mac" and should_use_unsigned_mac_config(args):
             source_config = APP_DIR / mac_installer_config_name(target)
