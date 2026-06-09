@@ -55,6 +55,16 @@ interface IAssistantAINoteSearchResult {
     path: string;
 }
 
+type TAssistantAIDockTextInputRole = "message" | "note-search";
+
+interface IAssistantAIDockTextInputFocusSnapshot {
+    role: TAssistantAIDockTextInputRole;
+    selectionStart: number;
+    selectionEnd: number;
+    selectionDirection: "forward" | "backward" | "none";
+    scrollTop: number;
+}
+
 export interface IAssistantAIDockRenderContext {
     element: HTMLElement;
     profiles: IAssistantAIProfile[];
@@ -132,6 +142,48 @@ export type TAssistantAIDockRenderRuntime = IAssistantAIDockRenderContext & {
     renderMessageToolResults: (...args: any[]) => any;
 };
 
+const isRestorableTextInputRole = (role: string | null): role is TAssistantAIDockTextInputRole => {
+    return role === "message" || role === "note-search";
+};
+
+const captureTextInputFocus = (ctx: TAssistantAIDockRenderRuntime): IAssistantAIDockTextInputFocusSnapshot | null => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) ||
+        !ctx.element.contains(activeElement)) {
+        return null;
+    }
+    const role = activeElement.getAttribute("data-role");
+    if (!isRestorableTextInputRole(role)) {
+        return null;
+    }
+    const length = activeElement.value.length;
+    return {
+        role,
+        selectionStart: activeElement.selectionStart ?? length,
+        selectionEnd: activeElement.selectionEnd ?? length,
+        selectionDirection: activeElement.selectionDirection || "none",
+        scrollTop: activeElement.scrollTop,
+    };
+};
+
+const restoreTextInputFocus = (ctx: TAssistantAIDockRenderRuntime, snapshot: IAssistantAIDockTextInputFocusSnapshot | null) => {
+    if (!snapshot) {
+        return;
+    }
+    window.requestAnimationFrame(() => {
+        const input = ctx.element.querySelector(`[data-role="${snapshot.role}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+        if (!input || input.disabled) {
+            return;
+        }
+        const length = input.value.length;
+        const start = Math.min(snapshot.selectionStart, length);
+        const end = Math.min(snapshot.selectionEnd, length);
+        input.focus();
+        input.setSelectionRange(start, end, snapshot.selectionDirection);
+        input.scrollTop = snapshot.scrollTop;
+    });
+};
+
 const renderConversationModeSwitch = (ctx: TAssistantAIDockRenderRuntime) => {
     const modes: TAssistantAIConversationMode[] = ["ask", "chat", "agent"];
     return `<div class="assistant-ai__mode-switch" role="group" aria-label="${escapeAttr(assistantText("AI 模式", "AI mode"))}">
@@ -178,6 +230,7 @@ const createRenderRuntime = (ctx: IAssistantAIDockRenderContext): TAssistantAIDo
 };
 
 const render = (ctx: TAssistantAIDockRenderRuntime) => {
+    const focusSnapshot = captureTextInputFocus(ctx);
     const profile = ctx.getSelectedProfile();
     const session = ctx.getSelectedSession();
     const editingMessage = ctx.editingMessageId ? ctx.getMessageById(ctx.editingMessageId) : null;
@@ -273,6 +326,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
         </div>
     </div>
 </div>`;
+    restoreTextInputFocus(ctx, focusSnapshot);
 };
 
 export const renderAssistantAIDock = (ctx: IAssistantAIDockRenderContext) => {

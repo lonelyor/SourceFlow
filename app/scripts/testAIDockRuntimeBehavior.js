@@ -8,6 +8,13 @@ class FakeInputElement {
     constructor(attrs = {}, extra = {}) {
         this.attrs = attrs;
         this.parentElement = null;
+        this.value = "";
+        this.selectionStart = 0;
+        this.selectionEnd = 0;
+        this.selectionDirection = "none";
+        this.scrollTop = 0;
+        this.disabled = false;
+        this.focused = false;
         Object.assign(this, extra);
     }
 
@@ -25,6 +32,16 @@ class FakeInputElement {
 
     blur() {
     }
+
+    focus() {
+        this.focused = true;
+    }
+
+    setSelectionRange(start, end, direction = "none") {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+        this.selectionDirection = direction;
+    }
 }
 
 class FakeTextAreaElement extends FakeInputElement {
@@ -36,6 +53,8 @@ class FakeSelectElement extends FakeInputElement {
 class FakeElement {
     constructor() {
         this.listeners = new Map();
+        this.innerHTMLValue = "";
+        this.queryResults = new Map();
     }
 
     addEventListener(type, handler) {
@@ -52,6 +71,22 @@ class FakeElement {
 
     isEqualNode(other) {
         return this === other;
+    }
+
+    contains(target) {
+        return target === this || target?._owner === this;
+    }
+
+    querySelector(selector) {
+        return this.queryResults.get(selector) || null;
+    }
+
+    set innerHTML(value) {
+        this.innerHTMLValue = value;
+    }
+
+    get innerHTML() {
+        return this.innerHTMLValue;
     }
 }
 
@@ -134,6 +169,82 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
 });
 
 const {bindAIDockEvents, handleAIDockAction} = eventsModule;
+const renderGlobals = {
+    document: {activeElement: null},
+    window: {
+        requestAnimationFrame: (callback) => {
+            callback();
+            return 1;
+        },
+    },
+};
+const renderModule = compileModule(path.join(aiRoot, "AIDockRender.ts"), {
+    "../constants": {
+        assistantText: (zh, en) => zh || en,
+    },
+    "../common/dom": {
+        escapeAttr: (value) => String(value),
+        escapeHTML: (value) => String(value),
+        truncateText: (value) => String(value),
+    },
+    "./api": {},
+    "./AIDockContract": {},
+    "../mentions/types": {},
+    "../mentions/trigger": {
+        renderMentionPopover: () => "",
+    },
+    "../security/types": {},
+    "../sources/panel": {
+        renderSourcesPanel: () => "",
+    },
+    "../security/modeSwitcher": {
+        renderSecurityModeSwitcher: () => "",
+        renderSecurityModeDropdown: () => "",
+    },
+    "./AIDockShared": {
+        getAssistantAIConversationModeHint: () => "mode hint",
+        getAssistantAIConversationModeLabel: (mode) => mode,
+    },
+    "./AIDockRenderShared": {
+        buildAIDockHoverHint: () => "",
+        getAIDockContextSummary: () => "",
+        getAIDockNewSessionHint: () => "",
+        getAIDockProfilesConfigHint: () => "",
+        getAIDockSessionItemHint: () => "",
+        getAIDockSessionPanelHint: () => "",
+        getAIDockSessionsToggleHint: () => "",
+        getAIDockTargetLockGlyph: () => "",
+        getAIDockTargetLockLabel: () => "",
+        getAIDockTargetSummary: () => "",
+        isAIDockTargetPinned: () => false,
+        renderAIDockQuickActions: () => "",
+        renderAIDockSessionActions: () => "",
+        renderAIDockToolSummary: () => "",
+    },
+    "./AIDockRenderSessions": {
+        renderAIDockSessions: () => "",
+    },
+    "./AIDockRenderMessages": {
+        renderAIDockMessages: () => "",
+        renderAIDockMessageToolResults: () => "",
+    },
+    "./AIDockRenderComposer": {
+        renderAIDockAttachmentList: () => "",
+        renderAIDockComposerAttachments: () => "",
+        renderAIDockContextStatus: () => "",
+        renderAIDockModelLauncher: () => "",
+    },
+    "./AIDockRenderPanels": {
+        renderAIDockAuditCard: () => "",
+        renderAIDockContextCard: () => "",
+        renderAIDockFloatingPanel: () => "",
+        renderAIDockProfilesPanel: () => "",
+        renderAIDockSessionPanel: () => "",
+        renderAIDockTargetNoteCard: () => "",
+        renderAIDockToolsPanel: () => "",
+    },
+}, renderGlobals);
+const {renderAssistantAIDock} = renderModule;
 const mentionSearchCalls = [];
 const mentionModule = compileModule(path.join(appRoot, "src", "assistant", "mentions", "trigger.ts"), {
     "./api": {
@@ -315,6 +426,36 @@ const createRuntime = () => {
         toggleSourcesPanel() {},
         setSecurityMode() {},
         toggleSecurityDropdown() {},
+        getSelectedProfile() {
+            return this.profiles?.[0];
+        },
+        getSelectedSession() {
+            return this.sessions?.[0];
+        },
+        getMessageById() {
+            return null;
+        },
+        getEffectiveContextPreview() {
+            return null;
+        },
+        getAttachmentSummary() {
+            return "";
+        },
+        getMessageAttachments() {
+            return [];
+        },
+        isMessageExpandable() {
+            return false;
+        },
+        isMessageExpanded() {
+            return false;
+        },
+        getMessageDisplayContent(item) {
+            return item.content || "";
+        },
+        getDefaultToolMode() {
+            return "confirm";
+        },
     };
 };
 
@@ -577,6 +718,46 @@ const createFakeKeyboardEvent = (target, key) => ({
         anchorRect: null,
     }, "default", () => {});
     assert.deepStrictEqual(mentionSearchCalls, ["note"]);
+
+    const renderRuntime = createRuntime();
+    renderRuntime.profiles = [{id: "profile-1"}];
+    renderRuntime.sessions = [];
+    renderRuntime.messages = [];
+    renderRuntime.toolCatalog = [];
+    renderRuntime.toolPolicy = null;
+    renderRuntime.audits = [];
+    renderRuntime.currentNotePreview = null;
+    renderRuntime.pinnedNotePreview = null;
+    renderRuntime.includeCurrentNote = true;
+    renderRuntime.loading = false;
+    renderRuntime.savingProfile = false;
+    renderRuntime.draftMessage = "abcdef";
+    renderRuntime.element = new FakeElement();
+    const oldMessageInput = new FakeTextAreaElement({"data-role": "message"}, {
+        _owner: renderRuntime.element,
+        value: "abcdef",
+        selectionStart: 2,
+        selectionEnd: 4,
+        selectionDirection: "backward",
+        scrollTop: 9,
+    });
+    const nextMessageInput = new FakeTextAreaElement({"data-role": "message"}, {
+        _owner: renderRuntime.element,
+        value: "abcdef",
+    });
+    renderRuntime.element.queryResults.set("[data-role=\"message\"]", nextMessageInput);
+    renderGlobals.document.activeElement = oldMessageInput;
+    renderAssistantAIDock(renderRuntime);
+    assert.strictEqual(nextMessageInput.focused, true);
+    assert.strictEqual(nextMessageInput.selectionStart, 2);
+    assert.strictEqual(nextMessageInput.selectionEnd, 4);
+    assert.strictEqual(nextMessageInput.selectionDirection, "backward");
+    assert.strictEqual(nextMessageInput.scrollTop, 9);
+
+    const controllerSource = fs.readFileSync(path.join(aiRoot, "AIDockController.ts"), "utf8");
+    assert.ok(controllerSource.includes("private isDockEventTarget(event?: Event)"), "context follow must identify Dock-local events");
+    assert.ok(controllerSource.includes("this.isDockEventTarget(event)"), "context follow must ignore Dock-local focus and selection events");
+    assert.ok(controllerSource.includes("document.activeElement"), "context follow guard must cover selectionchange from active Dock inputs");
 
     console.log("[ai-dock-runtime-behavior] ok");
 })().catch((error) => {

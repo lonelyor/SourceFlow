@@ -17,6 +17,7 @@
 - [x] AI 历史旧兼容删除与验证闸门收敛：前端历史不再读写 localStorage，不再走普通块/文件树回滚兜底；历史展示、撤回、取消撤回只依赖后端历史 API；把遗漏的专项稳定性脚本纳入 `typecheck:app`。
 - [x] Attribute View 大文件纯拆分：按同包职责文件移动完整函数/类型/常量块，保持外部 API、事务语义、存储格式和运行行为不变。
 - [x] AI 旧配置兼容删除：AI 助手不再从旧 `Conf.AI.OpenAI` 迁移或读取配置，删除旧 `/api/ai/chatGPT*` 和旧 AI 写作弹窗链路，入口统一走 Assistant Dock/skill 与 `ai_profiles`。
+- [x] AI Dock 输入稳定性修复：修复聊天输入、目标笔记搜索、`@` 提及和来源创作笔记搜索过程中因 Dock 内部事件/异步搜索触发整块重绘导致输入框失焦的问题；保持现有对话、来源、目标跟随和搜索语义不变。
 
 - [x] 前端 lint warning 基线清理第一批：清理 10 个高集中 Protyle/Workbench 文件的 unused imports 和 2 个内部未用参数，warning 从 4994 降到 3908；全量 lint、目标 ESLint、`typecheck:app` 和 `git diff --check` 通过。
 

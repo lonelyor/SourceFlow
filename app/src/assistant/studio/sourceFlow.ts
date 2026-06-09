@@ -425,7 +425,23 @@ export const openAssistantSourceStudio = (app?: App, options: IOpenAssistantSour
         if (!body) {
             return;
         }
+        const active = document.activeElement as HTMLInputElement | null;
+        const restoreSearch = active instanceof HTMLInputElement && body.contains(active) && active.getAttribute("data-role") === "note-search"
+            ? {start: active.selectionStart ?? active.value.length, end: active.selectionEnd ?? active.value.length, direction: active.selectionDirection || "none", scrollTop: active.scrollTop}
+            : null;
         body.innerHTML = renderStudio(state);
+        if (restoreSearch) {
+            window.requestAnimationFrame(() => {
+                const input = body.querySelector("[data-role='note-search']") as HTMLInputElement;
+                if (!input || input.disabled) {
+                    return;
+                }
+                const length = input.value.length;
+                input.focus();
+                input.setSelectionRange(Math.min(restoreSearch.start, length), Math.min(restoreSearch.end, length), restoreSearch.direction);
+                input.scrollTop = restoreSearch.scrollTop;
+            });
+        }
         if (shouldOpenFilePicker) {
             shouldOpenFilePicker = false;
             window.setTimeout(() => {
