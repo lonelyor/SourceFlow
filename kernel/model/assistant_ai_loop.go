@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -14,6 +15,7 @@ type assistantAIToolLoopParams struct {
 	Profile         *AssistantAIProfile
 	SessionID       string
 	Context         *AssistantAINoteContext
+	RequestContext  context.Context
 	UserPrompt      string
 	SystemPrompt    string
 	ContextMessages []*AssistantAIMessage
@@ -46,9 +48,10 @@ func runAssistantAIToolLoop(params *assistantAIToolLoopParams) (ret *assistantAI
 	securityMode := NormalizeAISecurityMode(params.SecurityMode, GetAISecurityConfig().DefaultMode)
 
 	chatOpts := &assistantAIChatOptions{
-		EnableTools: useNativeTools,
-		Context:     params.Context,
-		UserPrompt:  params.UserPrompt,
+		EnableTools:    useNativeTools,
+		Context:        params.Context,
+		UserPrompt:     params.UserPrompt,
+		RequestContext: params.RequestContext,
 	}
 
 	var reply *assistantAIProviderReply
@@ -121,9 +124,9 @@ func runAssistantAIToolLoop(params *assistantAIToolLoopParams) (ret *assistantAI
 		}
 
 		if nil != nextDelta && canStreamAssistantAIProvider(profile) {
-			reply, err = chatWithAssistantAIProviderStream(profile, followupSystem, currentMessages, nextDelta, &assistantAIChatOptions{})
+			reply, err = chatWithAssistantAIProviderStream(profile, followupSystem, currentMessages, nextDelta, &assistantAIChatOptions{RequestContext: params.RequestContext})
 		} else {
-			reply, err = chatWithAssistantAIProvider(profile, followupSystem, currentMessages, &assistantAIChatOptions{})
+			reply, err = chatWithAssistantAIProvider(profile, followupSystem, currentMessages, &assistantAIChatOptions{RequestContext: params.RequestContext})
 		}
 		if err != nil {
 			return nil, err

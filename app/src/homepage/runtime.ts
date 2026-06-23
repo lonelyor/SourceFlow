@@ -1,98 +1,30 @@
 import {App} from "../index";
 import {HOMEPAGE_MARK, homepageText} from "./constants";
 import {escapeHTML} from "./html";
-import {ensureDefaultHomepageTemplate, loadHomepageNoteBundle, loadHomepageTemplateBundle} from "./loader";
-import {getHomepageState, resetHomepageToDefault} from "./state";
-import {runHomepageTemplateScript} from "./templateScriptRuntime";
-import {parseHomepageTemplateConfig} from "./templateConfig";
-import {getHomepageToolbarHTML} from "./toolbar";
-import {runHomepageBuiltinAction, openHomepageExternal} from "./actions";
+import {createHomepageNote, getCurrentHomepageCandidateNoteId, openHomepageNote, openHomepageNotePicker, setCurrentNoteAsHomepage} from "./actions";
+import {getHomepageState} from "./state";
 
-const getHomepageScriptSourceURL = (sourceType: string, noteId: string, templatePath: string) => {
-    const identity = sourceType === "note" && noteId ? noteId : templatePath || "default";
-    return `sourceflow://homepage/${encodeURIComponent(identity)}.js`;
-};
-
-const renderHomepage = async (app: App, container: HTMLElement) => {
-    const state = getHomepageState();
-    await ensureDefaultHomepageTemplate();
-    let bundle = await loadHomepageNoteBundle(state);
-    if (!bundle) {
-        if (state.sourceType === "note" && state.noteId) {
-            const nextState = resetHomepageToDefault();
-            state.sourceType = nextState.sourceType;
-            state.noteId = nextState.noteId;
-            state.templatePath = nextState.templatePath;
-        }
-        bundle = await loadHomepageTemplateBundle(state.templatePath);
-    }
-
-    let configData: Record<string, any> = {};
-    try {
-        configData = parseHomepageTemplateConfig(bundle.config);
-    } catch (error) {
-        console.warn("parse homepage config failed", error);
-    }
-
-    container.innerHTML = `${getHomepageToolbarHTML(state)}<div class="homepage-page__canvas">${bundle.html}</div>`;
-    const styleElement = document.createElement("style");
-    styleElement.setAttribute("data-role", "homepage-style");
-    styleElement.textContent = bundle.css;
-    container.prepend(styleElement);
-
-    const refresh = async () => {
-        await renderHomepage(app, container);
-    };
-
-    container.onclick = (event) => {
-        let target = event.target as HTMLElement;
-        while (target && !target.isEqualNode(container)) {
-            const url = target.getAttribute("data-homepage-url");
-            if (url) {
-                openHomepageExternal(url);
-                event.preventDefault();
-                return;
-            }
-            const action = target.getAttribute("data-homepage-action");
-            if (action) {
-                void runHomepageBuiltinAction(app, action, refresh, state);
-                event.preventDefault();
-                return;
-            }
-            target = target.parentElement;
-        }
-    };
-
-    try {
-        runHomepageTemplateScript({
-            source: bundle.script,
-            sourceURL: getHomepageScriptSourceURL(state.sourceType, state.noteId, state.templatePath),
-            container,
-            api: {
-                config: configData,
-                escape: escapeHTML,
-                escapeAttr: escapeHTML,
-                openExternal: openHomepageExternal,
-                searchWeb: (keyword: string, searchURL: string) => {
-                    const queryURL = `${searchURL || "https://www.google.com/search?q=%s"}`.replace("%s", encodeURIComponent(keyword));
-                    openHomepageExternal(queryURL);
-                },
-                invoke: (action: string) => runHomepageBuiltinAction(app, action, refresh, state),
-            },
-            state,
-        });
-    } catch (error) {
-        console.error("render homepage script failed", error);
-        container.insertAdjacentHTML("beforeend", `<div class="ft__error" style="padding:16px;">${escapeHTML(homepageText("主页模板脚本执行失败", "Homepage template script failed"))}</div>`);
-    }
-};
-
-const renderHomepageFailure = (container: HTMLElement, error: unknown) => {
-    const message = error instanceof Error ? error.message : `${error || ""}`;
-    container.innerHTML = `<div class="homepage-page__canvas">
-    <div class="ft__error" style="max-width:720px;margin:32px auto;padding:24px;border-radius:20px;line-height:1.8;">
-        <div style="font-weight:700;margin-bottom:8px;">${escapeHTML(homepageText("主页加载失败", "Homepage failed to load"))}</div>
-        <div style="font-size:13px;opacity:.78;">${escapeHTML(message || homepageText("请检查主页模板文件或恢复默认主页。", "Check the homepage source files or reset the homepage to the default template."))}</div>
+const renderHomepageEmpty = (container: HTMLElement) => {
+    const canSetCurrent = !!getCurrentHomepageCandidateNoteId();
+    const title = getHomepageState().noteId
+        ? homepageText("主页暂时无法打开", "Homepage is temporarily unavailable")
+        : homepageText("尚未创建主页", "No homepage yet");
+    container.innerHTML = `<div class="homepage-page__empty">
+    <div class="homepage-page__empty-main">
+        <div class="homepage-page__empty-icon"><svg><use xlink:href="#iconLayout"></use></svg></div>
+        <div class="homepage-page__empty-title">${escapeHTML(title)}</div>
+        <div class="homepage-page__empty-desc">${escapeHTML(homepageText("主页是一篇普通笔记，左侧按钮会直接打开它。", "Homepage is a normal note opened directly from the left button."))}</div>
+        <div class="homepage-page__empty-actions">
+            ${window.sourceflow.config.readonly ? "" : `<button class="b3-button" type="button" data-homepage-action="create-homepage-note">
+                <svg><use xlink:href="#iconFile"></use></svg><span>${escapeHTML(homepageText("创建主页笔记", "Create Homepage Note"))}</span>
+            </button>`}
+            <button class="b3-button b3-button--outline" type="button" data-homepage-action="select-homepage-note">
+                <svg><use xlink:href="#iconSearch"></use></svg><span>${escapeHTML(homepageText("选择已有笔记", "Choose Existing Note"))}</span>
+            </button>
+            ${canSetCurrent ? `<button class="b3-button b3-button--outline" type="button" data-homepage-action="set-current-note-homepage">
+                <svg><use xlink:href="#iconEdit"></use></svg><span>${escapeHTML(homepageText("设当前笔记为主页", "Use Current Note"))}</span>
+            </button>` : ""}
+        </div>
     </div>
 </div>`;
 };
@@ -103,11 +35,33 @@ export const mountHomepageIntoContainer = async (app: App, container: HTMLElemen
     }
     container.setAttribute("data-homepage-tab", HOMEPAGE_MARK);
     container.classList.add("homepage-page");
-    container.innerHTML = `<div class="homepage-page__loading">${escapeHTML(homepageText("正在加载主页…", "Loading homepage..."))}</div>`;
-    try {
-        await renderHomepage(app, container);
-    } catch (error) {
-        console.error("render homepage failed", error);
-        renderHomepageFailure(container, error);
+    const state = getHomepageState();
+    if (state.noteId && await openHomepageNote(app, state.noteId)) {
+        return;
     }
+    renderHomepageEmpty(container);
+    container.onclick = (event) => {
+        if (!(event.target instanceof Element)) {
+            return;
+        }
+        const target = event.target.closest("[data-homepage-action]") as HTMLElement;
+        if (!target || !container.contains(target)) {
+            return;
+        }
+        const action = target.getAttribute("data-homepage-action");
+        if (action === "create-homepage-note") {
+            createHomepageNote(app);
+            event.preventDefault();
+            return;
+        }
+        if (action === "select-homepage-note") {
+            openHomepageNotePicker(app);
+            event.preventDefault();
+            return;
+        }
+        if (action === "set-current-note-homepage") {
+            void setCurrentNoteAsHomepage(app);
+            event.preventDefault();
+        }
+    };
 };

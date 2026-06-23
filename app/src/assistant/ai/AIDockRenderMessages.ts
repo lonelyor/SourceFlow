@@ -83,6 +83,7 @@ export const renderAIDockMessages = (ctx: TAssistantAIDockRenderRuntime) => {
             <span class="assistant-ai__message-role assistant-ai__message-role--${item.role === "assistant" ? "assistant" : "user"}">${item.role === "assistant" ? "AI" : assistantText("你", "You")}</span>
             ${isEdited ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("已编辑", "Edited"))}</span>` : ""}
             ${item.localPending ? `<span class="b3-chip b3-chip--small b3-chip--warning">${escapeHTML(assistantText("处理中", "Processing"))}</span>` : ""}
+            ${item.localStopped ? `<span class="b3-chip b3-chip--small">${escapeHTML(assistantText("已停止", "Stopped"))}</span>` : ""}
             ${item.localError ? `<span class="b3-chip b3-chip--small b3-chip--error">${escapeHTML(assistantText("失败", "Failed"))}</span>` : ""}
         </div>
         <div class="assistant-ai__message-side">

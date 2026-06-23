@@ -3,14 +3,12 @@ package model
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 type geminiStreamChunk struct {
@@ -68,9 +66,8 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 		return nil, marshalErr
 	}
 
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
+	ctx, idleGuard := assistantAIStreamContext(profile, opts)
+	defer idleGuard.Stop()
 
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(data))
 	if nil != reqErr {
@@ -82,12 +79,15 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 		req.Header.Set("User-Agent", userAgent)
 	}
 
-	client, clientErr := newAssistantAIHTTPClient(profile)
+	client, clientErr := newAssistantAIStreamingHTTPClient(profile)
 	if nil != clientErr {
 		return nil, clientErr
 	}
 	resp, respErr := client.Do(req)
 	if nil != respErr {
+		if idleGuard.TimedOut() {
+			return nil, idleGuard.TimeoutError()
+		}
 		return nil, respErr
 	}
 	defer resp.Body.Close()
@@ -107,6 +107,7 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	for scanner.Scan() {
+		idleGuard.Reset()
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
 			continue
@@ -157,6 +158,12 @@ func chatAssistantAIGeminiStream(profile *AssistantAIProfile, systemPrompt strin
 				})
 			}
 		}
+	}
+	if scanErr := scanner.Err(); nil != scanErr {
+		if idleGuard.TimedOut() {
+			return nil, idleGuard.TimeoutError()
+		}
+		return nil, scanErr
 	}
 
 	ret = &assistantAIProviderReply{

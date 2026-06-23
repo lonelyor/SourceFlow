@@ -3,6 +3,7 @@ import {Dialog} from "../../dialog";
 import {showMessage} from "../../dialog/message";
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
+import {captureInputFocus, restoreInputFocus} from "../common/inputStability";
 import {
     appendMarkdownToCurrentNote,
     getAssistantNoteContextByRootID,
@@ -53,6 +54,7 @@ const loadAssistantResultsModule = () => import("../results/ResultsDock");
 
 const MAX_SOURCE_CHARS = 48000;
 const MAX_SOURCE_CHARS_PER_ITEM = 12000;
+const STUDIO_RESTORABLE_INPUT_ROLES = ["note-search"] as const;
 const TEXT_FILE_EXTENSIONS = new Set([
     "txt", "md", "markdown", "json", "js", "jsx", "ts", "tsx", "css", "scss", "less", "html", "htm", "xml",
     "svg", "csv", "yaml", "yml", "toml", "ini", "conf", "go", "py", "java", "kt", "rs", "sql", "sh", "bat",
@@ -425,7 +427,9 @@ export const openAssistantSourceStudio = (app?: App, options: IOpenAssistantSour
         if (!body) {
             return;
         }
+        const focusSnapshot = captureInputFocus(body, STUDIO_RESTORABLE_INPUT_ROLES);
         body.innerHTML = renderStudio(state);
+        restoreInputFocus(body, focusSnapshot);
         if (shouldOpenFilePicker) {
             shouldOpenFilePicker = false;
             window.setTimeout(() => {

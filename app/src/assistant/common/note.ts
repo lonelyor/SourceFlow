@@ -3,6 +3,7 @@ import {hasClosestByClassName} from "../../protyle/util/hasClosest";
 import {hasClosestBlock} from "../../protyle/util/hasClosest";
 import {fetchSyncPost} from "../../util/fetch";
 import {showMessage} from "../../dialog/message";
+import {assistantText} from "../constants";
 
 export interface ICurrentNoteContext {
     rootID: string;
@@ -56,9 +57,11 @@ const rootNoteContextCache = new Map<string, {
     value: ICurrentNoteContext | null;
 }>();
 
-const sanitizeDocName = (value: string) => {
+export const sanitizeAssistantDocName = (value: string) => {
     return value.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim() || "Assistant";
 };
+
+export const getAssistantNoteCreatePath = (title: string) => `/AI/${sanitizeAssistantDocName(title)}`;
 
 export const getActiveEditorProtyle = () => {
     /// #if MOBILE
@@ -378,11 +381,16 @@ export const searchAssistantNoteCandidates = async (keyword: string, limit = 12)
     if (!normalizedKeyword) {
         return [];
     }
-    const response = await fetchSyncPost("/api/filetree/searchDocs", {
-        k: normalizedKeyword,
-        flashcard: false,
-        excludeIDs: [],
-    });
+    let response: IWebSocketData;
+    try {
+        response = await fetchSyncPost("/api/filetree/searchDocs", {
+            k: normalizedKeyword,
+            flashcard: false,
+            excludeIDs: [],
+        });
+    } catch (_error) {
+        return [];
+    }
     if (response.code !== 0 || !Array.isArray(response.data)) {
         return [];
     }
@@ -404,43 +412,69 @@ export const appendMarkdownToCurrentNote = async (markdown: string) => {
         showMessage(window.sourceflow.languages.workbenchNeedCurrentNote || "请先打开一个可编辑的笔记");
         return false;
     }
-    const response = await fetchSyncPost("/api/block/appendBlock", {
-        parentID: protyle.block.rootID,
-        data: markdown,
-        dataType: "markdown",
-    });
+    let response: IWebSocketData;
+    try {
+        response = await fetchSyncPost("/api/block/appendBlock", {
+            parentID: protyle.block.rootID,
+            data: markdown,
+            dataType: "markdown",
+            sanitizeIDs: true,
+        });
+    } catch (error) {
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        return false;
+    }
     if (response.code === 0) {
         invalidateAssistantNoteContextCache(protyle.block.rootID);
+        return true;
     }
-    return response.code === 0;
+    showMessage(response.msg || assistantText("写入当前笔记失败", "Failed to write to the current note"), 5000, "error");
+    return false;
+};
+
+export const resolveAssistantNoteNotebook = async () => {
+    const context = await getCurrentNoteContext();
+    if (context?.notebook) {
+        return context.notebook;
+    }
+    const notebooksResponse = await fetchSyncPost("/api/notebook/lsNotebooks", {});
+    if (notebooksResponse.code !== 0 || !notebooksResponse.data?.notebooks?.length) {
+        showMessage(window.sourceflow.languages.emptyContent || "没有可用的笔记本", 3000, "error");
+        return null;
+    }
+    return notebooksResponse.data.notebooks[0].id as string;
 };
 
 export const saveMarkdownAsAssistantNote = async (title: string, markdown: string) => {
-    const context = await getCurrentNoteContext();
-    let notebook = context?.notebook;
+    const notebook = await resolveAssistantNoteNotebook();
     if (!notebook) {
-        const notebooksResponse = await fetchSyncPost("/api/notebook/lsNotebooks", {});
-        if (notebooksResponse.code !== 0 || !notebooksResponse.data?.notebooks?.length) {
-            showMessage(window.sourceflow.languages.emptyContent || "没有可用的笔记本", 3000, "error");
-            return null;
-        }
-        notebook = notebooksResponse.data.notebooks[0].id;
+        return null;
     }
-    const docTitle = sanitizeDocName(title);
-    const response = await fetchSyncPost("/api/filetree/createDocWithMd", {
-        notebook,
-        path: `/AI/${docTitle}`,
-        markdown,
-    });
+    let response: IWebSocketData;
+    try {
+        response = await fetchSyncPost("/api/filetree/createDocWithMd", {
+            notebook,
+            path: getAssistantNoteCreatePath(title),
+            markdown,
+            sanitizeIDs: true,
+        });
+    } catch (error) {
+        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        return null;
+    }
     if (response.code !== 0) {
+        showMessage(response.msg || assistantText("保存 AI 笔记失败", "Failed to save the AI note"), 5000, "error");
         return null;
     }
     invalidateAssistantNoteContextCache();
-    return response.data.id as string;
+    if (typeof response.data === "string") {
+        return response.data;
+    }
+    return response.data?.id as string || null;
 };
 
 export const formatTranscriptMarkdown = (title: string, messages: Array<{ role: string, content: string, createdAt?: number }>) => {
-    const sections = [`# ${sanitizeDocName(title)}`, ""];
+    const sections = [`# ${sanitizeAssistantDocName(title)}`, ""];
     messages.forEach((message, index) => {
         const role = message.role === "assistant" ? "AI" : (message.role === "user" ? "User" : message.role);
         sections.push(`## ${index + 1}. ${role}`);

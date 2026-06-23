@@ -70,6 +70,7 @@ import {importLocalAttachments, uploadFiles} from "../../protyle/upload";
 import {reloadProtyle} from "../../protyle/util/reload";
 import {appendAssistantContextActions} from "../../assistant/skills/contextActions";
 import {net2LocalAssets} from "../../protyle/breadcrumb/action";
+import {openHomepageShortcutDialog} from "../../homepage/shortcuts";
 import {tableMenu} from "./table";
 /// #if !BROWSER
 import {ipcRenderer} from "electron";
@@ -376,6 +377,7 @@ export const contentMenu = (protyle: IProtyle, nodeElement: Element) => {
                 {id: "ins-tlist", icon: "iconCheck", label: hiddenInlineText("任务列表", "Task List"), click: () => { insertBlockTemplate(protyle, nodeElement, "* [ ] "); }},
                 {type: "separator"},
                 {id: "ins-link", icon: "iconLink", label: hiddenInlineText("超链接", "Link"), click: () => { protyle.toolbar.setInlineMark(protyle, "a", "toolbar"); }},
+                {id: "ins-homepage-shortcut", icon: "iconOpen", label: hiddenInlineText("快捷入口", "Shortcut"), click: () => { openHomepageShortcutDialog(protyle, {range}); }},
                 {id: "ins-tag", icon: "iconTags", label: hiddenInlineText("标签", "Tag"), click: () => { protyle.toolbar.setInlineMark(protyle, "tag", "toolbar"); }},
                 {id: "ins-memo", icon: "iconM", label: hiddenInlineText("备注", "Memo"), click: () => { protyle.toolbar.setInlineMark(protyle, "inline-memo", "toolbar"); }},
                 {id: "ins-ref", icon: "iconRef", label: hiddenInlineText("块引用", "Block Ref"), click: () => { protyle.toolbar.setInlineMark(protyle, "block-ref", "toolbar"); }},

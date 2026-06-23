@@ -339,6 +339,7 @@ func assistantAIChat(c *gin.Context) {
 		ret.Msg = "parses request failed"
 		return
 	}
+	req.RequestContext = c.Request.Context()
 
 	data, err := model.ChatAssistantAI(req)
 	if err != nil {
@@ -358,6 +359,7 @@ func assistantAIChatStream(c *gin.Context) {
 		c.JSON(http.StatusOK, ret)
 		return
 	}
+	req.RequestContext = c.Request.Context()
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
@@ -415,6 +417,7 @@ func assistantAIMessageEditStream(c *gin.Context) {
 		c.JSON(http.StatusOK, ret)
 		return
 	}
+	req.RequestContext = c.Request.Context()
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {

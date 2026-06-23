@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
-	"github.com/sashabaranov/go-openai"
 )
 
 func ListAssistantAIProfiles() (ret []*AssistantAIProfile, err error) {
@@ -293,7 +292,7 @@ func isSupportedAssistantAIProvider(provider string) bool {
 	return ok
 }
 
-func isAssistantAILegacyCompatibleProvider(provider string) bool {
+func isAssistantAINativeToolProvider(provider string) bool {
 	switch normalizeAssistantAIProvider(provider) {
 	case AssistantAIProviderOpenAICompatible,
 		AssistantAIProviderVolcengine,
@@ -341,40 +340,6 @@ func scanAssistantAIProfile(scanner interface {
 	}
 	normalizeAssistantAIProfileSettings(ret)
 	return ret, nil
-}
-
-func bootstrapAssistantAILegacyProfile(db *dbsql.DB) (err error) {
-	var count int
-	if err = db.QueryRow(`SELECT COUNT(1) FROM ai_profiles`).Scan(&count); err != nil {
-		return err
-	}
-	if 0 < count || nil == Conf || nil == Conf.AI || nil == Conf.AI.OpenAI {
-		return nil
-	}
-
-	old := Conf.AI.OpenAI
-	if "" == strings.TrimSpace(old.APIKey) || strings.EqualFold(strings.TrimSpace(old.APIProvider), "Azure") {
-		return nil
-	}
-
-	now := time.Now().UnixMilli()
-	settingsJSON, err := marshalAssistantAIMap(map[string]interface{}{
-		"maxTokens":          old.APIMaxTokens,
-		"temperature":        old.APITemperature,
-		"timeout":            old.APITimeout,
-		"maxContextMessages": old.APIMaxContexts,
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(`INSERT INTO ai_profiles (id, name, provider, base_url, api_key, model, user_agent, proxy, version, is_default, settings, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
-		ast.NewNodeID(), "Legacy Default", normalizeAssistantAIProvider(old.APIProvider),
-		normalizeAssistantAIBaseURL(normalizeAssistantAIProvider(old.APIProvider), old.APIBaseURL), strings.TrimSpace(old.APIKey),
-		firstAssistantAINonEmpty(strings.TrimSpace(old.APIModel), openai.GPT3Dot5Turbo), strings.TrimSpace(old.APIUserAgent),
-		strings.TrimSpace(old.APIProxy), strings.TrimSpace(old.APIVersion), string(settingsJSON), now, now)
-	return err
 }
 
 func ensureAssistantAIDefaultProfileTx(tx *dbsql.Tx) (err error) {

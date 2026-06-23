@@ -30,6 +30,7 @@ export interface IAssistantPatchOperation {
     reason?: string;
     status?: TAssistantPatchOperationStatus;
     appliedTargetId?: string;
+    historyId?: string;
 }
 
 export interface IAssistantEditPatch {

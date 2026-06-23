@@ -1,187 +1,181 @@
 import {App} from "../index";
 import {Constants} from "../constants";
+import {Dialog} from "../dialog";
 import {showMessage} from "../dialog/message";
+import {getAllModels} from "../layout/getAll";
 import {newFile} from "../util/newFile";
-import {mountHelp, newNotebook} from "../util/mount";
-import {openHistory} from "../history/history";
-import {openByMobile} from "../protyle/util/compatibility";
+import {fetchPost, fetchSyncPost} from "../util/fetch";
+import {escapeHtml} from "../util/escape";
 import {homepageText} from "./constants";
-import {hasHomepageTemplateSource} from "./loader";
-import {getHomepageState, normalizeTemplatePath, resetHomepageToDefault, saveHomepageState} from "./state";
-import {IHomepageState} from "./types";
+import {clearHomepage, getHomepageState, normalizeHomepageNoteId, setHomepageSourceToNote} from "./state";
 /// #if MOBILE
-import {popSearch} from "../mobile/menu/search";
-import {getRecentDocs as openMobileRecentDocs} from "../mobile/menu/getRecentDocs";
 import {openMobileFileById} from "../mobile/editor";
 /// #else
-import {openSearch} from "../search/spread";
-import {openRecentDocs as openDesktopRecentDocs} from "../business/openRecentDocs";
-import {openBy, openFileById} from "../editor/util";
-/// #endif
-/// #if !BROWSER
-import {shell} from "electron";
+import {openFileById} from "../editor/util";
 /// #endif
 
-const loadWorkbenchDialogModule = () => import("../workbench/dialog");
-const loadCommandPanelModule = () => import("../boot/globalEvent/command/panel");
-const loadConfigModule = () => import("../config");
+interface IHomepageNoteReadiness {
+    readable: boolean;
+    clearBinding: boolean;
+}
 
-const normalizeExternalURL = (url: string) => /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+interface IHomepageSearchDoc {
+    box: string;
+    hPath: string;
+    path: string;
+    rootID: string;
+}
 
-export const openHomepageExternal = (url: string) => {
-    const text = `${url || ""}`.trim();
-    if (!text) {
-        return;
+const renderHomepageSearchResults = (docs: IHomepageSearchDoc[]) => {
+    const noteDocs = docs.filter((item) => normalizeHomepageNoteId(item.rootID));
+    if (noteDocs.length === 0) {
+        return `<li class="b3-list--empty">${escapeHtml(homepageText("未找到匹配笔记", "No matching notes"))}</li>`;
     }
-    const link = normalizeExternalURL(text);
-    /// #if !BROWSER
-    shell.openExternal(link).catch((error) => {
-        showMessage(error instanceof Error ? error.message : `${error}`, 5000, "error");
-    });
-    /// #else
-    openByMobile(link);
-    /// #endif
+    return noteDocs.map((item, index) => `<li class="b3-list-item${index === 0 ? " b3-list-item--focus" : ""}" data-homepage-note-id="${escapeHtml(item.rootID)}">
+    <svg class="b3-list-item__graphic"><use xlink:href="#iconFile"></use></svg>
+    <span class="b3-list-item__showall">${escapeHtml(item.hPath || item.path || item.rootID)}</span>
+</li>`).join("");
 };
 
-export const openTemplateFolder = (templatePath: string) => {
-    /// #if !BROWSER
-    const relativeDataPath = templatePath.replace(/^\/data\/?/, "");
-    const absolute = `${window.sourceflow.config.system.dataDir.replace(/[\\\/]+$/, "").replace(/\\/g, "/")}/${relativeDataPath}`;
-    openBy(`file://${absolute}`, "folder");
-    /// #else
-    showMessage(templatePath);
-    /// #endif
-};
-
-export const openHomepageSource = (app: App, state: IHomepageState) => {
-    if (state.sourceType === "note" && state.noteId) {
-        /// #if MOBILE
-        openMobileFileById(app, state.noteId, [Constants.CB_GET_SCROLL]);
-        /// #else
-        void openFileById({app, id: state.noteId, action: [Constants.CB_GET_SCROLL]});
-        /// #endif
-        return;
-    }
-    openTemplateFolder(state.templatePath);
-};
-
-const openHomepageSearch = (app: App) => {
+export const getCurrentHomepageCandidateNoteId = () => {
     /// #if MOBILE
-    popSearch(app);
+    return normalizeHomepageNoteId(window.sourceflow.mobile?.editor?.protyle?.block?.rootID);
     /// #else
-    openSearch({
+    const activeEditor = getAllModels().editor.find((item) => {
+        return item.parent.headElement?.classList.contains("item--focus");
+    });
+    return normalizeHomepageNoteId(activeEditor?.editor?.protyle?.block?.rootID);
+    /// #endif
+};
+
+export const getHomepageNoteReadiness = async (noteId: string): Promise<IHomepageNoteReadiness> => {
+    const normalized = normalizeHomepageNoteId(noteId);
+    if (!normalized) {
+        return {readable: false, clearBinding: true};
+    }
+    try {
+        const response = await fetchSyncPost("/api/block/getBlockInfo", {id: normalized});
+        if (response.code === 0) {
+            return {readable: response.data?.rootID === normalized, clearBinding: response.data?.rootID !== normalized};
+        }
+        return {readable: false, clearBinding: response.code === -1};
+    } catch (error) {
+        console.warn("check homepage note failed", error);
+        return {readable: false, clearBinding: false};
+    }
+};
+
+export const openHomepageNote = async (app: App, noteId: string) => {
+    const normalized = normalizeHomepageNoteId(noteId);
+    const readiness = await getHomepageNoteReadiness(normalized);
+    if (!readiness.readable) {
+        if (readiness.clearBinding && getHomepageState().noteId === normalized) {
+            clearHomepage();
+        }
+        return false;
+    }
+    /// #if MOBILE
+    openMobileFileById(app, normalized, [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS]);
+    /// #else
+    try {
+        await openFileById({app, id: normalized, action: [Constants.CB_GET_SCROLL, Constants.CB_GET_FOCUS]});
+    } catch (error) {
+        console.warn("open homepage note failed", error);
+        return false;
+    }
+    /// #endif
+    return true;
+};
+
+export const createHomepageNote = (app: App) => {
+    if (window.sourceflow.config.readonly) {
+        showMessage(homepageText("当前为只读模式，无法创建主页", "Readonly mode cannot create a homepage"), 4000, "error");
+        return;
+    }
+    newFile({
         app,
-        hotkey: Constants.DIALOG_GLOBALSEARCH,
+        useSavePath: false,
+        name: homepageText("主页", "Home"),
+        afterCB(id) {
+            setHomepageSourceToNote(id);
+            showMessage(homepageText("已创建主页", "Homepage created"));
+        },
     });
-    /// #endif
 };
 
-const openHomepageRecentDocs = (app: App) => {
-    /// #if MOBILE
-    openMobileRecentDocs(app);
-    /// #else
-    openDesktopRecentDocs();
-    /// #endif
-};
-
-const openHomepageWorkbench = async (app: App) => {
-    const {openWorkbenchDialog} = await loadWorkbenchDialogModule();
-    openWorkbenchDialog(app);
-};
-
-const openHomepageCommandPanel = async (app: App) => {
-    const {commandPanel} = await loadCommandPanelModule();
-    commandPanel(app);
-};
-
-const openHomepageSettings = async (app: App) => {
-    const {openSetting} = await loadConfigModule();
-    openSetting(app);
-};
-
-const openHomepageBackupSetting = async (app: App) => {
-    const {openSetting} = await loadConfigModule();
-    /// #if MOBILE
-    openSetting(app);
-    /// #else
-    const dialog = openSetting(app);
-    dialog?.element.querySelector('.b3-tab-bar [data-name="repos"]')?.dispatchEvent(new CustomEvent("click"));
-    /// #endif
-};
-
-export const runHomepageBuiltinAction = async (app: App, action: string, refresh: () => Promise<void>, state: IHomepageState) => {
-    switch (`${action || ""}`.trim()) {
-        case "open-homepage-source":
-        case "edit-note-source":
-            openHomepageSource(app, state);
-            break;
-        case "search":
-            openHomepageSearch(app);
-            break;
-        case "workbench":
-            await openHomepageWorkbench(app);
-            break;
-        case "command":
-            await openHomepageCommandPanel(app);
-            break;
-        case "config":
-            await openHomepageSettings(app);
-            break;
-        case "backup":
-            await openHomepageBackupSetting(app);
-            break;
-        case "recent":
-            openHomepageRecentDocs(app);
-            break;
-        case "history":
-            openHistory(app);
-            break;
-        case "new-file":
-            if (!window.sourceflow.config.readonly) {
-                newFile({app, useSavePath: true});
-            }
-            break;
-        case "new-notebook":
-            if (!window.sourceflow.config.readonly) {
-                newNotebook();
-            }
-            break;
-        case "help":
-            mountHelp();
-            break;
-        case "open-template-folder":
-            openTemplateFolder(state.templatePath);
-            break;
-        case "switch-template": {
-            const nextPath = window.prompt(homepageText("请输入主页模板目录，或单个 html/md 文件路径", "Enter the homepage template folder path, or a single html/md file path"), state.templatePath);
-            if (!nextPath) {
-                break;
-            }
-            const normalized = normalizeTemplatePath(nextPath);
-            if (!await hasHomepageTemplateSource(normalized)) {
-                showMessage(homepageText("主页入口不存在，请确认目录里有 index.html / index.md，或直接指定单个 html/md 文件", "Homepage source is missing. Make sure the folder contains index.html / index.md, or point to a single html/md file"), 5000, "error");
-                break;
-            }
-            state.templatePath = normalized;
-            saveHomepageState(state);
-            await refresh();
-            break;
+export const openHomepageNotePicker = (app: App) => {
+    let requestId = 0;
+    const dialog = new Dialog({
+        title: homepageText("选择主页笔记", "Choose Homepage Note"),
+        width: "560px",
+        content: `<div class="b3-dialog__content homepage-note-picker">
+    <input class="b3-text-field fn__block" data-homepage-note-search spellcheck="false" placeholder="${escapeHtml(homepageText("搜索已有笔记", "Search existing notes"))}">
+    <ul class="b3-list b3-list--background homepage-note-picker__list" data-homepage-note-list>
+        <li class="b3-list--empty">${escapeHtml(homepageText("输入标题搜索已有笔记", "Type to search existing notes"))}</li>
+    </ul>
+</div>
+<div class="b3-dialog__action">
+    <button class="b3-button b3-button--cancel" type="button" data-homepage-note-cancel>${escapeHtml(window.sourceflow.languages.cancel)}</button>
+</div>`,
+    });
+    const inputElement = dialog.element.querySelector("[data-homepage-note-search]") as HTMLInputElement;
+    const listElement = dialog.element.querySelector("[data-homepage-note-list]") as HTMLElement;
+    const search = (event?: InputEvent) => {
+        if (event?.isComposing) {
+            return;
         }
-        case "refresh":
-            await refresh();
-            break;
-        case "reset-default-homepage": {
-            const nextState = resetHomepageToDefault();
-            state.sourceType = nextState.sourceType;
-            state.noteId = nextState.noteId;
-            state.templatePath = nextState.templatePath;
-            await refresh();
-            break;
+        const keyword = inputElement.value.trim();
+        if (!keyword) {
+            listElement.innerHTML = `<li class="b3-list--empty">${escapeHtml(homepageText("输入标题搜索已有笔记", "Type to search existing notes"))}</li>`;
+            return;
         }
-        case "open-current-homepage-source": {
-            const currentState = getHomepageState();
-            openHomepageSource(app, currentState);
-            break;
+        const currentRequestId = ++requestId;
+        fetchPost("/api/filetree/searchDocs", {
+            k: keyword,
+            flashcard: false,
+            excludeIDs: [],
+        }, (response) => {
+            if (currentRequestId !== requestId) {
+                return;
+            }
+            listElement.innerHTML = renderHomepageSearchResults(response.data || []);
+        }, undefined, () => {
+            if (currentRequestId === requestId) {
+                listElement.innerHTML = `<li class="b3-list--empty">${escapeHtml(homepageText("搜索失败", "Search failed"))}</li>`;
+            }
+        });
+    };
+    listElement.addEventListener("click", (event) => {
+        if (!(event.target instanceof Element)) {
+            return;
         }
+        const target = event.target.closest("[data-homepage-note-id]") as HTMLElement;
+        const noteId = normalizeHomepageNoteId(target?.getAttribute("data-homepage-note-id"));
+        if (!noteId) {
+            return;
+        }
+        setHomepageSourceToNote(noteId);
+        showMessage(homepageText("已设为主页", "Set as homepage"));
+        dialog.destroy({focus: "false"});
+        void openHomepageNote(app, noteId);
+    });
+    dialog.element.querySelector("[data-homepage-note-cancel]")?.addEventListener("click", () => dialog.destroy());
+    inputElement.addEventListener("compositionend", search);
+    inputElement.addEventListener("input", search);
+    dialog.bindInput(inputElement, () => {
+        const firstNote = listElement.querySelector("[data-homepage-note-id]") as HTMLElement;
+        firstNote?.click();
+    });
+};
+
+export const setCurrentNoteAsHomepage = async (app: App) => {
+    const noteId = getCurrentHomepageCandidateNoteId();
+    if (!noteId) {
+        showMessage(homepageText("请先打开一个笔记", "Open a note first"), 4000, "error");
+        return false;
     }
+    setHomepageSourceToNote(noteId);
+    showMessage(homepageText("已设为主页", "Set as homepage"));
+    await openHomepageNote(app, noteId);
+    return true;
 };

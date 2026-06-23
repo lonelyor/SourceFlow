@@ -1,6 +1,6 @@
 import type {IAssistantEditPatch} from "../patch/types";
 
-export type TAssistantOperationHistoryStatus = "applied" | "rolled-back" | "failed";
+export type TAssistantOperationHistoryStatus = "applied" | "reverted" | "reapplied" | "failed" | "revert-failed" | "reapply-failed";
 
 export interface IAssistantOperationHistoryResult {
     operationId: string;
@@ -21,6 +21,9 @@ export interface IAssistantOperationHistoryMetadata {
 
 export interface IAssistantOperationHistoryItem {
     id: string;
+    patchId?: string;
+    operationId?: string;
+    operationType?: string;
     patch: IAssistantEditPatch;
     status: TAssistantOperationHistoryStatus;
     source: string;
@@ -29,14 +32,16 @@ export interface IAssistantOperationHistoryItem {
     profileId?: string;
     targetId?: string;
     targetLabel?: string;
+    notebook?: string;
+    path?: string;
     error?: string;
     results: IAssistantOperationHistoryResult[];
     createdAt: number;
     updatedAt: number;
 }
 
-const historyStorageKey = "sourceflow.assistant.operation.history";
 const assistantOperationHistoryLimit = 100;
+let assistantOperationHistoryCache: IAssistantOperationHistoryItem[] = [];
 
 const cloneHistoryItem = (item: IAssistantOperationHistoryItem) => JSON.parse(JSON.stringify(item)) as IAssistantOperationHistoryItem;
 
@@ -60,6 +65,7 @@ const normalizeHistoryItem = (item: IAssistantOperationHistoryItem) => {
         ...item,
         source: item.source || patch?.source || "",
         risk: item.risk || patch?.risk || "",
+        operationType: item.operationType || item.patch?.operations?.[0]?.type || "",
         targetId: item.targetId || firstOperation?.appliedTargetId || firstOperation?.targetId || "",
         targetLabel: item.targetLabel || firstOperation?.targetLabel || patch?.summary || "",
         results: item.results?.length ? item.results : buildHistoryResults(patch),
@@ -67,60 +73,11 @@ const normalizeHistoryItem = (item: IAssistantOperationHistoryItem) => {
 };
 
 export const readAssistantOperationHistory = () => {
-    try {
-        const raw = window.localStorage?.getItem(historyStorageKey) || "[]";
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed)
-            ? parsed.map((item) => normalizeHistoryItem(item as IAssistantOperationHistoryItem)).filter((item) => item?.id && item?.patch).slice(0, assistantOperationHistoryLimit)
-            : [];
-    } catch (_error) {
-        return [] as IAssistantOperationHistoryItem[];
-    }
+    return assistantOperationHistoryCache.map(cloneHistoryItem);
 };
 
 export const writeAssistantOperationHistory = (items: IAssistantOperationHistoryItem[]) => {
-    try {
-        window.localStorage?.setItem(historyStorageKey, JSON.stringify(items.slice(0, assistantOperationHistoryLimit)));
-    } catch (_error) {
-        // Operation history is best-effort and must not block editing.
-    }
-};
-
-export const addAssistantOperationHistory = (
-    patch: IAssistantEditPatch,
-    status: TAssistantOperationHistoryStatus = "applied",
-    metadata: IAssistantOperationHistoryMetadata = {},
-) => {
-    const now = Date.now();
-    const firstOperation = patch.operations.find((operation) => operation.appliedTargetId || operation.targetId);
-    const item: IAssistantOperationHistoryItem = {
-        id: `history-${now}-${Math.random().toString(36).slice(2, 8)}`,
-        patch: JSON.parse(JSON.stringify(patch)) as IAssistantEditPatch,
-        status,
-        source: patch.source,
-        risk: patch.risk,
-        sessionId: metadata.sessionId,
-        profileId: metadata.profileId,
-        targetId: metadata.targetId || firstOperation?.appliedTargetId || firstOperation?.targetId || "",
-        targetLabel: metadata.targetLabel || firstOperation?.targetLabel || patch.summary || "",
-        error: metadata.error,
-        results: metadata.results || buildHistoryResults(patch),
-        createdAt: now,
-        updatedAt: now,
-    };
-    const next = [item].concat(readAssistantOperationHistory()).slice(0, assistantOperationHistoryLimit);
-    writeAssistantOperationHistory(next);
-    return cloneHistoryItem(item);
-};
-
-export const updateAssistantOperationHistoryStatus = (id: string, status: TAssistantOperationHistoryStatus, error = "") => {
-    const now = Date.now();
-    const next = readAssistantOperationHistory().map((item) => item.id === id ? {
-        ...item,
-        status,
-        error: error || item.error,
-        updatedAt: now,
-    } : item);
-    writeAssistantOperationHistory(next);
-    return next.find((item) => item.id === id) || null;
+    assistantOperationHistoryCache = Array.isArray(items)
+        ? items.map((item) => normalizeHistoryItem(item)).filter((item) => item?.id && item?.patch).slice(0, assistantOperationHistoryLimit).map(cloneHistoryItem)
+        : [];
 };

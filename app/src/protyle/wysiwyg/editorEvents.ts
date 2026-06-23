@@ -20,12 +20,12 @@ export const bindEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle) => {
         mobileBlur: false,
     };
 
-    registerFocusOutEvent(wysiwyg, protyle, state);
+    registerFocusOutEvent(wysiwyg, protyle);
     registerCutEvent(wysiwyg, protyle, state);
     registerContextMenuEvent(wysiwyg, protyle, state);
     registerPointerDownEvent(wysiwyg, protyle, state);
     registerMouseWheelEvent(wysiwyg, protyle, state);
-    registerPasteEvent(wysiwyg, protyle, state);
+    registerPasteEvent(wysiwyg, protyle);
     registerInputLifecycleEvents(wysiwyg, protyle, state);
     registerClickEvents(wysiwyg, protyle, state);
 };

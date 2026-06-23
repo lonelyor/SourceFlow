@@ -225,3 +225,23 @@ func TestAssistantAIProfileDoesNotSyncLegacyOpenAIConfig(t *testing.T) {
 		t.Fatalf("legacy OpenAI model should not be synced from ai_profiles, got %q", Conf.AI.OpenAI.APIModel)
 	}
 }
+
+func TestAssistantAIProfilesDoNotBootstrapFromLegacyOpenAIConfig(t *testing.T) {
+	withAssistantAISessionTestDB(t)
+	oldConf := Conf
+	Conf = &AppConf{AI: conf.NewAI()}
+	Conf.AI.OpenAI.APIKey = "legacy-key"
+	Conf.AI.OpenAI.APIModel = "legacy-model"
+	Conf.AI.OpenAI.APIBaseURL = "https://legacy.example.com/v1"
+	t.Cleanup(func() {
+		Conf = oldConf
+	})
+
+	profiles, err := ListAssistantAIProfiles()
+	if err != nil {
+		t.Fatalf("list profiles: %s", err)
+	}
+	if 0 != len(profiles) {
+		t.Fatalf("legacy OpenAI config must not bootstrap assistant AI profiles, got %d", len(profiles))
+	}
+}

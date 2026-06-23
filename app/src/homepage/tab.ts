@@ -1,6 +1,8 @@
 import {App} from "../index";
 import {HOMEPAGE_MARK, homepageText} from "./constants";
 import {mountHomepageIntoContainer} from "./runtime";
+import {openHomepageNote} from "./actions";
+import {getHomepageState} from "./state";
 /// #if !MOBILE
 import {Tab} from "../layout/Tab";
 import {getAllTabs} from "../layout/getAll";
@@ -38,11 +40,15 @@ export const newHomepageEmptyTab = (app: App) => {
     /// #endif
 };
 
-export const openHomepageTab = (app: App) => {
+export const openHomepageTab = async (app: App) => {
     /// #if MOBILE
     void app;
     return null as never;
     /// #else
+    const state = getHomepageState();
+    if (state.noteId && await openHomepageNote(app, state.noteId)) {
+        return null;
+    }
     const existingTab = findHomepageTab();
     if (existingTab) {
         if (existingTab.headElement) {
@@ -82,7 +88,7 @@ export const openStartupHomepage = (app: App) => {
         if (findHomepageTab() || hasAnyRealTabs()) {
             return;
         }
-        openHomepageTab(app);
+        void openHomepageTab(app);
     } catch (error) {
         console.error("open startup homepage failed", error);
     }

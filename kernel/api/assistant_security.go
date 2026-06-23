@@ -20,6 +20,10 @@ type aiSecurityCheckRequest struct {
 	SessionBatchCount int      `json:"sessionBatchCount"`
 	Capability        string   `json:"capability"`
 	ToolID            string   `json:"toolId"`
+	Source            string   `json:"source"`
+	SessionID         string   `json:"sessionId"`
+	AgentTaskID       string   `json:"agentTaskId"`
+	OperationType     string   `json:"operationType"`
 }
 
 func assistantSecurityGetConfig(c *gin.Context) {
@@ -69,6 +73,10 @@ func assistantSecurityCheckPermission(c *gin.Context) {
 		SessionBatchCount: req.SessionBatchCount,
 		Capability:        req.Capability,
 		ToolID:            req.ToolID,
+		Source:            req.Source,
+		SessionID:         req.SessionID,
+		AgentTaskID:       req.AgentTaskID,
+		OperationType:     req.OperationType,
 	})
 	ret.Data = result
 }

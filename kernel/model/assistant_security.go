@@ -66,6 +66,10 @@ type AISecurityPermissionRequest struct {
 	SessionBatchCount int
 	Capability        string
 	ToolID            string
+	Source            string
+	SessionID         string
+	AgentTaskID       string
+	OperationType     string
 }
 
 var (
@@ -76,6 +80,8 @@ var (
 const (
 	AISecurityDefaultBatchThreshold = 10
 	AISecurityMaxBatchThreshold     = 100
+	AISecurityBypassNearBatchMargin = 1
+	AISecurityLowRiskComboThreshold = 3
 
 	AISecurityCapabilityRead        = "read"
 	AISecurityCapabilityWrite       = "write"
@@ -84,6 +90,11 @@ const (
 	AISecurityCapabilityDeleteNote  = "deleteNote"
 	AISecurityCapabilityMove        = "move"
 	AISecurityCapabilityExecute     = "execute"
+
+	AISecuritySourceAssistantTool    = "assistant-tool"
+	AISecuritySourceAssistantPatch   = "assistant-patch"
+	AISecuritySourceAssistantHistory = "assistant-history"
+	AISecuritySourceManualCheck      = "manual-check"
 )
 
 func aiSecurityConfigPath() string {
@@ -344,6 +355,14 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 		}
 	}
 
+	if result := detectAISecurityBypassAttempt(cfg, risk, targetType, targetIDs, sessionBatchCount); nil != result {
+		return result
+	}
+
+	if result := detectAISecurityEntryBypass(req, risk); nil != result {
+		return result
+	}
+
 	if sessionBatchCount >= cfg.BatchThreshold && isWriteRisk(risk) {
 		return &AISecurityPermissionResult{
 			Decision:      AISecurityConfirm,
@@ -368,9 +387,10 @@ func CheckAISecurityPermissionForRequest(req *AISecurityPermissionRequest) *AISe
 			}
 		}
 		return &AISecurityPermissionResult{
-			Decision:    AISecurityConfirm,
-			Reason:      fmt.Sprintf("%s 风险操作 [%s] 需要确认", risk, targetType),
-			Escalatable: true,
+			Decision:      AISecurityConfirm,
+			Reason:        fmt.Sprintf("%s 风险操作 [%s] 需要确认", risk, targetType),
+			Escalatable:   true,
+			AffectedItems: buildAffectedItems(targetIDs, targetType),
 		}
 	}
 
@@ -393,6 +413,7 @@ func checkToolSecurity(def *AssistantAIToolDefinition, context *AssistantAINoteC
 		SessionBatchCount: sessionBatchCount,
 		Capability:        toolSecurityCapability(def),
 		ToolID:            def.ID,
+		Source:            AISecuritySourceAssistantTool,
 	})
 }
 

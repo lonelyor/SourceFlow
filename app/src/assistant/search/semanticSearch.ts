@@ -3,7 +3,6 @@ import {fetchPost} from "../../util/fetch";
 import {openFileById} from "../../editor/util";
 import {assistantText} from "../constants";
 import {escapeHTML, escapeAttr, truncateText} from "../common/dom";
-import {showMessage} from "../../dialog/message";
 import {App} from "../../index";
 
 interface ISemanticSearchResult {
@@ -29,7 +28,7 @@ const renderSemanticSearchResults = (
         container.innerHTML = `<div class="b3-list__empty">${escapeHTML(assistantText("没有找到语义相关的笔记", "No semantically similar notes found"))}</div>`;
         return;
     }
-    container.innerHTML = results.map((item, index) => {
+    container.innerHTML = results.map((item) => {
         const title = item.title || item.rootID;
         const path = item.hPath || "";
         return `<button type="button" class="b3-list-item b3-list-item--two" data-type="semantic-result" data-root-id="${escapeAttr(item.rootID)}">
@@ -68,7 +67,7 @@ export const openSemanticSearchPanel = (app: App, parentElement: HTMLElement) =>
         <input class="b3-text-field b3-text-field--text" id="semanticSearchInput" placeholder="${escapeAttr(assistantText("输入自然语言搜索...", "Enter natural language query..."))}" autocomplete="off" spellcheck="false">
     </div>
     <span class="fn__space"></span>
-    <span id="semanticSearchLoading" class="fn__none fn__rotate svg" style="padding:0 8px;align-self:center"><use xlink:href="#iconRefresh"></use></span>
+    <svg id="semanticSearchLoading" class="fn__none fn__rotate svg" style="padding:0 8px;align-self:center"><use xlink:href="#iconRefresh"></use></svg>
 </div>
 <div id="semanticSearchResults" class="fn__flex-1 search__list b3-list b3-list--background" style="overflow:auto"></div>`;
         parentElement.appendChild(panel);
@@ -78,10 +77,13 @@ export const openSemanticSearchPanel = (app: App, parentElement: HTMLElement) =>
         const loading = panel.querySelector("#semanticSearchLoading") as HTMLElement;
 
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        let searchSeq = 0;
 
         const doSearch = () => {
+            const currentSeq = ++searchSeq;
             const query = input.value.trim();
             if (!query) {
+                loading.classList.add("fn__none");
                 resultsContainer.innerHTML = `<div class="b3-list__empty">${escapeHTML(assistantText("输入自然语言描述进行语义搜索", "Enter a natural language query for semantic search"))}</div>`;
                 return;
             }
@@ -89,6 +91,9 @@ export const openSemanticSearchPanel = (app: App, parentElement: HTMLElement) =>
             resultsContainer.innerHTML = `<div class="b3-list__empty">${escapeHTML(assistantText("搜索中...", "Searching..."))}</div>`;
 
             fetchPost("/api/assistant/embedding/search", {query, limit: 16}, (response: { code: number; msg?: string; data?: ISemanticSearchResponse }) => {
+                if (currentSeq !== searchSeq) {
+                    return;
+                }
                 loading.classList.add("fn__none");
                 if (response.code !== 0) {
                     resultsContainer.innerHTML = `<div class="b3-list__empty">${escapeHTML(response.msg || assistantText("搜索失败", "Search failed"))}</div>`;
@@ -97,6 +102,9 @@ export const openSemanticSearchPanel = (app: App, parentElement: HTMLElement) =>
                 const results = response.data?.results || [];
                 renderSemanticSearchResults(results, resultsContainer, app);
             }, undefined, (response: { msg?: string }) => {
+                if (currentSeq !== searchSeq) {
+                    return;
+                }
                 loading.classList.add("fn__none");
                 resultsContainer.innerHTML = `<div class="b3-list__empty">${escapeHTML(response.msg || assistantText("搜索失败", "Search failed"))}</div>`;
             });

@@ -2,6 +2,7 @@ import {openSettingTab} from "../../config";
 import {confirmDialog} from "../../dialog/confirmDialog";
 import {showMessage} from "../../dialog/message";
 import {assistantText} from "../constants";
+import {syncAssistantAgentTasksFromBackend} from "../agent/queue";
 import {
     getAssistantNoteContextByRootID,
     getCurrentNoteContext,
@@ -265,6 +266,7 @@ export const refreshAIDock = async (ctx: IAssistantAIDockRuntime, loadMessages: 
         await Promise.all([
             ctx.refreshToolCatalog(ctx.selectedProfileId),
             ctx.refreshAudits(),
+            syncAssistantAgentTasksFromBackend(),
         ]);
         if (loadMessages && ctx.selectedSessionId) {
             ctx.messages = await getAssistantAISessionMessages(ctx.selectedSessionId);

@@ -787,76 +787,113 @@ body.body--activitybar-unified {
   min-height: 0;
   height: 100%;
   overflow: auto;
-  background:
-    radial-gradient(circle at top left, rgba(255, 153, 194, .05), transparent 24%),
-    radial-gradient(circle at top right, rgba(111, 208, 255, .06), transparent 28%),
-    linear-gradient(180deg, color-mix(in srgb, var(--b3-theme-background) 94%, #0f172a 6%), var(--b3-theme-background));
+  background: var(--b3-theme-background);
 
-  &__loading {
+  &__empty {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100%;
-    padding: 32px;
-    color: var(--b3-theme-on-surface-light);
+    padding: 24px;
   }
 
-  &__toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    padding: 16px 20px 0;
-    pointer-events: none;
-  }
-
-  &__toolbar-inner {
-    width: min(1080px, 100%);
-    margin: 0 auto;
+  &__empty-main {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
   }
 
-  &__toolbar-actions {
+  &__empty-icon {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 10px;
-    pointer-events: auto;
-  }
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    color: var(--b3-theme-primary);
 
-  &__chip {
-    height: 32px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--b3-theme-surface) 86%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-border-color) 78%, transparent), 0 10px 24px rgba(15, 23, 42, .05);
-    color: var(--b3-theme-on-surface);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: .03em;
-    cursor: pointer;
-    transition: var(--b3-transition);
-
-    &:hover {
-      background: color-mix(in srgb, var(--b3-theme-background-light) 92%, transparent);
-      transform: translateY(-1px);
+    svg {
+      width: 28px;
+      height: 28px;
     }
   }
 
-  &__canvas {
-    min-height: 100%;
+  &__empty-title {
+    color: var(--b3-theme-on-surface);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  &__empty-desc {
+    color: var(--b3-theme-on-surface-light);
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 420px;
+  }
+
+  &__empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+
+    .b3-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+
+      svg {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+      }
+    }
+  }
+}
+
+.homepage-note-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__list {
+    max-height: 320px;
+    min-height: 160px;
+    overflow: auto;
+  }
+}
+
+.homepage-shortcut-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &__types,
+  &__pickers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .b3-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+    }
   }
 }
 
 @media (max-width: 720px) {
   .homepage-page {
-    &__toolbar {
-      padding: 12px 14px 0;
-    }
-
-    &__toolbar-inner,
-    &__toolbar-actions {
+    &__empty {
+      align-items: flex-start;
       justify-content: flex-start;
     }
   }

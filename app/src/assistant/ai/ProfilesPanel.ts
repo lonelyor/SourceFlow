@@ -227,7 +227,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
     const settings = cloneSettings(state.draft.settings as Record<string, unknown> | undefined);
     const apiKeyValue = `${state.draft.apiKey || ""}`;
     const apiKeyMasked = !!state.draft.hasAPIKey && apiKeyValue === ASSISTANT_SECRET_MASK;
-    const advancedSummary = assistantText("超时、输出长度、Temperature 和上下文预算。", "Timeout, output size, temperature, and context budget.");
+    const advancedSummary = assistantText("无响应超时、输出长度、Temperature 和上下文预算。", "No-response timeout, output size, temperature, and context budget.");
     const toolSummary = assistantText("读取/写入范围、留痕和各工具权限。", "Read/write scope, trace mode, and per-tool permissions.");
     const wrapperClasses = ["assistant-profiles", "fn__flex"];
     if (options.compact) {
@@ -307,7 +307,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 ${state.showAdvanced ? `<div class="assistant-profiles__section-body">
                     <div class="assistant-profiles__grid">
                         <label class="fn__flex-column assistant-profiles__field">
-                            <span>${escapeHTML(assistantText("超时（秒）", "Timeout (s)"))}</span>
+                            <span>${escapeHTML(assistantText("无响应超时（秒）", "No-response timeout (s)"))}</span>
                             <input class="b3-text-field" type="number" min="1" step="1" data-setting="timeout" value="${escapeAttr(`${settings.timeout}`)}">
                         </label>
                         <label class="fn__flex-column assistant-profiles__field">

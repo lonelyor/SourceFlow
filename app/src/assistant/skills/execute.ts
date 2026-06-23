@@ -9,6 +9,7 @@ import {
     getNoteContextFromProtyle,
     ICurrentNoteContext
 } from "../common/note";
+import {buildMentionSourcesFromNoteContext} from "../common/source";
 import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
 import {reportAssistantRuntimeError} from "../runtime";
 import {buildAssistantPatchFromSkillResult, createAssistantPatchID, isAssistantPatchableSkill} from "../patch/build";
@@ -96,6 +97,9 @@ const openAssistantChatDock = async (options: {
     pinCurrentNote?: boolean,
     clearTarget?: boolean,
     sessionId?: string,
+    mode?: "ask" | "chat" | "agent",
+    newSession?: boolean,
+    sources?: ReturnType<typeof buildMentionSourcesFromNoteContext>,
 }) => {
     try {
         const {openAssistantAIDock} = await loadAssistantAIDockModule();
@@ -554,9 +558,12 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
         return openCaptureFromSkill(definition, context, options.app);
     }
     if (definition.action === "chat") {
+        const sources = buildMentionSourcesFromNoteContext(context.note);
         return await openAssistantChatDock({
             message: definition.buildMessage(context, params),
-            includeCurrentNote: !!context.note,
+            includeCurrentNote: false,
+            mode: "ask",
+            sources,
         });
     }
     const profile = await ensureDefaultProfile();

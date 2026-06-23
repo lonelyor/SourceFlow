@@ -141,6 +141,27 @@ export const estimateTokenCount = (sources: IMentionSource[]): number => {
     return Math.ceil(totalChars / 4);
 };
 
+const needsContextPackResolve = (source: IMentionSource) => {
+    if (!source.included) {
+        return false;
+    }
+    if (source.summary) {
+        return false;
+    }
+    if (source.children && source.children.length > 0) {
+        return source.children.some((child) => child.included && !child.summary);
+    }
+    return source.type === "note" || source.type === "folder";
+};
+
+export const resolveSourcesForPrompt = async (sources: IMentionSource[], securityMode: TSecurityMode = "default"): Promise<IMentionSource[]> => {
+    const snapshot = cloneMentionSources(sources);
+    if (!snapshot.some(needsContextPackResolve)) {
+        return snapshot;
+    }
+    return resolveAndBuildPack(snapshot, securityMode);
+};
+
 export const resolveAndBuildPack = async (sources: IMentionSource[], securityMode: TSecurityMode = "default"): Promise<IMentionSource[]> => {
     const items = buildPackItemsFromSources(sources);
     if (!items.length) return sources;

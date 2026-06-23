@@ -9,7 +9,7 @@ import type {
     IAssistantAIToolDefinition,
     IAssistantAIToolPolicy,
 } from "./api";
-import type {TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
+import type {TAssistantAIConversationMode, TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
 import type {IMentionSource} from "../mentions/types";
 import type {IMentionTriggerState} from "../mentions/trigger";
 import type {TSecurityMode} from "../security/types";
@@ -34,6 +34,7 @@ export interface IAssistantAIDockRuntime {
     selectedProfileId: string;
     includeCurrentNote: boolean;
     enableTools: boolean;
+    conversationMode: TAssistantAIConversationMode;
     draftMessage: string;
     attachments: IAssistantAIInputAttachment[];
     noteSearchKeyword: string;
@@ -54,6 +55,8 @@ export interface IAssistantAIDockRuntime {
     mentionState: IMentionTriggerState;
     securityMode: TSecurityMode;
     securityDropdownVisible: boolean;
+    activeRequestController: AbortController | null;
+    userStoppedGenerating: boolean;
     render(): void;
     focusComposer(): void;
     scrollToBottom(): void;
@@ -111,17 +114,19 @@ export interface IAssistantAIDockRuntime {
     setSessionPinned(sessionId: string, pinned: boolean): Promise<void>;
     clearAllSessions(): Promise<void>;
     sendMessage(): Promise<void>;
+    stopGenerating(): void;
+    setConversationMode(mode: TAssistantAIConversationMode): void;
     confirmTool(messageId: string, toolIndex: number): Promise<void>;
     rejectTool(messageId: string, toolIndex: number): Promise<void>;
     applyToolPatch(messageId: string, toolIndex: number, operationId?: string): Promise<void>;
     rejectToolPatch(messageId: string, toolIndex: number, operationId?: string): void;
     startAgentFromDraft(): Promise<void>;
     runAgentTask(taskId: string): Promise<void>;
-    pauseAgentTask(taskId: string): void;
-    cancelAgentTask(taskId: string): void;
+    pauseAgentTask(taskId: string): Promise<void>;
+    cancelAgentTask(taskId: string): Promise<void>;
     retryAgentTaskItem(taskId: string, itemId: string): Promise<void>;
     applyAgentPatch(taskId: string, itemId: string, operationId?: string): Promise<void>;
-    rejectAgentPatch(taskId: string, itemId: string, operationId?: string): void;
+    rejectAgentPatch(taskId: string, itemId: string, operationId?: string): Promise<void>;
     saveTranscript(): Promise<void>;
     saveAnalysis(): Promise<void>;
     insertLastReply(): Promise<void>;

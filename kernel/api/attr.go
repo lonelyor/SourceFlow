@@ -92,21 +92,13 @@ func setBlockAttrs(c *gin.Context) {
 		}
 	}
 
-	nameValues := map[string]string{}
-	for name, value := range attrs {
-		if nil == value { // API `setBlockAttrs` 中如果存在属性值设置为 `null` 时移除该属性 https://github.com/lonelyor/SourceFlow/issues/5577
-			nameValues[name] = ""
-		} else {
-			strValue, ok := value.(string)
-			if !ok {
-				ret.Code = -1
-				ret.Msg = fmt.Sprintf("the value of attr [%s] must be a string", name)
-				return
-			}
-			nameValues[name] = strValue
-		}
+	nameValues, err := normalizeBlockAttrValues(attrs)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
 	}
-	err := model.SetBlockAttrs(id, nameValues)
+	err = model.SetBlockAttrs(id, nameValues)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -133,19 +125,11 @@ func batchSetBlockAttrs(c *gin.Context) {
 		}
 
 		attrs := blockAttr["attrs"].(map[string]interface{})
-		nameValues := map[string]string{}
-		for name, value := range attrs {
-			if nil == value {
-				nameValues[name] = ""
-			} else {
-				strValue, ok := value.(string)
-				if !ok {
-					ret.Code = -1
-					ret.Msg = fmt.Sprintf("the value of attr [%s] must be a string", name)
-					return
-				}
-				nameValues[name] = strValue
-			}
+		nameValues, normalizeErr := normalizeBlockAttrValues(attrs)
+		if normalizeErr != nil {
+			ret.Code = -1
+			ret.Msg = normalizeErr.Error()
+			return
 		}
 
 		blockAttrs = append(blockAttrs, map[string]interface{}{
@@ -160,6 +144,22 @@ func batchSetBlockAttrs(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
+}
+
+func normalizeBlockAttrValues(attrs map[string]interface{}) (map[string]string, error) {
+	nameValues := map[string]string{}
+	for name, value := range attrs {
+		if nil == value { // API `setBlockAttrs` 中如果存在属性值设置为 `null` 时移除该属性 https://github.com/lonelyor/SourceFlow/issues/5577
+			nameValues[name] = ""
+			continue
+		}
+		strValue, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("the value of attr [%s] must be a string", name)
+		}
+		nameValues[name] = strValue
+	}
+	return nameValues, nil
 }
 
 func resetBlockAttrs(c *gin.Context) {

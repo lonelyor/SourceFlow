@@ -66,6 +66,7 @@ const openDocTreeAIDock = (options: {
         openAssistantAIDock({
             message: `@${title} `,
             includeCurrentNote: false,
+            mode: "ask",
             sources: [source],
         });
     });
@@ -799,7 +800,7 @@ export const initFileMenu = (app: App, notebookId: string, pathString: string, l
                     setHomepageSourceToNote(id);
                     showMessage(window.sourceflow.config.lang === "zh_CN" ? "已设为主页" : "Set as homepage");
                     /// #if !MOBILE
-                    openHomepageTab(app);
+                    void openHomepageTab(app);
                     /// #endif
                 });
             }

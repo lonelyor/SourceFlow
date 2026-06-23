@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	dbsql "database/sql"
 	"net/http"
 	"os"
@@ -139,30 +140,32 @@ type AssistantAISourceCitation struct {
 }
 
 type AssistantAIChatRequest struct {
-	ProfileID    string                       `json:"profileId"`
-	SessionID    string                       `json:"sessionId"`
-	Mode         string                       `json:"mode"`
-	Title        string                       `json:"title"`
-	Message      string                       `json:"message"`
-	System       string                       `json:"system"`
-	EnableTools  bool                         `json:"enableTools"`
-	SecurityMode AISecurityMode               `json:"securityMode"`
-	Context      *AssistantAINoteContext      `json:"context"`
-	Attachments  []AssistantAIInputAttachment `json:"attachments"`
-	Sources      []AssistantAISourceCitation  `json:"sources"`
+	ProfileID      string                       `json:"profileId"`
+	SessionID      string                       `json:"sessionId"`
+	Mode           string                       `json:"mode"`
+	Title          string                       `json:"title"`
+	Message        string                       `json:"message"`
+	System         string                       `json:"system"`
+	EnableTools    bool                         `json:"enableTools"`
+	SecurityMode   AISecurityMode               `json:"securityMode"`
+	Context        *AssistantAINoteContext      `json:"context"`
+	Attachments    []AssistantAIInputAttachment `json:"attachments"`
+	Sources        []AssistantAISourceCitation  `json:"sources"`
+	RequestContext context.Context              `json:"-"`
 }
 
 type AssistantAIMessageEditRequest struct {
-	ProfileID    string                       `json:"profileId"`
-	SessionID    string                       `json:"sessionId"`
-	MessageID    string                       `json:"messageId"`
-	Message      string                       `json:"message"`
-	System       string                       `json:"system"`
-	EnableTools  bool                         `json:"enableTools"`
-	SecurityMode AISecurityMode               `json:"securityMode"`
-	Context      *AssistantAINoteContext      `json:"context"`
-	Attachments  []AssistantAIInputAttachment `json:"attachments"`
-	Sources      []AssistantAISourceCitation  `json:"sources"`
+	ProfileID      string                       `json:"profileId"`
+	SessionID      string                       `json:"sessionId"`
+	MessageID      string                       `json:"messageId"`
+	Message        string                       `json:"message"`
+	System         string                       `json:"system"`
+	EnableTools    bool                         `json:"enableTools"`
+	SecurityMode   AISecurityMode               `json:"securityMode"`
+	Context        *AssistantAINoteContext      `json:"context"`
+	Attachments    []AssistantAIInputAttachment `json:"attachments"`
+	Sources        []AssistantAISourceCitation  `json:"sources"`
+	RequestContext context.Context              `json:"-"`
 }
 
 type AssistantAIChatResult struct {
@@ -209,9 +212,10 @@ type assistantAIProviderReply struct {
 }
 
 type assistantAIChatOptions struct {
-	EnableTools bool
-	Context     *AssistantAINoteContext
-	UserPrompt  string
+	EnableTools    bool
+	Context        *AssistantAINoteContext
+	UserPrompt     string
+	RequestContext context.Context
 }
 
 func ListAssistantAIProviderTypes() []*AssistantAIProviderType {
@@ -262,10 +266,6 @@ func getAssistantAIDB() (ret *dbsql.DB, err error) {
 	db.SetConnMaxLifetime(365 * 24 * time.Hour)
 
 	if err = initAssistantAIDBTables(db); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	if err = bootstrapAssistantAILegacyProfile(db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}

@@ -1,5 +1,6 @@
 import {assistantText} from "../constants";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
+import {captureInputFocus, restoreInputFocus} from "../common/inputStability";
 import {IAssistantAIInputAttachment, IAssistantAIMessage, IAssistantAIProfile, IAssistantAISession, IAssistantAIToolAudit, IAssistantAIToolDefinition, IAssistantAIToolPolicy} from "./api";
 import type {IAssistantAINotePreview} from "./AIDockContract";
 import type {IMentionSource} from "../mentions/types";
@@ -8,7 +9,13 @@ import type {TSecurityMode} from "../security/types";
 import {renderMentionPopover} from "../mentions/trigger";
 import {renderSourcesPanel} from "../sources/panel";
 import {renderSecurityModeSwitcher, renderSecurityModeDropdown} from "../security/modeSwitcher";
-import {TAssistantAIFloatingPanel, TAssistantAIMessageItem} from "./AIDockShared";
+import {
+    getAssistantAIConversationModeHint,
+    getAssistantAIConversationModeLabel,
+    TAssistantAIConversationMode,
+    TAssistantAIFloatingPanel,
+    TAssistantAIMessageItem,
+} from "./AIDockShared";
 import {
     buildAIDockHoverHint,
     getAIDockContextSummary,
@@ -49,6 +56,8 @@ interface IAssistantAINoteSearchResult {
     path: string;
 }
 
+const AI_DOCK_RESTORABLE_INPUT_ROLES = ["message", "note-search"] as const;
+
 export interface IAssistantAIDockRenderContext {
     element: HTMLElement;
     profiles: IAssistantAIProfile[];
@@ -63,6 +72,7 @@ export interface IAssistantAIDockRenderContext {
     selectedProfileId: string;
     includeCurrentNote: boolean;
     enableTools: boolean;
+    conversationMode: TAssistantAIConversationMode;
     draftMessage: string;
     attachments: IAssistantAIInputAttachment[];
     noteSearchKeyword: string;
@@ -79,6 +89,8 @@ export interface IAssistantAIDockRenderContext {
     mentionState: IMentionTriggerState;
     securityMode: TSecurityMode;
     securityDropdownVisible: boolean;
+    activeRequestController: AbortController | null;
+    userStoppedGenerating: boolean;
     getSelectedProfile(): IAssistantAIProfile | undefined;
     getSelectedSession(): IAssistantAISession | undefined;
     getMessageById(messageId: string): TAssistantAIMessageItem | undefined;
@@ -123,6 +135,17 @@ export type TAssistantAIDockRenderRuntime = IAssistantAIDockRenderContext & {
     renderMessageToolResults: (...args: any[]) => any;
 };
 
+const renderConversationModeSwitch = (ctx: TAssistantAIDockRenderRuntime) => {
+    const modes: TAssistantAIConversationMode[] = ["ask", "chat", "agent"];
+    return `<div class="assistant-ai__mode-switch" role="group" aria-label="${escapeAttr(assistantText("AI 模式", "AI mode"))}">
+        ${modes.map((mode) => {
+        const active = ctx.conversationMode === mode;
+        const hint = getAssistantAIConversationModeHint(mode);
+        return `<button type="button" class="assistant-ai__mode-button${active ? " assistant-ai__mode-button--active" : ""}" data-action="set-conversation-mode" data-mode="${mode}" aria-label="${escapeAttr(hint)}" title="${escapeAttr(hint)}">${escapeHTML(getAssistantAIConversationModeLabel(mode))}</button>`;
+    }).join("")}
+    </div>`;
+};
+
 const createRenderRuntime = (ctx: IAssistantAIDockRenderContext): TAssistantAIDockRenderRuntime => {
     const runtime = ctx as TAssistantAIDockRenderRuntime;
     runtime.render = () => render(runtime);
@@ -158,6 +181,7 @@ const createRenderRuntime = (ctx: IAssistantAIDockRenderContext): TAssistantAIDo
 };
 
 const render = (ctx: TAssistantAIDockRenderRuntime) => {
+    const focusSnapshot = captureInputFocus(ctx.element, AI_DOCK_RESTORABLE_INPUT_ROLES);
     const profile = ctx.getSelectedProfile();
     const session = ctx.getSelectedSession();
     const editingMessage = ctx.editingMessageId ? ctx.getMessageById(ctx.editingMessageId) : null;
@@ -167,7 +191,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
     const hasProfile = !!ctx.profiles.length;
     const canSend = hasProfile && !ctx.sending && (!!ctx.draftMessage.trim() || !!ctx.attachments.length);
     const composerHint = hasProfile
-        ? assistantText("可上传图片，也可直接粘贴截图或拖拽到这里。", "Upload images, or paste a screenshot / drag files here.")
+        ? getAssistantAIConversationModeHint(ctx.conversationMode)
         : assistantText("请先配置 AI 提供商和模型，配置完成后即可开始对话。", "Configure an AI provider and model before chatting.");
     const composerPlaceholder = hasProfile
         ? assistantText("输入消息或直接发图片，Enter 发送，Shift+Enter 换行", "Type a message or just send images. Enter to send, Shift+Enter for newline")
@@ -218,6 +242,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                     </div>` : ""}
                     ${ctx.renderComposerAttachments()}
                     ${ctx.sourcesPanelVisible ? renderSourcesPanel(ctx.sources) : ""}
+                    ${renderConversationModeSwitch(ctx)}
                     <div class="assistant-ai__composer-hint">${escapeHTML(composerHint)}</div>
                     <textarea class="b3-text-field assistant-ai__textarea" data-role="message" placeholder="${escapeAttr(composerPlaceholder)}"${hasProfile ? "" : " disabled"}>${escapeAttr(ctx.draftMessage)}</textarea>
                     ${renderMentionPopover(ctx.mentionState)}
@@ -234,7 +259,9 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                         </div>
                         <div class="assistant-ai__composer-main-actions">
                             ${hasProfile ? "" : `<button type="button" class="b3-button b3-button--outline assistant-ai__send-button" data-action="configure-profile">${assistantText("配置 AI", "Set up AI")}</button>`}
-                            <button type="button" class="b3-button b3-button--outline assistant-ai__send-button" data-action="send-message"${canSend ? "" : " disabled"}>${ctx.sending ? assistantText("发送中...", "Sending...") : (editingMessage ? assistantText("保存并重生成", "Save & Regenerate") : assistantText("发送", "Send"))}</button>
+                            ${ctx.sending
+        ? `<button type="button" class="b3-button b3-button--outline assistant-ai__send-button assistant-ai__send-button--stop" data-action="stop-message">${assistantText("停止", "Stop")}</button>`
+        : `<button type="button" class="b3-button b3-button--outline assistant-ai__send-button" data-action="send-message"${canSend ? "" : " disabled"}>${editingMessage ? assistantText("保存并重生成", "Save & Regenerate") : assistantText("发送", "Send")}</button>`}
                         </div>
                     </div>
                 </div>
@@ -250,6 +277,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
         </div>
     </div>
 </div>`;
+    restoreInputFocus(ctx.element, focusSnapshot);
 };
 
 export const renderAssistantAIDock = (ctx: IAssistantAIDockRenderContext) => {

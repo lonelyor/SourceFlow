@@ -36,7 +36,7 @@ import {openFileById} from "../../editor/util";
 /// #endif
 import {openMobileFileById} from "../../mobile/editor";
 import {processRender} from "../util/processCode";
-import {AIChat} from "../../ai/chat";
+import {AIActions} from "../../ai/actions";
 import {isMobile} from "../../util/functions";
 import {isNotCtrl, isOnlyMeta} from "../util/compatibility";
 import {avRender} from "../render/av/render";
@@ -44,6 +44,7 @@ import {genIconHTML} from "../render/util";
 import {updateAttrViewCellAnimation} from "../render/av/cell";
 import {MIND_ELIXIR_SLASH_VALUE} from "../render/mindmapConstants";
 import {getAVStaticTextAttr} from "../../util/attrCompat";
+import {HOMEPAGE_SHORTCUT_SLASH_VALUE, openHomepageShortcutDialog} from "../../homepage/shortcuts";
 
 export class Hint {
     public timeId: number;
@@ -740,7 +741,13 @@ ${genHintItemHTML(item)}
                 return;
             } else if (value === Constants.ZWSP + 5) {
                 range.deleteContents();
-                AIChat(protyle, nodeElement);
+                AIActions([nodeElement], protyle);
+                return;
+            } else if (value === HOMEPAGE_SHORTCUT_SLASH_VALUE) {
+                range.deleteContents();
+                focusByRange(range);
+                hideElements(["hint", "toolbar"], protyle);
+                openHomepageShortcutDialog(protyle, {range});
                 return;
             } else if (Constants.INLINE_TYPE.includes(value)) {
                 range.deleteContents();

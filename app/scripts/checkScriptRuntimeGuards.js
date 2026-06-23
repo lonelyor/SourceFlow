@@ -39,17 +39,30 @@ const ensureNotContains = (relativePath, fragment, message) => {
     }
 };
 
+const ensureMissing = (relativePath, message) => {
+    const filePath = path.join(appRoot, relativePath);
+    if (fs.existsSync(filePath)) {
+        findings.push({
+            filePath,
+            line: 1,
+            message,
+        });
+    }
+};
+
 const checkDirectDynamicExecutionGuards = () => {
     ensureContains("src/protyle/render/blockRender.ts", "runEmbedQueryScript", "Embed block rendering must use the isolated embed script runtime");
     ensureNotContains("src/protyle/render/blockRender.ts", "new Function(", "Embed block rendering must not execute scripts with new Function");
     ensureNotContains("src/protyle/render/blockRender.ts", "fetchSyncPost", "Embed block rendering must not pass raw fetchSyncPost into note scripts");
 
-    ensureContains("src/homepage/runtime.ts", "runHomepageTemplateScript", "Homepage rendering must use the template script runtime");
+    ensureContains("src/homepage/runtime.ts", "尚未创建主页", "Homepage empty state must stay inside the note-homepage flow");
+    ensureContains("src/homepage/actions.ts", "openFileById", "Homepage must open the bound note through the regular editor path");
+    ensureNotContains("src/homepage/runtime.ts", "runHomepageTemplateScript", "Homepage must not run template scripts");
     ensureNotContains("src/homepage/runtime.ts", "new Function(", "Homepage rendering must not execute scripts with new Function");
+    ensureMissing("src/homepage/templateScriptRuntime.ts", "Homepage template script runtime must remain removed");
 
     ensureContains("src/protyle/render/embedScriptRuntime.ts", "createReadOnlyKernelFetch", "Embed script runtime must gate kernel access behind a read-only fetch wrapper");
     ensureContains("src/protyle/render/embedScriptRuntime.ts", "normalizeEmbedScriptResult", "Embed script runtime must validate returned include IDs");
-    ensureContains("src/homepage/templateScriptRuntime.ts", "createContainerFacade", "Homepage template runtime must expose a restricted container facade");
     ensureContains("src/plugin/loader.ts", "executePluginModule", "Plugin loader must delegate script execution to the shared plugin sandbox runtime");
     ensureContains("src/plugin/runtimeSandbox.ts", "runSandboxedScript", "Plugin sandbox runtime must use the shared sandbox executor");
     ensureContains("src/sandbox/runtime.ts", "DEFAULT_SANDBOX_SHADOW_NAMES", "Sandbox runtime must shadow dangerous globals");

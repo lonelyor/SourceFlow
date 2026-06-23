@@ -185,7 +185,7 @@ export const openTitleMenu = (protyle: IProtyle, position: IPosition, from: stri
                     setHomepageSourceToNote(protyle.block.rootID);
                     showMessage(window.sourceflow.config.lang === "zh_CN" ? "已设为主页" : "Set as homepage");
                     /// #if !MOBILE
-                    openHomepageTab(protyle.app);
+                    void openHomepageTab(protyle.app);
                     /// #endif
                 });
             }

@@ -22,6 +22,7 @@ import {isIncludeCell} from "./table";
 import {getFieldIdByCellElement} from "../render/av/row";
 import {processClonePHElement} from "../render/util";
 import {setFold} from "../../menus/protyle";
+import {replaceMultiBlockSelection} from "./multiBlockPaste";
 
 const processAV = (range: Range, html: string, protyle: IProtyle, blockElement: HTMLElement) => {
     const tempElement = document.createElement("template");
@@ -290,6 +291,10 @@ export const insertHTML = (html: string, protyle: IProtyle, isBlock = false,
         }
     }
     if (!blockElement) {
+        return;
+    }
+
+    if (replaceMultiBlockSelection(protyle, range, html)) {
         return;
     }
 

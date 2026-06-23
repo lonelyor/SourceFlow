@@ -11,6 +11,7 @@ import (
 	sql "github.com/lonelyor/sourceflow/kernel/sql"
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
 )
@@ -59,10 +60,12 @@ type AssistantPatchApplyRequest struct {
 	Context         *AssistantAINoteContext  `json:"context"`
 	SecurityMode    AISecurityMode           `json:"securityMode"`
 	EscalationToken string                   `json:"escalationToken,omitempty"`
+	Audit           *AssistantPatchAudit     `json:"audit,omitempty"`
 }
 
 type AssistantPatchApplyResult struct {
 	AppliedTargetID string                      `json:"appliedTargetId,omitempty"`
+	HistoryID       string                      `json:"historyId,omitempty"`
 	RequiresConfirm bool                        `json:"requiresConfirm,omitempty"`
 	Security        *AISecurityPermissionResult `json:"security,omitempty"`
 	Summary         string                      `json:"summary,omitempty"`
@@ -70,6 +73,8 @@ type AssistantPatchApplyResult struct {
 	CreatedDoc      bool                        `json:"createdDoc,omitempty"`
 	Notebook        string                      `json:"notebook,omitempty"`
 	Path            string                      `json:"path,omitempty"`
+	HistoryError    string                      `json:"historyError,omitempty"`
+	HistorySnapshot *AssistantOperationSnapshot `json:"-"`
 }
 
 type AssistantPatchEscalationIssueResult struct {
@@ -100,28 +105,44 @@ func ApplyAssistantPatchOperation(req *AssistantPatchApplyRequest) (*AssistantPa
 		}
 	}
 
+	var result *AssistantPatchApplyResult
 	switch operation.Type {
 	case AssistantPatchOperationInsertAfterBlock:
-		return applyAssistantPatchInsertAfterBlock(context, operation)
+		result, err = applyAssistantPatchInsertAfterBlock(context, operation)
 	case AssistantPatchOperationAppendNote:
-		return applyAssistantPatchAppendNote(context, operation)
+		result, err = applyAssistantPatchAppendNote(context, operation)
 	case AssistantPatchOperationReplaceSelection:
-		return applyAssistantPatchReplaceSelection(context, operation)
+		result, err = applyAssistantPatchReplaceSelection(context, operation)
 	case AssistantPatchOperationReplaceBlock:
-		return applyAssistantPatchReplaceBlock(context, operation)
+		result, err = applyAssistantPatchReplaceBlock(context, operation)
 	case AssistantPatchOperationCreateNote:
-		return applyAssistantPatchCreateNote(context, operation, false)
+		result, err = applyAssistantPatchCreateNote(context, operation, false)
 	case AssistantPatchOperationCreateChildNote:
-		return applyAssistantPatchCreateNote(context, operation, true)
+		result, err = applyAssistantPatchCreateNote(context, operation, true)
 	case AssistantPatchOperationDeleteBlock:
-		return applyAssistantPatchDeleteBlock(context, operation)
+		result, err = applyAssistantPatchDeleteBlock(context, operation)
 	case AssistantPatchOperationRenameNote:
-		return applyAssistantPatchRenameNote(context, operation)
+		result, err = applyAssistantPatchRenameNote(context, operation)
 	case AssistantPatchOperationSetAttrs:
-		return applyAssistantPatchSetAttrs(context, operation)
+		result, err = applyAssistantPatchSetAttrs(context, operation)
 	default:
 		return nil, fmt.Errorf("unsupported assistant patch operation [%s]", operation.Type)
 	}
+	if nil != err {
+		return nil, err
+	}
+	if nil != result {
+		item, recordErr := RecordAssistantPatchOperationHistory(req, operation, result)
+		if nil != recordErr {
+			result.HistoryError = recordErr.Error()
+			logging.LogErrorf("assistant patch applied but history recording failed: %s", recordErr)
+			return result, nil
+		}
+		if nil != item {
+			result.HistoryID = item.ID
+		}
+	}
+	return result, nil
 }
 
 func IssueAssistantPatchEscalationToken(req *AssistantPatchApplyRequest) (*AssistantPatchEscalationIssueResult, error) {
@@ -161,6 +182,9 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 	targetType := "note"
 	targetIDs := assistantPatchSecurityTargetIDs(context, operation)
 	batchCount := assistantPatchPendingOperationCount(req.Patch)
+	if sessionCount := CountAssistantOperationHistorySessionWriteTargets(req.AuditSessionID(), targetIDs); sessionCount > batchCount {
+		batchCount = sessionCount
+	}
 	capability := assistantPatchOperationCapability(operation)
 	security := CheckAISecurityPermissionForRequest(&AISecurityPermissionRequest{
 		Mode:              req.SecurityMode,
@@ -169,6 +193,10 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 		TargetIDs:         targetIDs,
 		SessionBatchCount: batchCount,
 		Capability:        capability,
+		ToolID:            strings.TrimSpace(req.Patch.ToolID),
+		Source:            AISecuritySourceAssistantPatch,
+		SessionID:         req.AuditSessionID(),
+		OperationType:     strings.TrimSpace(operation.Type),
 	})
 	scope := &AISecurityEscalationScope{
 		Kind:              "assistant-patch",
@@ -178,6 +206,7 @@ func prepareAssistantPatchSecurity(req *AssistantPatchApplyRequest) (*AssistantA
 		TargetIDs:         targetIDs,
 		SessionBatchCount: batchCount,
 		Capability:        capability,
+		ToolID:            strings.TrimSpace(req.Patch.ToolID),
 		PatchID:           strings.TrimSpace(req.Patch.ID),
 		OperationID:       strings.TrimSpace(operation.ID),
 		OperationType:     strings.TrimSpace(operation.Type),
@@ -339,6 +368,7 @@ func applyAssistantPatchAppendNote(context *AssistantAINoteContext, operation *A
 		Summary:         "applied append-note",
 		Notebook:        strings.TrimSpace(targetBlock.Box),
 		Path:            strings.TrimSpace(targetBlock.Path),
+		HistorySnapshot: assistantOperationTransactionSnapshot(operation, transactions, targetID, appliedID, "", content, targetBlock.Box, targetBlock.Path),
 	}, nil
 }
 
@@ -366,6 +396,7 @@ func applyAssistantPatchInsertAfterBlock(context *AssistantAINoteContext, operat
 		Summary:         "applied insert-after-block",
 		Notebook:        strings.TrimSpace(block.Box),
 		Path:            strings.TrimSpace(block.Path),
+		HistorySnapshot: assistantOperationTransactionSnapshot(operation, transactions, targetID, appliedID, "", content, block.Box, block.Path),
 	}, nil
 }
 
@@ -392,7 +423,12 @@ func applyAssistantPatchReplaceSelection(context *AssistantAINoteContext, operat
 	if nil != err {
 		return nil, err
 	}
-	return &AssistantPatchApplyResult{AppliedTargetID: targetID, Transactions: transactions, Summary: "applied replace-selection"}, nil
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: targetID,
+		Transactions:    transactions,
+		Summary:         "applied replace-selection",
+		HistorySnapshot: assistantOperationTransactionSnapshot(operation, transactions, targetID, targetID, liveMarkdown, nextMarkdown, "", ""),
+	}, nil
 }
 
 func applyAssistantPatchReplaceBlock(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
@@ -412,7 +448,12 @@ func applyAssistantPatchReplaceBlock(context *AssistantAINoteContext, operation 
 	if nil != err {
 		return nil, err
 	}
-	return &AssistantPatchApplyResult{AppliedTargetID: targetID, Transactions: transactions, Summary: "applied replace-block"}, nil
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: targetID,
+		Transactions:    transactions,
+		Summary:         "applied replace-block",
+		HistorySnapshot: assistantOperationTransactionSnapshot(operation, transactions, targetID, targetID, before, after, "", ""),
+	}, nil
 }
 
 func applyAssistantPatchCreateNote(context *AssistantAINoteContext, operation *AssistantPatchOperation, child bool) (*AssistantPatchApplyResult, error) {
@@ -451,6 +492,18 @@ func applyAssistantPatchCreateNote(context *AssistantAINoteContext, operation *A
 		Notebook:        contextNotebook(context),
 		Path:            resolvedPath,
 		Summary:         "applied create-note",
+		HistorySnapshot: &AssistantOperationSnapshot{
+			OperationType:   operation.Type,
+			TargetID:        strings.TrimSpace(operation.TargetID),
+			AppliedTargetID: id,
+			After:           markdown,
+			DataType:        normalizeAssistantPatchDataType(operation.DataType),
+			Notebook:        contextNotebook(context),
+			Path:            hPath,
+			ParentID:        parentID,
+			TitleAfter:      title,
+			CreatedDoc:      true,
+		},
 	}, nil
 }
 
@@ -462,6 +515,7 @@ func applyAssistantPatchDeleteBlock(context *AssistantAINoteContext, operation *
 	if _, err := ensureAssistantPatchTargetBlock(context, targetID, false); nil != err {
 		return nil, err
 	}
+	before := GetBlockKramdown(targetID, "")
 	transactions := []*Transaction{{
 		DoOperations: []*Operation{{
 			Action: "delete",
@@ -470,7 +524,12 @@ func applyAssistantPatchDeleteBlock(context *AssistantAINoteContext, operation *
 	}}
 	PerformTransactions(&transactions)
 	FlushTxQueue()
-	return &AssistantPatchApplyResult{AppliedTargetID: targetID, Transactions: transactions, Summary: "applied delete-block"}, nil
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: targetID,
+		Transactions:    transactions,
+		Summary:         "applied delete-block",
+		HistorySnapshot: assistantOperationTransactionSnapshot(operation, transactions, targetID, targetID, before, "", "", ""),
+	}, nil
 }
 
 func applyAssistantPatchRenameNote(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
@@ -483,10 +542,25 @@ func applyAssistantPatchRenameNote(context *AssistantAINoteContext, operation *A
 	if nil != err {
 		return nil, err
 	}
+	oldTitle := strings.TrimSpace(tree.Root.IALAttr("title"))
 	if err = RenameDoc(tree.Box, tree.Path, title); nil != err {
 		return nil, err
 	}
-	return &AssistantPatchApplyResult{AppliedTargetID: targetID, Notebook: tree.Box, Path: tree.Path, Summary: "applied rename-note"}, nil
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: targetID,
+		Notebook:        tree.Box,
+		Path:            tree.Path,
+		Summary:         "applied rename-note",
+		HistorySnapshot: &AssistantOperationSnapshot{
+			OperationType:   operation.Type,
+			TargetID:        targetID,
+			AppliedTargetID: targetID,
+			Notebook:        tree.Box,
+			Path:            tree.Path,
+			TitleBefore:     oldTitle,
+			TitleAfter:      title,
+		},
+	}, nil
 }
 
 func applyAssistantPatchSetAttrs(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
@@ -501,10 +575,21 @@ func applyAssistantPatchSetAttrs(context *AssistantAINoteContext, operation *Ass
 	if 1 > len(attrs) {
 		return nil, fmt.Errorf("set-attrs patch attrs are required")
 	}
+	oldAttrs := assistantOperationPickAttrs(sql.GetBlockAttrs(targetID), attrs)
 	if err := SetBlockAttrs(targetID, attrs); nil != err {
 		return nil, err
 	}
-	return &AssistantPatchApplyResult{AppliedTargetID: targetID, Summary: "applied set-attrs"}, nil
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: targetID,
+		Summary:         "applied set-attrs",
+		HistorySnapshot: &AssistantOperationSnapshot{
+			OperationType:   operation.Type,
+			TargetID:        targetID,
+			AppliedTargetID: targetID,
+			AttrsBefore:     oldAttrs,
+			AttrsAfter:      attrs,
+		},
+	}, nil
 }
 
 func normalizeAssistantPatchAttrs(attrs map[string]interface{}, fallback string) map[string]string {

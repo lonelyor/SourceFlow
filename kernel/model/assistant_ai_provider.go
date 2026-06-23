@@ -1,16 +1,13 @@
 package model
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -41,11 +38,13 @@ func chatWithAssistantAIProviderStream(profile *AssistantAIProfile, systemPrompt
 }
 
 func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
-	client := util.NewOpenAIClient(resolveAssistantAIOpenAICompatibleAPIKey(profile), profile.Proxy, profile.BaseURL, profile.UserAgent, profile.Version, "OpenAI")
+	client, clientErr := newAssistantAIOpenAICompatibleClient(profile, false)
+	if nil != clientErr {
+		return nil, clientErr
+	}
 
 	maxTokens := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
 	temperature := float32(getAssistantAIFloatSetting(profile.Settings, "temperature", assistantAIDefaultTemperature))
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
 
 	req := openai.ChatCompletionRequest{
 		Model:    profile.Model,
@@ -58,7 +57,7 @@ func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt s
 	}
 	applyAssistantAIOpenAICompatibleRequestOptions(profile, &req, maxTokens, temperature)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, cancel := assistantAIRequestContext(profile, opts)
 	defer cancel()
 
 	resp, err := createAssistantAIOpenAICompatibleCompletion(ctx, client, profile, req)
@@ -98,11 +97,13 @@ func chatAssistantAIOpenAICompatible(profile *AssistantAIProfile, systemPrompt s
 }
 
 func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPrompt string, messages []*AssistantAIMessage, onDelta func(string) error, opts *assistantAIChatOptions) (ret *assistantAIProviderReply, err error) {
-	client := util.NewOpenAIClient(resolveAssistantAIOpenAICompatibleAPIKey(profile), profile.Proxy, profile.BaseURL, profile.UserAgent, profile.Version, "OpenAI")
+	client, clientErr := newAssistantAIOpenAICompatibleClient(profile, true)
+	if nil != clientErr {
+		return nil, clientErr
+	}
 
 	maxTokens := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
 	temperature := float32(getAssistantAIFloatSetting(profile.Settings, "temperature", assistantAIDefaultTemperature))
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
 
 	req := openai.ChatCompletionRequest{
 		Model:         profile.Model,
@@ -116,13 +117,19 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 	}
 	applyAssistantAIOpenAICompatibleRequestOptions(profile, &req, maxTokens, temperature)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
+	ctx, idleGuard := assistantAIStreamContext(profile, opts)
+	defer idleGuard.Stop()
 
 	stream, err := client.CreateChatCompletionStream(ctx, req)
 	if nil != err {
+		if idleGuard.TimedOut() {
+			return nil, idleGuard.TimeoutError()
+		}
 		fallback, fallbackErr := createAssistantAIOpenAICompatibleCompletion(ctx, client, profile, req)
 		if nil != fallbackErr {
+			if idleGuard.TimedOut() {
+				return nil, idleGuard.TimeoutError()
+			}
 			return nil, err
 		}
 		if 1 > len(fallback.Choices) {
@@ -171,8 +178,12 @@ func chatAssistantAIOpenAICompatibleStream(profile *AssistantAIProfile, systemPr
 			if io.EOF == recvErr {
 				break
 			}
+			if idleGuard.TimedOut() {
+				return nil, idleGuard.TimeoutError()
+			}
 			return nil, recvErr
 		}
+		idleGuard.Reset()
 		if "" == providerMessageID {
 			providerMessageID = chunk.ID
 		}
@@ -283,7 +294,7 @@ func chatAssistantAIAnthropic(profile *AssistantAIProfile, systemPrompt string, 
 		"x-api-key":         profile.APIKey,
 		"anthropic-version": firstAssistantAINonEmpty(strings.TrimSpace(profile.Version), assistantAIDefaultAnthropicVersion),
 	}
-	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp); err != nil {
+	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp, nil); err != nil {
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
@@ -378,7 +389,7 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 		} `json:"error"`
 	}
 
-	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp); err != nil {
+	if err = doAssistantAIJSONRequest(profile, http.MethodPost, endpoint, headers, reqBody, &resp, opts); err != nil {
 		return nil, err
 	}
 	if nil != resp.Error && "" != strings.TrimSpace(resp.Error.Message) {
@@ -421,14 +432,13 @@ func chatAssistantAIGemini(profile *AssistantAIProfile, systemPrompt string, mes
 	return ret, nil
 }
 
-func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint string, headers map[string]string, reqBody interface{}, respBody interface{}) (err error) {
+func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint string, headers map[string]string, reqBody interface{}, respBody interface{}, opts *assistantAIChatOptions) (err error) {
 	data, err := json.Marshal(reqBody)
 	if err != nil {
 		return err
 	}
 
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, cancel := assistantAIRequestContext(profile, opts)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, strings.NewReader(string(data)))
@@ -471,8 +481,16 @@ func doAssistantAIJSONRequest(profile *AssistantAIProfile, method, endpoint stri
 }
 
 func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, err error) {
-	timeout := getAssistantAIIntSetting(profile.Settings, "timeout", assistantAIDefaultTimeout)
-	cacheKey := fmt.Sprintf("%s\x00%d", strings.TrimSpace(profile.Proxy), timeout)
+	return newAssistantAIHTTPClient0(profile, false)
+}
+
+func newAssistantAIStreamingHTTPClient(profile *AssistantAIProfile) (ret *http.Client, err error) {
+	return newAssistantAIHTTPClient0(profile, true)
+}
+
+func newAssistantAIHTTPClient0(profile *AssistantAIProfile, streaming bool) (ret *http.Client, err error) {
+	timeout := assistantAIRequestTimeout(profile)
+	cacheKey := fmt.Sprintf("%t\x00%s\x00%d", streaming, strings.TrimSpace(profile.Proxy), int(timeout.Seconds()))
 	assistantAIHTTPClientsMu.Lock()
 	defer assistantAIHTTPClientsMu.Unlock()
 
@@ -480,19 +498,14 @@ func newAssistantAIHTTPClient(profile *AssistantAIProfile) (ret *http.Client, er
 		return cached, nil
 	}
 
-	transport := &http.Transport{
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 5,
-		IdleConnTimeout:     90 * time.Second,
+	transport, transportErr := assistantAIHTTPTransport(profile, streaming)
+	if nil != transportErr {
+		return nil, transportErr
 	}
-	if proxyURL := strings.TrimSpace(profile.Proxy); "" != proxyURL {
-		parsed, parseErr := url.Parse(proxyURL)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		transport.Proxy = http.ProxyURL(parsed)
+	ret = &http.Client{Transport: transport}
+	if !streaming {
+		ret.Timeout = timeout
 	}
-	ret = &http.Client{Transport: transport, Timeout: time.Duration(timeout) * time.Second}
 	assistantAIHTTPClients[cacheKey] = ret
 	return ret, nil
 }

@@ -1,7 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {assistantText, buildAssistantNoteContext} from "../constants";
 import type {ICurrentNoteContext} from "../common/note";
-import {buildIncludedContextText, buildSourceCitationsFromMentionSources} from "../mentions/contextBuilder";
+import {buildIncludedContextText, buildSourceCitationsFromMentionSources, resolveSourcesForPrompt} from "../mentions/contextBuilder";
 import {
     abortRunningAssistantAgentTask,
     cancelPendingAssistantAgentItems,
@@ -12,6 +12,7 @@ import {
     IAssistantAgentPatchContext,
     IAssistantAgentTaskItem,
     readAssistantAgentTasks,
+    syncAssistantAgentTasksFromBackend,
     updateAssistantAgentTaskItem,
     updateAssistantAgentTaskStatus,
 } from "../agent/queue";
@@ -89,7 +90,10 @@ const buildAgentPatchHistoryMetadata = (ctx: IAssistantAIDockRuntime, context: I
     targetLabel: context.title,
 });
 
-const getTaskItem = (taskId: string, itemId: string) => {
+const getTaskItem = async (taskId: string, itemId: string) => {
+    if (!readAssistantAgentTasks().find((entry) => entry.id === taskId)) {
+        await syncAssistantAgentTasksFromBackend();
+    }
     const task = readAssistantAgentTasks().find((entry) => entry.id === taskId);
     return {
         task: task || null,
@@ -163,7 +167,7 @@ const buildAgentSystemPrompt = (note: ICurrentNoteContext) => {
     ].join("\n\n");
 };
 
-const syncAgentTaskReviewStatus = (taskId: string) => {
+const syncAgentTaskReviewStatus = async (taskId: string) => {
     const task = readAssistantAgentTasks().find((entry) => entry.id === taskId);
     if (!task || task.status === "canceled") {
         return task || null;
@@ -172,10 +176,10 @@ const syncAgentTaskReviewStatus = (taskId: string) => {
     const hasReview = task.items.some((item) => item.status === "review");
     const hasFailed = task.items.some((item) => item.status === "failed");
     if (!hasPending && !hasReview && !hasFailed) {
-        return updateAssistantAgentTaskStatus(taskId, "completed");
+        return await updateAssistantAgentTaskStatus(taskId, "completed");
     }
     if (hasReview) {
-        return updateAssistantAgentTaskStatus(taskId, "review");
+        return await updateAssistantAgentTaskStatus(taskId, "review");
     }
     return task;
 };
@@ -197,7 +201,7 @@ export const startAIDockAgentFromDraft = async (ctx: IAssistantAIDockRuntime) =>
         return;
     }
     const context = toAgentPatchContext(note);
-    const task = createAssistantAgentTask(parsed.title, parsed.items.map((title) => ({
+    const task = await createAssistantAgentTask(parsed.title, parsed.items.map((title) => ({
         title,
         targetId: context.rootID,
         context,
@@ -223,10 +227,13 @@ export const runAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: s
             if (!context?.rootID) {
                 throw new Error(assistantText("任务项缺少目标笔记上下文", "Task item has no target note context"));
             }
+            const agentSources = ctx.sources.length
+                ? await resolveSourcesForPrompt(ctx.sources, ctx.securityMode)
+                : [];
             const note = toNoteContext(context);
             let system = buildAgentSystemPrompt(note);
-            if (ctx.sources.length) {
-                const sourceContext = buildIncludedContextText(ctx.sources);
+            if (agentSources.length) {
+                const sourceContext = buildIncludedContextText(agentSources);
                 if (sourceContext) {
                     system += `\n\n---\n${assistantText(
                         "用户引用了以下来源，回答时请基于这些来源，并在相关段落末尾标注来源笔记标题（格式：[📄 笔记标题]）：",
@@ -245,7 +252,7 @@ export const runAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: s
                 securityMode: ctx.securityMode,
                 context,
                 attachments: [],
-                sources: buildSourceCitationsFromMentionSources(ctx.sources),
+                sources: buildSourceCitationsFromMentionSources(agentSources),
             }, {signal: runContext.signal});
             ctx.selectedSessionId = result.session.id;
             ctx.selectedProfileId = result.profile.id;
@@ -265,42 +272,42 @@ export const runAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: s
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
     } finally {
         ctx.sending = false;
-        syncAgentTaskReviewStatus(normalizedTaskId);
+        await syncAgentTaskReviewStatus(normalizedTaskId);
         ctx.render();
     }
 };
 
-export const pauseAIDockAgentTask = (ctx: IAssistantAIDockRuntime, taskId: string) => {
-    updateAssistantAgentTaskStatus(taskId, "paused");
+export const pauseAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: string) => {
+    await updateAssistantAgentTaskStatus(taskId, "paused");
     abortRunningAssistantAgentTask(taskId);
     ctx.render();
 };
 
-export const cancelAIDockAgentTask = (ctx: IAssistantAIDockRuntime, taskId: string) => {
-    updateAssistantAgentTaskStatus(taskId, "canceled");
+export const cancelAIDockAgentTask = async (ctx: IAssistantAIDockRuntime, taskId: string) => {
+    await updateAssistantAgentTaskStatus(taskId, "canceled");
     abortRunningAssistantAgentTask(taskId);
-    cancelPendingAssistantAgentItems(taskId);
+    await cancelPendingAssistantAgentItems(taskId);
     ctx.render();
 };
 
 export const retryAIDockAgentTaskItem = async (ctx: IAssistantAIDockRuntime, taskId: string, itemId: string) => {
-    const {item} = getTaskItem(taskId, itemId);
+    const {item} = await getTaskItem(taskId, itemId);
     if (!item) {
         return;
     }
-    updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
+    await updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
         ...current,
         status: "pending",
         patchId: "",
         patch: undefined,
         error: "",
     }));
-    updateAssistantAgentTaskStatus(taskId, "running");
+    await updateAssistantAgentTaskStatus(taskId, "running");
     await runAIDockAgentTask(ctx, taskId);
 };
 
 export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId: string, itemId: string, operationId = "") => {
-    const {item} = getTaskItem(taskId, itemId);
+    const {item} = await getTaskItem(taskId, itemId);
     if (!item?.patch || !item.context) {
         showMessage(assistantText("任务项缺少可应用的补丁", "This task item has no applicable patch"), 4000, "error");
         return;
@@ -314,6 +321,7 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
         let ok = false;
         const securityOptions = {
             securityMode: ctx.securityMode,
+            audit: metadata,
             onSecurityModeChange: async (mode: typeof ctx.securityMode) => {
                 ctx.setSecurityMode(mode);
                 ctx.render();
@@ -335,13 +343,13 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
         }
         recordAssistantPatchHistory(patch, metadata);
         const hasPending = patch.operations.some((operation) => (operation.status || "pending") === "pending");
-        updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
+        await updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
             ...current,
             patch,
             status: hasPending ? "review" : "done",
             error: "",
         }));
-        syncAgentTaskReviewStatus(taskId);
+        await syncAgentTaskReviewStatus(taskId);
     } catch (error) {
         recordAssistantPatchFailure(patch, error instanceof Error ? error.message : String(error), metadata);
         showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
@@ -351,8 +359,8 @@ export const applyAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId
     }
 };
 
-export const rejectAIDockAgentPatch = (ctx: IAssistantAIDockRuntime, taskId: string, itemId: string, operationId = "") => {
-    const {item} = getTaskItem(taskId, itemId);
+export const rejectAIDockAgentPatch = async (ctx: IAssistantAIDockRuntime, taskId: string, itemId: string, operationId = "") => {
+    const {item} = await getTaskItem(taskId, itemId);
     if (!item?.patch) {
         return;
     }
@@ -366,11 +374,11 @@ export const rejectAIDockAgentPatch = (ctx: IAssistantAIDockRuntime, taskId: str
         }
     });
     const hasPending = patch.operations.some((operation) => (operation.status || "pending") === "pending");
-    updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
+    await updateAssistantAgentTaskItem(taskId, itemId, (current) => ({
         ...current,
         patch,
         status: hasPending ? "review" : "done",
     }));
-    syncAgentTaskReviewStatus(taskId);
+    await syncAgentTaskReviewStatus(taskId);
     ctx.render();
 };

@@ -3,6 +3,7 @@ import {showMessage} from "../../dialog/message";
 import {Custom} from "../../layout/dock/Custom";
 import {getDockByType} from "../../layout/tabUtil";
 import {assistantText, ASSISTANT_AI_DOCK_TYPE} from "../constants";
+import {isEventInsideContainer} from "../common/inputStability";
 import {getActiveEditorProtyle} from "../common/note";
 import type {IAssistantNoteCandidate} from "../common/note";
 import type {
@@ -60,6 +61,8 @@ import {
     startAIDockAgentFromDraft,
 } from "./AIDockAgent";
 import {
+    normalizeAssistantAIConversationMode,
+    TAssistantAIConversationMode,
     TAssistantAIFloatingPanel,
     TAssistantAIMessageItem,
 } from "./AIDockShared";
@@ -121,6 +124,7 @@ class AssistantAIDock {
     private selectedProfileId = "";
     private includeCurrentNote = true;
     private enableTools = false;
+    private conversationMode: TAssistantAIConversationMode = "chat";
     private draftMessage = "";
     private attachments: IAssistantAIInputAttachment[] = [];
     private noteSearchKeyword = "";
@@ -142,8 +146,13 @@ class AssistantAIDock {
     private mentionState: IMentionTriggerState = createMentionTriggerState();
     private securityMode: TSecurityMode = "default";
     private securityDropdownVisible = false;
+    private activeRequestController: AbortController | null = null;
+    private userStoppedGenerating = false;
     private contextFollowTimer = 0;
-    private readonly handleContextFollowActivity = () => {
+    private readonly handleContextFollowActivity = (event?: Event) => {
+        if (isEventInsideContainer(this.element, event)) {
+            return;
+        }
         if (!this.includeCurrentNote || this.pinnedNotePreview) {
             return;
         }
@@ -181,6 +190,9 @@ class AssistantAIDock {
     }
 
     public destroy() {
+        this.userStoppedGenerating = true;
+        this.activeRequestController?.abort();
+        this.activeRequestController = null;
         this.unbindContextFollowEvents();
         if (this.contextFollowTimer) {
             window.clearTimeout(this.contextFollowTimer);
@@ -208,8 +220,19 @@ class AssistantAIDock {
         clearTarget?: boolean,
         sessionId?: string,
         sources?: IMentionSource[],
+        mode?: TAssistantAIConversationMode,
+        newSession?: boolean,
     } = {}) {
         this.activePanel = "";
+        if (options.mode) {
+            this.setConversationMode(options.mode);
+        }
+        if (options.newSession) {
+            this.selectedSessionId = "";
+            this.messages = [];
+            this.clearEditingMessage(false);
+            this.sessionsCollapsed = true;
+        }
         if (options.clearTarget) {
             this.resetTargetSelection(false);
         } else if (options.pinCurrentNote) {
@@ -479,6 +502,12 @@ class AssistantAIDock {
         await sendAIDockMessage(this.getRuntime());
     }
 
+    private stopGenerating() {
+        this.userStoppedGenerating = true;
+        this.activeRequestController?.abort();
+        this.render();
+    }
+
     private async confirmTool(messageId: string, toolIndex: number) {
         await confirmAIDockTool(this.getRuntime(), messageId, toolIndex);
     }
@@ -503,12 +532,12 @@ class AssistantAIDock {
         await runAIDockAgentTask(this.getRuntime(), taskId);
     }
 
-    private pauseAgentTask(taskId: string) {
-        pauseAIDockAgentTask(this.getRuntime(), taskId);
+    private async pauseAgentTask(taskId: string) {
+        await pauseAIDockAgentTask(this.getRuntime(), taskId);
     }
 
-    private cancelAgentTask(taskId: string) {
-        cancelAIDockAgentTask(this.getRuntime(), taskId);
+    private async cancelAgentTask(taskId: string) {
+        await cancelAIDockAgentTask(this.getRuntime(), taskId);
     }
 
     private async retryAgentTaskItem(taskId: string, itemId: string) {
@@ -519,8 +548,8 @@ class AssistantAIDock {
         await applyAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
     }
 
-    private rejectAgentPatch(taskId: string, itemId: string, operationId = "") {
-        rejectAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
+    private async rejectAgentPatch(taskId: string, itemId: string, operationId = "") {
+        await rejectAIDockAgentPatch(this.getRuntime(), taskId, itemId, operationId);
     }
 
     private async saveTranscript() {
@@ -612,6 +641,18 @@ class AssistantAIDock {
         this.securityDropdownVisible = !this.securityDropdownVisible;
     }
 
+    private setConversationMode(mode: TAssistantAIConversationMode) {
+        const nextMode = normalizeAssistantAIConversationMode(mode);
+        this.conversationMode = nextMode;
+        if (nextMode === "ask") {
+            this.enableTools = false;
+        }
+        if (nextMode === "agent") {
+            this.activePanel = "agent";
+        }
+        this.render();
+    }
+
     private buildRenderContext(): IAssistantAIDockRenderContext {
         return {
             element: this.element,
@@ -627,6 +668,7 @@ class AssistantAIDock {
             selectedProfileId: this.selectedProfileId,
             includeCurrentNote: this.includeCurrentNote,
             enableTools: this.enableTools,
+            conversationMode: this.conversationMode,
             draftMessage: this.draftMessage,
             attachments: this.attachments,
             noteSearchKeyword: this.noteSearchKeyword,
@@ -643,6 +685,8 @@ class AssistantAIDock {
             mentionState: this.mentionState,
             securityMode: this.securityMode,
             securityDropdownVisible: this.securityDropdownVisible,
+            activeRequestController: this.activeRequestController,
+            userStoppedGenerating: this.userStoppedGenerating,
             getSelectedProfile: () => this.getSelectedProfile(),
             getSelectedSession: () => this.getSelectedSession(),
             getMessageById: (messageId: string) => this.getMessageById(messageId),
@@ -693,6 +737,8 @@ export const openAssistantAIDock = (options: {
     clearTarget?: boolean,
     sessionId?: string,
     sources?: IMentionSource[],
+    mode?: TAssistantAIConversationMode,
+    newSession?: boolean,
 } = {}) => {
     const dock = getDockByType(ASSISTANT_AI_DOCK_TYPE);
     if (!dock) {

@@ -3,7 +3,11 @@ import {Constants} from "../../constants";
 import {openFileById} from "../../editor/util";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
-import {rollbackAssistantOperationHistoryItem} from "../history/operations";
+import {
+    reapplyAssistantOperationHistoryItem,
+    rollbackAssistantOperationHistoryItem,
+    syncAssistantOperationHistoryFromBackend,
+} from "../history/operations";
 import {detectMentionTrigger, searchAndShowMentions, insertMentionChip} from "../mentions/trigger";
 import type {IMentionSource} from "../mentions/types";
 import type {TSecurityMode} from "../security/types";
@@ -150,8 +154,20 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                     ctx.render();
                     return;
                 }
+                if (action === "set-conversation-mode") {
+                    const mode = target.getAttribute("data-mode");
+                    if (mode === "ask" || mode === "chat" || mode === "agent") {
+                        ctx.setConversationMode(mode);
+                    }
+                    event.preventDefault();
+                    return;
+                }
                 if (action === "toggle-panel") {
-                    ctx.toggleFloatingPanel((target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel);
+                    const panel = (target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel;
+                    ctx.toggleFloatingPanel(panel);
+                    if (panel === "agent") {
+                        void syncAssistantOperationHistoryFromBackend().then(() => ctx.render());
+                    }
                     event.preventDefault();
                     return;
                 }
@@ -283,6 +299,10 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
         }
         if (target.getAttribute("data-role") === "message" && event.key === "Escape") {
             event.preventDefault();
+            if (ctx.sending) {
+                ctx.stopGenerating();
+                return;
+            }
             if (ctx.editingMessageId) {
                 ctx.clearEditingMessage(true);
                 ctx.render();
@@ -461,13 +481,13 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             await ctx.startAgentFromDraft();
             return;
         case "pause-agent-task":
-            ctx.pauseAgentTask(taskId);
+            await ctx.pauseAgentTask(taskId);
             return;
         case "resume-agent-task":
             await ctx.runAgentTask(taskId);
             return;
         case "cancel-agent-task":
-            ctx.cancelAgentTask(taskId);
+            await ctx.cancelAgentTask(taskId);
             return;
         case "retry-agent-item":
             await ctx.retryAgentTaskItem(taskId, itemId);
@@ -479,13 +499,17 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             await ctx.applyAgentPatch(taskId, itemId);
             return;
         case "reject-agent-patch-op":
-            ctx.rejectAgentPatch(taskId, itemId, operationId);
+            await ctx.rejectAgentPatch(taskId, itemId, operationId);
             return;
         case "reject-agent-patch-all":
-            ctx.rejectAgentPatch(taskId, itemId);
+            await ctx.rejectAgentPatch(taskId, itemId);
             return;
         case "rollback-history":
             await rollbackAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
+            ctx.render();
+            return;
+        case "reapply-history":
+            await reapplyAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
             ctx.render();
             return;
         case "pin-current-note":
@@ -525,6 +549,9 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "send-message":
             await ctx.sendMessage();
+            return;
+        case "stop-message":
+            ctx.stopGenerating();
             return;
         default:
             return;

@@ -9,6 +9,10 @@ export interface ISecurityPermissionCheckPayload {
     sessionBatchCount?: number;
     capability?: TSecurityCapability;
     toolId?: string;
+    source?: "assistant-tool" | "assistant-patch" | "assistant-history" | "manual-check";
+    sessionId?: string;
+    agentTaskId?: string;
+    operationType?: string;
 }
 
 export const getSecurityConfig = (): Promise<ISecurityConfig> => {

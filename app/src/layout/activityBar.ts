@@ -609,7 +609,7 @@ const handleAction = async (action: TActivityAction, target: HTMLElement) => {
                 break;
             case "homepage": {
                 const {openHomepageTab} = await loadHomepageModule();
-                openHomepageTab(currentApp);
+                await openHomepageTab(currentApp);
                 break;
             }
             case "workbench": {
