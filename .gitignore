@@ -64,9 +64,13 @@ plugins/**/dist/
 marketplace/sourceflow-bazaar/dist/
 browser-extension/sourceflow-web-clipper/dist/
 marketplace/sourceflow-bazaar/tmp-import-test/
-plans/
 
-# Public export exclusions
+# GitHub public export exclusions — 这些项改由 发布.py 的
+# PUBLIC_EXPORT_EXCLUDED_RELATIVE_PATHS 单独排除（不进 GitHub），
+# 但保留在本地 git 中以便同步到内网 Forgejo。
+# .github/ 为 GitHub 专用，无需进内网，保留忽略。
 .github/
-/scripts/
 build.log
+
+# Forgejo internal sync config (contains API token)
+.forgejo.local.env
