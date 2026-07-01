@@ -73,22 +73,39 @@ export const deleteFiles = (liElements: Element[]) => {
         }
     } else {
         const paths: string[] = [];
+        const notebookIds: string[] = [];
         liElements.forEach(item => {
-            const dataPath = item.getAttribute("data-path");
-            if (dataPath !== "/") {
-                paths.push(item.getAttribute("data-path"));
+            if (item.getAttribute("data-type") === "navigation-root") {
+                const itemTopULElement = hasTopClosestByTag(item, "UL");
+                const notebookId = itemTopULElement ? itemTopULElement.getAttribute("data-url") : null;
+                if (notebookId && !Object.values(Constants.HELP_PATH).includes(notebookId) && !notebookIds.includes(notebookId)) {
+                    notebookIds.push(notebookId);
+                }
+            } else {
+                const dataPath = item.getAttribute("data-path");
+                if (dataPath && dataPath !== "/" && !paths.includes(dataPath)) {
+                    paths.push(dataPath);
+                }
             }
         });
-        if (paths.length === 0) {
+        const totalCount = paths.length + notebookIds.length;
+        if (totalCount === 0) {
             showMessage(window.sourceflow.languages.notBatchRemove);
             return;
         }
         confirmDialog(window.sourceflow.languages.deleteOpConfirm,
-            `${window.sourceflow.languages.confirmRemoveAll.replace("${count}", paths.length)}
+            `${window.sourceflow.languages.confirmRemoveAll.replace("${count}", totalCount)}
 <div class="fn__hr"></div>
 <div class="ft__smaller ft__on-surface">${window.sourceflow.languages.rollbackTip.replace("${x}", window.sourceflow.config.editor.historyRetentionDays)}</div>`, () => {
-                fetchPost("/api/filetree/removeDocs", {
-                    paths
+                if (paths.length > 0) {
+                    fetchPost("/api/filetree/removeDocs", {
+                        paths
+                    });
+                }
+                notebookIds.forEach(notebookId => {
+                    fetchPost("/api/notebook/removeNotebook", {
+                        notebook: notebookId,
+                    });
                 });
             }, undefined, true);
     }

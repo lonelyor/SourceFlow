@@ -110,14 +110,6 @@ const moveFileTreeSort = (liElement: HTMLElement, notebookId: string, direction:
 
 const initMultiMenu = (selectItemElements: NodeListOf<Element>, app: App) => {
     window.sourceflow.menus.menu.element.setAttribute("data-from", Constants.MENU_FROM_DOC_TREE_MORE_ITEMS);
-    const fileItemElement = Array.from(selectItemElements).find(item => {
-        if (item.getAttribute("data-type") === "navigation-file") {
-            return true;
-        }
-    });
-    if (!fileItemElement) {
-        return window.sourceflow.menus.menu;
-    }
     const blockIDs: string[] = [];
     selectItemElements.forEach(item => {
         const id = item.getAttribute("data-node-id");
@@ -148,9 +140,10 @@ const initMultiMenu = (selectItemElements: NodeListOf<Element>, app: App) => {
         }).element);
     }
 
-    window.sourceflow.menus.menu.append(movePathToMenu(getTopPaths(
-        Array.from(selectItemElements)
-    )));
+    const movePaths = getTopPaths(Array.from(selectItemElements));
+    if (movePaths.length > 0) {
+        window.sourceflow.menus.menu.append(movePathToMenu(movePaths));
+    }
 
     if (blockIDs.length > 0) {
         window.sourceflow.menus.menu.append(new MenuItem({

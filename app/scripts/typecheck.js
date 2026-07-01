@@ -300,6 +300,14 @@ const runFileTreeAppearanceSettingsTest = () => {
     return runNodeScript("testFileTreeAppearanceSettings.js");
 };
 
+const runFileTreeBatchDeleteTest = () => {
+    return runNodeScript("testFileTreeBatchDelete.js");
+};
+
+const runClipboardImageInlineTest = () => {
+    return runNodeScript("testClipboardImageInline.js");
+};
+
 const runWorkbenchStabilityTest = () => {
     return runNodeScript("testWorkbenchStability.js");
 };
@@ -569,6 +577,18 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] file tree appearance settings");
 exitCode = runFileTreeAppearanceSettingsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] file tree batch delete");
+exitCode = runFileTreeBatchDeleteTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] clipboard image inline");
+exitCode = runClipboardImageInlineTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

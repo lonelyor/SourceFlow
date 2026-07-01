@@ -392,8 +392,8 @@ export class Files extends Model {
                                 item.classList.remove("b3-list-item--focus");
                             });
 
-                            // 获取所有文档项
-                            const allFiles = Array.from(this.element.querySelectorAll("li.b3-list-item"));
+                            // 获取所有文档项（排除笔记本身/notebook 根节点，避免范围选择误纳入）
+                            const allFiles = Array.from(this.element.querySelectorAll('li.b3-list-item:not([data-type="navigation-root"])'));
 
                             // 获取起始和结束索引
                             const startIndex = allFiles.indexOf(this.lastSelectedElement);

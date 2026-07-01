@@ -1,4 +1,46 @@
 import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "./hasClosest";
+import {imageLinkToDataURL} from "../../util/image";
+
+// 仅匹配本地相对路径图片（assets/...），排除 data:/blob:/协议 URL/协议相对 URL，
+// 这类图片无法被飞书等外部应用访问，需内联为 base64；远程图片外部应用可自行抓取，保持原样。
+const isInlineableImageSrc = (src: string) => {
+    if (!src) {
+        return false;
+    }
+    return !/^(data:|blob:|[a-z][a-z0-9+.-]*:|\/\/)/i.test(src);
+};
+
+export const hasLocalClipboardImages = (html: string) => {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    return Array.from(template.content.querySelectorAll("img")).some((img: HTMLImageElement) =>
+        isInlineableImageSrc(img.getAttribute("src") || ""));
+};
+
+export const inlineLocalImages = async (html: string) => {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const imgElements = Array.from(template.content.querySelectorAll("img")) as HTMLImageElement[];
+    if (imgElements.length === 0) {
+        return html;
+    }
+    await Promise.all(imgElements.map(async (img) => {
+        const src = img.getAttribute("src") || "";
+        if (!isInlineableImageSrc(src)) {
+            return;
+        }
+        try {
+            const dataURL = await imageLinkToDataURL(src);
+            img.setAttribute("src", dataURL);
+            if (img.getAttribute("data-src")) {
+                img.setAttribute("data-src", dataURL);
+            }
+        } catch (e) {
+            // 加载失败或 canvas 被污染（远程图）时跳过，保留原 src
+        }
+    }));
+    return template.innerHTML;
+};
 
 export type TSelectionScopeKind =
     | "collapsed"

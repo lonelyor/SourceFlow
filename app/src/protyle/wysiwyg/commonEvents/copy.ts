@@ -28,7 +28,9 @@ import type {WYSIWYGEventContext} from "../shared";
 import {
     canWriteInternalSourceFlowClipboard,
     resolveSelectionScope,
-    sanitizeStandardClipboardHTML
+    sanitizeStandardClipboardHTML,
+    hasLocalClipboardImages,
+    inlineLocalImages
 } from "../../util/selectionScope";
 
 export const registerCopyEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle) => {
@@ -273,11 +275,13 @@ export const registerCopyEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyl
                     event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
                 }
                 event.clipboardData.setData("text/html", textHTML);
-                if (needClipboardWrite) {
+                const needInlineImages = hasLocalClipboardImages(textHTML);
+                if (needClipboardWrite || needInlineImages) {
                     try {
+                        const finalHTML = needInlineImages ? await inlineLocalImages(textHTML) : textHTML;
                         await navigator.clipboard.write([new ClipboardItem({
                             ["text/plain"]: textPlain,
-                            ["text/html"]: textHTML,
+                            ["text/html"]: finalHTML,
                         })]);
                     } catch (e) {
                         console.log("Copy write clipboard error:", e);

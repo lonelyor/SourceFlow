@@ -1,6 +1,6 @@
 {
   "name": "SourceFlow",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "SourceFlow is a local-first personal knowledge workspace.",
   "homepage": "https://github.com/lonelyor/SourceFlow",
   "main": "./electron/main.js",
@@ -73,6 +73,8 @@
     "test:protyle-paste-selection-safety": "node ./scripts/testProtylePasteSelectionSafety.js",
     "test:protyle-blockdom-preservation": "node ./scripts/testProtyleBlockDOMPreservation.js",
     "test:file-tree-appearance-settings": "node ./scripts/testFileTreeAppearanceSettings.js",
+    "test:file-tree-batch-delete": "node ./scripts/testFileTreeBatchDelete.js",
+    "test:clipboard-image-inline": "node ./scripts/testClipboardImageInline.js",
     "test:workbench-stability": "node ./scripts/testWorkbenchStability.js",
     "test:export-runtime": "node ./scripts/testExportRuntimeElectron.js",
     "gen:types": "tsc -p tsconfig.types.json",

@@ -45,3 +45,23 @@ export const base64ToURL = async (base64SrcList: string[]) => {
     });
     return URLs;
 };
+
+export const loadImageToCanvas = (link: string): Promise<HTMLCanvasElement> => {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement("canvas");
+        const tempElement = document.createElement("img");
+        tempElement.onload = (e: Event & { target: HTMLImageElement }) => {
+            canvas.width = e.target.width;
+            canvas.height = e.target.height;
+            canvas.getContext("2d").drawImage(e.target, 0, 0, e.target.width, e.target.height);
+            resolve(canvas);
+        };
+        tempElement.onerror = (error: Event) => reject(error);
+        tempElement.src = link;
+    });
+};
+
+export const imageLinkToDataURL = async (link: string) => {
+    const canvas = await loadImageToCanvas(link);
+    return canvas.toDataURL("image/png");
+};

@@ -12,6 +12,7 @@ import {App} from "../index";
 import {exportByMobile, isInAndroid, updateHotkeyTip} from "../protyle/util/compatibility";
 import {checkFold} from "../util/noRelyPCFunction";
 import {showMessage} from "../dialog/message";
+import {loadImageToCanvas} from "../util/image";
 
 export const exportAsset = (src: string) => {
     return {
@@ -203,12 +204,7 @@ export const copyPNGByLink = (link: string) => {
     if (isInAndroid()) {
         window.JSAndroid.writeImageClipboard(link);
     } else {
-        const canvas = document.createElement("canvas");
-        const tempElement = document.createElement("img");
-        tempElement.onload = (e: Event & { target: HTMLImageElement }) => {
-            canvas.width = e.target.width;
-            canvas.height = e.target.height;
-            canvas.getContext("2d").drawImage(e.target, 0, 0, e.target.width, e.target.height);
+        loadImageToCanvas(link).then(canvas => {
             canvas.toBlob((blob) => {
                 navigator.clipboard.write([
                     new ClipboardItem({
@@ -217,8 +213,7 @@ export const copyPNGByLink = (link: string) => {
                     })
                 ]);
             }, "image/png", 1);
-        };
-        tempElement.src = link;
+        });
     }
 };
 

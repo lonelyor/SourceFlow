@@ -112,7 +112,9 @@ import type {WYSIWYGEditorEventState, WYSIWYGEventContext} from "../shared";
 import {
     canWriteInternalSourceFlowClipboard,
     resolveSelectionScope,
-    sanitizeStandardClipboardHTML
+    sanitizeStandardClipboardHTML,
+    hasLocalClipboardImages,
+    inlineLocalImages
 } from "../../util/selectionScope";
 
 export const registerCutEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle, state: WYSIWYGEditorEventState) => {
@@ -395,11 +397,13 @@ export const registerCutEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle
                     event.clipboardData.setData(Constants.SOURCEFLOW_HTML_CLIPBOARD_MIME, textSourceFlow);
                 }
                 event.clipboardData.setData("text/html", textHTML);
-                if (needClipboardWrite) {
+                const needInlineImages = hasLocalClipboardImages(textHTML);
+                if (needClipboardWrite || needInlineImages) {
                     try {
+                        const finalHTML = needInlineImages ? await inlineLocalImages(textHTML) : textHTML;
                         await navigator.clipboard.write([new ClipboardItem({
                             ["text/plain"]: textPlain,
-                            ["text/html"]: textHTML,
+                            ["text/html"]: finalHTML,
                         })]);
                     } catch (e) {
                         console.log("Cut write clipboard error:", e);
