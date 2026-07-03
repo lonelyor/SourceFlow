@@ -433,12 +433,15 @@ func IsSensitivePath(p string) bool {
 	toCheckPathLower := filepath.Clean(strings.ToLower(p))
 	toCheckNameLower := filepath.Base(toCheckPathLower)
 
-	// 敏感目录前缀（UNIX 风格）
+	// 敏感系统目录前缀（UNIX 风格）。仅保留系统核心目录，移除桌面端常见的合法导入来源：
+	//   - /tmp、/var：macOS/Linux 临时目录，其中 /var/folders 是 macOS 的 $TMPDIR
+	//   - /usr：Homebrew 常用 /usr/local
+	//   - /opt：Apple Silicon Homebrew 在 /opt/homebrew
+	// 这些路径是用户经系统文件对话框主动选择的合法来源，不应一刀切拒绝。
 	prefixes := []string{
 		"/.",
 		"/etc",
 		"/root",
-		"/var",
 		"/proc",
 		"/sys",
 		"/run",
@@ -447,9 +450,6 @@ func IsSensitivePath(p string) bool {
 		"/dev",
 		"/lib",
 		"/srv",
-		"/tmp",
-		"/usr",
-		"/opt",
 		"/sbin",
 	}
 	for _, pre := range prefixes {

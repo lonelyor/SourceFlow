@@ -1,6 +1,9 @@
 import {insertHTML} from "../util/insertHTML";
 import {hideMessage, showMessage} from "../../dialog/message";
 import {Constants} from "../../constants";
+/// #if !BROWSER
+import {ipcRenderer} from "electron";
+/// #endif
 import {destroy} from "../util/destroy";
 import {fetchPost} from "../../util/fetch";
 import {getEditorRange} from "../util/selection";
@@ -266,14 +269,92 @@ export const uploadLocalFiles = (files: ILocalFiles[], protyle: IProtyle, isUplo
         assetPaths.push(item.path);
     });
 
+    confirmDialog(msg ? window.sourceflow.languages.upload : "", msg, async () => {
+        const msgId = showMessage(window.sourceflow.languages.uploading, 0);
+        // 仅当需要复制（读文件字节）时才走字节上传以规避 TCC；file:// 链接模式内核不读取，仍用路径。
+        const needBytes = isUpload || copyAsAsset;
+        const onSuccess = (response: IWebSocketData) => {
+            hideMessage(msgId);
+            let tip = "";
+            Object.keys(response.data.succMap).forEach(name => {
+                if (response.data.succMap[name].startsWith("file:")) {
+                    tip += name + ", ";
+                }
+            });
+            if (tip) {
+                showMessage(window.sourceflow.languages.dndFolderTip.replace("${x}", `<b>${tip.substring(0, tip.length - 2)}</b>`));
+            }
+            genUploadedLabel(JSON.stringify(response), protyle);
+        };
+        if (!needBytes) {
+            fetchPost("/api/asset/insertLocalAssets", {
+                assetPaths,
+                copyAsAsset,
+                isUpload,
+                id: protyle.block.rootID
+            }, onSuccess);
+            return;
+        }
+        try {
+            /// #if !BROWSER
+            const result = await ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                cmd: "readLocalFiles",
+                paths: assetPaths,
+            });
+            const entries = result.entries || [];
+            if (entries.length === 0) {
+                hideMessage(msgId);
+                return;
+            }
+            const formData = new FormData();
+            entries.forEach((entry: { name: string, buffer: ArrayBuffer }) => {
+                const file = new File([entry.buffer], entry.name);
+                formData.append("file", file, entry.name);
+            });
+            formData.append("id", protyle.block.rootID);
+            formData.append("isUpload", isUpload ? "true" : "false");
+            formData.append("copyAsAsset", copyAsAsset ? "true" : "false");
+            fetchPost("/api/asset/uploadLocalAssets", formData, onSuccess);
+            /// #else
+            fetchPost("/api/asset/insertLocalAssets", {
+                assetPaths,
+                copyAsAsset,
+                isUpload,
+                id: protyle.block.rootID
+            }, onSuccess);
+            /// #endif
+        } catch (e) {
+            hideMessage(msgId);
+            showMessage(e.message || String(e));
+        }
+    });
+};
+
+// 通过上传文件字节插入拖拽进来的本地文件，替代基于绝对路径的流程。
+// macOS 上内核子进程没有 TCC 权限读取用户拖入的 ~/Documents 等受保护目录文件，
+// 直接传路径会导致内核 os.Open 阻塞/失败。拖拽场景渲染进程持有 File 对象，
+// 这里把字节上传给内核，由内核写入自身可读的工作区 TempDir 后再处理，从根本上规避 TCC。
+export const uploadDroppedFiles = (files: File[], protyle: IProtyle, isUpload: boolean, copyAsAsset = isUpload) => {
+    if (files.length === 0) {
+        return;
+    }
+    let msg = "";
+    files.forEach(item => {
+        if (item.size && Constants.SIZE_UPLOAD_TIP_SIZE <= item.size) {
+            msg += window.sourceflow.languages.uploadFileTooLarge.replace("${x}", item.name).replace("${y}", filesize(item.size, {standard: "iec"})) + "<br>";
+        }
+    });
+
     confirmDialog(msg ? window.sourceflow.languages.upload : "", msg, () => {
         const msgId = showMessage(window.sourceflow.languages.uploading, 0);
-        fetchPost("/api/asset/insertLocalAssets", {
-            assetPaths,
-            copyAsAsset,
-            isUpload,
-            id: protyle.block.rootID
-        }, (response) => {
+        const formData = new FormData();
+        files.forEach(item => {
+            formData.append("file", item, item.name);
+        });
+        formData.append("id", protyle.block.rootID);
+        formData.append("isUpload", isUpload ? "true" : "false");
+        formData.append("copyAsAsset", copyAsAsset ? "true" : "false");
+        fetchPost("/api/asset/uploadLocalAssets", formData, (response) => {
             hideMessage(msgId);
             let tip = "";
             Object.keys(response.data.succMap).forEach(name => {
@@ -346,21 +427,56 @@ const genImportedAttachmentLabel = (responseText: string, protyle: IProtyle) => 
     }, Constants.TIMEOUT_LOAD);
 };
 
-export const importLocalAttachments = (protyle: IProtyle, assetPaths: string[], copyAsAsset = true) => {
+export const importLocalAttachments = async (protyle: IProtyle, assetPaths: string[], copyAsAsset = true) => {
     if (assetPaths.length === 0) {
         return;
     }
-    confirmDialog(window.sourceflow.languages.upload, "", () => {
+    confirmDialog(window.sourceflow.languages.upload, "", async () => {
         const msgId = showMessage(window.sourceflow.languages.uploading, 0);
-        fetchPost("/api/asset/insertLocalAssets", {
-            assetPaths,
-            copyAsAsset,
-            id: protyle.block.rootID,
-            isUpload: copyAsAsset,
-        }, (response) => {
+        // copyAsAsset=false 时内核仅建立 file:// 链接、不读取文件，无 TCC 问题，仍用路径端点。
+        if (!copyAsAsset) {
+            fetchPost("/api/asset/insertLocalAssets", {
+                assetPaths,
+                copyAsAsset,
+                id: protyle.block.rootID,
+                isUpload: false,
+            }, (response) => {
+                hideMessage(msgId);
+                genImportedAttachmentLabel(JSON.stringify(response), protyle);
+            });
+            return;
+        }
+        // copyAsAsset=true 时内核需要读取文件字节，改为在主进程（有 TCC 权限）读取后上传字节，规避 TCC 拦截。
+        try {
+            /// #if !BROWSER
+            const result = await ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                cmd: "readLocalFiles",
+                paths: assetPaths,
+            });
+            const entries = result.entries || [];
+            if (entries.length === 0) {
+                hideMessage(msgId);
+                return;
+            }
+            const formData = new FormData();
+            entries.forEach((entry: { name: string, buffer: ArrayBuffer }) => {
+                const file = new File([entry.buffer], entry.name);
+                formData.append("file", file, entry.name);
+            });
+            formData.append("id", protyle.block.rootID);
+            formData.append("isUpload", "true");
+            formData.append("copyAsAsset", "true");
+            fetchPost("/api/asset/uploadLocalAssets", formData, (response) => {
+                hideMessage(msgId);
+                genImportedAttachmentLabel(JSON.stringify(response), protyle);
+            });
+            /// #else
             hideMessage(msgId);
-            genImportedAttachmentLabel(JSON.stringify(response), protyle);
-        });
+            /// #endif
+        } catch (e) {
+            hideMessage(msgId);
+            showMessage(e.message || String(e));
+        }
     });
 };
 

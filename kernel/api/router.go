@@ -297,6 +297,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/clipboard/writeFilePath", model.CheckAuth, model.CheckAdminRole, writeFilePath)
 
 	ginServer.Handle("POST", "/api/asset/insertLocalAssets", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, insertLocalAssets)
+	ginServer.Handle("POST", "/api/asset/uploadLocalAssets", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, uploadLocalAssets)
 	ginServer.Handle("POST", "/api/asset/resolveAssetPath", model.CheckAuth, resolveAssetPath)
 	ginServer.Handle("POST", "/api/asset/upload", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, model.Upload)
 	ginServer.Handle("POST", "/api/asset/setFileAnnotation", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setFileAnnotation)
@@ -346,6 +347,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/export/exportCodeBlock", model.CheckAuth, model.CheckAdminRole, exportCodeBlock)
 
 	ginServer.Handle("POST", "/api/import/importStdMd", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importStdMd)
+	ginServer.Handle("POST", "/api/import/importMdUpload", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importMdUpload)
 	ginServer.Handle("POST", "/api/import/importZipMd", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importZipMd)
 	ginServer.Handle("POST", "/api/import/importData", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importData)
 	ginServer.Handle("POST", "/api/import/importSY", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importSY)

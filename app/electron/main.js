@@ -1731,6 +1731,40 @@ app.whenReady().then(() => {
                 dataURL: `data:${mime};base64,${buffer.toString("base64")}`,
             };
         }
+        if (data.cmd === "readLocalFiles") {
+            // 在主进程（拥有 macOS TCC 访问权）读取用户选中的文件/文件夹字节，
+            // 交由渲染进程上传给内核，避免内核子进程读取受保护目录被 TCC 拦截。
+            const inputPaths = Array.isArray(data.paths) ? data.paths : [];
+            const maxTotalSize = Number.isFinite(data.maxBytes) ? data.maxBytes : 2 * 1024 * 1024 * 1024;
+            let totalSize = 0;
+            const entries = [];
+            const readEntry = async (p, relName) => {
+                const st = await fs.promises.stat(p);
+                if (st.isFile()) {
+                    if (totalSize + st.size > maxTotalSize) {
+                        throw new Error(`exceeds size limit (${maxTotalSize})`);
+                    }
+                    const buf = await fs.promises.readFile(p);
+                    totalSize += st.size;
+                    entries.push({name: relName, buffer: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)});
+                    return;
+                }
+                if (st.isDirectory()) {
+                    const children = await fs.promises.readdir(p);
+                    for (const child of children) {
+                        if (child.startsWith(".")) {
+                            continue;
+                        }
+                        await readEntry(path.join(p, child), relName ? path.join(relName, child) : child);
+                    }
+                }
+            };
+            for (const raw of inputPaths) {
+                const resolved = path.resolve(String(raw || "").trim());
+                await readEntry(resolved, path.basename(resolved));
+            }
+            return {entries};
+        }
         if (data.cmd === "getContentsId") {
             return event.sender.id;
         }

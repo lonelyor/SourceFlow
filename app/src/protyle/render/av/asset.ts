@@ -429,23 +429,24 @@ ${window.sourceflow.languages.title}
     menu.element.querySelector("textarea").focus();
 };
 
-export const dragUpload = (files: ILocalFiles[], protyle: IProtyle, cellElement: HTMLElement) => {
+export const dragUpload = (files: File[], protyle: IProtyle, cellElement: HTMLElement) => {
     let msg = "";
-    const assetPaths: string[] = [];
     files.forEach(item => {
         if (item.size && Constants.SIZE_UPLOAD_TIP_SIZE <= item.size) {
-            msg += window.sourceflow.languages.uploadFileTooLarge.replace("${x}", item.path).replace("${y}", filesize(item.size, {standard: "iec"})) + "<br>";
+            msg += window.sourceflow.languages.uploadFileTooLarge.replace("${x}", item.name).replace("${y}", filesize(item.size, {standard: "iec"})) + "<br>";
         }
-        assetPaths.push(item.path);
     });
 
     confirmDialog(msg ? window.sourceflow.languages.upload : "", msg, () => {
         const msgId = showMessage(window.sourceflow.languages.uploading, 0);
-        fetchPost("/api/asset/insertLocalAssets", {
-            assetPaths,
-            isUpload: true,
-            id: protyle.block.rootID
-        }, (response) => {
+        // 通过上传文件字节插入资源，避免把用户磁盘路径交给内核读取（macOS TCC 会拦截内核读取受保护目录）
+        const formData = new FormData();
+        files.forEach(item => {
+            formData.append("file", item, item.name);
+        });
+        formData.append("id", protyle.block.rootID);
+        formData.append("isUpload", "true");
+        fetchPost("/api/asset/uploadLocalAssets", formData, (response) => {
             const blockElement = hasClosestBlock(cellElement);
             if (blockElement) {
                 hideMessage(msgId);

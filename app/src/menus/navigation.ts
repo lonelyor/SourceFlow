@@ -1,6 +1,5 @@
 import {copySubMenu, exportMd, movePathToMenu, openFileAttr, renameMenu,} from "./commonMenuItem";
 /// #if !BROWSER
-import {FileFilter, ipcRenderer} from "electron";
 import * as path from "path";
 /// #endif
 import {MenuItem} from "./Menu";
@@ -994,32 +993,36 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
         files.getLeaf(liElement, notebookId, true);
         window.sourceflow.menus.menu.remove();
     };
-    /// #if !BROWSER
+    // 通过上传文件字节导入 Markdown，避免把用户磁盘路径交给内核读取（macOS TCC 会拦截内核子进程
+    // 读取 ~/Documents 等受保护目录）。单文件用 accept 限制，文件夹用 webkitdirectory。
     const importstdmd = (label: string, isDoc?: boolean) => {
+        const inputAttrs = isDoc ? `type="file" accept=".md,.markdown"` : `type="file" webkitdirectory`;
         return {
             id: isDoc ? "importMarkdownDoc" : "importMarkdownFolder",
             icon: isDoc ? "iconMarkdown" : "iconFolder",
-            label,
-            click: async () => {
-                let filters: FileFilter[] = [];
-                if (isDoc) {
-                    filters = [{name: "Markdown", extensions: ["md", "markdown"]}];
-                }
-                const localPath = await ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
-                    cmd: "showOpenDialog",
-                    defaultPath: window.sourceflow.config.system.homeDir,
-                    filters,
-                    properties: [isDoc ? "openFile" : "openDirectory"],
-                });
-                if (localPath.filePaths.length === 0) {
-                    return;
-                }
-                fetchPost("/api/import/importStdMd", {
-                    notebook: notebookId,
-                    localPath: localPath.filePaths[0],
-                    toPath: pathString,
-                }, () => {
-                    reloadDocTree();
+            label: `${label}<input class="b3-form__upload" ${inputAttrs}>`,
+            bind: (element: HTMLElement) => {
+                element.querySelector(".b3-form__upload").addEventListener("change", (event: InputEvent & {
+                    target: HTMLInputElement
+                }) => {
+                    const fileList = event.target.files;
+                    if (!fileList || fileList.length === 0) {
+                        return;
+                    }
+                    const formData = new FormData();
+                    const relPaths: string[] = [];
+                    for (let i = 0; i < fileList.length; i++) {
+                        const f = fileList[i];
+                        // webkitRelativePath 仅在 webkitdirectory 选择时存在；单文件时回退到文件名
+                        relPaths.push((f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name);
+                        formData.append("file", f);
+                    }
+                    formData.append("notebook", notebookId);
+                    formData.append("toPath", pathString);
+                    formData.append("paths", JSON.stringify(relPaths));
+                    fetchPost("/api/import/importMdUpload", formData, () => {
+                        reloadDocTree();
+                    });
                 });
             }
         };
@@ -1066,10 +1069,8 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
                     });
                 }
             },
-            /// #if !BROWSER
             importstdmd("Markdown " + window.sourceflow.languages.doc, true),
             importstdmd("Markdown " + window.sourceflow.languages.folder)
-            /// #endif
         ],
     }).element);
 };

@@ -18,6 +18,8 @@ package api
 
 import (
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,6 +33,7 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/filelock"
 	"github.com/lonelyor/sourceflow/third_party/go/go-humanize"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
 
 func statAsset(c *gin.Context) {
@@ -430,4 +433,117 @@ func insertLocalAssets(c *gin.Context) {
 	ret.Data = map[string]interface{}{
 		"succMap": succMap,
 	}
+}
+
+// uploadLocalAssets 通过上传文件字节插入本地资源，替代基于绝对路径的 insertLocalAssets。
+//
+// 与 importStdUpload 同理：旧实现把拖拽/选择的绝对路径交给内核 os.Open，在 macOS 上内核
+// 子进程没有 TCC 权限读取 ~/Documents 等受保护目录，导致卡死或内核退出。本端点改为接收
+// 上传的文件字节，写入内核可读的工作区 TempDir 暂存目录，再复用 InsertLocalAssets 处理，
+// 从根本上规避 TCC。
+//
+// 表单字段：id、isUpload、copyAsAsset，以及一个或多个 file 部件（文件名保留原名）。
+func uploadLocalAssets(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	id := c.PostForm("id")
+	if "" == id {
+		ret.Code = -1
+		ret.Msg = "id is required"
+		return
+	}
+	isUpload := true
+	if v := c.PostForm("isUpload"); "" != v {
+		isUpload = "true" == v
+	}
+	copyAsAsset := false
+	if v := c.PostForm("copyAsAsset"); "" != v {
+		copyAsAsset = "true" == v
+	}
+
+	form, err := c.MultipartForm()
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	files := form.File["file"]
+	if 1 > len(files) {
+		ret.Code = -1
+		ret.Msg = "no file found"
+		return
+	}
+
+	stagingDir := filepath.Join(util.TempDir, "import", "assets-"+gulu.Rand.String(7))
+	defer os.RemoveAll(stagingDir)
+
+	var assetPaths []string
+	for _, fileHeader := range files {
+		baseName := filepath.Base(fileHeader.Filename)
+		baseName = util.FilterUploadFileName(baseName)
+		if "" == baseName {
+			baseName = "attachment"
+		}
+		writePath := filepath.Join(stagingDir, baseName)
+		if !util.IsSubPath(stagingDir, writePath) {
+			ret.Code = -1
+			ret.Msg = "invalid file name in upload"
+			return
+		}
+		if mkErr := os.MkdirAll(stagingDir, 0755); nil != mkErr {
+			ret.Code = -1
+			ret.Msg = mkErr.Error()
+			return
+		}
+		if writeErr := saveUploadedAsset(fileHeader, writePath); nil != writeErr {
+			logging.LogErrorf("write uploaded asset failed: %s", writeErr)
+			ret.Code = -1
+			ret.Msg = writeErr.Error()
+			return
+		}
+		assetPaths = append(assetPaths, writePath)
+	}
+
+	succMap, err := model.InsertLocalAssets(id, assetPaths, isUpload, copyAsAsset)
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	ret.Data = map[string]interface{}{
+		"succMap": succMap,
+	}
+}
+
+// saveUploadedAsset 将上传的资源文件字节写入 writePath，并施加与导入一致的大小上限。
+func saveUploadedAsset(file *multipart.FileHeader, writePath string) error {
+	if file.Size < 0 {
+		return fmt.Errorf("upload size is invalid: %d", file.Size)
+	}
+	if file.Size > gulu.MaxZipTotalUncompressedSize {
+		return fmt.Errorf("upload exceeds size limit (%d > %d)", file.Size, gulu.MaxZipTotalUncompressedSize)
+	}
+	reader, err := file.Open()
+	if nil != err {
+		return err
+	}
+	defer reader.Close()
+	writer, err := os.OpenFile(writePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if nil != err {
+		return err
+	}
+	copied, copyErr := io.Copy(writer, io.LimitReader(reader, gulu.MaxZipTotalUncompressedSize+1))
+	closeErr := writer.Close()
+	if nil != copyErr {
+		return copyErr
+	}
+	if nil != closeErr {
+		return closeErr
+	}
+	if copied > gulu.MaxZipTotalUncompressedSize {
+		_ = os.Remove(writePath)
+		return fmt.Errorf("upload exceeds size limit (%d > %d)", copied, gulu.MaxZipTotalUncompressedSize)
+	}
+	return nil
 }

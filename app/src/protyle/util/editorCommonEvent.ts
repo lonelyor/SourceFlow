@@ -20,7 +20,7 @@ import {getAllEditor} from "../../layout/getAll";
 import {updatePanelByEditor} from "../../editor/util";
 /// #endif
 import {blockRender} from "../render/blockRender";
-import {uploadLocalFiles} from "../upload";
+import {uploadLocalFiles, uploadDroppedFiles} from "../upload";
 import {insertHTML} from "./insertHTML";
 import {isBrowser} from "../../util/functions";
 import {hideElements} from "../ui/hideElements";
@@ -28,7 +28,6 @@ import {insertAttrViewBlockAnimation} from "../render/av/row";
 import * as dayjs from "dayjs";
 import {setFold, zoomOut} from "../../menus/protyle";
 /// #if !BROWSER
-import {webUtils} from "electron";
 import {dragUpload} from "../render/av/asset";
 /// #else
 import {uploadFiles} from "../upload";
@@ -1158,14 +1157,11 @@ export const dropEvent = (protyle: IProtyle, editorElement: HTMLElement) => {
                 focusByRange(getRangeByPoint(event.clientX, event.clientY));
                 if (event.dataTransfer.types[0] === "Files" && !isBrowser()) {
                     /// #if !BROWSER
-                    const files: ILocalFiles[] = [];
+                    const files: File[] = [];
                     for (let i = 0; i < event.dataTransfer.files.length; i++) {
-                        files.push({
-                            path: webUtils.getPathForFile(event.dataTransfer.files[i]),
-                            size: event.dataTransfer.files[i].size
-                        });
+                        files.push(event.dataTransfer.files[i]);
                     }
-                    uploadLocalFiles(files, protyle, !event.altKey);
+                    uploadDroppedFiles(files, protyle, !event.altKey);
                     /// #endif
                 } else {
                     paste(protyle, event);
@@ -1174,17 +1170,14 @@ export const dropEvent = (protyle: IProtyle, editorElement: HTMLElement) => {
             } else {
                 const cellElement = hasClosestByClassName(event.target, "av__cell");
                 if (cellElement) {
-                    if (getTypeByCellElement(cellElement) === "mAsset" && event.dataTransfer.types[0] === "Files") {
-                        /// #if !BROWSER
-                        const files: ILocalFiles[] = [];
-                        for (let i = 0; i < event.dataTransfer.files.length; i++) {
-                            files.push({
-                                path: webUtils.getPathForFile(event.dataTransfer.files[i]),
-                                size: event.dataTransfer.files[i].size
-                            });
-                        }
-                        dragUpload(files, protyle, cellElement);
-                        /// #else
+                        if (getTypeByCellElement(cellElement) === "mAsset" && event.dataTransfer.types[0] === "Files") {
+                            /// #if !BROWSER
+                            const files: File[] = [];
+                            for (let i = 0; i < event.dataTransfer.files.length; i++) {
+                                files.push(event.dataTransfer.files[i]);
+                            }
+                            dragUpload(files, protyle, cellElement);
+                            /// #else
                         focusBlock(hasClosestBlock(cellElement) as HTMLElement);
                         uploadFiles(protyle, event.dataTransfer.files, undefined);
                         /// #endif

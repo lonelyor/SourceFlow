@@ -1340,6 +1340,181 @@ def require_command(name: str) -> None:
     prepend_path_entry(Path(resolved).parent)
 
 
+def get_command_version_major(binary_path: str, *, flag: str = "--version") -> int:
+    """运行 `binary --version`，解析主版本号；失败返回 -1。"""
+    try:
+        result = subprocess.run(
+            [binary_path, flag],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return -1
+    output = (result.stdout + result.stderr).strip()
+    match = re.search(r"v?(\d+)\.", output)
+    return int(match.group(1)) if match else -1
+
+
+# pnpm 10 / electron-builder 26 需要 Node.js >= 18。环境里可能并存多个 node（例如
+# /usr/local/bin/node v16 与 /opt/homebrew/bin/node v24），shutil.which 只返回 PATH 中
+# 第一个，未必满足版本要求。此处收集所有候选并优先选择满足最低版本的 node。
+MIN_NODE_MAJOR_VERSION = 18
+
+
+def resolve_compatible_node() -> str:
+    """返回满足最低版本要求的 node 绝对路径。
+
+    候选顺序：shutil.which 的结果优先，其后追加显式 fallback 路径（去重）。
+    首个满足 MIN_NODE_MAJOR_VERSION 的候选胜出；都不满足时返回版本最高的那个。
+
+    注意：用 realpath 去重，但保留原始（可能是符号链接）路径返回，确保其所在目录
+    也包含配套的 pnpm（例如 /opt/homebrew/bin 同时有 node 和 pnpm）。
+    """
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidate(path_str: str | None) -> None:
+        if not path_str:
+            return
+        canonical = os.path.realpath(path_str)
+        if canonical in seen:
+            return
+        if os.path.isfile(canonical) and os.access(canonical, os.X_OK):
+            seen.add(canonical)
+            candidates.append(path_str)
+
+    refresh_unix_fallback_path_entries()
+    add_candidate(shutil.which("node"))
+    for explicit in UNIX_COMMAND_FALLBACK_PATHS.get("node", ()):
+        add_candidate(explicit)
+    for directory in UNIX_FALLBACK_COMMAND_DIRS:
+        add_candidate(os.path.join(directory, "node"))
+
+    best_path = ""
+    best_version = -1
+    for candidate in candidates:
+        version = get_command_version_major(candidate)
+        if version >= MIN_NODE_MAJOR_VERSION:
+            return candidate
+        if version > best_version:
+            best_version = version
+            best_path = candidate
+    return best_path or (candidates[0] if candidates else "")
+
+
+def require_compatible_node() -> None:
+    """确保解析到满足版本要求的 node，并将其目录前置到 PATH。
+
+    旧版 node（如 v16）被前置后，electron-builder 内部的 `pnpm config list` 子进程
+    会因 pnpm 10 要求 Node >= 18 而失败。优先把含现代 node 的目录前置，使 pnpm 也随之
+    解析到同一目录下的可用版本。
+    """
+    node_path = resolve_compatible_node()
+    if not node_path:
+        if (
+            try_auto_install_windows_command("node")
+            or try_auto_install_macos_command("node")
+            or try_auto_install_linux_command("node")
+        ):
+            node_path = resolve_compatible_node()
+    if not node_path:
+        raise RuntimeError(build_missing_command_message("node"))
+
+    version = get_command_version_major(node_path)
+    if 0 <= version < MIN_NODE_MAJOR_VERSION:
+        raise RuntimeError(
+            f"Node.js {version} at {node_path} is too old. SourceFlow desktop build requires Node.js >= {MIN_NODE_MAJOR_VERSION}. "
+            f"Install a newer Node.js (e.g. via Homebrew: `brew install node`) and rerun."
+        )
+    clear_install_failure("node")
+    node_dir = Path(node_path).parent
+    prepend_path_entry(node_dir)
+    # 把同目录的 node 显式前置，确保后续 require_command("pnpm") / electron-builder
+    # 子进程优先解析到该目录。
+    os.environ["SOURCEFLOW_NODE_DIR"] = str(node_dir)
+
+
+def pnpm_runs(pnpm_path: str) -> bool:
+    """验证 pnpm 在当前 PATH（已前置现代 node）下能成功执行 --version。"""
+    try:
+        result = subprocess.run(
+            [pnpm_path, "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def resolve_compatible_pnpm() -> str:
+    """返回可成功运行的 pnpm 路径。
+
+    旧版 corepack shim（/usr/local/bin/pnpm）会因 node 版本过低而失败。收集所有候选，
+    用 pnpm --version 探活，优先返回 node 目录下的 pnpm，其次其它候选。
+    """
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidate(path_str: str | None) -> None:
+        if not path_str:
+            return
+        canonical = os.path.realpath(path_str)
+        if canonical in seen:
+            return
+        if os.path.isfile(canonical) and os.access(canonical, os.X_OK):
+            seen.add(canonical)
+            candidates.append(path_str)
+
+    refresh_unix_fallback_path_entries()
+    # 优先：与已解析 node 同目录的 pnpm
+    node_dir = os.environ.get("SOURCEFLOW_NODE_DIR")
+    if node_dir:
+        add_candidate(os.path.join(node_dir, "pnpm"))
+        add_candidate(os.path.join(node_dir, "pnpm.cmd"))
+    add_candidate(shutil.which(PNPM))
+    add_candidate(shutil.which("pnpm"))
+    for explicit in UNIX_COMMAND_FALLBACK_PATHS.get("pnpm", ()):
+        add_candidate(explicit)
+    for directory in UNIX_FALLBACK_COMMAND_DIRS:
+        add_candidate(os.path.join(directory, "pnpm"))
+
+    for candidate in candidates:
+        if pnpm_runs(candidate):
+            return candidate
+    return candidates[0] if candidates else ""
+
+
+def require_compatible_pnpm() -> None:
+    """确保解析到可运行的 pnpm 并前置其目录。
+
+    corepack shim 可能因 node 版本不匹配而失败（pnpm 10 要求 Node >= 18）。
+    本函数在 node 已被正确前置后，找到能真正运行的 pnpm。
+    """
+    pnpm_path = resolve_compatible_pnpm()
+    if not pnpm_path:
+        if (
+            try_auto_install_windows_command(PNPM)
+            or try_auto_install_macos_command(PNPM)
+            or try_auto_install_linux_command(PNPM)
+        ):
+            pnpm_path = resolve_compatible_pnpm()
+    if not pnpm_path:
+        raise RuntimeError(build_missing_command_message(PNPM))
+    if not pnpm_runs(pnpm_path):
+        raise RuntimeError(
+            f"pnpm at {pnpm_path} could not run. It may require Node.js >= {MIN_NODE_MAJOR_VERSION}. "
+            f"Ensure a compatible Node.js is installed (e.g. via Homebrew: `brew install node`) "
+            f"and run `npm install -g pnpm` next to it, then rerun."
+        )
+    clear_install_failure(PNPM)
+    prepend_path_entry(Path(pnpm_path).parent)
+
+
 def ensure_macos_build_prerequisites() -> None:
     if not is_macos():
         return
@@ -3424,8 +3599,90 @@ def prepare_target(target: BuildTarget, args: argparse.Namespace) -> None:
     prepare_build_inputs(target, args)
 
 
+def run_electron_builder(
+    command: Sequence[str | os.PathLike[str]],
+    *,
+    cwd: str | os.PathLike[str],
+    env: Mapping[str, str],
+    log_name: str,
+    max_attempts: int = 2,
+) -> None:
+    """运行 electron-builder，并把完整输出 tee 到持久日志文件。
+
+    electron-builder 的 DMG/zip 打包步骤（hdiutil、原生依赖 rebuild）偶尔会因瞬态
+    状态（文件占用、资源争用、镜像缓存）而失败。此函数：
+      1. 把 stdout/stderr 同时输出到终端和日志文件（teelog），失败时不再被 [FAIL]
+         行遮盖，便于定位真实原因；
+      2. 对退出码非 0 自动重试 max_attempts 次，重试前清理本进程的临时配置文件
+         由调用方在 finally 处理，这里仅在重试前提示；
+      3. 最终失败时打印日志文件路径。
+    """
+    log_path = PROJECT_ROOT / "app" / "build" / f"electron-builder-{log_name}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        attempt_log = log_path if attempt == 1 else log_path.with_suffix(f".{attempt}.log")
+        try:
+            with open(attempt_log, "w", encoding="utf-8") as log_file:
+                log_file.write(f"$ {' '.join(os.fspath(a) for a in command)}\n\n")
+                log_file.flush()
+                _run_streaming(list(command), cwd=cwd, env=env, tee_to=log_file)
+            return
+        except subprocess.CalledProcessError as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                print(f"electron-builder failed (attempt {attempt}/{max_attempts}), retrying...", flush=True)
+                print(f"  full log: {attempt_log}", flush=True)
+                time.sleep(2)
+                continue
+            print(f"electron-builder failed after {max_attempts} attempts.", flush=True)
+            print(f"  full log: {attempt_log}", flush=True)
+            raise
+        except Exception:
+            raise
+    if last_exc:
+        raise last_exc
+
+
+def _run_streaming(command: list[str], *, cwd: str | os.PathLike[str], env: Mapping[str, str], tee_to: object) -> int:
+    """运行子进程，stdout/stderr 实时打印到终端并同时写入 tee_to 文件句柄。"""
+    ensure_not_cancelled()
+    merged_env = os.environ.copy()
+    merged_env.update({key: str(value) for key, value in env.items()})
+    process = subprocess.Popen(
+        command,
+        cwd=os.fspath(cwd),
+        env=merged_env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    register_process(process)
+    try:
+        assert process.stdout is not None
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            tee_to.write(line)
+            tee_to.flush()
+        process.wait()
+    finally:
+        unregister_process(process)
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, command)
+    return process.returncode
+
+
 def build_installer(target: BuildTarget, args: argparse.Namespace) -> None:
     print_step(f"Build installer: {target.display_name}")
+    # 清理上一次构建的输出目录。重复向非空 build/ 目录打包会让 electron-builder
+    # 的 DMG 步骤（hdiutil）间歇性失败；带重试以处理 DMG 被挂载/文件占用的瞬态错误。
+    if target.installer_output_dir.exists():
+        print_step(f"Clean stale installer output: {target.installer_output_dir.name}")
+        remove_path_with_retry(target.installer_output_dir)
     config_name = target.installer_config
     temp_config_path: Path | None = None
     env = electron_builder_env()
@@ -3447,7 +3704,7 @@ def build_installer(target: BuildTarget, args: argparse.Namespace) -> None:
             config_name,
             "--publish=never",
         ]
-        run(command, cwd=APP_DIR, env=env)
+        run_electron_builder(command, cwd=APP_DIR, env=env, log_name="installer")
     finally:
         if temp_config_path:
             remove_path(temp_config_path)
@@ -3491,7 +3748,7 @@ def build_portable(target: BuildTarget, args: argparse.Namespace, *, installer_b
     )
 
     if target.platform_key != "win":
-        remove_path(target.portable_output_dir)
+        remove_path_with_retry(target.portable_output_dir)
 
     clean_broken_pnpm_links()
 
@@ -3520,7 +3777,7 @@ def build_portable(target: BuildTarget, args: argparse.Namespace, *, installer_b
         if target.portable_output_name:
             command.append(f"-c.directories.output={target.portable_output_name}")
 
-        run(command, cwd=APP_DIR, env=env)
+        run_electron_builder(command, cwd=APP_DIR, env=env, log_name="portable")
         if target.platform_key == "win":
             make_windows_portable_dir()
     finally:
@@ -3537,8 +3794,8 @@ def main_output_dir(target: BuildTarget, build_portable_artifact: bool) -> Path:
 def ensure_build_prerequisites(target: BuildTarget) -> None:
     if target.platform_key == "mac":
         ensure_macos_build_prerequisites()
-    require_command("node")
-    require_command(PNPM)
+    require_compatible_node()
+    require_compatible_pnpm()
     require_command("go")
 
 

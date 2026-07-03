@@ -11,9 +11,6 @@ import {uploadFiles} from "../../upload";
 import {openLink} from "../../../editor/openLink";
 import {dragUpload, editAssetItem} from "./asset";
 import {previewImages} from "../../preview/image";
-/// #if !BROWSER
-import {webUtils} from "electron";
-/// #endif
 import {isBrowser} from "../../../util/functions";
 import {Constants} from "../../../constants";
 import {getCompressURL, removeCompressURL} from "../../../util/image";
@@ -132,12 +129,9 @@ class="fn__flex-1 fn__flex${["url", "text", "number", "email", "phone", "block"]
                     if (cellElement) {
                         if (event.dataTransfer.types[0] === "Files" && !isBrowser()) {
                             /// #if !BROWSER
-                            const files: ILocalFiles[] = [];
+                            const files: File[] = [];
                             for (let i = 0; i < event.dataTransfer.files.length; i++) {
-                                files.push({
-                                    path: webUtils.getPathForFile(event.dataTransfer.files[i]),
-                                    size: event.dataTransfer.files[i].size
-                                });
+                                files.push(event.dataTransfer.files[i]);
                             }
                             dragUpload(files, protyle, cellElement);
                             /// #endif

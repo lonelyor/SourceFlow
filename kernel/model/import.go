@@ -35,6 +35,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/lonelyor/sourceflow/kernel/av"
 	"github.com/lonelyor/sourceflow/kernel/filesys"
@@ -111,7 +112,10 @@ func ImportSY(zipPath, boxID, toPath string) (err error) {
 	util.PushEndlessProgress(Conf.Language(73))
 	defer util.ClearPushProgress(100)
 
-	lockSync()
+	if !lockSyncWithTimeout(30 * time.Second) {
+		logging.LogWarnf("import .sf.zip [%s] skipped: sync lock busy", zipPath)
+		return errors.New("import is busy, another sync or import is in progress, please try again later")
+	}
 	defer unlockSync()
 
 	baseName := filepath.Base(zipPath)
@@ -706,7 +710,10 @@ func ImportData(zipPath string) (err error) {
 	util.PushEndlessProgress(Conf.Language(73))
 	defer util.ClearPushProgress(100)
 
-	lockSync()
+	if !lockSyncWithTimeout(30 * time.Second) {
+		logging.LogWarnf("import data [%s] skipped: sync lock busy", zipPath)
+		return errors.New("import is busy, another sync or import is in progress, please try again later")
+	}
 	defer unlockSync()
 
 	logging.LogInfof("import data from [%s]", zipPath)
@@ -782,7 +789,19 @@ func ImportFromLocalPath(boxID, localPath string, toPath string) (err error) {
 		}
 	}()
 
-	lockSync()
+	// 预检导入源可读性：在不持有任何锁的情况下探测，避免 macOS TCC 等权限问题导致
+	// 系统调用在 syncLock 内阻塞，进而冻结所有后续导入。
+	if readErr := util.CheckReadable(localPath, 15*time.Second); nil != readErr {
+		logging.LogWarnf("import source [%s] not readable: %s", localPath, readErr)
+		return fmt.Errorf("import source [%s] not readable: %s", localPath, readErr)
+	}
+
+	// 带超时地获取同步锁：单次导入卡死（如系统调用被阻塞）时，syncLock 可能被长期持有，
+	// 此处超时返回明确错误，避免一次故障级联冻结全部后续导入。
+	if !lockSyncWithTimeout(30 * time.Second) {
+		logging.LogWarnf("import from local path [%s] skipped: sync lock busy", localPath)
+		return errors.New("import is busy, another sync or import is in progress, please try again later")
+	}
 	defer unlockSync()
 
 	FlushTxQueue()

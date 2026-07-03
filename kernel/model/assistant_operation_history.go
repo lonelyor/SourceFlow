@@ -312,7 +312,7 @@ func checkAssistantOperationHistorySecurity(item *AssistantOperationHistoryItem)
 		OperationType:     strings.TrimSpace(item.OperationType),
 	})
 	if result.Decision != AISecurityAllow {
-		return fmt.Errorf(firstAssistantAINonEmpty(result.Reason, "assistant operation history is blocked by AI security"))
+		return fmt.Errorf("%s", firstAssistantAINonEmpty(result.Reason, "assistant operation history is blocked by AI security"))
 	}
 	return nil
 }

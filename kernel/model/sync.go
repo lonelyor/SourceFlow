@@ -375,6 +375,24 @@ func lockSync() {
 	isSyncing.Store(true)
 }
 
+// lockSyncWithTimeout 尝试在 timeout 内获取同步锁。
+// 单次导入卡死（如 macOS TCC 拦截导致系统调用阻塞）时，syncLock 会被永久持有，
+// 后续所有导入/同步都会无限等待。使用带超时的获取避免一次故障级联冻结全部操作：
+// 成功返回 true，超时返回 false（调用方应返回明确错误而非死等）。
+func lockSyncWithTimeout(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if syncLock.TryLock() {
+			isSyncing.Store(true)
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 func unlockSync() {
 	isSyncing.Store(false)
 	syncLock.Unlock()
