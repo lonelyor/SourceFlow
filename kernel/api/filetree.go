@@ -715,6 +715,33 @@ func removeDocs(c *gin.Context) {
 		return
 	}
 
+	if docsArg, ok := arg["docs"].([]interface{}); ok {
+		var docs []model.RemoveDocRef
+		for _, docArg := range docsArg {
+			doc, ok := docArg.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			notebook, _ := doc["notebook"].(string)
+			if util.InvalidIDPattern(notebook, ret) {
+				return
+			}
+			p, _ := doc["path"].(string)
+			if "" == notebook || "" == p {
+				continue
+			}
+			docs = append(docs, model.RemoveDocRef{
+				Notebook: notebook,
+				Path:     p,
+			})
+		}
+		if 1 < len(docs) {
+			model.TryCreateProtectionSnapshot("batch-delete")
+		}
+		model.RemoveDocsByRefs(docs)
+		return
+	}
+
 	pathsArg := arg["paths"].([]interface{})
 	var paths []string
 	for _, path := range pathsArg {
@@ -723,7 +750,12 @@ func removeDocs(c *gin.Context) {
 	if 1 < len(paths) {
 		model.TryCreateProtectionSnapshot("batch-delete")
 	}
-	model.RemoveDocs(paths)
+	if err := model.RemoveDocs(paths); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
 }
 
 func renameDoc(c *gin.Context) {

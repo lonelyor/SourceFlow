@@ -1523,19 +1523,42 @@ func RemoveDoc(boxID, p string) {
 	return
 }
 
-func RemoveDocs(paths []string) {
+type RemoveDocRef struct {
+	Notebook string
+	Path     string
+}
+
+func RemoveDocs(paths []string) error {
+	docs, err := removeDocRefsFromPaths(paths)
+	if err != nil {
+		return err
+	}
+	removeDocsByRefs(docs)
+	return nil
+}
+
+func RemoveDocsByRefs(docs []RemoveDocRef) {
+	docs = filterSelfChildDocRefs(docs)
+	removeDocsByRefs(docs)
+}
+
+func removeDocsByRefs(docs []RemoveDocRef) {
 	util.PushEndlessProgress(Conf.Language(116))
 	defer util.PushClearProgress()
 
-	paths = util.FilterSelfChildDocs(paths)
-	pathsBoxes := getBoxesByPaths(paths)
 	FlushTxQueue()
 	luteEngine := util.NewLute()
 
 	var trees []*parse.Tree
-	for p, box := range pathsBoxes {
-		tree := removeDoc(box, p, luteEngine)
-		trees = append(trees, tree)
+	for _, doc := range docs {
+		box := Conf.Box(doc.Notebook)
+		if nil == box {
+			continue
+		}
+		tree := removeDoc(box, doc.Path, luteEngine)
+		if nil != tree {
+			trees = append(trees, tree)
+		}
 	}
 
 	parentTrees := map[string]*parse.Tree{}
@@ -1547,6 +1570,77 @@ func RemoveDocs(paths []string) {
 	}
 	for _, parentTree := range parentTrees {
 		refreshDocInfo(parentTree)
+	}
+	return
+}
+
+func removeDocRefsFromPaths(paths []string) (docs []RemoveDocRef, err error) {
+	return removeDocRefsFromPathsWithResolver(paths, openedBoxIDsByDocPath)
+}
+
+func removeDocRefsFromPathsWithResolver(paths []string, resolveBoxIDs func(string) []string) (docs []RemoveDocRef, err error) {
+	for _, p := range paths {
+		if "" == p || "/" == p {
+			continue
+		}
+		boxIDs := resolveBoxIDs(p)
+		boxIDs = gulu.Str.RemoveDuplicatedElem(boxIDs)
+		sort.Strings(boxIDs)
+		if 1 < len(boxIDs) {
+			return nil, fmt.Errorf("ambiguous doc path [%s] matches notebooks [%s]; use docs with notebook and path", p, strings.Join(boxIDs, ", "))
+		}
+		if 1 == len(boxIDs) {
+			docs = append(docs, RemoveDocRef{
+				Notebook: boxIDs[0],
+				Path:     p,
+			})
+		}
+	}
+	return filterSelfChildDocRefs(docs), nil
+}
+
+func openedBoxIDsByDocPath(p string) (boxIDs []string) {
+	for _, box := range Conf.GetOpenedBoxes() {
+		if nil != box && box.Exist(p) {
+			boxIDs = append(boxIDs, box.ID)
+		}
+	}
+	return
+}
+
+func filterSelfChildDocRefs(docs []RemoveDocRef) (ret []RemoveDocRef) {
+	sort.Slice(docs, func(i, j int) bool {
+		if docs[i].Notebook == docs[j].Notebook {
+			return strings.Count(docs[i].Path, "/") < strings.Count(docs[j].Path, "/")
+		}
+		return docs[i].Notebook < docs[j].Notebook
+	})
+
+	seen := map[string]bool{}
+	parentDirs := map[string][]string{}
+	for _, doc := range docs {
+		if "" == doc.Notebook || "" == doc.Path {
+			continue
+		}
+		key := doc.Notebook + "\x00" + doc.Path
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		existParent := false
+		for _, parentDir := range parentDirs[doc.Notebook] {
+			if strings.HasPrefix(doc.Path, parentDir+"/") {
+				existParent = true
+				break
+			}
+		}
+		if existParent {
+			continue
+		}
+
+		parentDirs[doc.Notebook] = append(parentDirs[doc.Notebook], strings.TrimSuffix(doc.Path, ".sf"))
+		ret = append(ret, doc)
 	}
 	return
 }

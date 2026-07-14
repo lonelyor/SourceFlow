@@ -72,23 +72,28 @@ export const deleteFiles = (liElements: Element[]) => {
             }
         }
     } else {
-        const paths: string[] = [];
+        const docs: Array<{notebook: string, path: string}> = [];
+        const docKeys = new Set<string>();
         const notebookIds: string[] = [];
         liElements.forEach(item => {
+            const itemTopULElement = hasTopClosestByTag(item, "UL");
+            const notebookId = itemTopULElement ? itemTopULElement.getAttribute("data-url") : null;
             if (item.getAttribute("data-type") === "navigation-root") {
-                const itemTopULElement = hasTopClosestByTag(item, "UL");
-                const notebookId = itemTopULElement ? itemTopULElement.getAttribute("data-url") : null;
                 if (notebookId && !Object.values(Constants.HELP_PATH).includes(notebookId) && !notebookIds.includes(notebookId)) {
                     notebookIds.push(notebookId);
                 }
             } else {
                 const dataPath = item.getAttribute("data-path");
-                if (dataPath && dataPath !== "/" && !paths.includes(dataPath)) {
-                    paths.push(dataPath);
+                if (notebookId && dataPath && dataPath !== "/") {
+                    const docKey = `${notebookId}\n${dataPath}`;
+                    if (!docKeys.has(docKey)) {
+                        docKeys.add(docKey);
+                        docs.push({notebook: notebookId, path: dataPath});
+                    }
                 }
             }
         });
-        const totalCount = paths.length + notebookIds.length;
+        const totalCount = docs.length + notebookIds.length;
         if (totalCount === 0) {
             showMessage(window.sourceflow.languages.notBatchRemove);
             return;
@@ -97,9 +102,10 @@ export const deleteFiles = (liElements: Element[]) => {
             `${window.sourceflow.languages.confirmRemoveAll.replace("${count}", totalCount)}
 <div class="fn__hr"></div>
 <div class="ft__smaller ft__on-surface">${window.sourceflow.languages.rollbackTip.replace("${x}", window.sourceflow.config.editor.historyRetentionDays)}</div>`, () => {
-                if (paths.length > 0) {
+                if (docs.length > 0) {
                     fetchPost("/api/filetree/removeDocs", {
-                        paths
+                        docs,
+                        paths: docs.map(doc => doc.path),
                     });
                 }
                 notebookIds.forEach(notebookId => {
