@@ -43,7 +43,6 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/ast"
-	"github.com/sashabaranov/go-openai"
 	"golang.org/x/mod/semver"
 	"golang.org/x/text/language"
 )
@@ -70,7 +69,6 @@ type AppConf struct {
 	Sync           *conf.Sync       `json:"sync"`           // 同步配置
 	Search         *conf.Search     `json:"search"`         // 搜索配置
 	Flashcard      *conf.Flashcard  `json:"flashcard"`      // 闪卡配置
-	AI             *conf.AI         `json:"ai"`             // 人工智能配置
 	Bazaar         *conf.Bazaar     `json:"bazaar"`         // 集市配置
 	Stat           *conf.Stat       `json:"stat"`           // 统计
 	Api            *conf.API        `json:"api"`            // API
@@ -552,48 +550,6 @@ func InitConf() {
 			util.WaitForUILoaded()
 			task.AppendAsyncTaskWithDelay(task.PushMsg, 2*time.Second, util.PushErrMsg, msg, 15000)
 		}()
-	}
-
-	if nil == Conf.AI {
-		Conf.AI = conf.NewAI()
-	}
-	if "" == Conf.AI.OpenAI.APIModel {
-		Conf.AI.OpenAI.APIModel = openai.GPT3Dot5Turbo
-	}
-	if util.HasDesktopUserAgentPrefix(Conf.AI.OpenAI.APIUserAgent) {
-		Conf.AI.OpenAI.APIUserAgent = ""
-	}
-	if "" == Conf.AI.OpenAI.APIProvider {
-		Conf.AI.OpenAI.APIProvider = "OpenAI"
-	}
-	if 0 > Conf.AI.OpenAI.APIMaxTokens {
-		Conf.AI.OpenAI.APIMaxTokens = 0
-	}
-	if 0 >= Conf.AI.OpenAI.APITemperature || 2 < Conf.AI.OpenAI.APITemperature {
-		Conf.AI.OpenAI.APITemperature = 1.0
-	}
-	if 1 > Conf.AI.OpenAI.APIMaxContexts || 64 < Conf.AI.OpenAI.APIMaxContexts {
-		Conf.AI.OpenAI.APIMaxContexts = 7
-	}
-
-	if "" != Conf.AI.OpenAI.APIKey {
-		logging.LogInfof("OpenAI API enabled\n"+
-			"    userAgent=%s\n"+
-			"    baseURL=%s\n"+
-			"    timeout=%ds\n"+
-			"    proxy=%s\n"+
-			"    model=%s\n"+
-			"    maxTokens=%d\n"+
-			"    temperature=%.1f\n"+
-			"    maxContexts=%d",
-			Conf.AI.OpenAI.APIUserAgent,
-			Conf.AI.OpenAI.APIBaseURL,
-			Conf.AI.OpenAI.APITimeout,
-			Conf.AI.OpenAI.APIProxy,
-			Conf.AI.OpenAI.APIModel,
-			Conf.AI.OpenAI.APIMaxTokens,
-			Conf.AI.OpenAI.APITemperature,
-			Conf.AI.OpenAI.APIMaxContexts)
 	}
 
 	Conf.ReadOnly = util.ReadOnly
@@ -1359,7 +1315,6 @@ func GetMaskedConf() (ret *AppConf, err error) {
 // HideConfSecret 隐藏设置中的秘密信息
 // REF: https://github.com/lonelyor/SourceFlow/issues/11364
 func HideConfSecret(c *AppConf) {
-	c.AI = &conf.AI{}
 	c.Api = &conf.API{}
 	c.Flashcard = &conf.Flashcard{}
 	c.ServerAddrs = []string{}

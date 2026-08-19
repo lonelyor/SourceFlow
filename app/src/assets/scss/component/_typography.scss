@@ -649,6 +649,12 @@
     text-align: center;
   }
 
+  [data-subtype="mermaid"] [contenteditable="false"] svg {
+    background: var(--b3-theme-on-primary);
+    border-radius: var(--b3-border-radius);
+    cursor: zoom-in; // 双击打开缩放灯箱，与图片一致
+  }
+
   [data-type="NodeIFrame"] {
     height: 256px;
   }
@@ -744,6 +750,16 @@
       width: 100%;
       max-width: 100%;
     }
+  }
+}
+
+// mermaid 暗色主题按深色背景设计（浅色文字/连线），而 --b3-theme-on-primary 在暗色下为白色，
+// 白底会导致浅色文字不可读，因此暗色模式下取消卡片底色，保留圆角
+[data-theme-mode="dark"] {
+
+  .b3-typography [data-subtype="mermaid"] [contenteditable="false"] svg,
+  .protyle-wysiwyg [data-subtype="mermaid"] [contenteditable="false"] svg {
+    background: transparent;
   }
 }
 

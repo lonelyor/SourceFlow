@@ -334,19 +334,39 @@ func trimAssistantAIContextMessages(messages []*AssistantAIMessage, maxContextTo
 	return messages[start:]
 }
 
+// estimateAssistantAITextTokens gives a CJK-aware, conservative token estimate
+// for an arbitrary string (system prompt or message content). CJK / Hangul /
+// kana runes count ~1 token each; Latin and other runes ~4 per token. This is
+// close enough to real BPE behavior for budget decisions without a tokenizer,
+// and avoids under-counting Chinese (the primary content language here).
+func estimateAssistantAITextTokens(text string) int {
+	tokens := 0
+	nonCJK := 0
+	for _, r := range text {
+		if (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
+			(r >= 0x3400 && r <= 0x4DBF) || // CJK Extension A
+			(r >= 0x3040 && r <= 0x30FF) || // Hiragana / Katakana
+			(r >= 0xAC00 && r <= 0xD7AF) || // Hangul Syllables
+			(r >= 0xFF00 && r <= 0xFFEF) {  // Fullwidth forms
+			tokens++
+		} else {
+			nonCJK++
+		}
+	}
+	tokens += nonCJK / 4
+	tokens += 16
+	if tokens < 32 {
+		tokens = 32
+	}
+	return tokens
+}
+
 func estimateAssistantAIMessageTokens(message *AssistantAIMessage) int {
 	if nil == message {
 		return 0
 	}
-	if 0 < message.InputTokens || 0 < message.OutputTokens {
-		total := message.InputTokens + message.OutputTokens
-		if 0 < total {
-			return total
-		}
-	}
-	contentTokens := len([]rune(message.Content))/4 + 16
-	if contentTokens < 32 {
-		contentTokens = 32
-	}
-	return contentTokens
+	// Content-based estimate only: summing stored InputTokens across messages
+	// would double-count, since each reflects the cumulative prompt size at
+	// that turn rather than that single message's footprint.
+	return estimateAssistantAITextTokens(message.Content)
 }

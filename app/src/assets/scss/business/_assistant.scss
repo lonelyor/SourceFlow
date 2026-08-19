@@ -118,6 +118,38 @@
   }
 }
 
+// I9: non-modal side panel for patch review — docked to the right, the scrim
+// is transparent and does not intercept pointer events, so the note stays
+// visible and scrollable while each patch operation is accepted or rejected.
+.assistant-patch-review--side {
+  .b3-dialog__scrim {
+    background-color: transparent;
+    pointer-events: none;
+  }
+
+  .b3-dialog {
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .b3-dialog__container {
+    max-width: 92vw;
+  }
+}
+
+@keyframes assistant-ai-status-pill-flash {
+  0% {
+    background: color-mix(in srgb, var(--b3-theme-primary) 22%, var(--b3-theme-surface));
+    border-color: color-mix(in srgb, var(--b3-theme-primary) 40%, var(--b3-border-color));
+  }
+
+  100% {
+    background: color-mix(in srgb, var(--b3-theme-surface) 86%, transparent);
+    border-color: color-mix(in srgb, var(--b3-border-color) 82%, transparent);
+  }
+}
+
 .assistant-skill-menu {
   width: min(520px, 72vw);
   display: flex;
@@ -173,6 +205,42 @@
     font-size: 12px;
     color: var(--b3-theme-on-surface-light);
     line-height: 1.55;
+  }
+
+  &__search {
+    width: 100%;
+    border-radius: 8px;
+  }
+
+  &__groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: min(48vh, 420px);
+    overflow-y: auto;
+  }
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__group-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--b3-theme-on-surface-light);
+  }
+
+  &__grid--ask {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  &__button--ask {
+    border-color: color-mix(in srgb, var(--b3-theme-primary) 24%, var(--b3-border-color));
+    background: color-mix(in srgb, var(--b3-theme-primary) 6%, var(--b3-theme-surface));
   }
 }
 
@@ -2093,6 +2161,12 @@
     font-size: 10px;
     color: var(--b3-theme-on-surface-light);
     line-height: 1.2;
+
+    // I5: flash once when the followed/pinned note changes so the switch is
+    // perceptible instead of silent.
+    &--changed {
+      animation: assistant-ai-status-pill-flash 1.6s ease-out;
+    }
   }
 
   &__send-button {
@@ -3039,6 +3113,28 @@
       padding: 14px 16px;
       gap: 8px;
     }
+  }
+}
+
+@media (max-width: 680px) {
+  // S6: stack the profiles panel into a single column on phones so the 304px
+  // sidebar + form doesn't get crushed into two cramped columns.
+  .assistant-config--settings .assistant-config__body {
+    min-height: 0;
+  }
+
+  .assistant-config--settings .assistant-profiles,
+  .assistant-profiles {
+    flex-direction: column;
+  }
+
+  .assistant-config--settings .assistant-profiles__sidebar,
+  .assistant-profiles__sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+    max-height: 32vh;
+    border-right: 0;
+    border-bottom: .5px solid var(--b3-border-color);
   }
 }
 

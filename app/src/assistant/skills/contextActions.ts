@@ -49,11 +49,11 @@ export const appendAssistantContextActions = (options: IAppendAssistantContextAc
     const noteButtons = noteButtonItems.map((item) => `<button class="assistant-context-actions__button" type="button"${item.skillId ? ` data-skill-id="${escapeAttr(item.skillId)}"` : ""}${item.action ? ` data-action="${escapeAttr(item.action)}"` : ""}>${escapeHTML(item.label)}</button>`).join("");
     const selectionButtons = hasSelection ? [
         {skillId: "", action: "inline-instruction", label: assistantText("内联指令", "Inline")},
-        {skillId: "selection-summarize", label: assistantText("总结为笔记", "Summarize")},
+        {skillId: "selection-summarize", label: assistantText("总结", "Summarize")},
         {skillId: "selection-keypoints", label: assistantText("提取要点", "Key Points")},
         {skillId: "selection-qa", label: assistantText("生成问答", "Generate Q&A")},
-        {skillId: "selection-rewrite", label: assistantText("改写表达", "Rewrite")},
-        {skillId: "selection-translate", label: assistantText("翻译选中", "Translate")},
+        {skillId: "selection-rewrite", label: assistantText("改写", "Rewrite")},
+        {skillId: "selection-translate", label: assistantText("翻译", "Translate")},
         {skillId: "selection-to-chart", label: assistantText("生成图表", "Chart")},
     ].map((item) => `<button class="assistant-context-actions__button" type="button"${item.skillId ? ` data-skill-id="${escapeAttr(item.skillId)}"` : ""}${item.action ? ` data-action="${escapeAttr(item.action)}"` : ""}>${escapeHTML(item.label)}</button>`).join("") : "";
     const optimizeButton = options.includeOptimizeTypography

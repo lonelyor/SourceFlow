@@ -69,8 +69,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/system/importConf", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importConf)
 	ginServer.Handle("POST", "/api/system/getWorkspaceInfo", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, getWorkspaceInfo)
 	ginServer.Handle("POST", "/api/system/reloadUI", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, reloadUI, deprecated) // TODO 请使用 /api/ui/reloadUI，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15308#issuecomment-3077675356
-	ginServer.Handle("POST", "/api/system/addMicrosoftDefenderExclusion", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, addMicrosoftDefenderExclusion)
-	ginServer.Handle("POST", "/api/system/ignoreAddMicrosoftDefenderExclusion", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, ignoreAddMicrosoftDefenderExclusion)
 	ginServer.Handle("POST", "/api/system/vacuumDataIndex", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, vacuumDataIndex)
 	ginServer.Handle("POST", "/api/system/clearTempFiles", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, clearTempFiles)
 	ginServer.Handle("POST", "/api/system/rebuildDataIndex", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, rebuildDataIndex)
@@ -370,7 +368,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/setting/setTheme", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setTheme)
 	ginServer.Handle("POST", "/api/setting/setEmoji", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setEmoji)
 	ginServer.Handle("POST", "/api/setting/setFlashcard", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setFlashcard)
-	ginServer.Handle("POST", "/api/setting/setAI", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setAI)
 	ginServer.Handle("POST", "/api/setting/setBazaar", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setBazaar)
 	ginServer.Handle("POST", "/api/setting/setPublish", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setPublish)
 	ginServer.Handle("POST", "/api/setting/getPublish", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, getPublish)

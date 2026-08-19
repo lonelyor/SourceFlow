@@ -1,7 +1,12 @@
 import {openSettingTab} from "../../config";
 import {Constants} from "../../constants";
 import {openFileById} from "../../editor/util";
+import {Menu} from "../../plugin/Menu";
+import {isMobile} from "../../util/functions";
+import {assistantText} from "../constants";
+import {escapeHTML, providerDisplayName} from "../common/dom";
 import type {IAssistantAIDockRuntime} from "./AIDockContract";
+import type {IAssistantAIProfile} from "./api";
 import {getImageFilesFromDataTransfer, TAssistantAIFloatingPanel} from "./AIDockShared";
 import {
     reapplyAssistantOperationHistoryItem,
@@ -11,6 +16,45 @@ import {
 import {detectMentionTrigger, searchAndShowMentions, insertMentionChip} from "../mentions/trigger";
 import type {IMentionSource} from "../mentions/types";
 import type {TSecurityMode} from "../security/types";
+
+// I4: lightweight model quick-switch. The model launcher button opens this
+// popover instead of the full profile form, so switching models is one click.
+// "Manage AI profiles" is the level-2 escape hatch to the full config form.
+const buildAssistantModelSwitchItem = (profile: IAssistantAIProfile, active: boolean) => {
+    const primary = profile.name || profile.model || providerDisplayName(profile.provider);
+    const secondary = profile.model && profile.model !== primary ? profile.model : providerDisplayName(profile.provider);
+    const meta = '<span class="fn__space"></span><span class="ft__on-surface" style="font-size:12px;">' + escapeHTML(secondary) + "</span>";
+    return {
+        iconHTML: active ? '<svg><use xlink:href="#iconSelect"></use></svg>' : "",
+        label: escapeHTML(primary) + meta,
+    };
+};
+
+const openAssistantModelQuickSwitch = (ctx: IAssistantAIDockRuntime, button: HTMLElement) => {
+    const rect = button.getBoundingClientRect();
+    window.sourceflow.menus.menu.remove();
+    const menu = new Menu(`${Constants.MENU_AI}-model-switch`);
+    const profiles = ctx.profiles || [];
+    for (const profile of profiles) {
+        const item = buildAssistantModelSwitchItem(profile, profile.id === ctx.selectedProfileId);
+        menu.addItem({
+            iconHTML: item.iconHTML,
+            label: item.label,
+            click: () => { void ctx.switchProfile(profile.id); },
+        });
+    }
+    menu.addItem({type: "separator"});
+    menu.addItem({
+        iconHTML: "",
+        label: assistantText("管理 AI 配置", "Manage AI profiles"),
+        click: () => ctx.toggleFloatingPanel("profiles"),
+    });
+    if (isMobile()) {
+        menu.fullscreen();
+        return;
+    }
+    menu.open({x: rect.left, y: rect.bottom + 4, h: 0});
+};
 
 export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
     ctx.element.addEventListener("click", (event: MouseEvent) => {
@@ -164,6 +208,11 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
                 }
                 if (action === "toggle-panel") {
                     const panel = (target.getAttribute("data-panel") || "") as TAssistantAIFloatingPanel;
+                    if (panel === "profiles" && target.classList.contains("assistant-ai__model-button") && (ctx.profiles || []).length >= 2) {
+                        openAssistantModelQuickSwitch(ctx, target);
+                        event.preventDefault();
+                        return;
+                    }
                     ctx.toggleFloatingPanel(panel);
                     if (panel === "agent") {
                         void syncAssistantOperationHistoryFromBackend().then(() => ctx.render());

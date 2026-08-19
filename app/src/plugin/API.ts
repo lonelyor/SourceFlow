@@ -463,44 +463,9 @@ const createPluginPlatformUtils = (manifest: IPluginManifest) => {
     };
 };
 
-export const createPluginAPI = (manifest: IPluginManifest) => {
-    const workspaceFetch = withAnyPermission(manifest, ["workspace.read", "workspace.write"], fetchPost);
-    const workspaceSyncFetch = withAnyPermission(manifest, ["workspace.read", "workspace.write"], fetchSyncPost);
-    const workspaceGet = withPermission(manifest, "workspace.read", fetchGet);
-
-    return {
-        ...API,
-        fetchPost: workspaceFetch,
-        fetchSyncPost: workspaceSyncFetch,
-        fetchGet: workspaceGet,
-        fetchRemote: withPermission(manifest, "network.http", window.fetch.bind(window)),
-        confirm: withPermission(manifest, "ui.dialog", confirmDialog),
-        Dialog: createGuardedDialogClass(manifest),
-        Menu: createGuardedMenuClass(manifest),
-        Setting: createGuardedSettingClass(manifest),
-        platformUtils: createPluginPlatformUtils(manifest),
-        openTab: withPermission(manifest, "ui.tab", openTab),
-        openWindow: withPermission(manifest, "ui.tab", openWindow),
-        openMobileFileById: withPermission(manifest, "ui.tab", openMobileFileById),
-        openSetting: withPermission(manifest, "ui.setting", openSetting),
-        openAttributePanel: withPermission(manifest, "workspace.write", openAttributePanel),
-        globalCommand: withPermission(manifest, "ui.command", globalCommand),
-        getActiveEditor: withPermission(manifest, "workspace.read", getActiveEditor),
-        getAllEditor: withPermission(manifest, "workspace.read", getAllEditor),
-        getModelByDockType: withPermission(manifest, "ui.dock", getModelByDockType),
-        expandDocTree: withPermission(manifest, "workspace.read", expandDocTree),
-        openEmoji: withPermission(manifest, "ui.dialog", openEmoji),
-        lockScreen: withPermission(manifest, "host.control", lockScreen),
-        exitSourceFlow: withPermission(manifest, "host.control", exitSourceFlow),
-        /// #if !MOBILE
-        getActiveTab: withPermission(manifest, "ui.tab", getActiveTab),
-        getAllModels: withPermission(manifest, "ui.tab", getAllModels),
-        getAllTabs: withPermission(manifest, "ui.tab", getAllTabs),
-        /// #endif
-    };
-};
-
-export const API = {
+// 不能在模块顶层直接求值：API.ts → tabUtil → util → loader → API.ts 存在循环依赖，
+// 顶层对象字面量读取 Protyle/getActiveTab 等导入绑定会触发 TDZ 崩溃，须延迟到插件加载时构建
+const buildBaseAPI = () => ({
     adaptHotkey: updateHotkeyTip,
     confirm: confirmDialog,
     Constants,
@@ -537,4 +502,41 @@ export const API = {
     globalCommand,
     expandDocTree,
     openEmoji
+});
+
+export const createPluginAPI = (manifest: IPluginManifest) => {
+    const workspaceFetch = withAnyPermission(manifest, ["workspace.read", "workspace.write"], fetchPost);
+    const workspaceSyncFetch = withAnyPermission(manifest, ["workspace.read", "workspace.write"], fetchSyncPost);
+    const workspaceGet = withPermission(manifest, "workspace.read", fetchGet);
+
+    return {
+        ...buildBaseAPI(),
+        fetchPost: workspaceFetch,
+        fetchSyncPost: workspaceSyncFetch,
+        fetchGet: workspaceGet,
+        fetchRemote: withPermission(manifest, "network.http", window.fetch.bind(window)),
+        confirm: withPermission(manifest, "ui.dialog", confirmDialog),
+        Dialog: createGuardedDialogClass(manifest),
+        Menu: createGuardedMenuClass(manifest),
+        Setting: createGuardedSettingClass(manifest),
+        platformUtils: createPluginPlatformUtils(manifest),
+        openTab: withPermission(manifest, "ui.tab", openTab),
+        openWindow: withPermission(manifest, "ui.tab", openWindow),
+        openMobileFileById: withPermission(manifest, "ui.tab", openMobileFileById),
+        openSetting: withPermission(manifest, "ui.setting", openSetting),
+        openAttributePanel: withPermission(manifest, "workspace.write", openAttributePanel),
+        globalCommand: withPermission(manifest, "ui.command", globalCommand),
+        getActiveEditor: withPermission(manifest, "workspace.read", getActiveEditor),
+        getAllEditor: withPermission(manifest, "workspace.read", getAllEditor),
+        getModelByDockType: withPermission(manifest, "ui.dock", getModelByDockType),
+        expandDocTree: withPermission(manifest, "workspace.read", expandDocTree),
+        openEmoji: withPermission(manifest, "ui.dialog", openEmoji),
+        lockScreen: withPermission(manifest, "host.control", lockScreen),
+        exitSourceFlow: withPermission(manifest, "host.control", exitSourceFlow),
+        /// #if !MOBILE
+        getActiveTab: withPermission(manifest, "ui.tab", getActiveTab),
+        getAllModels: withPermission(manifest, "ui.tab", getAllModels),
+        getAllTabs: withPermission(manifest, "ui.tab", getAllTabs),
+        /// #endif
+    };
 };

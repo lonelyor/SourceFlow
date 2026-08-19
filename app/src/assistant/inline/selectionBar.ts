@@ -24,7 +24,7 @@ const state: ISelectionBarState = {
 };
 
 const DEBOUNCE_MS = 200;
-const AUTO_HIDE_MS = 2000;
+const AUTO_HIDE_MS = 5000;
 
 const createSelectionBarElement = () => {
     const element = document.createElement("div");

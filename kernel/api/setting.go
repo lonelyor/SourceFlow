@@ -209,54 +209,6 @@ func setBazaar(c *gin.Context) {
 	ret.Data = bazaar
 }
 
-func setAI(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	arg, ok := util.JsonArg(c, ret)
-	if !ok {
-		return
-	}
-
-	param, err := gulu.JSON.MarshalJSON(arg)
-	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-
-	ai := &conf.AI{}
-	if err = gulu.JSON.UnmarshalJSON(param, ai); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-
-	if 5 > ai.OpenAI.APITimeout {
-		ai.OpenAI.APITimeout = 5
-	}
-	if 600 < ai.OpenAI.APITimeout {
-		ai.OpenAI.APITimeout = 600
-	}
-
-	if 0 > ai.OpenAI.APIMaxTokens {
-		ai.OpenAI.APIMaxTokens = 0
-	}
-
-	if 0 >= ai.OpenAI.APITemperature || 2 < ai.OpenAI.APITemperature {
-		ai.OpenAI.APITemperature = 1.0
-	}
-
-	if 1 > ai.OpenAI.APIMaxContexts || 64 < ai.OpenAI.APIMaxContexts {
-		ai.OpenAI.APIMaxContexts = 7
-	}
-
-	model.Conf.AI = ai
-	model.Conf.Save()
-
-	ret.Data = ai
-}
-
 func setFlashcard(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

@@ -229,6 +229,12 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
     const apiKeyMasked = !!state.draft.hasAPIKey && apiKeyValue === ASSISTANT_SECRET_MASK;
     const advancedSummary = assistantText("无响应超时、输出长度、Temperature 和上下文预算。", "No-response timeout, output size, temperature, and context budget.");
     const toolSummary = assistantText("读取/写入范围、留痕和各工具权限。", "Read/write scope, trace mode, and per-tool permissions.");
+    // C4 visibility: show the resolved model context window so users see what
+    // C1/C3 captured for the selected model.
+    const resolvedContextWindow = getIntSetting(state.draft.settings as Record<string, unknown> | undefined, "contextWindow", 0);
+    const contextWindowHint = resolvedContextWindow > 0
+        ? assistantText(`当前模型上下文窗口：约 ${(resolvedContextWindow / 1000).toFixed(0)}K tokens（笔记正文按此动态分配）`, `Current model window: ~${(resolvedContextWindow / 1000).toFixed(0)}K tokens (note context is sized to this)`)
+        : assistantText("当前模型上下文窗口：未知，将按提供商默认预算。", "Current model window: unknown; uses the provider default budget.");
     const wrapperClasses = ["assistant-profiles", "fn__flex"];
     if (options.compact) {
         wrapperClasses.push("assistant-profiles--compact");
@@ -273,31 +279,13 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 </label>
                 <label class="fn__flex-column assistant-profiles__field">
                     <span>API Key</span>
-                    <input type="password" class="b3-text-field" data-field="apiKey" data-secret-masked="${apiKeyMasked ? "true" : "false"}" autocomplete="off" value="${escapeAttr(apiKeyValue)}" placeholder="sk-...">
+                    <input type="password" class="b3-text-field" data-field="apiKey" data-secret-masked="${apiKeyMasked ? "true" : "false"}" autocomplete="off" value="${escapeAttr(apiKeyValue)}" placeholder="${escapeAttr(state.draft.hasAPIKey ? assistantText("已保存，重新输入以更换", "Saved. Re-enter to replace") : "sk-...")}">
                 </label>
             </div>
             <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
                 <span>Base URL</span>
                 <input class="b3-text-field" data-field="baseURL" value="${escapeAttr(state.draft.baseURL || "")}" placeholder="https://api.example.com/v1">
             </label>
-            <div class="assistant-profiles__grid">
-                <label class="fn__flex-column assistant-profiles__field">
-                    <span>${escapeHTML(assistantText("代理", "Proxy"))}</span>
-                    <input class="b3-text-field" data-field="proxy" value="${escapeAttr(state.draft.proxy || "")}" placeholder="http://127.0.0.1:7890">
-                </label>
-                <label class="fn__flex-column assistant-profiles__field">
-                    <span>${escapeHTML(assistantText("版本", "Version"))}</span>
-                    <input class="b3-text-field" data-field="version" value="${escapeAttr(state.draft.version || "")}" placeholder="${escapeAttr(assistantText("可留空", "Optional"))}">
-                </label>
-            </div>
-            <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
-                <span>User-Agent</span>
-                <input class="b3-text-field" data-field="userAgent" value="${escapeAttr(state.draft.userAgent || "")}" placeholder="${escapeAttr(assistantText("留空则使用默认 Chromium/Chrome UA", "Leave empty to use the default Chromium/Chrome UA"))}">
-            </label>
-            <div class="assistant-profiles__test-row fn__flex">
-                <button type="button" class="b3-button b3-button--outline" data-action="test-connection"${state.testing || !state.draft.baseURL ? " disabled" : ""}>${escapeHTML(state.testing ? assistantText("测试中...", "Testing...") : assistantText("测试连通", "Test connection"))}</button>
-                ${state.testResult ? `<span class="assistant-profiles__test-result${state.testResult.ok ? " assistant-profiles__test-result--ok" : " assistant-profiles__test-result--fail"}">${escapeHTML(state.testResult.ok ? assistantText(`连通成功 (${state.testResult.latency}ms)`, `OK (${state.testResult.latency}ms)`) : state.testResult.message)}</span>` : ""}
-            </div>
             <div class="assistant-profiles__section">
                 <button type="button" class="assistant-profiles__section-head" data-action="toggle-advanced">
                     <span class="assistant-profiles__section-title">${escapeHTML(assistantText("高级参数", "Advanced"))}</span>
@@ -305,6 +293,20 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                 </button>
                 <div class="assistant-profiles__summary">${escapeHTML(advancedSummary)}</div>
                 ${state.showAdvanced ? `<div class="assistant-profiles__section-body">
+                    <div class="assistant-profiles__grid">
+                        <label class="fn__flex-column assistant-profiles__field">
+                            <span>${escapeHTML(assistantText("代理", "Proxy"))}</span>
+                            <input class="b3-text-field" data-field="proxy" value="${escapeAttr(state.draft.proxy || "")}" placeholder="http://127.0.0.1:7890">
+                        </label>
+                        <label class="fn__flex-column assistant-profiles__field">
+                            <span>${escapeHTML(assistantText("版本", "Version"))}</span>
+                            <input class="b3-text-field" data-field="version" value="${escapeAttr(state.draft.version || "")}" placeholder="${escapeAttr(assistantText("可留空", "Optional"))}">
+                        </label>
+                    </div>
+                    <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
+                        <span>User-Agent</span>
+                        <input class="b3-text-field" data-field="userAgent" value="${escapeAttr(state.draft.userAgent || "")}" placeholder="${escapeAttr(assistantText("留空则使用默认 Chromium/Chrome UA", "Leave empty to use the default Chromium/Chrome UA"))}">
+                    </label>
                     <div class="assistant-profiles__grid">
                         <label class="fn__flex-column assistant-profiles__field">
                             <span>${escapeHTML(assistantText("无响应超时（秒）", "No-response timeout (s)"))}</span>
@@ -325,6 +327,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                             <input class="b3-text-field" type="number" min="256" step="256" data-setting="maxContextTokens" value="${escapeAttr(`${settings.maxContextTokens}`)}">
                         </label>
                     </div>
+                    <div class="assistant-profiles__summary">${escapeHTML(contextWindowHint)}</div>
                     <div class="assistant-profiles__grid">
                         <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
                             <span>${escapeHTML(assistantText("上下文消息上限", "Context Message Limit"))}</span>
@@ -391,6 +394,8 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
         </div>
         <div class="assistant-profiles__footer fn__flex">
             <button type="button" class="b3-button b3-button--outline" data-action="delete-profile"${state.draft.id ? "" : " disabled"}>${escapeHTML(assistantText("删除", "Delete"))}</button>
+            <button type="button" class="b3-button b3-button--outline" data-action="test-connection"${state.testing || !state.draft.baseURL ? " disabled" : ""}>${escapeHTML(state.testing ? assistantText("测试中...", "Testing...") : assistantText("测试连通", "Test connection"))}</button>
+            ${state.testResult ? `<span class="assistant-profiles__test-result${state.testResult.ok ? " assistant-profiles__test-result--ok" : " assistant-profiles__test-result--fail"}">${escapeHTML(state.testResult.ok ? assistantText(`连通成功 (${state.testResult.latency}ms)`, `OK (${state.testResult.latency}ms)`) : state.testResult.message)}</span>` : ""}
             <div class="fn__flex-1"></div>
             <button type="button" class="b3-button b3-button--text" data-action="save-profile"${state.saving || state.loading ? " disabled" : ""}>${escapeHTML(state.saving ? assistantText("保存中...", "Saving...") : assistantText("保存", "Save"))}</button>
         </div>
@@ -401,6 +406,7 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
 export class AssistantAIProfilesPanel {
     private readonly element: HTMLElement;
     private readonly options: IAssistantAIProfilesPanelOptions;
+    private loadedSnapshot: Partial<IAssistantAIProfile> | null = null;
     private readonly state: IAssistantAIProfilesPanelState = {
         providers: [],
         profiles: [],
@@ -420,8 +426,8 @@ export class AssistantAIProfilesPanel {
     constructor(element: HTMLElement, options: IAssistantAIProfilesPanelOptions = {}) {
         this.element = element;
         this.options = options;
-        this.state.showAdvanced = !options.compact;
-        this.state.showToolPermissions = !options.compact;
+        this.state.showAdvanced = false;
+        this.state.showToolPermissions = false;
         this.bindEvents();
         void this.refresh();
     }
@@ -455,6 +461,7 @@ export class AssistantAIProfilesPanel {
                     toolModes: {...toolCatalog.policy.toolModes},
                 };
             }
+            this.markClean();
         } catch (error) {
             showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
         } finally {
@@ -469,9 +476,16 @@ export class AssistantAIProfilesPanel {
             while (target && !target.isEqualNode(this.element)) {
                 const profileId = target.getAttribute("data-profile-id");
                 if (profileId) {
-                    this.state.selectedId = profileId;
-                    this.state.draft = createDraft(this.state.providers, this.state.profiles.find((item) => item.id === profileId));
-                    this.render();
+                    if (profileId !== this.state.selectedId && this.isDraftDirty()) {
+                        const switchToId = profileId;
+                        confirmDialog(
+                            assistantText("未保存的改动", "Unsaved changes"),
+                            assistantText("当前配置有未保存的改动，确定切换吗？", "This profile has unsaved changes. Switch anyway?"),
+                            () => this.selectProfile(switchToId),
+                        );
+                        return;
+                    }
+                    this.selectProfile(profileId);
                     return;
                 }
                 const action = target.getAttribute("data-action");
@@ -529,6 +543,12 @@ export class AssistantAIProfilesPanel {
         const modelSelect = target.getAttribute("data-field") === "model-select";
         if (modelSelect && target instanceof HTMLSelectElement && target.value) {
             this.syncField("model", target.value);
+            // Stamp the model's real context window onto the draft so note
+            // context is sized per model instead of per provider (C3).
+            const candidate = this.state.modelCandidates.find((item) => item.id === target.value);
+            const settings = (this.state.draft.settings || {}) as Record<string, unknown>;
+            settings.contextWindow = candidate?.contextWindow || 0;
+            this.state.draft.settings = settings;
             this.render();
             return;
         }
@@ -647,6 +667,43 @@ export class AssistantAIProfilesPanel {
         this.state.draft.settings[setting] = Number.isFinite(parsed) ? parsed : assistantAISettingDefaults[setting as keyof typeof assistantAISettingDefaults];
     }
 
+    private selectProfile(profileId: string) {
+        this.state.selectedId = profileId;
+        this.state.draft = createDraft(this.state.providers, this.state.profiles.find((item) => item.id === profileId));
+        this.markClean();
+        this.render();
+    }
+
+    // --- Dirty tracking (S2) --------------------------------------------------
+    // Compares the working draft against the last loaded/saved snapshot so
+    // switching profile or creating a new one warns before silently dropping
+    // unsaved edits. API key is secret-managed and intentionally excluded.
+    private serializeDraft(draft: Partial<IAssistantAIProfile>): string {
+        const settings = (draft.settings || {}) as Record<string, unknown>;
+        return JSON.stringify({
+            name: draft.name,
+            provider: draft.provider,
+            baseURL: draft.baseURL,
+            model: draft.model,
+            proxy: draft.proxy,
+            version: draft.version,
+            userAgent: draft.userAgent,
+            isDefault: draft.isDefault,
+            settings: {...settings},
+        });
+    }
+
+    private isDraftDirty(): boolean {
+        if (!this.loadedSnapshot) {
+            return false;
+        }
+        return this.serializeDraft(this.state.draft) !== this.serializeDraft(this.loadedSnapshot);
+    }
+
+    private markClean() {
+        this.loadedSnapshot = JSON.parse(JSON.stringify(this.state.draft));
+    }
+
     private applyPersonaPreset(persona: string) {
         if (!this.state.draft.settings) {
             this.state.draft.settings = {};
@@ -682,8 +739,22 @@ export class AssistantAIProfilesPanel {
     private async handleAction(action: string) {
         switch (action) {
             case "new-profile":
+                if (this.isDraftDirty()) {
+                    confirmDialog(
+                        assistantText("未保存的改动", "Unsaved changes"),
+                        assistantText("当前配置有未保存的改动，确定新建吗？", "This profile has unsaved changes. Create a new one anyway?"),
+                        () => {
+                            this.state.selectedId = "";
+                            this.state.draft = createDraft(this.state.providers);
+                            this.markClean();
+                            this.render();
+                        },
+                    );
+                    return;
+                }
                 this.state.selectedId = "";
                 this.state.draft = createDraft(this.state.providers);
+                this.markClean();
                 this.render();
                 return;
             case "save-profile":

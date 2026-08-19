@@ -1,6 +1,6 @@
 {
   "name": "SourceFlow",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SourceFlow is a local-first personal knowledge workspace.",
   "homepage": "https://github.com/lonelyor/SourceFlow",
   "main": "./electron/main.js",
@@ -66,6 +66,7 @@
     "test:assistant-source-save": "node ./scripts/testAssistantSourceAndSave.js",
     "test:assistant-secrets": "node ./scripts/testAssistantSecrets.js",
     "test:assistant-input-stability": "node ./scripts/testAssistantInputStability.js",
+    "test:assistant-context-budget": "node ./scripts/testAssistantContextBudget.js",
     "test:keymap-consistency": "node ./scripts/testKeymapConsistency.js",
     "test:toolbar-inline-mark-modules": "node ./scripts/testToolbarInlineMarkModules.js",
     "test:editor-structure-guide": "node ./scripts/testEditorStructureGuide.js",

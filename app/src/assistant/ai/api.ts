@@ -193,6 +193,8 @@ export interface IAssistantAIConnectionTestResult {
 export interface IAssistantAIModelEntry {
     id: string;
     name: string;
+    /** Real model context window (tokens) when the provider exposes it. 0 = unknown. */
+    contextWindow?: number;
 }
 
 export const testAssistantAIConnection = async (payload: {

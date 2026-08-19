@@ -70,6 +70,63 @@ const limitAssistantText = (value: string, limit: number) => {
     return `${runes.slice(0, limit).join("").trim()}\n\n[truncated]`;
 };
 
+// CJK-aware token estimate, mirroring the backend estimator
+// (kernel/model/assistant_ai_provider_compat.go estimateAssistantAITextTokens):
+// CJK / Hangul / kana runes count ~1 token each; other runes ~4 per token.
+// Both sides of the context budget must use the same yardstick, otherwise a
+// runes×4 conversion silently overfeeds small windows with Chinese content.
+const isAssistantCJKRune = (r: string) => {
+    const code = r.codePointAt(0) || 0;
+    return (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK Unified Ideographs
+        (code >= 0x3400 && code <= 0x4DBF) ||       // CJK Extension A
+        (code >= 0x3040 && code <= 0x30FF) ||       // Hiragana / Katakana
+        (code >= 0xAC00 && code <= 0xD7AF) ||       // Hangul Syllables
+        (code >= 0xFF00 && code <= 0xFFEF);         // Fullwidth forms
+};
+
+export const estimateAssistantAITextTokens = (text: string): number => {
+    let tokens = 0;
+    let nonCJK = 0;
+    for (const r of `${text || ""}`) {
+        if (isAssistantCJKRune(r)) {
+            tokens++;
+        } else {
+            nonCJK++;
+        }
+    }
+    tokens += Math.floor(nonCJK / 4);
+    tokens += 16;
+    return Math.max(tokens, 32);
+};
+
+// Truncate so the estimated token cost stays within budget. Degrades to the
+// rune-based limit when no token budget is known.
+const limitAssistantTextByTokens = (value: string, tokenBudget: number) => {
+    const text = `${value || ""}`.trim();
+    if (tokenBudget < 1) {
+        return text;
+    }
+    const runes = Array.from(text);
+    let tokens = 16;
+    let cjk = 0;
+    let nonCJK = 0;
+    for (let i = 0; i < runes.length; i++) {
+        if (isAssistantCJKRune(runes[i])) {
+            cjk++;
+        } else {
+            nonCJK++;
+        }
+        tokens = cjk + Math.floor(nonCJK / 4) + 16;
+        if (tokens > tokenBudget) {
+            return `${runes.slice(0, Math.max(i, 1)).join("").trim()}\n\n[truncated]`;
+        }
+    }
+    return text;
+};
+
+// Legacy fallback for the whole-note cap when no model context window is known.
+// Real allowance is computed per-model in presets.ts (getAssistantAINoteTokenAllowance).
+const ASSISTANT_NOTE_DEFAULT_RUNE_LIMIT = 20000;
 export const buildAssistantMarkdownExcerpt = (markdown: string, fullLimit = 4000, headLimit = 2000, tailLimit = 500) => {
     const text = `${markdown || ""}`.trim();
     const runes = Array.from(text);
@@ -81,7 +138,7 @@ export const buildAssistantMarkdownExcerpt = (markdown: string, fullLimit = 4000
     return `${head}\n\n...\n\n${tail}`;
 };
 
-export const buildAssistantNoteContext = (context: IAssistantNoteContextInput) => {
+export const buildAssistantNoteContext = (context: IAssistantNoteContextInput, noteTokenAllowance?: number) => {
     const sections = buildAssistantContextHeader(context);
     if (`${context.selectedText || ""}`.trim()) {
         sections.push(assistantText("当前选中文本如下，请优先围绕它工作：", "The following text is currently selected. Prioritize it when relevant."));
@@ -97,7 +154,9 @@ export const buildAssistantNoteContext = (context: IAssistantNoteContextInput) =
     }
     sections.push(assistantText("以下是当前文档内容，请在回答时结合这些内容。", "Below is the current note content. Use it as context when answering."));
     sections.push("```markdown");
-    sections.push(limitAssistantText(context.markdown, 20000));
+    sections.push(noteTokenAllowance && noteTokenAllowance > 0
+        ? limitAssistantTextByTokens(context.markdown, noteTokenAllowance)
+        : limitAssistantText(context.markdown, ASSISTANT_NOTE_DEFAULT_RUNE_LIMIT));
     sections.push("```");
     return sections.join("\n\n");
 };
@@ -167,7 +226,7 @@ const appendAssistantCursorWindowSection = (sections: string[], context: IAssist
     });
 };
 
-const appendAssistantDocumentExcerptSection = (sections: string[], context: IAssistantNoteContextInput, mode: "summary" | "full" | "links") => {
+const appendAssistantDocumentExcerptSection = (sections: string[], context: IAssistantNoteContextInput, mode: "summary" | "full" | "links", noteTokenAllowance?: number) => {
     const markdown = `${context.markdown || ""}`.trim();
     if (!markdown) {
         return;
@@ -183,11 +242,15 @@ const appendAssistantDocumentExcerptSection = (sections: string[], context: IAss
         ? assistantText("当前文档全文如下：", "Full current note content:")
         : assistantText("当前文档摘要窗口如下：", "Current note excerpt window:"));
     sections.push("```markdown");
-    sections.push(mode === "full" ? limitAssistantText(markdown, 20000) : buildAssistantMarkdownExcerpt(markdown));
+    sections.push(mode === "full"
+        ? (noteTokenAllowance && noteTokenAllowance > 0
+            ? limitAssistantTextByTokens(markdown, noteTokenAllowance)
+            : limitAssistantText(markdown, ASSISTANT_NOTE_DEFAULT_RUNE_LIMIT))
+        : buildAssistantMarkdownExcerpt(markdown));
     sections.push("```");
 };
 
-export const buildAssistantNoteContextForSkill = (context: IAssistantNoteContextInput, skillId: string) => {
+export const buildAssistantNoteContextForSkill = (context: IAssistantNoteContextInput, skillId: string, noteTokenAllowance?: number) => {
     const sections = buildAssistantContextHeader(context);
     if (assistantSelectionSkillIds.has(skillId)) {
         appendAssistantSelectedTextSection(sections, context);
@@ -201,7 +264,7 @@ export const buildAssistantNoteContextForSkill = (context: IAssistantNoteContext
     }
     if (skillId === "note-polish") {
         appendAssistantOutlineSection(sections, context);
-        appendAssistantDocumentExcerptSection(sections, context, "full");
+        appendAssistantDocumentExcerptSection(sections, context, "full", noteTokenAllowance);
         return sections.join("\n\n");
     }
     if (skillId === "note-links") {
@@ -214,7 +277,7 @@ export const buildAssistantNoteContextForSkill = (context: IAssistantNoteContext
         appendAssistantDocumentExcerptSection(sections, context, "summary");
         return sections.join("\n\n");
     }
-    return buildAssistantNoteContext(context);
+    return buildAssistantNoteContext(context, noteTokenAllowance);
 };
 
 export const getAssistantDockTitles = () => ({

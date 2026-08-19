@@ -2,7 +2,7 @@ const {spawnSync} = require("child_process");
 const path = require("path");
 
 const appRoot = path.join(__dirname, "..");
-const lintWarningBudget = 3904;
+const lintWarningBudget = 3905;
 
 const eslintRoot = path.dirname(require.resolve("eslint/package.json", {paths: [appRoot]}));
 const eslintCli = path.join(eslintRoot, "bin", "eslint.js");

@@ -24,9 +24,7 @@ declare namespace Config {
         /**
          * Access authorization code
          */
-        accessAuthCode: TAccessAuthCode;
-        ai: IAI;
-        api: IAPI;
+        accessAuthCode: TAccessAuthCode;        api: IAPI;
         appearance: IAppearance;
         bazaar: IBazaar;
         /**
@@ -89,74 +87,6 @@ declare namespace Config {
      * Access authorization code
      */
     export type TAccessAuthCode = "" | "*******";
-
-    /**
-     * Artificial Intelligence (AI) related configuration
-     */
-    export interface IAI {
-        openAI: IOpenAI;
-    }
-
-    /**
-     * Open AI related configuration
-     */
-    export interface IOpenAI {
-        /**
-         * API base URL
-         */
-        apiBaseURL: string;
-        /**
-         * API key
-         */
-        apiKey: string;
-        /**
-         * The maximum number of contexts passed when requesting the API
-         */
-        apiMaxContexts: number;
-        /**
-         * Maximum number of tokens (0 means no limit)
-         */
-        apiMaxTokens: number;
-        /**
-         * The model name called by the API
-         */
-        apiModel: TOpenAIAPIModel;
-        /**
-         * API Provider
-         * OpenAI, Azure
-         */
-        apiProvider: TOpenAAPIProvider;
-        /**
-         * API request proxy address
-         */
-        apiProxy: string;
-        /**
-         * Parameter `temperature` that controls the randomness of the generated text
-         */
-        apiTemperature: number;
-        /**
-         * API request timeout (unit: seconds)
-         */
-        apiTimeout: number;
-        /**
-         * API request additional user agent field
-         */
-        apiUserAgent: string;
-        /**
-         * API version number
-         */
-        apiVersion: string;
-    }
-
-    /**
-     * The model name called by the API
-     */
-    export type TOpenAIAPIModel = "gpt-4" | "gpt-4-32k" | "gpt-3.5-turbo" | "gpt-3.5-turbo-16k";
-
-    /**
-     * API Provider
-     */
-    export type TOpenAAPIProvider = "OpenAI" | "Azure";
 
     /**
      * SourceFlow API related configuration

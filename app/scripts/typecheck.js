@@ -244,6 +244,10 @@ const runAssistantInputStabilityTest = () => {
     return runNodeScript("testAssistantInputStability.js");
 };
 
+const runAssistantContextBudgetTest = () => {
+    return runNodeScript("testAssistantContextBudget.js");
+};
+
 const runProductResilienceMatrixTest = () => {
     return runNodeScript("testProductResilienceMatrix.js");
 };
@@ -481,6 +485,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] assistant input stability");
 exitCode = runAssistantInputStabilityTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant context budget");
+exitCode = runAssistantContextBudgetTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

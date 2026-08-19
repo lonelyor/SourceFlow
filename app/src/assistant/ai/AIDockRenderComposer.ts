@@ -4,6 +4,10 @@ import {IAssistantAIInputAttachment, IAssistantAIProfile} from "./api";
 import {getAssistantAIAttachmentDataURL} from "./AIDockShared";
 import type {TAssistantAIDockRenderRuntime} from "./AIDockRender";
 
+// I5: remember the last context signature so the pill can flash once when the
+// followed/pinned note actually changes, instead of on every re-render.
+let lastAssistantAIContextSignature = "";
+
 export const renderAIDockContextStatus = (ctx: TAssistantAIDockRenderRuntime) => {
     const enabledCount = ctx.toolPolicy
         ? ctx.toolCatalog.filter((item) => {
@@ -16,7 +20,15 @@ export const renderAIDockContextStatus = (ctx: TAssistantAIDockRenderRuntime) =>
         ? (ctx.enableTools ? `${assistantText("能力", "Tools")} ${enabledCount}/${ctx.toolCatalog.length}` : assistantText("能力关闭", "Tools off"))
         : assistantText("能力加载中", "Tools loading");
     const attachmentPart = ctx.attachments.length ? ` · ${ctx.getAttachmentSummary(ctx.attachments.length)}` : "";
-    return `<span class="assistant-ai__status-pill">${escapeHTML(truncateText(`${contextPart} · ${toolPart}${attachmentPart}`, 54))}</span>`;
+    const fullText = `${contextPart} · ${toolPart}${attachmentPart}`;
+    const signature = `${ctx.includeCurrentNote ? 1 : 0}:${ctx.getTargetSummary ? ctx.getTargetSummary() : ""}`;
+    const changed = "" !== lastAssistantAIContextSignature && signature !== lastAssistantAIContextSignature;
+    lastAssistantAIContextSignature = signature;
+    const classes = ["assistant-ai__status-pill"];
+    if (changed) {
+        classes.push("assistant-ai__status-pill--changed");
+    }
+    return `<span class="${classes.join(" ")}" title="${escapeAttr(fullText)}">${escapeHTML(truncateText(fullText, 80))}</span>`;
 };
 
 export const renderAIDockComposerAttachments = (ctx: TAssistantAIDockRenderRuntime) => {

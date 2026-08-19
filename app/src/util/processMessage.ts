@@ -4,22 +4,11 @@ import {exportLayout} from "../layout/util";
 import {hideMessage, showMessage} from "../dialog/message";
 import {setStorageVal} from "../protyle/util/compatibility";
 import {Constants} from "../constants";
-import {fetchPost} from "./fetch";
 import {isBrowser} from "./functions";
 
 export const processMessage = (response: IWebSocketData) => {
     if ("msg" === response.cmd) {
-        const id = showMessage(response.msg, response.data.closeTimeout, response.code === 0 ? "info" : "error", response.data.id);
-        document.querySelector("#message #addMicrosoftDefenderExclusion")?.addEventListener("click", (event) => {
-            (event.target as HTMLElement).innerHTML = '<svg class="fn__rotate" style="margin-right: 0;"><use xlink:href="#iconRefresh"></use></svg>';
-            fetchPost("/api/system/addMicrosoftDefenderExclusion", {}, () => {
-                hideMessage(id);
-            });
-        }, {once: true});
-        document.querySelector("#message #ignoreAddMicrosoftDefenderExclusion")?.addEventListener("click", () => {
-            hideMessage(id);
-            fetchPost("/api/system/ignoreAddMicrosoftDefenderExclusion");
-        }, {once: true});
+        showMessage(response.msg, response.data.closeTimeout, response.code === 0 ? "info" : "error", response.data.id);
         return false;
     }
     if ("cmsg" === response.cmd) {

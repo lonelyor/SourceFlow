@@ -59,7 +59,7 @@ const registry: Record<TAssistantSkillId, IAssistantSkillDefinition> = {
     "selection-rewrite": {
         id: "selection-rewrite",
         placement: "selection",
-        label: assistantText("改写选中内容", "Rewrite Selection"),
+        label: assistantText("改写", "Rewrite"),
         shortLabel: assistantText("改写", "Rewrite"),
         description: assistantText("保留原意，让表达更顺。", "Keep the meaning but improve the wording."),
         output: "plain-text",
@@ -503,3 +503,56 @@ export const listAssistantSkills = (placement?: TAssistantSkillPlacement) => {
     }
     return items.filter((item) => item.placement === placement || item.id === "ask-ai");
 };
+
+// I8: skill menu grouping. Skills are categorized into a small set of stable
+// groups so the in-note menu reads as labeled sections instead of a flat wall
+// of 13–19 buttons. ask-ai is rendered separately (prominent chat entry).
+export type TAssistantSkillGroup = "write" | "digest" | "convert" | "capture" | "agent";
+
+export const assistantSkillGroupOrder: TAssistantSkillGroup[] = ["write", "digest", "convert", "capture", "agent"];
+
+export const getAssistantSkillGroupLabel = (group: TAssistantSkillGroup) => {
+    switch (group) {
+        case "write": return assistantText("写作", "Writing");
+        case "digest": return assistantText("总结与问答", "Summarize & Q&A");
+        case "convert": return assistantText("转换", "Convert");
+        case "capture": return assistantText("捕获", "Capture");
+        case "agent": return assistantText("智能体", "Agent");
+        default: return group;
+    }
+};
+
+const assistantSkillGroupMap: Record<string, TAssistantSkillGroup> = {
+    "note-create": "write",
+    "note-continue-writing": "write",
+    "selection-rewrite": "write",
+    "note-polish": "write",
+    "selection-summarize": "digest",
+    "selection-keypoints": "digest",
+    "selection-qa": "digest",
+    "note-summarize": "digest",
+    "note-outline": "digest",
+    "note-qa": "digest",
+    "note-flashcards": "digest",
+    "note-highlight-keypoints": "digest",
+    "selection-translate": "convert",
+    "note-translate-mixed": "convert",
+    "note-translate-replace": "convert",
+    "selection-mermaid": "convert",
+    "selection-table": "convert",
+    "selection-mind-elixir": "convert",
+    "selection-to-chart": "convert",
+    "selection-desensitize": "convert",
+    "selection-task": "capture",
+    "selection-reminder": "capture",
+    "note-task": "capture",
+    "note-reminder": "capture",
+    "note-batch-instruct": "agent",
+    "note-links": "agent",
+    "note-health": "agent",
+    "note-extract-tasks": "agent",
+    "note-create-project": "agent",
+    "note-auto-tag": "agent",
+};
+
+export const getAssistantSkillGroup = (id: string): TAssistantSkillGroup => assistantSkillGroupMap[id] || "agent";

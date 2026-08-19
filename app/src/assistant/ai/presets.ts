@@ -96,3 +96,60 @@ const getFloatSetting = (settings: Record<string, unknown> | undefined, key: str
     const value = typeof raw === "number" ? raw : parseFloat(`${raw || fallback}`);
     return Number.isFinite(value) ? value : fallback;
 };
+
+// --- Dynamic context budgeting ------------------------------------------------
+// Modern models ship 256k–1M windows; we must size note context to the actual
+// model instead of the legacy hardcoded 20000-char cap. See
+// plans/20260812-AI上下文动态预算.md (C1–C3).
+
+const ASSISTANT_AI_FALLBACK_CONTEXT_WINDOW = 256 * 1024;
+const ASSISTANT_AI_MIN_NOTE_TOKENS = 2000;
+const ASSISTANT_AI_SYSTEM_OVERHEAD_TOKENS = 1500;
+
+/**
+ * Resolve the effective model context window (tokens) for a profile.
+ * Priority: model-resolved contextWindow → profile budget (maxContextTokens,
+ * which already inherits the provider catalog default at profile creation) →
+ * conservative fallback. Never returns 0.
+ */
+export const resolveAssistantAIContextWindow = (profile: { settings?: Record<string, unknown> } | null | undefined): number => {
+    const settings = profile?.settings;
+    const modelWindow = getIntSetting(settings, "contextWindow", 0);
+    if (modelWindow > 0) {
+        return modelWindow;
+    }
+    const budget = getIntSetting(settings, "maxContextTokens", 0);
+    if (budget > 0) {
+        return budget;
+    }
+    return ASSISTANT_AI_FALLBACK_CONTEXT_WINDOW;
+};
+
+/**
+ * Compute the note-body token budget, derived from the model's real context
+ * window minus reserves for output, system prompt and conversation history.
+ * Replaces the old fixed cap so large models are not truncated needlessly
+ * while small models are not overfed. The budget is in estimated tokens
+ * (CJK-aware, same yardstick as the backend estimator), NOT runes — a CJK
+ * rune costs ~1 token, so a naive runes×4 conversion would overfeed small
+ * windows by 4x for Chinese content.
+ */
+export const computeAssistantAINoteTokenAllowance = (
+    contextWindow: number,
+    settings?: Record<string, unknown> | null,
+): number => {
+    const maxTokens = getIntSetting(settings, "maxTokens", 0);
+    const maxContextMessages = getIntSetting(settings, "maxContextMessages", assistantAISettingDefaults.maxContextMessages);
+    const outputReserve = maxTokens > 0 ? maxTokens : 4096;
+    const historyReserve = Math.min(maxContextMessages * 512, Math.floor(contextWindow * 0.5));
+    let noteTokens = contextWindow - outputReserve - ASSISTANT_AI_SYSTEM_OVERHEAD_TOKENS - historyReserve;
+    if (noteTokens < ASSISTANT_AI_MIN_NOTE_TOKENS) {
+        noteTokens = ASSISTANT_AI_MIN_NOTE_TOKENS;
+    }
+    return noteTokens;
+};
+
+/** Convenience: profile → token allowance for the note body, in one call. */
+export const getAssistantAINoteTokenAllowance = (profile: { settings?: Record<string, unknown> } | null | undefined): number => {
+    return computeAssistantAINoteTokenAllowance(resolveAssistantAIContextWindow(profile), profile?.settings);
+};

@@ -48,10 +48,8 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
             "flashcardFSRSParamMaximumInterval", "flashcardFSRSParamMaximumIntervalTip", "flashcardFSRSParamWeights",
             "flashcardFSRSParamWeightsTip", "reviewMode", "reviewModeTip"]),
 
-        // AI
-        ["AI"].concat(getLang(["ai", "apiTimeout", "apiTimeoutTip", "apiMaxTokens", "apiMaxTokensTip", "apiKey",
-            "apiKeyTip", "apiProxy", "apiProxyTip", "apiBaseURL", "apiBaseURLTip", "apiUserAgentTip", "apiVersion", "apiVersionTip",
-            "apiProvider", "apiProviderTip", "apiTemperature", "apiTemperatureTip", "apiMaxContexts", "apiMaxContextsTip",
+        // AI（已移除遗留 api* 字段，它们在新版 ProfilesPanel 中无对应 UI）
+        ["AI"].concat(getLang(["ai",
             "aiAssistant", "aiAskCurrentNote", "aiPinCurrentNoteTarget", "aiClearTargetNote", "aiAskCurrentBlock", "aiAnalyzeCurrentBlockContext", "aiAnalyzeCurrentBlockReferences", "aiReadCurrentNoteAssets", "aiSummarizeCurrentNote", "aiAnalyzeCurrentNoteLinks", "aiAnalyzeCurrentNoteOutline", "aiAnalyzeCurrentNoteHistory", "aiAnalyzeRestorePoints", "aiPolishCurrentNote", "aiExtractTasksCurrentNote", "aiCreateChildNoteCurrentNote", "aiContinueAfterCurrentBlock", "aiCreateProjectCurrentNote", "aiSummarizeWorkbench", "aiPlanWorkbench"])),
 
         // 资源

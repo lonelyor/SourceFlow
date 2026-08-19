@@ -8,6 +8,7 @@ import {fetchPost} from "../util/fetch";
 import {genLangOptions, genOptions} from "../util/genOptions";
 import {openSnippets} from "./util/snippets";
 import {loadAssets, setInlineStyle} from "../util/assets";
+import {rerenderMermaidBlocks} from "../protyle/render/mermaidRender";
 import {resetFloatDockSize} from "../layout/dock/util";
 import {confirmDialog} from "../dialog/confirmDialog";
 import {showMessage} from "../dialog/message";
@@ -1287,6 +1288,7 @@ export const appearance = {
         syncMascotControls(appearance.element);
     },
     onSetAppearance(data: Config.IAppearance) {
+        const previousMode = window.sourceflow.config.appearance.mode;
         if (data.lang !== window.sourceflow.config.appearance.lang) {
             exportLayout({
                 cb() {
@@ -1410,6 +1412,9 @@ export const appearance = {
         applyFileTreeAppearance(data);
         refreshAllFileTreeTotalCounts();
         loadAssets(data);
+        if (data.mode !== previousMode) {
+            rerenderMermaidBlocks();
+        }
         applyAccentColorCSS(data.accentColor || "");
         document.querySelector("#barMode use")?.setAttribute("xlink:href", `#icon${window.sourceflow.config.appearance.modeOS ? "Mode" : (window.sourceflow.config.appearance.mode === 0 ? "Light" : "Dark")}`);
     }

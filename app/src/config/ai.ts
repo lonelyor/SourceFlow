@@ -34,8 +34,19 @@ let embeddingConfig: TAssistantEmbeddingConfig | null = null;
 let securityConfig: ISecurityConfig | null = null;
 let securityConfigError = "";
 
+// S5: the embedding backend always calls {baseURL}/embeddings (OpenAI-compatible),
+// so only these two provider shapes make sense here. Exposing the choice lets
+// users reuse their main-panel provider and keeps the saved config honest
+// (previously it hardcoded "openai-compatible" while defaulting to "ollama").
+const embeddingProviderOptions = [
+    {id: "openai-compatible", name: "OpenAI Compatible", baseURL: "https://api.openai.com/v1"},
+    {id: "ollama", name: "Ollama", baseURL: "http://127.0.0.1:11434/v1"},
+];
+
+const embeddingProviderBaseURL = (provider: string) => embeddingProviderOptions.find((opt) => opt.id === provider)?.baseURL || "";
+
 const embeddingSectionHTML = () => {
-    const cfg = embeddingConfig || {provider: "", baseURL: "", apiKey: "", model: "", enabled: false};
+    const cfg = embeddingConfig || {provider: "openai-compatible", baseURL: "", apiKey: "", model: "", enabled: false};
     const apiKeyValue = getAssistantSecretInputValue(!!cfg.hasAPIKey);
     return `<div class="assistant-config__section b3-label fn__flex-column">
     <div class="fn__flex config__item">
@@ -45,6 +56,14 @@ const embeddingSectionHTML = () => {
         </div>
         <span class="fn__space"></span>
         <input type="checkbox" id="embeddingEnabled" class="b3-switch fn__flex-center"${cfg.enabled ? " checked" : ""}>
+    </div>
+    <div class="fn__hr"></div>
+    <div class="fn__flex config__item">
+        <div class="fn__flex-center fn__flex-1">${escapeHTML(assistantText("Embedding 提供商", "Embedding Provider"))}</div>
+        <span class="fn__space"></span>
+        <select class="b3-select fn__flex-center fn__size200" id="embeddingProvider">
+            ${embeddingProviderOptions.map((opt) => `<option value="${escapeAttr(opt.id)}"${opt.id === cfg.provider ? " selected" : ""}>${escapeHTML(opt.name)}</option>`).join("")}
+        </select>
     </div>
     <div class="fn__hr"></div>
     <div class="fn__flex config__item">
@@ -84,7 +103,7 @@ const loadEmbeddingConfig = (container: HTMLElement) => {
         if (response.code === 0 && response.data) {
             embeddingConfig = response.data;
         } else {
-            embeddingConfig = {provider: "ollama", baseURL: "", apiKey: "", model: "", enabled: false};
+            embeddingConfig = {provider: "openai-compatible", baseURL: "", apiKey: "", model: "", enabled: false};
         }
         renderEmbeddingSection(container);
         bindEmbeddingEvents(container);
@@ -117,15 +136,28 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
         });
     }
 
+    const providerSelect = container.querySelector("#embeddingProvider") as HTMLSelectElement | null;
+    const baseURLInput = container.querySelector("#embeddingBaseURL") as HTMLInputElement | null;
+    if (providerSelect && baseURLInput) {
+        providerSelect.addEventListener("change", () => {
+            const current = baseURLInput.value.trim();
+            const known = embeddingProviderOptions.some((opt) => opt.baseURL === current);
+            if (!current || known) {
+                baseURLInput.value = embeddingProviderBaseURL(providerSelect.value);
+            }
+        });
+    }
+
     const saveBtn = container.querySelector("#embeddingSave");
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
             const enabled = (container.querySelector("#embeddingEnabled") as HTMLInputElement)?.checked || false;
-            const baseURL = (container.querySelector("#embeddingBaseURL") as HTMLInputElement)?.value || "";
+            const baseURL = baseURLInput?.value || "";
             const model = (container.querySelector("#embeddingModel") as HTMLInputElement)?.value || "";
+            const provider = providerSelect?.value || embeddingConfig?.provider || "openai-compatible";
             const secret = getAssistantSecretPayloadFromInput(!!embeddingConfig?.hasAPIKey, apiKeyInput);
             const config: TAssistantEmbeddingConfig = {
-                provider: "openai-compatible",
+                provider,
                 baseURL,
                 apiKey: secret.apiKey,
                 apiKeyAction: secret.apiKeyAction,

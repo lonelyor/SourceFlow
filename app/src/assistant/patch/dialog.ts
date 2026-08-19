@@ -1,4 +1,5 @@
 import {Dialog} from "../../dialog";
+import {isMobile} from "../../util/functions";
 import {showMessage} from "../../dialog/message";
 import {writeText} from "../../protyle/util/compatibility";
 import {assistantText} from "../constants";
@@ -52,12 +53,19 @@ export const openAssistantPatchReviewDialog = (options: IAssistantPatchReviewOpt
         <button type="button" class="b3-button b3-button--cancel" data-action="close">${escapeHTML(window.sourceflow.languages.close)}</button>
     </div>
 </div>`;
+    // I9: on desktop the patch review docks to the right as a non-modal side
+    // panel (see .assistant-patch-review--side), so the note stays visible and
+    // scrollable while each operation is reviewed. Mobile keeps a normal dialog.
+    const mobileView = isMobile();
     const dialog = new Dialog({
         title: options.title,
-        width: "760px",
-        height: "76vh",
+        width: mobileView ? "92vw" : "min(460px, 40vw)",
+        height: mobileView ? "80vh" : "calc(100vh - 32px)",
         content: renderContent(),
     });
+    if (!mobileView) {
+        dialog.element.classList.add("assistant-patch-review--side");
+    }
     let cleanedUp = false;
     const cleanup = (settled = true) => {
         if (cleanedUp) {

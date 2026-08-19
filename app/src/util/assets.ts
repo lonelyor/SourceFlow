@@ -20,6 +20,7 @@ import {
     isWin11
 } from "../protyle/util/compatibility";
 import {setCodeTheme} from "../protyle/render/util";
+import {rerenderMermaidBlocks} from "../protyle/render/mermaidRender";
 import {getBackend, getFrontend} from "./functions";
 import {applyEditorCursor, normalizeEditorCursorColor, shouldUseCustomEditorCursorOverlay} from "../editor/cursor";
 import {
@@ -292,6 +293,7 @@ export const initAssets = () => {
             }
             window.sourceflow.config.appearance = response.data.appearance;
             loadAssets(response.data.appearance);
+            rerenderMermaidBlocks();
         });
     });
 };

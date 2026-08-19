@@ -1,6 +1,7 @@
 import {showMessage} from "../../dialog/message";
 import {writeText} from "../../protyle/util/compatibility";
 import {assistantText, ASSISTANT_ANALYZE_PROMPT, buildAssistantNoteContext} from "../constants";
+import {getAssistantAINoteTokenAllowance} from "./presets";
 import {formatTranscriptMarkdown, saveMarkdownAsAssistantNote, appendMarkdownToCurrentNote} from "../common/note";
 import {nl2br, truncateText} from "../common/dom";
 import {
@@ -417,7 +418,7 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         if (ctx.includeCurrentNote) {
             currentNote = await ctx.resolveMessageContext();
             if (currentNote) {
-                system = buildAssistantNoteContext(currentNote);
+                system = buildAssistantNoteContext(currentNote, getAssistantAINoteTokenAllowance(profile));
             }
         }
         if (resolvedSourcesSnapshot.length) {

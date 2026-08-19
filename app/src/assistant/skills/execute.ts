@@ -3,6 +3,7 @@ import {showMessage} from "../../dialog/message";
 import {writeText} from "../../protyle/util/compatibility";
 import {App} from "../../index";
 import {assistantText, buildAssistantNoteContextForSkill} from "../constants";
+import {getAssistantAINoteTokenAllowance} from "../ai/presets";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {
     getActiveEditorProtyle,
@@ -10,7 +11,8 @@ import {
     ICurrentNoteContext
 } from "../common/note";
 import {buildMentionSourcesFromNoteContext} from "../common/source";
-import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
+import {streamAssistantAI} from "../ai/api";
+import {ensureAssistantAIProfileOrGuide} from "../ai/profileGuard";
 import {reportAssistantRuntimeError} from "../runtime";
 import {buildAssistantPatchFromSkillResult, createAssistantPatchID, isAssistantPatchableSkill} from "../patch/build";
 import {openAssistantPatchReviewDialog} from "../patch/dialog";
@@ -56,16 +58,77 @@ const resolveSkillContext = async (options: IRunAssistantSkillOptions): Promise<
     };
 };
 
-const chooseTargetLanguage = () => {
+// I6: an in-app language picker instead of a raw window.prompt, matching the
+// rest of the assistant UI. Offers common quick-picks plus free text.
+const chooseTargetLanguage = (): Promise<string> => {
     const fallback = assistantText("中文", "English");
-    return `${window.prompt(assistantText("翻译成哪种语言？", "Translate into which language?"), fallback) || fallback}`.trim() || fallback;
+    const quickPicks = [
+        assistantText("中文", "Chinese"),
+        "English",
+        "日本語",
+        "繁體中文",
+        "한국어",
+        "Français",
+        "Deutsch",
+        "Español",
+    ];
+    return new Promise((resolve) => {
+        let resolved = false;
+        const inputId = "assistantTranslateLangInput";
+        const finish = (value: string) => {
+            if (resolved) {
+                return;
+            }
+            resolved = true;
+            dialog.destroy();
+            resolve(value);
+        };
+        const dialog = new Dialog({
+            title: assistantText("翻译成哪种语言？", "Translate into which language?"),
+            width: "380px",
+            content: `<div class="b3-dialog__content fn__flex-column" style="gap:8px;">
+    <div class="fn__flex" style="gap:6px;flex-wrap:wrap;">
+        ${quickPicks.map((lang) => `<button type="button" class="b3-button b3-button--text assistant-translate-lang-quick" data-lang="${escapeAttr(lang)}">${escapeHTML(lang)}</button>`).join("")}
+    </div>
+    <input class="b3-text-field" id="${inputId}" placeholder="${escapeAttr(assistantText("或输入其它语言…", "Or type another language…"))}" value="${escapeAttr(fallback)}">
+</div>
+<div class="b3-dialog__action">
+    <button class="b3-button b3-button--cancel" data-action="cancel">${window.sourceflow.languages.cancel}</button><div class="fn__space"></div>
+    <button class="b3-button b3-button--text" data-action="confirm">${window.sourceflow.languages.confirm}</button>
+</div>`,
+        });
+        dialog.element.setAttribute("data-key", "assistant-translate-language");
+        const inputEl = dialog.element.querySelector(`#${inputId}`) as HTMLInputElement;
+        dialog.element.addEventListener("click", (event) => {
+            const target = event.target as HTMLElement;
+            const quickLang = target.getAttribute("data-lang");
+            if (quickLang) {
+                finish(quickLang);
+                return;
+            }
+            const action = target.getAttribute("data-action");
+            if (action === "confirm") {
+                finish(`${inputEl?.value || ""}`.trim() || fallback);
+                return;
+            }
+            if (action === "cancel") {
+                finish("");
+            }
+        });
+        inputEl?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                finish(`${inputEl.value || ""}`.trim() || fallback);
+            }
+        });
+    });
 };
 
 const loadFullTextDialogModule = () => import("../translate/fullTextDialog");
 
 const ensureSkillParams = async (definition: IAssistantSkillDefinition): Promise<IAssistantSkillParams | null> => {
     if (definition.id === "selection-translate") {
-        const targetLanguage = chooseTargetLanguage();
+        const targetLanguage = await chooseTargetLanguage();
         if (!targetLanguage) {
             return null;
         }
@@ -84,10 +147,6 @@ const ensureSkillParams = async (definition: IAssistantSkillDefinition): Promise
         return {targetLanguage: result.targetLanguage};
     }
     return {};
-};
-
-const ensureDefaultProfile = async () => {
-    return getAssistantAIDefaultProfile();
 };
 
 const openAssistantChatDock = async (options: {
@@ -502,6 +561,24 @@ const openSkillResultDialog = (definition: IAssistantSkillDefinition, context: I
     });
 };
 
+const classifyAssistantSkillError = (error: unknown): string => {
+    const raw = error instanceof Error ? error.message : String(error);
+    const lower = raw.toLowerCase();
+    if (lower.includes("401") || lower.includes("unauthorized") || lower.includes("api key") || lower.includes("apikey") || lower.includes("invalid_api_key")) {
+        return assistantText(
+            `API Key 无效或未授权（${raw}）。请到 AI 设置检查 Key 与提供商。`,
+            `Invalid or unauthorized API key (${raw}). Check the key and provider in AI settings.`,
+        );
+    }
+    if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("connection") || lower.includes("network") || lower.includes("econnreset") || lower.includes("socket")) {
+        return assistantText(
+            `网络或超时错误（${raw}）。请检查网络、代理后重试。`,
+            `Network or timeout error (${raw}). Check your network/proxy and retry.`,
+        );
+    }
+    return raw;
+};
+
 const createSkillLoadingDialog = (definition: IAssistantSkillDefinition, context: IAssistantSkillContext) => {
     const dialog = new Dialog({
         title: definition.label,
@@ -514,6 +591,9 @@ const createSkillLoadingDialog = (definition: IAssistantSkillDefinition, context
     </div>
     <div class="assistant-skill-dialog__loading-hint">${escapeHTML(assistantText("正在生成，完成后会进入审阅或结果预览。", "Generating now. The result will open for review or preview when it finishes..."))}</div>
     <div class="assistant-skill-dialog__preview assistant-skill-dialog__preview--text" data-role="stream-preview">${escapeHTML(assistantText("准备中...", "Preparing..."))}</div>
+    <div class="assistant-skill-dialog__actions">
+        <button type="button" class="b3-button b3-button--outline" data-action="stop-generation">${escapeHTML(assistantText("停止生成", "Stop generating"))}</button>
+    </div>
 </div>`,
     });
     dialog.element.setAttribute("data-key", "assistant-skill-loading");
@@ -566,14 +646,17 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             sources,
         });
     }
-    const profile = await ensureDefaultProfile();
+    const profile = await ensureAssistantAIProfileOrGuide(options.app);
     if (!profile) {
-        showMessage(assistantText("请先配置至少一个 AI 模型", "Configure at least one AI profile first"), 5000, "error");
         return false;
     }
     const useGhostDraft = isAssistantPatchableSkill(definition);
     const loadingDialog = useGhostDraft ? null : createSkillLoadingDialog(definition, context);
     const ghostDraft = useGhostDraft ? createAssistantGhostDraft(definition, context) : null;
+    const abortController = new AbortController();
+    if (loadingDialog) {
+        loadingDialog.element.querySelector('[data-action="stop-generation"]')?.addEventListener("click", () => abortController.abort());
+    }
     try {
         let partialReply = "";
         let previewTimer = 0;
@@ -590,10 +673,11 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
             mode: "chat",
             title: requestTitle,
             message: definition.buildMessage(context, params),
-            system: context.note ? buildAssistantNoteContextForSkill(context.note, definition.id) : "",
+            system: context.note ? buildAssistantNoteContextForSkill(context.note, definition.id, getAssistantAINoteTokenAllowance(profile)) : "",
             enableTools: definition.allowTools === true,
             context: context.note || undefined,
         }, {
+            signal: abortController.signal,
             onDelta: (delta) => {
                 partialReply += delta;
                 if (!previewTimer) {
@@ -669,7 +753,11 @@ export const runAssistantSkill = async (options: IRunAssistantSkillOptions) => {
     } catch (error) {
         ghostDraft?.destroy();
         loadingDialog?.destroy();
-        showMessage(error instanceof Error ? error.message : String(error), 5000, "error");
+        if (abortController.signal.aborted) {
+            showMessage(assistantText("已停止生成", "Generation stopped"), 3000);
+            return false;
+        }
+        showMessage(classifyAssistantSkillError(error), 6000, "error");
         return false;
     }
 };

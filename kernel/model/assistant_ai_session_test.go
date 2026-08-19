@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lonelyor/sourceflow/kernel/conf"
 	"github.com/lonelyor/sourceflow/kernel/util"
 )
 
@@ -194,54 +193,5 @@ func TestAssistantAIProfileAPIKeyActions(t *testing.T) {
 		Settings:     loaded.Settings,
 	}); err == nil {
 		t.Fatal("replace API key action with blank key should fail")
-	}
-}
-
-func TestAssistantAIProfileDoesNotSyncLegacyOpenAIConfig(t *testing.T) {
-	withAssistantAISessionTestDB(t)
-	oldConf := Conf
-	Conf = &AppConf{AI: conf.NewAI()}
-	Conf.AI.OpenAI.APIKey = "legacy-key"
-	Conf.AI.OpenAI.APIModel = "legacy-model"
-	t.Cleanup(func() {
-		Conf = oldConf
-	})
-
-	if _, err := SaveAssistantAIProfile(&AssistantAIProfile{
-		Name:         "Fake",
-		Provider:     AssistantAIProviderFake,
-		BaseURL:      "sourceflow://fake",
-		APIKey:       "profile-key",
-		APIKeyAction: AssistantAPIKeyActionReplace,
-		Model:        "sourceflow-fake-chat",
-	}); err != nil {
-		t.Fatalf("save profile: %s", err)
-	}
-
-	if Conf.AI.OpenAI.APIKey != "legacy-key" {
-		t.Fatalf("legacy OpenAI API key should not be synced from ai_profiles, got %q", Conf.AI.OpenAI.APIKey)
-	}
-	if Conf.AI.OpenAI.APIModel != "legacy-model" {
-		t.Fatalf("legacy OpenAI model should not be synced from ai_profiles, got %q", Conf.AI.OpenAI.APIModel)
-	}
-}
-
-func TestAssistantAIProfilesDoNotBootstrapFromLegacyOpenAIConfig(t *testing.T) {
-	withAssistantAISessionTestDB(t)
-	oldConf := Conf
-	Conf = &AppConf{AI: conf.NewAI()}
-	Conf.AI.OpenAI.APIKey = "legacy-key"
-	Conf.AI.OpenAI.APIModel = "legacy-model"
-	Conf.AI.OpenAI.APIBaseURL = "https://legacy.example.com/v1"
-	t.Cleanup(func() {
-		Conf = oldConf
-	})
-
-	profiles, err := ListAssistantAIProfiles()
-	if err != nil {
-		t.Fatalf("list profiles: %s", err)
-	}
-	if 0 != len(profiles) {
-		t.Fatalf("legacy OpenAI config must not bootstrap assistant AI profiles, got %d", len(profiles))
 	}
 }

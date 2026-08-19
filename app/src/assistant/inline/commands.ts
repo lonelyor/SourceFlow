@@ -1,9 +1,11 @@
 import {Dialog} from "../../dialog";
 import {showMessage} from "../../dialog/message";
 import {assistantText, buildAssistantNoteContextForSkill} from "../constants";
+import {getAssistantAINoteTokenAllowance} from "../ai/presets";
 import {escapeAttr, escapeHTML, truncateText} from "../common/dom";
 import {getNoteContextFromProtyle} from "../common/note";
-import {getAssistantAIDefaultProfile, streamAssistantAI} from "../ai/api";
+import {streamAssistantAI} from "../ai/api";
+import {ensureAssistantAIProfileOrGuide} from "../ai/profileGuard";
 import {buildAssistantPatchFromSkillResult} from "../patch/build";
 import {openAssistantPatchReviewDialog} from "../patch/dialog";
 import {createAssistantGhostDraft} from "../ghost/draft";
@@ -89,9 +91,8 @@ export const runAssistantInlineInstruction = async (options: IAssistantInlineCom
         showMessage(assistantText("当前选区已连续调整 3 轮，请先接受或重新选择内容。", "This selection has already been refined 3 times. Accept it or select content again."), 5000, "error");
         return false;
     }
-    const profile = await getAssistantAIDefaultProfile();
+    const profile = await ensureAssistantAIProfileOrGuide(options.protyle?.app);
     if (!profile) {
-        showMessage(assistantText("请先配置至少一个 AI 模型", "Configure at least one AI profile first"), 5000, "error");
         return false;
     }
     rememberAssistantInlineInstruction(instruction);
@@ -103,7 +104,7 @@ export const runAssistantInlineInstruction = async (options: IAssistantInlineCom
             mode: "chat",
             title: truncateText(`${assistantText("内联指令", "Inline")} ${context.note.title || ""}`, 72),
             message: buildInlineInstructionMessage(instruction, context, options.previousResultText),
-            system: buildAssistantNoteContextForSkill(context.note, "selection-rewrite"),
+            system: buildAssistantNoteContextForSkill(context.note, "selection-rewrite", getAssistantAINoteTokenAllowance(profile)),
             enableTools: false,
             context: context.note,
         }, {

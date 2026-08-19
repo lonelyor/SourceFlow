@@ -20,7 +20,7 @@ import {
 } from "../../util/selection";
 import {Constants} from "../../../constants";
 import {isMobile} from "../../../util/functions";
-import {previewDocImage} from "../../preview/image";
+import {previewDocImage, previewSvg} from "../../preview/image";
 import {
     contentMenu,
     enterBack,
@@ -102,6 +102,7 @@ import {hideTooltip} from "../../../dialog/tooltip";
 import {openGalleryItemMenu} from "../../render/av/gallery/util";
 import {clearSelect} from "../../util/clear";
 import {chartRender} from "../../render/chartRender";
+import {mermaidRender} from "../../render/mermaidRender";
 import {reloadProtyle} from "../../util/reload";
 import {updateCalloutType} from "../callout";
 import {nbsp2space, removeZWJ} from "../../util/normalizeText";
@@ -115,6 +116,15 @@ export const registerClickEvents = (wysiwyg: WYSIWYGEventContext, protyle: IProt
             if (event.target.tagName === "IMG" && !event.target.classList.contains("emoji")) {
                 previewDocImage((event.target as HTMLElement).getAttribute("src"), protyle.block.rootID);
                 return;
+            }
+            const mermaidBlock = hasClosestByAttribute(event.target, "data-subtype", "mermaid");
+            if (mermaidBlock && !hasClosestByClassName(event.target, "protyle-icons")) {
+                const svg = mermaidBlock.querySelector('[contenteditable="false"] svg') as SVGSVGElement;
+                if (svg) {
+                    previewSvg(svg, "Mermaid");
+                    event.stopPropagation();
+                    event.preventDefault();
+                }
             }
         });
         state.mobileBlur = false;
@@ -491,6 +501,9 @@ export const registerClickEvents = (wysiwyg: WYSIWYGEventContext, protyle: IProt
                     if (blockElement && blockElement.getAttribute("data-subtype") === "echarts") {
                         blockElement.removeAttribute("data-render");
                         chartRender(blockElement);
+                    } else if (blockElement && blockElement.getAttribute("data-subtype") === "mermaid") {
+                        blockElement.removeAttribute("data-render");
+                        mermaidRender(blockElement);
                     }
                 }
                 event.stopPropagation();

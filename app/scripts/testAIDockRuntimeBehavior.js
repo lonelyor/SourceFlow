@@ -171,6 +171,23 @@ const eventsModule = compileModule(path.join(aiRoot, "AIDockEvents.ts"), {
     },
     "../mentions/types": {},
     "../security/types": {},
+    "../constants": {assistantText: (zh) => zh},
+    "../common/dom": {escapeHTML: (value) => `${value}`, providerDisplayName: (value) => `${value}`},
+    "../../util/functions": {isMobile: () => false},
+    "../../plugin/Menu": class FakeMenu {
+        constructor() {
+            this.element = {querySelector: () => null};
+        }
+        addItem() {
+            return this;
+        }
+        open() {
+        }
+        close() {
+        }
+        fullscreen() {
+        }
+    },
 });
 
 const {bindAIDockEvents, handleAIDockAction} = eventsModule;

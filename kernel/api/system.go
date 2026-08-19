@@ -57,33 +57,6 @@ func rebuildDataIndex(c *gin.Context) {
 	model.FullReindex(false)
 }
 
-func addMicrosoftDefenderExclusion(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	if !gulu.OS.IsWindows() {
-		return
-	}
-
-	err := model.AddMicrosoftDefenderExclusion()
-	if nil != err {
-		ret.Code = -1
-		ret.Msg = err.Error()
-	}
-}
-
-func ignoreAddMicrosoftDefenderExclusion(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	if !gulu.OS.IsWindows() {
-		return
-	}
-
-	model.Conf.System.MicrosoftDefenderExcluded = true
-	model.Conf.Save()
-}
-
 func getWorkspaceInfo(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)
@@ -323,7 +296,6 @@ func exportConf(c *gin.Context) {
 		clonedConf.System.Container = ""
 		clonedConf.System.IsMicrosoftStore = false
 		clonedConf.System.IsInsider = false
-		clonedConf.System.MicrosoftDefenderExcluded = false
 	}
 	clonedConf.Sync = nil
 	clonedConf.Stat = nil
@@ -505,7 +477,6 @@ func importConf(c *gin.Context) {
 	model.Conf.Keymap = importedConf.Keymap
 	model.Conf.Search = importedConf.Search
 	model.Conf.Flashcard = importedConf.Flashcard
-	model.Conf.AI = importedConf.AI
 	model.Conf.Bazaar = importedConf.Bazaar
 	if nil == model.Conf.Bazaar {
 		model.Conf.Bazaar = conf.NewBazaar()

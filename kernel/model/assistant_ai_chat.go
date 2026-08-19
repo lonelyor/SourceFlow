@@ -108,14 +108,9 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		return nil, err
 	}
 
-	maxContextMessages := getAssistantAIIntSetting(profile.Settings, "maxContextMessages", assistantAIDefaultContextMessages)
-	contextMessages, err := listAssistantAISessionMessages(db, session.ID, maxContextMessages)
-	if err != nil {
-		return nil, err
-	}
-	maxContextTokens := getAssistantAIIntSetting(profile.Settings, "maxContextTokens", assistantAIDefaultContextTokens)
-	contextMessages = trimAssistantAIContextMessages(contextMessages, maxContextTokens)
-
+	// C4: build the system prompt (note body + persona + tool context) first so
+	// it can be measured against the model window together with the history,
+	// instead of trimming history in isolation while the note body is ignored.
 	systemPrompt := strings.TrimSpace(req.System)
 	if "" == systemPrompt {
 		systemPrompt = getAssistantAIStringSetting(profile.Settings, "systemPrompt", "")
@@ -144,6 +139,30 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		}
 	}
 
+	// C4: unified budget. Effective window = the model's real context window
+	// when known (resolved per model on the profile), else the configured
+	// history budget. Reserve room for output and the system prompt (which
+	// carries the note body), then trim the oldest history so the whole
+	// request fits the window.
+	effectiveWindow := getAssistantAIIntSetting(profile.Settings, "contextWindow", 0)
+	if effectiveWindow <= 0 {
+		effectiveWindow = getAssistantAIIntSetting(profile.Settings, "maxContextTokens", assistantAIDefaultContextTokens)
+	}
+	outputReserve := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
+	if outputReserve <= 0 {
+		outputReserve = 4096
+	}
+	historyBudget := effectiveWindow - outputReserve - estimateAssistantAITextTokens(systemPrompt)
+	if historyBudget < 0 {
+		historyBudget = 0
+	}
+
+	maxContextMessages := getAssistantAIIntSetting(profile.Settings, "maxContextMessages", assistantAIDefaultContextMessages)
+	contextMessages, err := listAssistantAISessionMessages(db, session.ID, maxContextMessages)
+	if err != nil {
+		return nil, err
+	}
+	contextMessages = trimAssistantAIContextMessages(contextMessages, historyBudget)
 	loopResult, loopErr := runAssistantAIToolLoop(&assistantAIToolLoopParams{
 		DB:              db,
 		Profile:         profile,
