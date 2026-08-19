@@ -436,7 +436,9 @@ func applyAssistantOperationCreateNoteSnapshot(snapshot *AssistantOperationSnaps
 		if nil != err {
 			return nil, err
 		}
-		RemoveDoc(tree.Box, tree.Path)
+		if err = RemoveDoc(tree.Box, tree.Path); nil != err {
+			return nil, fmt.Errorf("remove assistant created note failed: %w", err)
+		}
 		return &AssistantOperationHistoryApplyResult{}, nil
 	}
 	if nil != sql.GetBlock(targetID) {

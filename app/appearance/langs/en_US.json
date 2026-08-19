@@ -868,6 +868,7 @@
   "generateConflictDoc": "Generate conflict documentation when syncing conflicts",
   "generateConflictDocTip": "When enabled, a conflict document will be generated when a synchronization conflict occurs, so that it can be opened and viewed directly. Whether enabled or not, the [Data History] will record the conflict document",
   "deleteOpConfirm": "⚠️ Delete operation confirmation",
+  "delGetInfoFailed": "Failed to load doc info, cannot delete. Please retry; if it keeps failing, check the kernel log for details",
   "filterKeywordEnter": "Keyword filtering Enter",
   "defBlock": "Def block",
   "defBlockChildren": "Define block and its children",

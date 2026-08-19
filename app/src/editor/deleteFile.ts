@@ -34,6 +34,10 @@ export const deleteFile = (notebookId: string, pathString: string) => {
     fetchPost("/api/block/getDocInfo", {
         id: getDisplayName(pathString, true, true)
     }, (response) => {
+        if (!response.data) {
+            showMessage(window.sourceflow.languages.delGetInfoFailed);
+            return;
+        }
         const fileName = escapeHtml(response.data.name);
         let tip = `${window.sourceflow.languages.confirmDeleteTip.replace("${x}", fileName)}
 <div class="fn__hr"></div>

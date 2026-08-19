@@ -16,7 +16,70 @@
 
 package model
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/lonelyor/sourceflow/kernel/conf"
+	"github.com/lonelyor/sourceflow/kernel/util"
+)
+
+// withRemoveDocTestEnv isolates notebook listing on a temp data dir so RemoveDoc
+// error paths can be exercised without a booted workspace.
+func withRemoveDocTestEnv(t *testing.T) {
+	t.Helper()
+	oldDataDir := util.DataDir
+	util.DataDir = t.TempDir()
+	oldConf := Conf
+	Conf = &AppConf{FileTree: &conf.FileTree{}}
+	t.Cleanup(func() {
+		util.DataDir = oldDataDir
+		Conf = oldConf
+	})
+}
+
+func TestRemoveDocMissingNotebookReturnsExplicitError(t *testing.T) {
+	withRemoveDocTestEnv(t)
+
+	err := RemoveDoc("20260101000000-missing", "/20260101000001-missing.sf")
+	if nil == err {
+		t.Fatal("RemoveDoc must return an explicit error for a missing notebook instead of silently succeeding")
+	}
+	if !strings.Contains(err.Error(), "20260101000000-missing") {
+		t.Fatalf("error must name the missing notebook: %v", err)
+	}
+}
+
+func TestRemoveDocUnreadableTreeReturnsExplicitError(t *testing.T) {
+	withRemoveDocTestEnv(t)
+
+	box := &Box{ID: "20260101000000-boxa", Name: "box"}
+	tree, err := removeDoc(box, "/20260101000001-missing.sf", util.NewLute())
+	if nil == err {
+		t.Fatal("removeDoc must return an explicit error when the doc tree cannot be loaded")
+	}
+	if nil != tree {
+		t.Fatalf("removeDoc must not return a tree on failure: %#v", tree)
+	}
+	if !strings.Contains(err.Error(), "load doc tree") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRemoveDocsByRefsReportsEveryFailedDoc(t *testing.T) {
+	withRemoveDocTestEnv(t)
+
+	err := RemoveDocsByRefs([]RemoveDocRef{
+		{Notebook: "20260101000000-boxa", Path: "/20260101000001-a.sf"},
+		{Notebook: "20260101000002-boxb", Path: "/20260101000003-b.sf"},
+	})
+	if nil == err {
+		t.Fatal("RemoveDocsByRefs must report failures instead of silently dropping them")
+	}
+	if !strings.Contains(err.Error(), "20260101000000-boxa") || !strings.Contains(err.Error(), "20260101000002-boxb") {
+		t.Fatalf("error must list every failed doc: %v", err)
+	}
+}
 
 func TestRemoveDocRefsFromPathsRejectsAmbiguousLegacyPath(t *testing.T) {
 	sharedPath := "/20260714000000-shared.sf"

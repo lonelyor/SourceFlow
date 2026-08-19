@@ -75,6 +75,7 @@
     "test:protyle-blockdom-preservation": "node ./scripts/testProtyleBlockDOMPreservation.js",
     "test:file-tree-appearance-settings": "node ./scripts/testFileTreeAppearanceSettings.js",
     "test:file-tree-batch-delete": "node ./scripts/testFileTreeBatchDelete.js",
+    "test:delete-failure-explicit": "node ./scripts/testDeleteFailureExplicit.js",
     "test:clipboard-image-inline": "node ./scripts/testClipboardImageInline.js",
     "test:workbench-stability": "node ./scripts/testWorkbenchStability.js",
     "test:export-runtime": "node ./scripts/testExportRuntimeElectron.js",

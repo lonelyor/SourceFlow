@@ -163,7 +163,9 @@ func removeAssistantInboxCreatedDoc(id string) error {
 	if err != nil {
 		return err
 	}
-	model.RemoveDoc(tree.Box, tree.Path)
+	if err := model.RemoveDoc(tree.Box, tree.Path); err != nil {
+		return fmt.Errorf("remove created doc [notebook=%s, path=%s] failed: %w", tree.Box, tree.Path, err)
+	}
 	model.FlushTxQueue()
 	if _, err = model.LoadTreeByBlockID(id); err == nil {
 		return fmt.Errorf("created doc [%s] still exists after cleanup", id)

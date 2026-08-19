@@ -678,7 +678,12 @@ func removeDoc(c *gin.Context) {
 	}
 
 	p := arg["path"].(string)
-	model.RemoveDoc(notebook, p)
+	if err := model.RemoveDoc(notebook, p); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
 }
 
 func removeDocByID(c *gin.Context) {
@@ -703,7 +708,12 @@ func removeDocByID(c *gin.Context) {
 		return
 	}
 
-	model.RemoveDoc(tree.Box, tree.Path)
+	if err := model.RemoveDoc(tree.Box, tree.Path); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 7000}
+		return
+	}
 }
 
 func removeDocs(c *gin.Context) {
@@ -738,7 +748,12 @@ func removeDocs(c *gin.Context) {
 		if 1 < len(docs) {
 			model.TryCreateProtectionSnapshot("batch-delete")
 		}
-		model.RemoveDocsByRefs(docs)
+		if err := model.RemoveDocsByRefs(docs); err != nil {
+			ret.Code = -1
+			ret.Msg = err.Error()
+			ret.Data = map[string]interface{}{"closeTimeout": 7000}
+			return
+		}
 		return
 	}
 

@@ -1508,19 +1508,22 @@ func moveDoc(fromBox *Box, fromPath string, toBox *Box, toPath string, luteEngin
 	return
 }
 
-func RemoveDoc(boxID, p string) {
+func RemoveDoc(boxID, p string) (err error) {
 	box := Conf.Box(boxID)
 	if nil == box {
-		return
+		return fmt.Errorf("notebook [%s] not found", boxID)
 	}
 
 	FlushTxQueue()
 	luteEngine := util.NewLute()
-	tree := removeDoc(box, p, luteEngine)
+	tree, err := removeDoc(box, p, luteEngine)
 	IncSync()
 
+	if nil != err {
+		return err
+	}
 	refreshParentDocInfo(tree)
-	return
+	return nil
 }
 
 type RemoveDocRef struct {
@@ -1537,25 +1540,31 @@ func RemoveDocs(paths []string) error {
 	return nil
 }
 
-func RemoveDocsByRefs(docs []RemoveDocRef) {
+func RemoveDocsByRefs(docs []RemoveDocRef) error {
 	docs = filterSelfChildDocRefs(docs)
-	removeDocsByRefs(docs)
+	return removeDocsByRefs(docs)
 }
 
-func removeDocsByRefs(docs []RemoveDocRef) {
+func removeDocsByRefs(docs []RemoveDocRef) error {
 	util.PushEndlessProgress(Conf.Language(116))
 	defer util.PushClearProgress()
 
 	FlushTxQueue()
 	luteEngine := util.NewLute()
 
+	var errs []string
 	var trees []*parse.Tree
 	for _, doc := range docs {
 		box := Conf.Box(doc.Notebook)
 		if nil == box {
+			errs = append(errs, fmt.Sprintf("notebook [%s] not found", doc.Notebook))
 			continue
 		}
-		tree := removeDoc(box, doc.Path, luteEngine)
+		tree, err := removeDoc(box, doc.Path, luteEngine)
+		if nil != err {
+			errs = append(errs, err.Error())
+			continue
+		}
 		if nil != tree {
 			trees = append(trees, tree)
 		}
@@ -1571,7 +1580,10 @@ func removeDocsByRefs(docs []RemoveDocRef) {
 	for _, parentTree := range parentTrees {
 		refreshDocInfo(parentTree)
 	}
-	return
+	if 0 < len(errs) {
+		return fmt.Errorf("%s", strings.Join(errs, "\n"))
+	}
+	return nil
 }
 
 func removeDocRefsFromPaths(paths []string) (docs []RemoveDocRef, err error) {
@@ -1645,23 +1657,23 @@ func filterSelfChildDocRefs(docs []RemoveDocRef) (ret []RemoveDocRef) {
 	return
 }
 
-func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
+func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree, err error) {
 	ret, _ = filesys.LoadTree(box.ID, p, luteEngine)
 	if nil == ret {
-		return
+		return nil, fmt.Errorf("load doc tree [notebook=%s, path=%s] failed", box.ID, p)
 	}
 
 	historyDir, err := GetHistoryDir(HistoryOpDelete)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
-		return
+		return nil, fmt.Errorf("get history dir failed: %s", err)
 	}
 
 	historyPath := filepath.Join(historyDir, box.ID, p)
 	absPath := filepath.Join(util.DataDir, box.ID, p)
 	if err = filelock.Copy(absPath, historyPath); err != nil {
 		logging.LogErrorf("backup [path=%s] to history [%s] failed: %s", absPath, historyPath, err)
-		return
+		return nil, fmt.Errorf("backup doc [notebook=%s, path=%s] to history failed: %s", box.ID, p, err)
 	}
 
 	generateAvHistoryInTree(ret, historyDir)
@@ -1676,7 +1688,7 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
 		historyPath = filepath.Join(historyDir, ret.Box, childrenDir)
 		if err = filelock.Copy(absChildrenDir, historyPath); err != nil {
 			logging.LogErrorf("backup [path=%s] to history [%s] failed: %s", absChildrenDir, historyPath, err)
-			return
+			return nil, fmt.Errorf("backup children dir [notebook=%s, path=%s] to history failed: %s", box.ID, childrenDir, err)
 		}
 	}
 	indexHistoryDir(filepath.Base(historyDir), util.NewLute())
@@ -1696,21 +1708,23 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
 	if existChildren {
 		if err = box.Remove(childrenDir); err != nil {
 			logging.LogErrorf("remove children dir [%s%s] failed: %s", box.ID, childrenDir, err)
-			return
+			return nil, fmt.Errorf("remove children dir [notebook=%s, path=%s] failed: %s", box.ID, childrenDir, err)
 		}
 		logging.LogInfof("removed children dir [%s%s]", box.ID, childrenDir)
 	}
 	if err = box.Remove(p); err != nil {
 		logging.LogErrorf("remove [%s%s] failed: %s", box.ID, p, err)
-		return
+		return nil, fmt.Errorf("remove doc [notebook=%s, path=%s] failed: %s", box.ID, p, err)
 	}
 	logging.LogInfof("removed doc [%s%s]", box.ID, p)
 
 	box.removeSort(removeIDs)
 	if "/" != dir {
-		others, err := os.ReadDir(filepath.Join(util.DataDir, box.ID, dir))
-		if err == nil && 1 > len(others) {
-			box.Remove(dir)
+		others, readDirErr := os.ReadDir(filepath.Join(util.DataDir, box.ID, dir))
+		if readDirErr == nil && 1 > len(others) {
+			if removeDirErr := box.Remove(dir); nil != removeDirErr {
+				logging.LogWarnf("remove empty parent dir [%s%s] failed: %s", box.ID, dir, removeDirErr)
+			}
 		}
 	}
 
@@ -1720,7 +1734,7 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
 	}
 	util.PushEvent(evt)
 	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir, allRemoveRootIDs)
-	return
+	return ret, nil
 }
 
 func removeDoc0(tree *parse.Tree, childrenDir string, removeRootIDs []string) {
