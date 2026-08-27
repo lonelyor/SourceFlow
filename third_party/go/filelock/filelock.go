@@ -47,7 +47,7 @@ func OpenFile(filePath string, flag int, perm os.FileMode) (file *os.File, err e
 	}
 	unlock(filePath)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "open file [%s] failed: %s", filePath, err)
+		logging.LogErrorf("open file [%s] failed: %s", filePath, err)
 		return
 	}
 	return
@@ -62,7 +62,7 @@ func CloseFile(file *os.File) (err error) {
 
 	err = file.Close()
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "close file [%s] failed: %s", file.Name(), err)
+		logging.LogErrorf("close file [%s] failed: %s", file.Name(), err)
 		return
 	}
 	return
@@ -88,7 +88,7 @@ func Copy(src, dest string) (err error) {
 
 	err = gulu.File.Copy(src, dest)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "copy [src=%s, dest=%s] failed: %s", src, dest, err)
+		logging.LogErrorf("copy [src=%s, dest=%s] failed: %s", src, dest, err)
 		return
 	}
 	return
@@ -100,7 +100,7 @@ func CopyWithoutHidden(src, dest string) (err error) {
 
 	err = gulu.File.CopyWithoutHidden(src, dest)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "copy without hidden [src=%s, dest=%s] failed: %s", src, dest, err)
+		logging.LogErrorf("copy without hidden [src=%s, dest=%s] failed: %s", src, dest, err)
 		return
 	}
 	return
@@ -113,7 +113,7 @@ func CopyNewtimes(src, dest string) (err error) {
 
 	err = gulu.File.CopyNewtimes(src, dest)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "copy [src=%s, dest=%s] failed: %s", src, dest, err)
+		logging.LogErrorf("copy [src=%s, dest=%s] failed: %s", src, dest, err)
 		return
 	}
 	return
@@ -130,12 +130,12 @@ func Rename(p, newP string) (err error) {
 	if gulu.File.IsExist(newP) && gulu.File.IsDir(p) && gulu.File.IsDir(newP) {
 		err = gulu.File.Copy(p, newP)
 		if isDenied(err) {
-			logging.LogFatalf(logging.ExitCodeFileSysErr, "copy [p=%s, newP=%s] failed: %s", p, newP, err)
+			logging.LogErrorf("copy [p=%s, newP=%s] failed: %s", p, newP, err)
 			return
 		}
 		err = os.RemoveAll(p)
 		if isDenied(err) {
-			logging.LogFatalf(logging.ExitCodeFileSysErr, "remove [%s] failed: %s", p, err)
+			logging.LogErrorf("remove [%s] failed: %s", p, err)
 			return
 		}
 		return
@@ -143,7 +143,7 @@ func Rename(p, newP string) (err error) {
 
 	err = os.Rename(p, newP)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "rename [p=%s, newP=%s] failed: %s", p, newP, err)
+		logging.LogErrorf("rename [p=%s, newP=%s] failed: %s", p, newP, err)
 		return
 	}
 	return
@@ -155,7 +155,7 @@ func Remove(p string) (err error) {
 
 	err = os.RemoveAll(p)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "remove file [%s] failed: %s", p, err)
+		logging.LogErrorf("remove file [%s] failed: %s", p, err)
 		return
 	}
 	return
@@ -175,7 +175,7 @@ func ReadFile(filePath string) (data []byte, err error) {
 
 	data, err = os.ReadFile(filePath)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "read file [%s] failed: %s", filePath, err)
+		logging.LogErrorf("read file [%s] failed: %s", filePath, err)
 		return
 	}
 	return
@@ -187,7 +187,7 @@ func WriteFile(filePath string, data []byte) (err error) {
 
 	err = gulu.File.WriteFileSafer(filePath, data, 0644)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "write file [%s] failed: %s", filePath, err)
+		logging.LogErrorf("write file [%s] failed: %s", filePath, err)
 		return
 	}
 	return
@@ -199,7 +199,7 @@ func WriteFileByReader(filePath string, reader io.Reader) (err error) {
 
 	err = gulu.File.WriteFileSaferByReader(filePath, reader, 0644)
 	if isDenied(err) {
-		logging.LogFatalf(logging.ExitCodeFileSysErr, "write file [%s] failed: %s", filePath, err)
+		logging.LogErrorf("write file [%s] failed: %s", filePath, err)
 	}
 	return
 }

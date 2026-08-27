@@ -437,6 +437,8 @@ func execTask(task *Task) {
 	defer cancel()
 	ch := make(chan bool, 1)
 	go func() {
+		// 该 goroutine 不在 execTask 的 defer Recover 覆盖范围内，任务 panic 若不在此捕获会直接终止内核进程
+		defer logging.Recover()
 		task.Handler.Call(args)
 		ch <- true
 	}()

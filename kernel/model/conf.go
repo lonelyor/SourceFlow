@@ -877,12 +877,26 @@ func (conf *AppConf) cloneForSave() *AppConf {
 
 func (conf *AppConf) save0(data []byte) {
 	confPath := filepath.Join(util.ConfDir, "conf.json")
-	if err := filelock.WriteFile(confPath, data); err != nil {
-		logging.LogErrorf("write conf [%s] failed: %s", confPath, err)
-		util.ReportFileSysFatalError(err)
-		return
+
+	// 瞬时磁盘错误（备份/同步软件锁文件、iCloud 干扰等）不应直接终止内核进程，这里带退避重试
+	backoffs := []time.Duration{50 * time.Millisecond, 200 * time.Millisecond, 800 * time.Millisecond}
+	var err error
+	for retry := 0; ; retry++ {
+		err = filelock.WriteFile(confPath, data)
+		if nil == err {
+			writeSyncBackupProfile()
+			return
+		}
+		if retry < len(backoffs) {
+			logging.LogWarnf("write conf [%s] failed (attempt %d/%d): %s, retrying after %v", confPath, retry+1, len(backoffs)+1, err, backoffs[retry])
+			time.Sleep(backoffs[retry])
+			continue
+		}
+		break
 	}
-	writeSyncBackupProfile()
+
+	logging.LogErrorf("write conf [%s] failed after %d attempts: %s", confPath, len(backoffs)+1, err)
+	util.PushErrMsg("写入配置文件失败，请检查磁盘状态 Failed to write conf.json, please check the disk", 7000)
 }
 
 type syncBackupProfile struct {

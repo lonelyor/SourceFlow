@@ -246,6 +246,12 @@ func CheckFileSysStatus() {
 	}
 }
 
+// fileSysCheckConsecutiveFailures 记录文件系统体检连续失败次数，只有连续多次失败才判定为致命错误，
+// 以避免备份/同步软件等造成的瞬时文件操作失败直接终止内核进程。
+var fileSysCheckConsecutiveFailures int
+
+const fileSysCheckFatalThreshold = 3
+
 func checkFileSysStatus() {
 	defer logging.Recover()
 
@@ -255,33 +261,41 @@ func checkFileSysStatus() {
 	}
 	defer checkFileSysStatusLock.Unlock()
 
-	if IsCloudDrivePath(WorkspaceDir) {
-		ReportFileSysFatalError(fmt.Errorf("workspace dir [%s] is in third party sync dir", WorkspaceDir))
+	if err := doCheckFileSysStatus(); nil != err {
+		fileSysCheckConsecutiveFailures++
+		if fileSysCheckFatalThreshold <= fileSysCheckConsecutiveFailures {
+			ReportFileSysFatalError(err)
+			return
+		}
+		logging.LogWarnf("file system status check failed (%d/%d consecutive): %s", fileSysCheckConsecutiveFailures, fileSysCheckFatalThreshold, err)
 		return
+	}
+	fileSysCheckConsecutiveFailures = 0
+}
+
+func doCheckFileSysStatus() (err error) {
+	if IsCloudDrivePath(WorkspaceDir) {
+		return fmt.Errorf("workspace dir [%s] is in third party sync dir", WorkspaceDir)
 	}
 
 	dir := HiddenDataPath(DataDir, "filesys_status_check")
-	if err := os.RemoveAll(dir); err != nil {
-		ReportFileSysFatalError(err)
+	if err = os.RemoveAll(dir); err != nil {
 		return
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		ReportFileSysFatalError(err)
+	if err = os.MkdirAll(dir, 0755); err != nil {
 		return
 	}
 
 	for i := 0; i < 7; i++ {
 		tmp := filepath.Join(dir, "check_consistency")
 		data := make([]byte, 1024*4)
-		_, err := rand.Read(data)
+		_, err = rand.Read(data)
 		if err != nil {
-			ReportFileSysFatalError(err)
 			return
 		}
 
 		if err = os.WriteFile(tmp, data, 0644); err != nil {
-			ReportFileSysFatalError(err)
 			return
 		}
 
@@ -290,32 +304,27 @@ func checkFileSysStatus() {
 		for j := 0; j < 32; j++ {
 			renamed := tmp + "_renamed"
 			if err = os.Rename(tmp, renamed); err != nil {
-				ReportFileSysFatalError(err)
-				break
+				return
 			}
 
 			RandomSleep(500, 1000)
 
-			f, err := os.Open(renamed)
-			if err != nil {
-				ReportFileSysFatalError(err)
-				return
+			f, openErr := os.Open(renamed)
+			if openErr != nil {
+				return openErr
 			}
 
-			if err = f.Close(); err != nil {
-				ReportFileSysFatalError(err)
-				return
+			if closeErr := f.Close(); closeErr != nil {
+				return closeErr
 			}
 
 			if err = os.Rename(renamed, tmp); err != nil {
-				ReportFileSysFatalError(err)
 				return
 			}
 
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				ReportFileSysFatalError(err)
-				return
+			entries, readDirErr := os.ReadDir(dir)
+			if readDirErr != nil {
+				return readDirErr
 			}
 
 			checkFilenames := bytes.Buffer{}
@@ -334,16 +343,15 @@ func checkFileSysStatus() {
 					buf.WriteString("\n")
 				}
 				output := buf.String()
-				ReportFileSysFatalError(fmt.Errorf("dir [%s] has more than 1 file:\n%s", dir, output))
-				return
+				return fmt.Errorf("dir [%s] has more than 1 file:\n%s", dir, output)
 			}
 		}
 
 		if err = os.RemoveAll(tmp); err != nil {
-			ReportFileSysFatalError(err)
 			return
 		}
 	}
+	return
 }
 
 func IsCloudDrivePath(workspaceAbsPath string) bool {

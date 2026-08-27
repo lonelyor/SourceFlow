@@ -11,6 +11,7 @@
 package gulu
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -118,13 +119,22 @@ func (GuluFile) WriteFileSaferByReader(writePath string, reader io.Reader, perm 
 			return
 		}
 
-		if errMsg := strings.ToLower(err.Error()); strings.Contains(errMsg, "access is denied") || strings.Contains(errMsg, "used by another process") { // 文件可能是被锁定
+		if isLockOrPermissionErr(err) { // 文件可能是被锁定或瞬时权限问题（Windows 共享冲突 / macOS EPERM）
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 		break
 	}
 	return
+}
+
+// isLockOrPermissionErr 判断错误是否为文件锁定或权限类瞬时错误，此类错误可通过重试恢复。
+func isLockOrPermissionErr(err error) bool {
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "access is denied") || strings.Contains(errMsg, "used by another process") || strings.Contains(errMsg, "permission denied")
 }
 
 // WriteFileSafer writes the data to a temp file and atomically move if everything else succeeds.
@@ -161,7 +171,7 @@ func (GuluFile) WriteFileSafer(writePath string, data []byte, perm os.FileMode) 
 			return
 		}
 
-		if errMsg := strings.ToLower(err.Error()); strings.Contains(errMsg, "access is denied") || strings.Contains(errMsg, "used by another process") { // 文件可能是被锁定
+		if isLockOrPermissionErr(err) { // 文件可能是被锁定或瞬时权限问题（Windows 共享冲突 / macOS EPERM）
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
