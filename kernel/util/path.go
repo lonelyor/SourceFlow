@@ -430,8 +430,10 @@ func IsSensitivePath(p string) bool {
 	if p == "" {
 		return false
 	}
-	toCheckPathLower := filepath.Clean(strings.ToLower(p))
-	toCheckNameLower := filepath.Base(toCheckPathLower)
+	cleanedLower := filepath.Clean(strings.ToLower(p))
+	// 统一转为正斜杠比较，保证 UNIX 风格前缀在 Windows 上同样生效（filepath.Clean 在 Windows 会输出反斜杠）。
+	toCheckPathLower := strings.ReplaceAll(cleanedLower, "\\", "/")
+	toCheckNameLower := filepath.Base(cleanedLower)
 
 	// 敏感系统目录前缀（UNIX 风格）。仅保留系统核心目录，移除桌面端常见的合法导入来源：
 	//   - /tmp、/var：macOS/Linux 临时目录，其中 /var/folders 是 macOS 的 $TMPDIR
@@ -458,21 +460,21 @@ func IsSensitivePath(p string) bool {
 		}
 	}
 
-	// Windows 常见敏感目录（小写比较）
+	// Windows 常见敏感目录（正斜杠、小写比较，与统一后的待检路径一致）
 	winPrefixes := []string{
-		`c:\windows\system32`,
-		`c:\windows\system`,
+		"c:/windows/system32",
+		"c:/windows/system",
 	}
 	for _, wp := range winPrefixes {
-		if strings.HasPrefix(toCheckPathLower, strings.ToLower(wp)) {
+		if strings.HasPrefix(toCheckPathLower, wp) {
 			return true
 		}
 	}
 
-	// Windows 开始启动菜单路径（小写比较）
+	// Windows 开始启动菜单路径（正斜杠、小写比较）
 	startMenuPrefixes := []string{
-		strings.ToLower(filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu")),
-		strings.ToLower(filepath.Join(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu")),
+		toSlashLower(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu"),
+		toSlashLower(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu"),
 	}
 	for _, sp := range startMenuPrefixes {
 		if strings.HasPrefix(toCheckPathLower, sp) {
@@ -480,19 +482,19 @@ func IsSensitivePath(p string) bool {
 		}
 	}
 
-	// 工作空间/conf 目录（小写比较）
-	workspaceConfPrefix := strings.ToLower(filepath.Join(WorkspaceDir, "conf"))
+	// 工作空间/conf 目录（正斜杠、小写比较）
+	workspaceConfPrefix := toSlashLower(WorkspaceDir, "conf")
 	if strings.HasPrefix(toCheckPathLower, workspaceConfPrefix) {
 		return true
 	}
 
-	// 用户家目录下的敏感目录（小写比较）
+	// 用户家目录下的敏感目录（正斜杠、小写比较）
 	homePrefixes := []string{
-		strings.ToLower(filepath.Join(HomeDir, ".ssh")),
-		strings.ToLower(filepath.Join(HomeDir, ".config")),
-		strings.ToLower(filepath.Join(HomeDir, ".bashrc")),
-		strings.ToLower(filepath.Join(HomeDir, ".zshrc")),
-		strings.ToLower(filepath.Join(HomeDir, ".profile")),
+		toSlashLower(HomeDir, ".ssh"),
+		toSlashLower(HomeDir, ".config"),
+		toSlashLower(HomeDir, ".bashrc"),
+		toSlashLower(HomeDir, ".zshrc"),
+		toSlashLower(HomeDir, ".profile"),
 	}
 	for _, hp := range homePrefixes {
 		if strings.HasPrefix(toCheckPathLower, hp) {
@@ -511,4 +513,9 @@ func IsSensitivePath(p string) bool {
 		}
 	}
 	return false
+}
+
+// toSlashLower 拼接路径并统一为小写正斜杠形式，与 IsSensitivePath 的待检路径口径一致。
+func toSlashLower(parts ...string) string {
+	return strings.ReplaceAll(strings.ToLower(filepath.Join(parts...)), "\\", "/")
 }
