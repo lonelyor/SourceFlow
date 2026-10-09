@@ -5,7 +5,6 @@ import {fetchPost} from "../../util/fetch";
 import {isMobile} from "../../util/functions";
 import {setPosition} from "../../util/setPosition";
 import {blockRender} from "../render/blockRender";
-import {mathRender} from "../render/mathRender";
 import {matchHotKey} from "../util/hotKey";
 import {processRender} from "../util/processCode";
 import {focusBlock, focusByRange, focusByWbr} from "../util/selection";
@@ -16,7 +15,6 @@ import {hasClosestBlock, hasClosestByClassName} from "../util/hasClosest";
 import type {Toolbar} from "./index";
 import {addScript} from "../util/addScript";
 import {insertEmptyBlock} from "../../block/util";
-import {linkMenu} from "../../menus/protyle";
 import {openByMobile} from "../util/compatibility";
 
 export const showRenderPanel = (

@@ -5,7 +5,7 @@ import {isMobile} from "../../../util/functions";
 import {setPosition} from "../../../util/setPosition";
 import {hasClosestByClassName} from "../../util/hasClosest";
 import {bindDateEvent, getDateHTML} from "./date";
-import {bindLayoutEvent, getLayoutHTML} from "./layout";
+import {getLayoutHTML} from "./layout";
 import {bindAVPanelClick} from "./panelClick";
 import {bindAVPanelDrag} from "./panelDrag";
 import type {AVPanelOpenOptions, AVPanelState} from "./panelTypes";
@@ -15,18 +15,16 @@ import {getFiltersHTML} from "./filter";
 import {getPageSize} from "./groups";
 import {getPropertiesHTML} from "./propertiesMenu";
 import {bindRelationEvent, getRelationHTML} from "./relation";
-import {getFieldIdByCellElement, setPageSize} from "./row";
+import {getFieldIdByCellElement} from "./row";
 import {bindRollupData, getRollupHTML} from "./rollup";
 import {bindSelectEvent, getSelectHTML} from "./select";
 import {bindSortsEvent, getSortsHTML} from "./sort";
 import {
-    addView,
     bindSwitcherEvent,
     bindViewEvent,
     getFieldsByData,
     getSwitcherHTML,
-    getViewHTML,
-    openViewMenu
+    getViewHTML
 } from "./view";
 
 const getInitialPanelHTML = (options: AVPanelOpenOptions, data: IAV, fields: IAVColumn[], isCustomAttr: boolean) => {

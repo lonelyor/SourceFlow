@@ -1,65 +1,26 @@
 import {getAllModels} from "../layout/getAll";
-/// #if !BROWSER
-import * as path from "path";
-/// #endif
 import {Constants} from "../constants";
 import {escapeAriaLabel, escapeGreat, escapeHtml} from "../util/escape";
 import {fetchPost} from "../util/fetch";
-import {openFile, openFileById} from "../editor/util";
+import {openFileById} from "../editor/util";
 import {showMessage} from "../dialog/message";
 import {reloadProtyle} from "../protyle/util/reload";
-import {MenuItem} from "../menus/Menu";
-import {getDisplayName, getNotebookIcon, getNotebookName, movePathTo, pathPosix, useShell} from "../util/pathName";
+import {getDisplayName, getNotebookIcon, getNotebookName} from "../util/pathName";
 import {Protyle} from "../protyle";
 import {onGet} from "../protyle/util/onGet";
 import {addLoading} from "../protyle/ui/initUI";
 import {getIconByType} from "../editor/getIcon";
 import {unicode2Emoji} from "../emoji";
 import {hasClosestBlock, hasClosestByClassName, hasClosestByTag} from "../protyle/util/hasClosest";
-import {isIPad, isNotCtrl, setStorageVal, updateHotkeyTip, writeText} from "../protyle/util/compatibility";
-import {newFileByName} from "../util/newFile";
-import {
-    filterMenu,
-    getKeyByLiElement,
-    initCriteriaMenu,
-    moreMenu,
-    queryMenu,
-    replaceFilterMenu,
-    saveCriterion
-} from "./menu";
-import {App} from "../index";
-import {
-    assetFilterMenu,
-    assetInputEvent,
-    assetMethodMenu,
-    assetMoreMenu,
-    openSearchAsset,
-    renderNextAssetMark,
-    renderPreview,
-} from "./assets";
-import {resize} from "../protyle/util/resize";
-import {addClearButton} from "../util/addClearButton";
+import {getKeyByLiElement} from "./menu";
 import {checkFold} from "../util/noRelyPCFunction";
-import {getUnRefList, openSearchUnRef, unRefMoreMenu} from "./unRef";
-import {getDefaultType} from "./getDefault";
 import {isSupportCSSHL, searchMarkRender} from "../protyle/render/searchMarkRender";
-import {saveKeyList, toggleAssetHistory, toggleReplaceHistory, toggleSearchHistory} from "./toggleHistory";
+import {saveKeyList} from "./toggleHistory";
 import {highlightById} from "../util/highlightById";
 import {getSelectionOffset} from "../protyle/util/selection";
-import {electronUndo} from "../protyle/undo";
 import {getContenteditableElement} from "../protyle/wysiwyg/getBlock";
-import {clearSearchRequestCache, fullTextSearchBlocksCached, getRecentUpdatedBlocksCached} from "./cache";
-import {assistantText} from "../assistant/constants";
-import {escapeAttr as escapeAssistantAttr, escapeHTML as escapeAssistantHTML, truncateText} from "../assistant/common/dom";
-import {ensureAssistantFeatureAvailable, reportAssistantRuntimeError, runAssistantFeature} from "../assistant/runtime";
+import {fullTextSearchBlocksCached, getRecentUpdatedBlocksCached} from "./cache";
 import {resetSearchAI} from "./searchAI";
-
-type IAssistantSearchSource = import("../assistant/search/ask").IAssistantSearchSource;
-
-const loadAssistantNoteModule = () => import("../assistant/common/note");
-const loadAssistantInboxModule = () => import("../assistant/inbox/store");
-const loadAssistantSearchModule = () => import("../assistant/search/ask");
-const loadAssistantAIDockModule = () => import("../assistant/ai/AIDock");
 
 const focusSearchResultById = (element: Element, edit: Protyle, config: Config.IUILayoutTabSearchConfig, id: string) => {
     const currentFocusElement = element.querySelector("#searchList .b3-list-item--focus");

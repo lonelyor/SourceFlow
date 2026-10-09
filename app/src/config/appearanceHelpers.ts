@@ -1,33 +1,14 @@
-/// #if !BROWSER
-import * as path from "path";
-/// #endif
-import {Constants} from "../constants";
-import {exportLayout, resetLayout} from "../layout/util";
 import {isBrowser} from "../util/functions";
-import {fetchPost} from "../util/fetch";
-import {genLangOptions, genOptions} from "../util/genOptions";
-import {openSnippets} from "./util/snippets";
-import {loadAssets, setInlineStyle} from "../util/assets";
-import {resetFloatDockSize} from "../layout/dock/util";
-import {confirmDialog} from "../dialog/confirmDialog";
-import {showMessage} from "../dialog/message";
-import {useShell} from "../util/pathName";
-import {setStatusBar} from "./util/setStatusBar";
+import {setInlineStyle} from "../util/assets";
 import {
     CUSTOM_EDITOR_CURSOR_COLOR_VALUE,
-    DEFAULT_EDITOR_CURSOR_BLINK,
     DEFAULT_EDITOR_CURSOR_BLINK_EFFECT,
     DEFAULT_EDITOR_CURSOR_IMAGE_HEIGHT_PERCENT,
     DEFAULT_EDITOR_CURSOR_IMAGE_OFFSET_X,
     DEFAULT_EDITOR_CURSOR_IMAGE_OFFSET_Y,
     DEFAULT_EDITOR_CURSOR_IMAGE_WIDTH_PERCENT,
-    downloadRemoteEditorCursorImage,
-    getEditorCursorBlinkEffectOptions,
     getEditorCursorImageDisplayValue,
-    getEditorCursorColorOptions,
     getEditorCursorColorSelectValue,
-    getEditorCursorPresetOptions,
-    getEditorCursorSavedImage,
     getEditorCursorSettingTexts,
     isEditorCursorSVGImage,
     normalizeEditorCursorBlinkEffect,
@@ -37,9 +18,6 @@ import {
     normalizeEditorCursorImageOffset,
     normalizeEditorCursorImageWidthPercent,
     normalizeEditorCursorSavedImages,
-    readEditorCursorAssetFile,
-    removeEditorCursorSavedImage,
-    upsertEditorCursorSavedImage,
 } from "../editor/cursor";
 import {
     DEFAULT_EDITOR_NOTE_BACKGROUND_BLUR,
@@ -52,11 +30,9 @@ import {
     readEditorNoteBackgroundAssetFile
 } from "../editor/noteBackground";
 import {
-    getEditorHiddenBlockSettingTexts,
     normalizeEditorHiddenBlockColor
 } from "../editor/hiddenBlock";
 import {
-    DEFAULT_STARTUP_PAGE_IMAGE,
     DEFAULT_STARTUP_PAGE_BLUR,
     DEFAULT_STARTUP_PAGE_OPACITY,
     getStartupPageDisplayValue,
@@ -72,8 +48,6 @@ import {
     DEFAULT_MASCOT_OPACITY,
     DEFAULT_MASCOT_SCALE,
     getMascotDisplayValue,
-    getMascotEffectOptions,
-    getMascotPositionOptions,
     getMascotSettingTexts,
     normalizeMascotEffect,
     normalizeMascotEnabled,
@@ -83,11 +57,6 @@ import {
     normalizeMascotScale,
     readMascotAssetFile
 } from "../appearance/mascot";
-import {
-    getCodeBlockSkinOptions,
-    getCodeBlockSkinSettingTexts,
-    normalizeCodeBlockSkin
-} from "../appearance/codeBlockSkin";
 import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
 import {escapeAttr, escapeHtml} from "../util/escape";
 import {appearance} from "./appearanceRuntime";

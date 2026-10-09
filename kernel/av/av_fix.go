@@ -63,23 +63,8 @@ func upgradeSpec3(av *AttributeView) {
 		return
 	}
 
-	// 将 view.table.rowIds 或 view.gallery.cardIds 复制到 view.itemIds
-	for _, view := range av.Views {
-		if 0 < len(view.ItemIDs) {
-			continue
-		}
-
-		switch view.LayoutType {
-		case LayoutTypeTable:
-			if nil != view.Table {
-				view.ItemIDs = view.Table.RowIDs
-			}
-		case LayoutTypeGallery:
-			if nil != view.Gallery {
-				view.ItemIDs = view.Gallery.CardIDs
-			}
-		}
-	}
+	// 旧版本记录在 view.table.rowIds / view.gallery.cardIds 的行 ID 已于 2026-06-30 废弃删除，
+	// 未升级的历史属性视图按原 spec 直接标记为 3，不再搬运数据。
 
 	av.Spec = 3
 }
@@ -102,15 +87,6 @@ func upgradeSpec2(av *AttributeView) {
 		}
 
 		if nil != view.Table {
-			if 0 < len(view.Table.Filters) && 1 > len(view.Filters) {
-				view.Filters = append(view.Filters, view.Table.Filters...)
-			}
-			if 0 < len(view.Table.Sorts) && 1 > len(view.Sorts) {
-				view.Sorts = append(view.Sorts, view.Table.Sorts...)
-			}
-			if 0 < view.Table.PageSize {
-				view.PageSize = view.Table.PageSize
-			}
 			view.Table.ShowIcon = true
 		}
 
@@ -241,21 +217,6 @@ func upgradeSpec1(av *AttributeView) {
 			if 0 == v.UpdatedAt {
 				logging.LogWarnf("value [%s] updated time is empty", v.ID)
 				v.UpdatedAt = v.CreatedAt
-			}
-		}
-	}
-
-	// 补全过滤规则 Value
-	for _, view := range av.Views {
-		if nil != view.Table {
-			for _, f := range view.Table.Filters {
-				if nil != f.Value {
-					continue
-				}
-
-				if k, _ := av.GetKey(f.Column); nil != k {
-					f.Value = &Value{Type: k.Type}
-				}
 			}
 		}
 	}

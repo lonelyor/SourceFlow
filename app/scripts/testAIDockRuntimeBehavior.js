@@ -253,8 +253,11 @@ const renderModule = compileModule(path.join(aiRoot, "AIDockRender.ts"), {
     "./AIDockRenderComposer": {
         renderAIDockAttachmentList: () => "",
         renderAIDockComposerAttachments: () => "",
+        renderAIDockContextNotice: () => "",
         renderAIDockContextStatus: () => "",
+        renderAIDockContextUsage: () => "",
         renderAIDockModelLauncher: () => "",
+        updateAIDockContextNoticeState: () => undefined,
     },
     "./AIDockRenderPanels": {
         renderAIDockAuditCard: () => "",

@@ -244,8 +244,48 @@ const runAssistantInputStabilityTest = () => {
     return runNodeScript("testAssistantInputStability.js");
 };
 
+const runAssistantSelectionBarInputTest = () => {
+    return runNodeScript("testAssistantSelectionBarInput.js");
+};
+
+const runAssistantContextVisibilityTest = () => {
+    return runNodeScript("testAssistantContextVisibility.js");
+};
+
 const runAssistantContextBudgetTest = () => {
     return runNodeScript("testAssistantContextBudget.js");
+};
+
+const runAssistantAssetMentionsTest = () => {
+    return runNodeScript("testAssistantAssetMentions.js");
+};
+
+const runAssistantAssetVisionTest = () => {
+    return runNodeScript("testAssistantAssetVision.js");
+};
+
+const runAssistantSettingsGuardsTest = () => {
+    return runNodeScript("testAssistantSettingsGuards.js");
+};
+
+const runAssistantWindowOverrideTest = () => {
+    return runNodeScript("testAssistantWindowOverride.js");
+};
+
+const runAssistantRulesTest = () => {
+    return runNodeScript("testAssistantRules.js");
+};
+
+const runAssistantRulesPhase2Test = () => {
+    return runNodeScript("testAssistantRulesPhase2.js");
+};
+
+const runAssistantRulesSchedulerTest = () => {
+    return runNodeScript("testAssistantRulesScheduler.js");
+};
+
+const runRelatedNotesPanelTest = () => {
+    return runNodeScript("testRelatedNotesPanel.js");
 };
 
 const runProductResilienceMatrixTest = () => {
@@ -308,12 +348,20 @@ const runFileTreeBatchDeleteTest = () => {
     return runNodeScript("testFileTreeBatchDelete.js");
 };
 
+const runFileTreeSortDragTest = () => {
+    return runNodeScript("testFileTreeSortDrag.js");
+};
+
 const runClipboardImageInlineTest = () => {
     return runNodeScript("testClipboardImageInline.js");
 };
 
 const runWorkbenchStabilityTest = () => {
     return runNodeScript("testWorkbenchStability.js");
+};
+
+const runTemplateLibraryTransferTest = () => {
+    return runNodeScript("testTemplateLibraryTransfer.js");
 };
 
 const runTypecheck = (targetName) => {
@@ -341,7 +389,8 @@ const runTypecheck = (targetName) => {
         }
         return 0;
     } finally {
-        fs.rmSync(tempDir, {recursive: true, force: true});
+        // maxRetries 兜底 macOS Finder/Spotlight 在删除过程中向临时目录投放 .DS_Store 导致的 ENOTEMPTY
+        fs.rmSync(tempDir, {recursive: true, force: true, maxRetries: 10, retryDelay: 100});
     }
 };
 
@@ -489,8 +538,68 @@ if (exitCode !== 0) {
     process.exit(exitCode);
 }
 
+console.log("\n[typecheck] assistant selection bar input");
+exitCode = runAssistantSelectionBarInputTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant context visibility");
+exitCode = runAssistantContextVisibilityTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
 console.log("\n[typecheck] assistant context budget");
 exitCode = runAssistantContextBudgetTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant asset mentions");
+exitCode = runAssistantAssetMentionsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant asset vision");
+exitCode = runAssistantAssetVisionTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant settings guards");
+exitCode = runAssistantSettingsGuardsTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant window override");
+exitCode = runAssistantWindowOverrideTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant rules");
+exitCode = runAssistantRulesTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant rules phase 2");
+exitCode = runAssistantRulesPhase2Test();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] assistant rules scheduler");
+exitCode = runAssistantRulesSchedulerTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] related notes panel");
+exitCode = runRelatedNotesPanelTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }
@@ -597,6 +706,12 @@ if (exitCode !== 0) {
     process.exit(exitCode);
 }
 
+console.log("\n[typecheck] file tree sort drag");
+exitCode = runFileTreeSortDragTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
 console.log("\n[typecheck] clipboard image inline");
 exitCode = runClipboardImageInlineTest();
 if (exitCode !== 0) {
@@ -605,6 +720,12 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] workbench stability");
 exitCode = runWorkbenchStabilityTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] template library transfer");
+exitCode = runTemplateLibraryTransferTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

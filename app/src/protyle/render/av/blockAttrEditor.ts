@@ -1,22 +1,13 @@
-import {fetchPost} from "../../../util/fetch";
-import {addCol, getColIconByType} from "./col";
-import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
-import * as dayjs from "dayjs";
-import {popTextCell, updateCellsValue} from "./cell";
-import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
+import {addCol} from "./col";
+import {popTextCell} from "./cell";
+import {hasClosestBlock} from "../../util/hasClosest";
 import {openEmojiPanel, unicode2Emoji} from "../../../emoji";
-import {transaction} from "../../wysiwyg/transaction";
 import {openMenuPanel} from "./openMenuPanel";
-import {uploadFiles} from "../../upload";
 import {openLink} from "../../../editor/openLink";
-import {dragUpload, editAssetItem} from "./asset";
+import {editAssetItem} from "./asset";
 import {previewImages} from "../../preview/image";
-/// #if !BROWSER
-import {webUtils} from "electron";
-/// #endif
-import {isBrowser} from "../../../util/functions";
 import {Constants} from "../../../constants";
-import {getCompressURL, removeCompressURL} from "../../../util/image";
+import {removeCompressURL} from "../../../util/image";
 
 export const openEdit = (protyle: IProtyle, element: HTMLElement, event: MouseEvent) => {
     let target = event.target as HTMLElement;

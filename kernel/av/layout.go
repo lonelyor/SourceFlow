@@ -24,14 +24,6 @@ type BaseLayout struct {
 	ShowIcon  bool `json:"showIcon"`  // 是否显示字段图标
 	WrapField bool `json:"wrapField"` // 是否换行字段内容
 
-	// TODO 以下三个字段已经废弃，计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15162
-
-	//Deprecated
-	Filters []*ViewFilter `json:"filters,omitempty"` // 过滤规则
-	//Deprecated
-	Sorts []*ViewSort `json:"sorts,omitempty"` // 排序规则
-	//Deprecated
-	PageSize int `json:"pageSize,omitempty"` // 每页条目数
 }
 
 // BaseField 描述了字段的基础结构。

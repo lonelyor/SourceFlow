@@ -1,4 +1,4 @@
-const fileTreeDropClasses = ["dragover", "dragover__bottom", "dragover__top"];
+const fileTreeDropClasses = ["dragover", "dragover__bottom", "dragover__top", "dragover__sort"];
 const fileTreeDropSelector = fileTreeDropClasses.map((item) => `.${item}`).join(", ");
 const fileTreeDropStateSelector = `${fileTreeDropSelector}, [data-drop-label], [data-drag-expand]`;
 
@@ -123,4 +123,33 @@ export const getFileTreeNotebookElement = (itemElement: HTMLElement) => {
 
 export const isFileTreePathInside = (targetPath: string, sourcePath: string) => {
     return targetPath.startsWith(sourcePath.replace(".sf", ""));
+};
+
+// 自定义排序：笔记本级 sortmode=6；sortmode=15 表示跟随全局偏好（config.fileTree.sort）
+export const isFileTreeCustomSortActive = (notebookElement: HTMLElement) => {
+    const notebookSort = notebookElement.getAttribute("data-sortmode");
+    return notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15");
+};
+
+export const isFileTreeSameSiblingList = (sourceItem: HTMLElement, targetItem: HTMLElement) => {
+    if (!targetItem.hasAttribute("data-path")) {
+        return false;
+    }
+    return sourceItem.parentElement === targetItem.parentElement;
+};
+
+export const resolveFileTreeSortPosition = (event: DragEvent, itemElement: HTMLElement): "before" | "after" => {
+    const nodeRect = itemElement.getBoundingClientRect();
+    return event.clientY < nodeRect.top + nodeRect.height / 2 ? "before" : "after";
+};
+
+export const getFileTreeSortDropLabel = (position: "before" | "after") => {
+    if (position === "before") {
+        return window.sourceflow.languages.fileTreeSortBefore || "Sort before this item";
+    }
+    return window.sourceflow.languages.fileTreeSortAfter || "Sort after this item";
+};
+
+export const getFileTreeSortBlockedHint = () => {
+    return window.sourceflow.languages.fileTreeSortMoveNeedsAlt || "Hold Alt to move";
 };

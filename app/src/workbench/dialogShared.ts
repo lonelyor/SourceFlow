@@ -1,19 +1,8 @@
-import {Dialog} from "../dialog";
 import {Constants} from "../constants";
-import {fetchSyncPost} from "../util/fetch";
-import {showMessage} from "../dialog/message";
-import {writeText, setStorageVal} from "../protyle/util/compatibility";
+import {setStorageVal} from "../protyle/util/compatibility";
 import {App} from "../index";
-import {replaceFileName, validateName} from "../editor/rename";
-import {getAllEditor} from "../layout/getAll";
-import {hasClosestByClassName} from "../protyle/util/hasClosest";
 import {runAssistantFeature} from "../assistant/runtime";
-/// #if MOBILE
-import {openMobileFileById} from "../mobile/editor";
-/// #else
-import {openFileById} from "../editor/util";
-/// #endif
-import {IWorkbenchItem, TWorkbenchTab, WorkbenchAttr} from "./constants";
+import {IWorkbenchItem, TWorkbenchTab} from "./constants";
 
 export type TWorkbenchView = "list" | "table" | "board" | "timeline" | "calendar";
 export type TWorkbenchGroupBy = "none" | "type" | "status" | "project" | "notebook" | "date";
@@ -24,6 +13,46 @@ export interface IWorkbenchActionPreset {
     name: string;
     attrs: Record<string, string | null>;
 }
+
+// 自动化规则语义动作（THEN）：actions 里以这些 actionId 为键，值为参数字符串。
+// 其余键名（属性名）沿用旧语义——继续按属性设置工作（向后兼容）。
+// 参数支持 {{title}} / {{notebook}} / {{path}} 占位符，由后端在编译 patch 时展开。
+export type TWorkbenchRuleActionId = "setAttrs" | "moveToPath" | "appendContent" | "toInbox";
+
+export const WORKBENCH_RULE_ACTION_IDS: TWorkbenchRuleActionId[] = ["setAttrs", "moveToPath", "appendContent", "toInbox"];
+
+// 期二新增：技能动作（runSkill）是前端执行器语义——技能产出 patch 走前端补丁审阅，
+// 不进后端 rules/run 批量任务；分类时单独归入 skill 桶，绝不落入旧属性键（attrs）语义。
+export const WORKBENCH_RULE_SKILL_ACTION_ID = "runSkill";
+
+export const isWorkbenchRuleActionId = (key: string): key is TWorkbenchRuleActionId => {
+    return WORKBENCH_RULE_ACTION_IDS.includes(`${key || ""}`.trim() as TWorkbenchRuleActionId);
+};
+
+export const isWorkbenchRuleSkillActionId = (key: string): boolean => {
+    return `${key || ""}`.trim() === WORKBENCH_RULE_SKILL_ACTION_ID;
+};
+
+export const splitWorkbenchRuleActions = (actions: Record<string, string | null> = {}) => {
+    const semantic = {} as Record<TWorkbenchRuleActionId, string>;
+    const attrs = {} as Record<string, string | null>;
+    const skill = {} as Record<string, string>;
+    Object.entries(actions || {}).forEach(([key, value]) => {
+        if (value == null || `${value}`.trim() === "") {
+            return;
+        }
+        if (isWorkbenchRuleActionId(key)) {
+            semantic[key] = `${value}`.trim();
+            return;
+        }
+        if (isWorkbenchRuleSkillActionId(key)) {
+            skill[key] = `${value}`.trim();
+            return;
+        }
+        attrs[key] = `${value}`.trim();
+    });
+    return {semantic, attrs, skill};
+};
 
 export interface IWorkbenchDashboardPreset {
     name: string;
@@ -55,6 +84,14 @@ export interface IWorkbenchBuiltinViewNoteOption {
     label: string;
 }
 
+// 定时触发（期三，诚实版）：kind=interval 每 N 小时（1-24 整数）/ kind=daily 每天 HH:MM（24 小时制）。
+// 仅在 SourceFlow 运行时触发，错过的时点不补跑；undefined = 不定时。
+export interface IWorkbenchRuleSchedule {
+    kind: "interval" | "daily";
+    everyHours?: number;
+    atTime?: string;
+}
+
 export interface IWorkbenchRule {
     name: string;
     enabled: boolean;
@@ -66,6 +103,11 @@ export interface IWorkbenchRule {
     tagIncludes: string;
     inbox: "" | "true" | "false";
     actions: Record<string, string | null>;
+    // 文档事件触发（规则级开关，默认关）：显式开启后才参与内核文档创建/更新的自动触发。
+    eventTrigger?: boolean;
+    // 定时触发（规则级配置，默认无）：设置后由调度器（assistant/rules/scheduler.ts）按计划自动运行，
+    // 需规则列表里的自动触发总开关同时开启。
+    schedule?: IWorkbenchRuleSchedule;
 }
 
 export interface IWorkbenchAutomationData {
@@ -164,8 +206,6 @@ export const WorkbenchViewAttr = {
 };
 
 export const WORKBENCH_SAVED_VIEWS_QUERY = "type:doc has:view";
-const workbenchQueryInputTimer = 0;
-const workbenchRenderToken = 0;
 export const WORKBENCH_QUERY_CACHE_TTL = 8000;
 export const WORKBENCH_BLOCK_CACHE_TTL = 8000;
 export const workbenchQueryCache = new Map<string, { expiresAt: number, data: IWorkbenchQueryResponse }>();
@@ -639,6 +679,32 @@ export const getBuiltinWorkbenchViewNoteTemplate = (key: TWorkbenchBuiltinViewNo
     }
 };
 
+// 定时时间格式：HH:MM（24 小时制）。编辑器收集与归一层共用同一正则，口径唯一。
+export const WORKBENCH_RULE_SCHEDULE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// 定时配置归一：kind 必须是 interval/daily；everyHours 须为 1-24 整数；atTime 须为 HH:MM。
+// 非法配置整体删除（undefined=不定时），绝不猜测修正——诚实优于聪明。
+export const normalizeWorkbenchRuleSchedule = (candidate?: IWorkbenchRuleSchedule | null): IWorkbenchRuleSchedule | undefined => {
+    if (!candidate || typeof candidate !== "object") {
+        return undefined;
+    }
+    if (candidate.kind === "interval") {
+        const everyHours = Number(candidate.everyHours);
+        if (!Number.isInteger(everyHours) || everyHours < 1 || everyHours > 24) {
+            return undefined;
+        }
+        return {kind: "interval", everyHours};
+    }
+    if (candidate.kind === "daily") {
+        const atTime = `${candidate.atTime || ""}`.trim();
+        if (!WORKBENCH_RULE_SCHEDULE_TIME_PATTERN.test(atTime)) {
+            return undefined;
+        }
+        return {kind: "daily", atTime};
+    }
+    return undefined;
+};
+
 export const normalizeWorkbenchRules = (rules: IWorkbenchRule[]): IWorkbenchRule[] => {
     return (rules || []).map((item) => ({
         name: `${item?.name || ""}`.trim(),
@@ -650,6 +716,8 @@ export const normalizeWorkbenchRules = (rules: IWorkbenchRule[]): IWorkbenchRule
         projectIncludes: `${item?.projectIncludes || ""}`.trim(),
         tagIncludes: `${item?.tagIncludes || ""}`.trim(),
         inbox: (item?.inbox === "true" || item?.inbox === "false" ? item.inbox : "") as IWorkbenchRule["inbox"],
+        eventTrigger: item?.eventTrigger === true,
+        schedule: normalizeWorkbenchRuleSchedule(item?.schedule),
         actions: Object.entries(item?.actions || {}).reduce((result, [key, value]) => {
             const normalized = value == null ? null : `${value}`.trim();
             if (normalized != null && normalized !== "") {

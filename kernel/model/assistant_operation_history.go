@@ -61,25 +61,29 @@ type AssistantOperationHistoryResult struct {
 }
 
 type AssistantOperationHistoryItem struct {
-	ID            string                             `json:"id"`
-	PatchID       string                             `json:"patchId,omitempty"`
-	OperationID   string                             `json:"operationId,omitempty"`
-	OperationType string                             `json:"operationType,omitempty"`
-	Patch         *AssistantEditPatch                `json:"patch"`
-	Status        AssistantOperationHistoryStatus    `json:"status"`
-	Source        string                             `json:"source"`
-	Risk          string                             `json:"risk"`
-	SessionID     string                             `json:"sessionId,omitempty"`
-	ProfileID     string                             `json:"profileId,omitempty"`
-	TargetID      string                             `json:"targetId,omitempty"`
-	TargetLabel   string                             `json:"targetLabel,omitempty"`
-	Notebook      string                             `json:"notebook,omitempty"`
-	Path          string                             `json:"path,omitempty"`
-	Snapshot      *AssistantOperationSnapshot        `json:"snapshot,omitempty"`
-	Results       []*AssistantOperationHistoryResult `json:"results"`
-	Error         string                             `json:"error,omitempty"`
-	CreatedAt     int64                              `json:"createdAt"`
-	UpdatedAt     int64                              `json:"updatedAt"`
+	ID            string                          `json:"id"`
+	PatchID       string                          `json:"patchId,omitempty"`
+	OperationID   string                          `json:"operationId,omitempty"`
+	OperationType string                          `json:"operationType,omitempty"`
+	Patch         *AssistantEditPatch             `json:"patch"`
+	Status        AssistantOperationHistoryStatus `json:"status"`
+	Source        string                          `json:"source"`
+	Risk          string                          `json:"risk"`
+	SessionID     string                          `json:"sessionId,omitempty"`
+	ProfileID     string                          `json:"profileId,omitempty"`
+	TargetID      string                          `json:"targetId,omitempty"`
+	TargetLabel   string                          `json:"targetLabel,omitempty"`
+	Notebook      string                          `json:"notebook,omitempty"`
+	Path          string                          `json:"path,omitempty"`
+	// RuleRunID/TriggeredBy 是自动化循环防护标记：规则运行产生的写入带运行 ID，
+	// 前端事件触发器据此抑制再触发（triggeredBy == "rule" 时不再触发规则）。
+	RuleRunID   string                             `json:"ruleRunId,omitempty"`
+	TriggeredBy string                             `json:"triggeredBy,omitempty"`
+	Snapshot    *AssistantOperationSnapshot        `json:"snapshot,omitempty"`
+	Results     []*AssistantOperationHistoryResult `json:"results"`
+	Error       string                             `json:"error,omitempty"`
+	CreatedAt   int64                              `json:"createdAt"`
+	UpdatedAt   int64                              `json:"updatedAt"`
 }
 
 type AssistantHistoryListRequest struct {
@@ -152,6 +156,8 @@ func RecordAssistantPatchOperationHistory(req *AssistantPatchApplyRequest, opera
 		TargetLabel:   firstAssistantAINonEmpty(req.AuditTargetLabel(), operation.TargetLabel, req.Patch.Summary),
 		Notebook:      firstAssistantAINonEmpty(snapshot.Notebook, result.Notebook),
 		Path:          firstAssistantAINonEmpty(snapshot.Path, result.Path),
+		RuleRunID:     strings.TrimSpace(req.Patch.RuleRunID),
+		TriggeredBy:   strings.TrimSpace(req.Patch.TriggeredBy),
 		Snapshot:      snapshot,
 		Results: []*AssistantOperationHistoryResult{{
 			OperationID:     strings.TrimSpace(operation.ID),
@@ -575,6 +581,8 @@ func normalizeAssistantOperationHistoryItem(item *AssistantOperationHistoryItem)
 	item.Status = normalizeAssistantOperationHistoryStatus(item.Status)
 	item.Source = strings.TrimSpace(firstAssistantAINonEmpty(item.Source, item.Patch.Source))
 	item.Risk = strings.TrimSpace(firstAssistantAINonEmpty(item.Risk, item.Patch.Risk))
+	item.RuleRunID = strings.TrimSpace(firstAssistantAINonEmpty(item.RuleRunID, item.Patch.RuleRunID))
+	item.TriggeredBy = strings.TrimSpace(firstAssistantAINonEmpty(item.TriggeredBy, item.Patch.TriggeredBy))
 	if nil == item.Results {
 		item.Results = []*AssistantOperationHistoryResult{}
 	}

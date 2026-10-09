@@ -1,20 +1,8 @@
-import {Menu} from "../../../plugin/Menu";
-import {hasClosestByClassName, hasTopClosestByClassName} from "../../util/hasClosest";
-import {UDLRHint, upDownHint} from "../../../util/upDownHint";
-import {fetchPost} from "../../../util/fetch";
-import {escapeGreat, escapeHtml} from "../../../util/escape";
+import {hasClosestByClassName} from "../../util/hasClosest";
 import {transaction} from "../../wysiwyg/transaction";
 import {updateCellsValue} from "./cell";
-import {updateAttrViewCellAnimation} from "./cell";
-import {focusBlock} from "../../util/selection";
-import {setPosition} from "../../../util/setPosition";
 import * as dayjs from "dayjs";
-import {getFieldsByData, getViewName} from "./view";
-import {getColId} from "./col";
 import {getFieldIdByCellElement} from "./row";
-import {isMobile} from "../../../util/functions";
-import {showMessage} from "../../../dialog/message";
-import {writeText} from "../../util/compatibility";
 import {genSelectItemHTML, updateCopyRelatedItems} from "./relationShared";
 
 export const setRelationCell = async (protyle: IProtyle, nodeElement: HTMLElement, target: HTMLElement, cellElements: HTMLElement[]) => {
@@ -84,7 +72,7 @@ export const setRelationCell = async (protyle: IProtyle, nodeElement: HTMLElemen
                 isDetached: !target.firstElementChild.getAttribute("style")
             });
             separatorElement.before(target);
-            target.outerHTML = `<button data-row-id="${rowId}" data-position="west" data-type="setRelationCell" class="${target.className}" 
+            target.outerHTML = `<button data-row-id="${rowId}" data-position="west" data-type="setRelationCell" class="${target.className}"
 draggable="true">${genSelectItemHTML({
                 type: "selected",
                 rowId,
@@ -127,7 +115,7 @@ draggable="true">${genSelectItemHTML({
                 id: blockID,
                 data: dayjs().format("YYYYMMDDHHmmss"),
             }];
-            separatorElement.insertAdjacentHTML("beforebegin", `<button data-row-id="${rowId}" data-position="west" data-type="setRelationCell" 
+            separatorElement.insertAdjacentHTML("beforebegin", `<button data-row-id="${rowId}" data-position="west" data-type="setRelationCell"
 class="${target.className} ariaLabel" draggable="true">${genSelectItemHTML({
                 type: "selected",
                 rowId,

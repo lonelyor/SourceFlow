@@ -1,5 +1,6 @@
 import {searchMentionItems} from "./api";
 import {escapeAttr, escapeHTML} from "../common/dom";
+import {renderAssetTypeIcon} from "./asset";
 import type {IMentionSearchResult} from "./types";
 import type {TSecurityMode} from "../security/types";
 
@@ -88,21 +89,31 @@ export const renderMentionPopover = (state: IMentionTriggerState): string => {
         return "";
     }
 
-    const typeLabel = (type: string): string => {
-        switch (type) {
+    // 附件候选使用文件类型图标（图片/文档区分），其余沿用 emoji；
+    // 附件副行显示所属 hPath（设计 §2.1：后端返回 title=文件名、hPath=所属路径）。
+    const typeIcon = (item: IMentionSearchResult): string => {
+        if (item.type === "asset") {
+            return renderAssetTypeIcon(item.title || item.id);
+        }
+        switch (item.type) {
             case "folder": return "📁";
-            case "note": return "📄";
-            case "asset": return "📎";
             default: return "📄";
         }
     };
 
+    const resultSubtitle = (item: IMentionSearchResult): string => {
+        if (item.type === "asset") {
+            return item.hPath || item.subtitle || "";
+        }
+        return item.subtitle || "";
+    };
+
     return `<div class="assistant-ai__mention-popover" data-role="mention-popover">
     ${state.results.map((item, i) => `<div class="assistant-ai__mention-item${i === state.selectedIndex ? " assistant-ai__mention-item--selected" : ""}" data-action="select-mention" data-mention-index="${i}" title="${escapeAttr(item.hPath || item.title)}">
-        <span class="assistant-ai__mention-icon">${typeLabel(item.type)}</span>
+        <span class="assistant-ai__mention-icon">${typeIcon(item)}</span>
         <span class="assistant-ai__mention-text">
             <span class="assistant-ai__mention-title">${escapeHTML(item.title)}</span>
-            ${item.subtitle ? `<span class="assistant-ai__mention-subtitle">${escapeHTML(item.subtitle)}</span>` : ""}
+            ${resultSubtitle(item) ? `<span class="assistant-ai__mention-subtitle">${escapeHTML(resultSubtitle(item))}</span>` : ""}
         </span>
     </div>`).join("")}
 </div>`;

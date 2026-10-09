@@ -31,6 +31,7 @@ const (
 	assistantAIDefaultTemperature      = 0.7
 	assistantAIDefaultContextMessages  = 24
 	assistantAIDefaultContextTokens    = 256 * 1024
+	assistantAIImageTokenEstimate      = 1024
 	assistantAIDefaultAnthropicVersion = "2023-06-01"
 	assistantAISessionPinnedAtColumn   = "pinned_at"
 	assistantAISessionSelectClause     = `s.id, s.profile_id, s.mode, s.title, s.summary, s.` + assistantAISessionPinnedAtColumn + `, s.created_at, s.updated_at,
@@ -140,18 +141,19 @@ type AssistantAISourceCitation struct {
 }
 
 type AssistantAIChatRequest struct {
-	ProfileID      string                       `json:"profileId"`
-	SessionID      string                       `json:"sessionId"`
-	Mode           string                       `json:"mode"`
-	Title          string                       `json:"title"`
-	Message        string                       `json:"message"`
-	System         string                       `json:"system"`
-	EnableTools    bool                         `json:"enableTools"`
-	SecurityMode   AISecurityMode               `json:"securityMode"`
-	Context        *AssistantAINoteContext      `json:"context"`
-	Attachments    []AssistantAIInputAttachment `json:"attachments"`
-	Sources        []AssistantAISourceCitation  `json:"sources"`
-	RequestContext context.Context              `json:"-"`
+	ProfileID        string                       `json:"profileId"`
+	SessionID        string                       `json:"sessionId"`
+	Mode             string                       `json:"mode"`
+	Title            string                       `json:"title"`
+	Message          string                       `json:"message"`
+	System           string                       `json:"system"`
+	EnableTools      bool                         `json:"enableTools"`
+	SecurityMode     AISecurityMode               `json:"securityMode"`
+	Context          *AssistantAINoteContext      `json:"context"`
+	Attachments      []AssistantAIInputAttachment `json:"attachments"`
+	AssetAttachments []string                     `json:"assetAttachments"`
+	Sources          []AssistantAISourceCitation  `json:"sources"`
+	RequestContext   context.Context              `json:"-"`
 }
 
 type AssistantAIMessageEditRequest struct {

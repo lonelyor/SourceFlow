@@ -2,12 +2,18 @@ package model
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/lonelyor/sourceflow/kernel/treenode"
+	"github.com/lonelyor/sourceflow/kernel/util"
+	"github.com/lonelyor/sourceflow/third_party/go/filelock"
+	"github.com/lonelyor/sourceflow/third_party/go/go-humanize"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
 
@@ -144,13 +150,216 @@ func SearchAssistantContextItems(query string, limit int, mode AISecurityMode) [
 		})
 	}
 
+	// 资产并入 limit 分配：默认最多占一半，避免淹没文档结果；文档不足时放宽为剩余名额
+	if assetLimit := assistantAssetSearchLimit(limit, len(results)); assetLimit > 0 {
+		results = append(results, searchAssistantAssetItems(query, assetLimit, mode)...)
+	}
+
 	return results
+}
+
+// assistantContextAssetDocExts 资产搜索白名单中除图片外的常见文档扩展名。
+var assistantContextAssetDocExts = []string{".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".csv"}
+
+type assistantContextAssetInfo struct {
+	RelPath string // 相对引用路径，如 assets/foo.png，与笔记内引用语法一致
+	AbsPath string
+	HPath   string // 所属位置：全局资产为 "assets"，笔记本资产为 "<笔记本名>/assets"
+}
+
+// searchAssistantAssetItems 按文件名不区分大小写包含匹配资产；文件名前缀命中优先，其次字母序。
+func searchAssistantAssetItems(query string, limit int, mode AISecurityMode) []*AssistantContextSearchResult {
+	var results []*AssistantContextSearchResult
+	query = strings.TrimSpace(query)
+	if "" == query || limit <= 0 {
+		return results
+	}
+
+	lowerQuery := strings.ToLower(query)
+	type assetHit struct {
+		info   assistantContextAssetInfo
+		title  string
+		prefix bool
+	}
+	var hits []assetHit
+	for _, info := range collectAssistantContextAssets() {
+		title := path.Base(info.RelPath)
+		ext := strings.ToLower(path.Ext(title))
+		if !isAssistantContextAssetExt(ext) {
+			continue
+		}
+		lowerTitle := strings.ToLower(title)
+		if !strings.Contains(lowerTitle, lowerQuery) {
+			continue
+		}
+		hits = append(hits, assetHit{info: info, title: title, prefix: strings.HasPrefix(lowerTitle, lowerQuery)})
+	}
+	// 前缀命中优先，其次按文件名字母序，再以相对路径兜底保证结果稳定
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].prefix != hits[j].prefix {
+			return hits[i].prefix
+		}
+		if hits[i].title != hits[j].title {
+			return hits[i].title < hits[j].title
+		}
+		return hits[i].info.RelPath < hits[j].info.RelPath
+	})
+
+	for _, hit := range hits {
+		if len(results) >= limit {
+			break
+		}
+		if ok, reason := canReadAssistantContext(mode, "asset", []string{hit.info.RelPath}); !ok {
+			logging.LogWarnf("skip assistant context asset %s: %s", hit.info.RelPath, reason)
+			continue
+		}
+		results = append(results, &AssistantContextSearchResult{
+			ID:    hit.info.RelPath,
+			Type:  AssistantContextAsset,
+			Title: hit.title,
+			HPath: hit.info.HPath,
+		})
+	}
+	return results
+}
+
+// assistantAssetSearchLimit 计算资产搜索名额：默认最多占 limit 的一半，避免淹没文档结果；文档不足一半时放宽为剩余名额。
+func assistantAssetSearchLimit(limit, docCount int) int {
+	remaining := limit - docCount
+	if remaining <= 0 {
+		return 0
+	}
+	assetLimit := limit / 2
+	if docCount < assetLimit {
+		// 文档不足，放宽资产名额填满剩余位
+		return remaining
+	}
+	if assetLimit > remaining {
+		return remaining
+	}
+	return assetLimit
+}
+
+// collectAssistantContextAssets 枚举全局与已打开笔记本的资产文件，key 为相对引用路径（assets/xxx）。
+// 全局资产与笔记本资产同名时以全局优先。
+func collectAssistantContextAssets() map[string]assistantContextAssetInfo {
+	ret := map[string]assistantContextAssetInfo{}
+	add := func(absPath, hPath string) {
+		p := filepath.ToSlash(absPath)
+		idx := strings.Index(p, "assets/")
+		if idx < 0 {
+			return
+		}
+		relPath := p[idx:]
+		if _, ok := ret[relPath]; ok {
+			return
+		}
+		ret[relPath] = assistantContextAssetInfo{RelPath: relPath, AbsPath: absPath, HPath: hPath}
+	}
+
+	// 全局 assets
+	dataAssetsAbsPath := util.GetDataAssetsAbsPath()
+	filelock.Walk(dataAssetsAbsPath, func(p string, d fs.DirEntry, err error) error {
+		if nil != err || dataAssetsAbsPath == p || nil == d {
+			return nil
+		}
+		if isSkipFile(d.Name()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filelock.IsHidden(p) {
+			return nil
+		}
+		if !d.IsDir() {
+			add(p, "assets")
+		}
+		return nil
+	})
+
+	// 已打开笔记本内的 assets 目录（含文档同级 assets）
+	notebooks, err := ListNotebooks()
+	if err != nil {
+		return ret
+	}
+	for _, notebook := range notebooks {
+		if notebook.Closed {
+			continue
+		}
+		notebookAbsPath := filepath.Join(util.DataDir, notebook.ID)
+		hPath := notebook.Name + "/assets"
+		filelock.Walk(notebookAbsPath, func(p string, d fs.DirEntry, err error) error {
+			if nil != err || notebookAbsPath == p || nil == d {
+				return nil
+			}
+			if isSkipFile(d.Name()) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filelock.IsHidden(p) {
+				return nil
+			}
+			if d.IsDir() && "assets" == d.Name() {
+				filelock.Walk(p, func(assetPath string, ad fs.DirEntry, aerr error) error {
+					if nil != aerr || p == assetPath || nil == ad {
+						return nil
+					}
+					if isSkipFile(ad.Name()) {
+						if ad.IsDir() {
+							return filepath.SkipDir
+						}
+						return nil
+					}
+					if filelock.IsHidden(assetPath) {
+						return nil
+					}
+					if !ad.IsDir() {
+						add(assetPath, hPath)
+					}
+					return nil
+				})
+				return filepath.SkipDir
+			}
+			return nil
+		})
+	}
+	return ret
+}
+
+func isAssistantContextAssetExt(ext string) bool {
+	if "" == ext {
+		return false
+	}
+	for _, e := range util.SourceFlowAssetsImage {
+		if e == ext {
+			return true
+		}
+	}
+	for _, e := range assistantContextAssetDocExts {
+		if e == ext {
+			return true
+		}
+	}
+	return false
+}
+
+func isAssistantContextImageExt(ext string) bool {
+	for _, e := range util.SourceFlowAssetsImage {
+		if e == ext {
+			return true
+		}
+	}
+	return false
 }
 
 func BuildAssistantContextPack(items []AssistantContextPackItem, mode AISecurityMode) (*AssistantContextPack, error) {
 	pack := &AssistantContextPack{MaxChars: contextPackMaxSummaryChars}
 	mode = NormalizeAISecurityMode(mode, GetAISecurityConfig().DefaultMode)
 	remainingChars := contextPackMaxSummaryChars
+	var assetIndex map[string]assistantContextAssetInfo
 
 	for _, item := range items {
 		switch item.Type {
@@ -190,12 +399,21 @@ func BuildAssistantContextPack(items []AssistantContextPackItem, mode AISecurity
 			}, &remainingChars, item)
 
 		case AssistantContextAsset:
-			appendAssistantContextPackEntry(pack, AssistantContextPackEntry{
-				Type:    AssistantContextAsset,
-				ID:      item.ID,
-				Title:   item.ID,
-				Summary: truncateText(item.Content, contextSummaryMaxLen),
-			}, &remainingChars, item)
+			if ok, reason := canReadAssistantContext(mode, "asset", []string{item.ID}); !ok {
+				logging.LogWarnf("skip context asset %s: %s", item.ID, reason)
+				addAssistantContextDropped(pack, item.Type, item.ID, "", reason)
+				continue
+			}
+			if nil == assetIndex {
+				assetIndex = collectAssistantContextAssets()
+			}
+			entry, err := buildAssetContextEntry(item.ID, assetIndex)
+			if err != nil {
+				logging.LogWarnf("skip context asset %s: %s", item.ID, err)
+				addAssistantContextDropped(pack, item.Type, item.ID, path.Base(item.ID), err.Error())
+				continue
+			}
+			appendAssistantContextPackEntry(pack, *entry, &remainingChars, item)
 		}
 	}
 
@@ -329,6 +547,37 @@ func buildNoteContextEntry(rootID, notebook, docPath string) (*AssistantContextP
 		Path:     bt.Path,
 		HPath:    bt.HPath,
 		Summary:  summary,
+	}, nil
+}
+
+// buildAssetContextEntry 构建资产条目：仅读取元数据做展示，不读取文件内容（图片 OCR 属第二期）。
+// 路径取自资产枚举索引而非用户输入，避免任意路径拼接。
+func buildAssetContextEntry(relPath string, assetIndex map[string]assistantContextAssetInfo) (*AssistantContextPackEntry, error) {
+	info, ok := assetIndex[relPath]
+	if !ok {
+		return nil, fmt.Errorf("asset not found: %s", relPath)
+	}
+	fi, err := os.Stat(info.AbsPath)
+	if err != nil {
+		return nil, fmt.Errorf("stat asset [%s] failed: %s", relPath, err)
+	}
+	ext := strings.ToLower(path.Ext(info.RelPath))
+	kind := "文档"
+	if isAssistantContextImageExt(ext) {
+		kind = "图片"
+	}
+	title := path.Base(info.RelPath)
+	summary := "附件：" + title + "\n" +
+		"类型：" + kind + "（" + ext + "）\n" +
+		"大小：" + humanize.BytesCustomCeil(uint64(fi.Size()), 2) + "\n" +
+		"修改时间：" + fi.ModTime().Format("2006-01-02 15:04:05") + "\n" +
+		"位置：" + info.HPath
+	return &AssistantContextPackEntry{
+		Type:    AssistantContextAsset,
+		ID:      relPath,
+		Title:   title,
+		HPath:   info.HPath,
+		Summary: summary,
 	}, nil
 }
 

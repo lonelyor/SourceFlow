@@ -107,6 +107,44 @@ const moveFileTreeSort = (liElement: HTMLElement, notebookId: string, direction:
     });
 };
 
+// 文档树拖拽排序：把 sourceItem 排到 targetItem 之前/之后，一次 changeSort 调用完成（不做多次上下移循环）
+export const changeFileTreeSortByDrop = (sourceItem: HTMLElement, targetItem: HTMLElement, position: "before" | "after", notebookId: string) => {
+    const paths = getSiblingFileItems(targetItem).map((item) => item.getAttribute("data-path"));
+    const sourcePath = sourceItem.getAttribute("data-path");
+    const targetPath = targetItem.getAttribute("data-path");
+    const fromIndex = paths.indexOf(sourcePath);
+    const targetIndex = paths.indexOf(targetPath);
+    if (fromIndex < 0 || targetIndex < 0) {
+        return;
+    }
+    paths.splice(fromIndex, 1);
+    let toIndex = paths.indexOf(targetPath);
+    if (position === "after") {
+        toIndex += 1;
+    }
+    if (toIndex === fromIndex) {
+        // 顺序没有变化，无需调用接口
+        return;
+    }
+    paths.splice(toIndex, 0, sourcePath);
+    fetchPost("/api/filetree/changeSort", {
+        paths,
+        notebook: notebookId
+    }, () => {
+        const nextULElement = sourceItem.nextElementSibling?.tagName === "UL" ? sourceItem.nextElementSibling : undefined;
+        if (position === "before") {
+            targetItem.before(sourceItem);
+        } else if (targetItem.nextElementSibling?.tagName === "UL") {
+            targetItem.nextElementSibling.after(sourceItem);
+        } else {
+            targetItem.after(sourceItem);
+        }
+        if (nextULElement) {
+            sourceItem.after(nextULElement);
+        }
+    });
+};
+
 const initMultiMenu = (selectItemElements: NodeListOf<Element>, app: App) => {
     window.sourceflow.menus.menu.element.setAttribute("data-from", Constants.MENU_FROM_DOC_TREE_MORE_ITEMS);
     const blockIDs: string[] = [];

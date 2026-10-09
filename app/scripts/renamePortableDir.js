@@ -12,7 +12,7 @@ function isLockError(err) {
   return err && ["EPERM", "EBUSY", "EACCES"].includes(err.code);
 }
 
-function makeFallbackTarget(dir) {
+function makeFallbackTarget() {
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   let candidate = path.join(buildDir, `sourceflow-portable-${stamp}`);
   let index = 1;
@@ -29,7 +29,7 @@ function tryRemoveTarget(dir) {
     return null;
   } catch (err) {
     if (isLockError(err)) {
-      return makeFallbackTarget(dir);
+      return makeFallbackTarget();
     }
     throw err;
   }
@@ -57,7 +57,7 @@ try {
   fs.renameSync(sourceDir, finalTargetDir);
 } catch (err) {
   if (finalTargetDir === targetDir && isLockError(err)) {
-    finalTargetDir = makeFallbackTarget(targetDir);
+    finalTargetDir = makeFallbackTarget();
     console.warn(`Default portable directory became unavailable, writing new build to: ${finalTargetDir}`);
     fs.renameSync(sourceDir, finalTargetDir);
   } else {

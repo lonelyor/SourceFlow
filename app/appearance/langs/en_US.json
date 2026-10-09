@@ -834,6 +834,14 @@
   "syncThirdPartyProviderTip": "Before using this feature, please pay attention to the technical limitations and billing items of the third-party cloud storage service: <div class=\"b3-label__text\"><ul class='fn__list'><li>Technical limitations such as interface calling frequency and bandwidth</li><li>Billing items such as storage space and traffic</li><li>Terms of use and availability guarantee</li></ul></div><div class='fn__hr'></div>Disclaimer: For details, please refer to the relevant terms in the open source license AGPLv3 used by SourceFlow",
   "syncProvider": "Cloud storage service provider",
   "syncProviderTip": "If selected, the cloud storage service of this provider will be used to achieve cloud synchronization and backup functions",
+  "syncS3PresetProvider": "Provider preset",
+  "syncS3PresetProviderTip": "Choose a common S3-compatible provider to auto-fill the endpoint, region, and addressing style with setup guidance",
+  "syncS3TestConnection": "Test connection",
+  "syncS3TestConnectionTip": "Uploads, downloads, and removes a temporary object to verify the endpoint, credentials, and read/write permissions; the saved configuration is not changed",
+  "syncS3TestConnectionTesting": "Testing connection…",
+  "syncS3TestConnectionSuccess": "Connection test passed: the temporary object was uploaded, downloaded, and removed",
+  "syncS3TestConnectionFailed": "Connection test failed",
+  "syncS3TestConnectionMissing": "Please fill in the endpoint, access key, secret key, and bucket first",
   "confirmReset": "Are you sure want to reset all keyboard shortcuts to default settings?",
   "notBatchRemove": "Notebook batch deletion is not supported",
   "confirmRemoveAll": "Are you sure you want to delete the selected ${count} items and their subdocuments?",
@@ -1252,6 +1260,8 @@
   "zoomIn": "Zoom In",
   "zoomOut": "Zoom Out",
   "template": "Template",
+  "templateNameDuplicate": "Template \"${x}\" already exists, please rename it before saving",
+  "templateImportFailed": "Failed to import template",
   "move": "Move",
   "layout": "Layout",
   "expandLevel": "Expand Level",
@@ -2018,5 +2028,8 @@
     "284": "Access denied",
     "285": "Password is incorrect",
     "286": "[%s] has already been rolled back"
-  }
+  },
+  "fileTreeSortBefore": "Sort before this item",
+  "fileTreeSortAfter": "Sort after this item",
+  "fileTreeSortMoveNeedsAlt": "Hold Alt to move"
 }

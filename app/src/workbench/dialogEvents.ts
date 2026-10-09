@@ -34,6 +34,7 @@ import {appendMarkdownToCurrentNote, applyWorkbenchSavedViewsState, saveWorkbenc
 import {batchSetAttrs, openWorkbenchBatchMetaDialog, openWorkbenchItem, openWorkbenchMetaDialog} from "./dialogMeta";
 import {buildWorkbenchDraft, buildWorkbenchViewTemplate, createWorkbenchViewNote} from "./dialogDraft";
 import {getWorkbenchConversionAttrs} from "./dialogRules";
+import {handleWorkbenchRulesClick} from "./dialogRulesUI";
 
 export interface IWorkbenchDialogEventInput {
     app: App;
@@ -65,6 +66,18 @@ const handleWorkbenchDialogClick = async (event: MouseEvent, input: IWorkbenchDi
             return;
         }
         const action = actionTarget.getAttribute("data-action");
+        if (action?.startsWith("workbench-rule")) {
+            await handleWorkbenchRulesClick({
+                app,
+                action,
+                actionTarget,
+                state,
+                selected,
+                visibleItems,
+                rerender,
+            });
+            return;
+        }
         if (action === "switch-tab") {
             state.activeTab = actionTarget.getAttribute("data-tab") as TWorkbenchTab;
             state.views[state.activeTab] = normalizeWorkbenchView(state.activeTab, state.views[state.activeTab], state.resultLayer);
@@ -409,7 +422,7 @@ const handleWorkbenchDialogClick = async (event: MouseEvent, input: IWorkbenchDi
 };
 
 const handleWorkbenchDialogChange = async (event: Event, input: IWorkbenchDialogEventInput) => {
-    const {state, selected, items, visibleItems, rerender} = input;
+    const {items, rerender} = input;
 
         const target = event.target as HTMLElement;
         const actionTarget = target.closest("[data-inline-action]") as HTMLElement;
@@ -455,7 +468,7 @@ const handleWorkbenchDialogChange = async (event: Event, input: IWorkbenchDialog
 };
 
 const handleWorkbenchDialogFocusOut = async (event: Event, input: IWorkbenchDialogEventInput) => {
-    const {state, selected, items, rerender} = input;
+    const {items, rerender} = input;
 
         const target = event.target as HTMLElement;
         const actionTarget = target.closest("[data-inline-action]") as HTMLElement;

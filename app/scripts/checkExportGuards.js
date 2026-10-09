@@ -60,7 +60,6 @@ const checkPDFExportGuards = () => {
     const exportIndexPath = path.join(appRoot, "src", "protyle", "export", "index.ts");
     const exportRuntimeAssetsPath = path.join(appRoot, "src", "protyle", "export", "runtimeAssets.ts");
     const exportRuntimeStatePath = path.join(appRoot, "src", "protyle", "export", "runtimeState.ts");
-    const exportSharedPath = path.join(appRoot, "src", "protyle", "export", "shared.ts");
     const exportStaticHTMLPath = path.join(appRoot, "src", "protyle", "export", "staticHTML.ts");
     const exportPDFHTMLPath = path.join(appRoot, "src", "protyle", "export", "pdfPreviewHTML.ts");
     const exportPDFWorkerHTMLPath = path.join(appRoot, "src", "protyle", "export", "pdfWorkerHTML.ts");

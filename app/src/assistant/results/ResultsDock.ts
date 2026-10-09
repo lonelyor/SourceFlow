@@ -278,10 +278,10 @@ class AssistantResultsDock {
     </div>
 </div>
 <div class="assistant-results__quick">
-    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="upload-summary">${escapeHTML(assistantText("上传并总结", "Upload & Summarize"))}</button>
-    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="upload-outline">${escapeHTML(assistantText("上传并提纲", "Upload & Outline"))}</button>
-    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="open-studio">${escapeHTML(assistantText("来源创作", "Source Studio"))}</button>
-    ${["note-summarize", "note-outline", "note-qa", "note-flashcards"].map((skillId) => `<button class="assistant-results__quick-action" type="button" data-action="run-skill" data-skill-id="${escapeAttr(skillId)}">${escapeHTML(getQuickSkillLabel(skillId))}</button>`).join("")}
+    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="upload-summary" title="${escapeAttr(assistantText("上传文件或图片，AI 总结后存入成果箱", "Upload files or images; the AI summary is saved to results"))}">${escapeHTML(assistantText("上传并总结", "Upload & Summarize"))}</button>
+    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="upload-outline" title="${escapeAttr(assistantText("上传文件或图片，AI 生成提纲后存入成果箱", "Upload files or images; the AI outline is saved to results"))}">${escapeHTML(assistantText("上传并提纲", "Upload & Outline"))}</button>
+    <button class="assistant-results__quick-action assistant-results__quick-action--primary" type="button" data-action="open-studio" title="${escapeAttr(assistantText("引用笔记来源进行 AI 创作，结果可保存", "Create with note sources; results can be saved"))}">${escapeHTML(assistantText("来源创作", "Source Studio"))}</button>
+    ${["note-summarize", "note-outline", "note-qa", "note-flashcards"].map((skillId) => `<button class="assistant-results__quick-action" type="button" data-action="run-skill" data-skill-id="${escapeAttr(skillId)}" title="${escapeAttr(assistantText("对当前笔记生成并存入成果箱", "Generate from the current note into results"))}">${escapeHTML(getQuickSkillLabel(skillId))}</button>`).join("")}
 </div>
 <div class="assistant-results__filters">
     ${(["all", "summary", "outline", "qa", "flashcards"] as TAssistantResultCategory[]).map((category) => `<button class="assistant-results__filter${this.filter === category ? " assistant-results__filter--active" : ""}" type="button" data-filter="${escapeAttr(category)}">${escapeHTML(getResultCategoryLabel(category))}</button>`).join("")}

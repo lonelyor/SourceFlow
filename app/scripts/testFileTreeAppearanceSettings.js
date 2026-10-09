@@ -4,7 +4,6 @@ const path = require("path");
 
 const appRoot = path.join(__dirname, "..");
 const repoRoot = path.join(appRoot, "..");
-const srcRoot = path.join(appRoot, "src");
 
 const readApp = (...parts) => fs.readFileSync(path.join(appRoot, ...parts), "utf8");
 const readRepo = (...parts) => fs.readFileSync(path.join(repoRoot, ...parts), "utf8");

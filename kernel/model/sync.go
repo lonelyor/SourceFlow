@@ -17,8 +17,10 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +39,7 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/dejavu/cloud"
 	"github.com/lonelyor/sourceflow/third_party/go/go-humanize"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/httpclient"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/html"
 )
@@ -686,6 +689,95 @@ func SetSyncProviderS3(s3 *conf.S3) (err error) {
 	resetSyncPerceptionState()
 	connectSyncWebSocket()
 	return
+}
+
+// TestSyncProviderS3 使用传入的 S3 配置执行一次连接测试，不会保存配置。
+//
+// 测试过程会在 Bucket 中上传、下载并删除一个临时对象，用于校验端点、凭证以及读写权限。
+func TestSyncProviderS3(s3 *conf.S3) (err error) {
+	if nil == s3 {
+		err = errors.New("invalid S3 config")
+		return
+	}
+
+	s3.Endpoint = strings.TrimSpace(s3.Endpoint)
+	s3.Endpoint = util.NormalizeEndpoint(s3.Endpoint)
+	s3.AccessKey = strings.TrimSpace(s3.AccessKey)
+	s3.SecretKey = strings.TrimSpace(s3.SecretKey)
+	s3.Bucket = strings.TrimSpace(s3.Bucket)
+	s3.Region = strings.TrimSpace(s3.Region)
+	s3.Timeout = util.NormalizeTimeout(s3.Timeout)
+	s3.ConcurrentReqs = util.NormalizeConcurrentReqs(s3.ConcurrentReqs, conf.ProviderS3)
+
+	if err = validateS3ConnectionTestConfig(s3); err != nil {
+		return
+	}
+
+	testCloud, testPath := newS3ConnectionTestCloud(s3)
+	data := []byte("sourceflow-s3-connection-test")
+	if _, err = testCloud.UploadBytes(testPath, data, true); err != nil {
+		err = fmt.Errorf("upload test object failed: %s", err)
+		return
+	}
+
+	downloaded, err := testCloud.DownloadObject(testPath)
+	if err != nil {
+		err = fmt.Errorf("download test object failed: %s", err)
+	} else if !bytes.Equal(data, downloaded) {
+		err = errors.New("download test object failed: content mismatch")
+	}
+
+	if removeErr := testCloud.RemoveObject(testPath); nil != removeErr {
+		logging.LogWarnf("remove S3 connection test object [%s] failed: %s", testPath, removeErr)
+	}
+	return
+}
+
+// validateS3ConnectionTestConfig 校验连接测试所需的最小配置项。
+func validateS3ConnectionTestConfig(s3 *conf.S3) (err error) {
+	if "" == s3.Endpoint {
+		err = errors.New("endpoint is empty")
+		return
+	}
+	if "" == s3.AccessKey {
+		err = errors.New("access key is empty")
+		return
+	}
+	if "" == s3.SecretKey {
+		err = errors.New("secret key is empty")
+		return
+	}
+	if "" == s3.Bucket {
+		err = errors.New("bucket is empty")
+		return
+	}
+	if !cloud.IsValidCloudDirName(s3.Bucket) {
+		err = fmt.Errorf("invalid bucket name [%s]", s3.Bucket)
+		return
+	}
+	return
+}
+
+func newS3ConnectionTestCloud(s3 *conf.S3) (testCloud cloud.Cloud, testPath string) {
+	cloudConf := &cloud.Conf{
+		Dir:    Conf.Sync.CloudName,
+		UserID: "0",
+		S3: &cloud.ConfS3{
+			Endpoint:       s3.Endpoint,
+			AccessKey:      s3.AccessKey,
+			SecretKey:      s3.SecretKey,
+			Bucket:         s3.Bucket,
+			Region:         s3.Region,
+			PathStyle:      s3.PathStyle,
+			SkipTlsVerify:  s3.SkipTlsVerify,
+			Timeout:        s3.Timeout,
+			ConcurrentReqs: s3.ConcurrentReqs,
+		},
+	}
+	httpClient := &http.Client{Transport: httpclient.NewTransport(s3.SkipTlsVerify)}
+	httpClient.Timeout = time.Duration(s3.Timeout) * time.Second
+	testPath = "sourceflow-connection-test-" + util.CurrentTimeSecondsStr()
+	return cloud.NewS3(&cloud.BaseCloud{Conf: cloudConf}, httpClient), testPath
 }
 
 func SetSyncProviderWebDAV(webdav *conf.WebDAV) (err error) {

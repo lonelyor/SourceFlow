@@ -34,6 +34,12 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 	message := strings.TrimSpace(req.Message)
 	attachments := normalizeAssistantAIInputAttachments(req.Attachments)
 	sources := normalizeAssistantAISourceCitations(req.Sources)
+	// 资产图片按枚举索引精确解析（安全口径同 context pack），校验失败仅跳过并记录原因
+	assetAttachments, skippedAssetAttachments := resolveAssistantAssetImageAttachments(req.AssetAttachments, req.SecurityMode)
+	if 0 < len(assetAttachments) {
+		// 资产图片排在前，消息附件数量上限裁剪时优先保留
+		attachments = append(assetAttachments, attachments...)
+	}
 	if "" == message && 1 > len(attachments) {
 		return nil, fmt.Errorf("assistant AI message is required")
 	}
@@ -88,6 +94,16 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 	if 0 < len(attachments) {
 		userMessage.Metadata["attachments"] = assistantAIInputAttachmentsToMetadata(attachments)
 	}
+	if 0 < len(assetAttachments) {
+		assetIDs := make([]string, 0, len(assetAttachments))
+		for _, item := range assetAttachments {
+			assetIDs = append(assetIDs, item.ID)
+		}
+		userMessage.Metadata["assetAttachmentIds"] = assetIDs
+	}
+	if 0 < len(skippedAssetAttachments) {
+		userMessage.Metadata["skippedAssetAttachments"] = assistantAssetSkipsToMetadata(skippedAssetAttachments)
+	}
 	if 0 < len(sources) {
 		userMessage.Metadata["sources"] = assistantAISourceCitationsToMetadata(sources)
 	}
@@ -139,23 +155,12 @@ func chatAssistantAI0(req *AssistantAIChatRequest, onDelta func(string) error) (
 		}
 	}
 
-	// C4: unified budget. Effective window = the model's real context window
-	// when known (resolved per model on the profile), else the configured
-	// history budget. Reserve room for output and the system prompt (which
-	// carries the note body), then trim the oldest history so the whole
-	// request fits the window.
-	effectiveWindow := getAssistantAIIntSetting(profile.Settings, "contextWindow", 0)
-	if effectiveWindow <= 0 {
-		effectiveWindow = getAssistantAIIntSetting(profile.Settings, "maxContextTokens", assistantAIDefaultContextTokens)
-	}
-	outputReserve := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
-	if outputReserve <= 0 {
-		outputReserve = 4096
-	}
-	historyBudget := effectiveWindow - outputReserve - estimateAssistantAITextTokens(systemPrompt)
-	if historyBudget < 0 {
-		historyBudget = 0
-	}
+	// C4: unified budget. Resolve the effective model window once (user window
+	// override aware), reserve room for output, the system prompt (which
+	// carries the note body) and the current user message itself, then trim
+	// the oldest history so the whole request fits the window. The current
+	// user message is never trimmed (see trimAssistantAIContextMessages).
+	historyBudget := resolveAssistantAIHistoryBudget(profile, systemPrompt, userMessage)
 
 	maxContextMessages := getAssistantAIIntSetting(profile.Settings, "maxContextMessages", assistantAIDefaultContextMessages)
 	contextMessages, err := listAssistantAISessionMessages(db, session.ID, maxContextMessages)
@@ -329,8 +334,6 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 	if err != nil {
 		return nil, err
 	}
-	maxContextTokens := getAssistantAIIntSetting(profile.Settings, "maxContextTokens", assistantAIDefaultContextTokens)
-	contextMessages = trimAssistantAIContextMessages(contextMessages, maxContextTokens)
 
 	systemPrompt := strings.TrimSpace(req.System)
 	if "" == systemPrompt {
@@ -359,6 +362,11 @@ func editAssistantAIMessage0(req *AssistantAIMessageEditRequest, onDelta func(st
 			systemPrompt = strings.TrimSpace(systemPrompt + "\n\n" + ctxPart)
 		}
 	}
+
+	// C4: 与 chat 相同的统一预算口径——生效窗口扣除输出预留、system prompt 与
+	// 当前（被编辑的）用户消息后即为历史预算；当前消息永不被裁。
+	historyBudget := resolveAssistantAIHistoryBudget(profile, systemPrompt, userMessage)
+	contextMessages = trimAssistantAIContextMessages(contextMessages, historyBudget)
 
 	editLoopResult, editLoopErr := runAssistantAIToolLoop(&assistantAIToolLoopParams{
 		DB:              db,

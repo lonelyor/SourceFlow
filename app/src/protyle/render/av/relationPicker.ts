@@ -1,18 +1,8 @@
-import {Menu} from "../../../plugin/Menu";
-import {hasClosestByClassName, hasTopClosestByClassName} from "../../util/hasClosest";
-import {UDLRHint, upDownHint} from "../../../util/upDownHint";
+import {upDownHint} from "../../../util/upDownHint";
 import {fetchPost} from "../../../util/fetch";
-import {escapeGreat, escapeHtml} from "../../../util/escape";
-import {transaction} from "../../wysiwyg/transaction";
-import {updateCellsValue} from "./cell";
-import {updateAttrViewCellAnimation} from "./cell";
-import {focusBlock} from "../../util/selection";
 import {setPosition} from "../../../util/setPosition";
-import * as dayjs from "dayjs";
-import {getFieldsByData, getViewName} from "./view";
+import {getFieldsByData} from "./view";
 import {getColId} from "./col";
-import {getFieldIdByCellElement} from "./row";
-import {isMobile} from "../../../util/functions";
 import {showMessage} from "../../../dialog/message";
 import {writeText} from "../../util/compatibility";
 import {genSelectItemHTML, updateCopyRelatedItems} from "./relationShared";
@@ -30,8 +20,8 @@ const filterItem = (menuElement: Element, cellElement: HTMLElement, keyword: str
         cellElement.querySelectorAll(".av__cell--relation").forEach((relationItem: HTMLElement) => {
             const item = relationItem.querySelector(".av__celltext") as HTMLElement;
             hasIds.push(relationItem.dataset.rowId);
-            selectHTML += `<button data-row-id="${relationItem.dataset.rowId}" data-position="west" data-type="setRelationCell" 
-class="b3-menu__item ariaLabel${item.textContent.indexOf(keyword) > -1 ? "" : " fn__none"}" 
+            selectHTML += `<button data-row-id="${relationItem.dataset.rowId}" data-position="west" data-type="setRelationCell"
+class="b3-menu__item ariaLabel${item.textContent.indexOf(keyword) > -1 ? "" : " fn__none"}"
 draggable="true">${genSelectItemHTML({
                 type: "selected",
                 id: item.dataset.id,
@@ -81,7 +71,7 @@ export const bindRelationEvent = (options: {
         options.cellElements[0].querySelectorAll(".av__cell--relation").forEach((relationItem: HTMLElement) => {
             const item = relationItem.querySelector(".av__celltext") as HTMLElement;
             hasIds.push(relationItem.dataset.rowId);
-            selectHTML += `<button data-row-id="${relationItem.dataset.rowId}" data-position="west" data-type="setRelationCell" class="b3-menu__item ariaLabel" 
+            selectHTML += `<button data-row-id="${relationItem.dataset.rowId}" data-position="west" data-type="setRelationCell" class="b3-menu__item ariaLabel"
 draggable="true">${genSelectItemHTML({
                 type: "selected",
                 id: item.dataset.id,

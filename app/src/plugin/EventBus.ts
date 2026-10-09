@@ -5,9 +5,6 @@ type Listener<DetailType> = (detail: DetailType) => boolean | void;
 export class EventBus<DetailType = any> {
     private listeners: Map<TEventBus, Set<Listener<DetailType>>> = new Map();
 
-    constructor(_name = "") {
-    }
-
     on(type: TEventBus, listener: (event: CustomEvent<DetailType>) => void) {
         const wrappedListener = (detail: DetailType) => {
             listener(new CustomEvent(type, {detail}));

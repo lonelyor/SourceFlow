@@ -1,24 +1,7 @@
-import {Menu} from "../../../plugin/Menu";
-import {transaction} from "../../wysiwyg/transaction";
-import {fetchPost, fetchSyncPost} from "../../../util/fetch";
-import {getDefaultOperatorByType, setFilter} from "./filter";
-import {genCellValue} from "./cell";
-import {getPropertiesHTML, openMenuPanel} from "./openMenuPanel";
-import {getLabelByNumberFormat} from "./number";
-import {removeAttrViewColAnimation, updateAttrViewCellAnimation} from "./cell";
-import {openEmojiPanel, unicode2Emoji} from "../../../emoji";
-import {focusBlock} from "../../util/selection";
-import {toggleUpdateRelationBtn} from "./relation";
-import {bindRollupData, getRollupHTML} from "./rollup";
-import {Constants} from "../../../constants";
-import * as dayjs from "dayjs";
+import {openMenuPanel} from "./openMenuPanel";
+import {unicode2Emoji} from "../../../emoji";
 import {setPosition} from "../../../util/setPosition";
-import {duplicateNameAddOne, isMobile} from "../../../util/functions";
-import {Dialog} from "../../../dialog";
-import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
 import {getFieldsByData} from "./view";
-import {hasClosestByClassName} from "../../util/hasClosest";
-import {getAVViewAttr} from "../../../util/attrCompat";
 
 import {bindEditEvent, getEditHTML} from "./colEdit";
 import {genColDataByType, getColIconByType, getColNameByType} from "./colLookups";

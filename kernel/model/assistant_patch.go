@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/lonelyor/sourceflow/kernel/filesys"
 	sql "github.com/lonelyor/sourceflow/kernel/sql"
+	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
 	"github.com/lonelyor/sourceflow/third_party/go/logging"
@@ -23,6 +27,7 @@ const (
 	AssistantPatchOperationAppendNote       = "append-note"
 	AssistantPatchOperationCreateNote       = "create-note"
 	AssistantPatchOperationCreateChildNote  = "create-child-note"
+	AssistantPatchOperationMoveNote         = "move-note"
 	AssistantPatchOperationRenameNote       = "rename-note"
 	AssistantPatchOperationSetAttrs         = "set-attrs"
 	AssistantPatchOperationDeleteBlock      = "delete-block"
@@ -38,6 +43,10 @@ type AssistantEditPatch struct {
 	Summary    string                     `json:"summary"`
 	Operations []*AssistantPatchOperation `json:"operations"`
 	CreatedAt  int64                      `json:"createdAt"`
+	// RuleRunID/TriggeredBy 是自动化循环防护标记：规则运行编译出的 patch 携带运行 ID，
+	// 随 patch apply 写入 AI 操作历史，前端事件触发器据此抑制再触发。
+	RuleRunID   string `json:"ruleRunId,omitempty"`
+	TriggeredBy string `json:"triggeredBy,omitempty"`
 }
 
 type AssistantPatchOperation struct {
@@ -123,6 +132,8 @@ func ApplyAssistantPatchOperation(req *AssistantPatchApplyRequest) (*AssistantPa
 		result, err = applyAssistantPatchDeleteBlock(context, operation)
 	case AssistantPatchOperationRenameNote:
 		result, err = applyAssistantPatchRenameNote(context, operation)
+	case AssistantPatchOperationMoveNote:
+		result, err = applyAssistantPatchMoveNote(context, operation)
 	case AssistantPatchOperationSetAttrs:
 		result, err = applyAssistantPatchSetAttrs(context, operation)
 	default:
@@ -307,7 +318,7 @@ func assistantPatchPendingOperationCount(patch *AssistantEditPatch) int {
 func assistantPatchSecurityRisk(patch *AssistantEditPatch, operation *AssistantPatchOperation) AISecurityRiskLevel {
 	operationRisk := AISecurityRiskL2
 	switch operation.Type {
-	case AssistantPatchOperationReplaceSelection, AssistantPatchOperationReplaceBlock, AssistantPatchOperationDeleteBlock, AssistantPatchOperationRenameNote:
+	case AssistantPatchOperationReplaceSelection, AssistantPatchOperationReplaceBlock, AssistantPatchOperationDeleteBlock, AssistantPatchOperationRenameNote, AssistantPatchOperationMoveNote:
 		operationRisk = AISecurityRiskL3
 	}
 	patchRisk := normalizeAISecurityRiskLevel(AISecurityRiskLevel(strings.TrimSpace(patch.Risk)))
@@ -342,6 +353,8 @@ func assistantPatchOperationCapability(operation *AssistantPatchOperation) strin
 		return AISecurityCapabilityCreate
 	case AssistantPatchOperationDeleteBlock:
 		return AISecurityCapabilityDeleteBlock
+	case AssistantPatchOperationMoveNote:
+		return AISecurityCapabilityMove
 	default:
 		return AISecurityCapabilityWrite
 	}
@@ -418,7 +431,7 @@ func applyAssistantPatchReplaceSelection(context *AssistantAINoteContext, operat
 		}
 		return nil, fmt.Errorf("selected source no longer exists in the target block")
 	}
-	nextMarkdown := strings.Replace(liveMarkdown, before, after, 1)
+	nextMarkdown := strings.Replace(assistantPatchNormalizeSourceText(liveMarkdown), assistantPatchNormalizeSourceText(before), after, 1)
 	transactions, err := performAssistantPatchReplaceMarkdown(targetID, nextMarkdown)
 	if nil != err {
 		return nil, err
@@ -561,6 +574,191 @@ func applyAssistantPatchRenameNote(context *AssistantAINoteContext, operation *A
 			TitleAfter:      title,
 		},
 	}, nil
+}
+
+func applyAssistantPatchMoveNote(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
+	noteID := strings.TrimSpace(firstAssistantAINonEmpty(operation.TargetID, contextID(context)))
+	toNotebook := getAssistantAIStringValue(operation.Attrs, "toNotebook", "")
+	toPath := getAssistantAIStringValue(operation.Attrs, "toPath", "")
+	if "" == noteID || "" == toNotebook {
+		return nil, fmt.Errorf("move-note patch needs a note root ID plus toNotebook/toPath attrs")
+	}
+	plan, err := resolveAssistantAIMoveNotePlan(noteID, toNotebook, toPath)
+	if nil != err {
+		return nil, err
+	}
+	newPath, err := performAssistantAIMoveNote(plan)
+	if nil != err {
+		return nil, err
+	}
+	return &AssistantPatchApplyResult{
+		AppliedTargetID: plan.NoteID,
+		Notebook:        plan.ToBox,
+		Path:            newPath,
+		Summary:         "applied move-note",
+		HistorySnapshot: &AssistantOperationSnapshot{
+			OperationType:   operation.Type,
+			TargetID:        plan.NoteID,
+			AppliedTargetID: plan.NoteID,
+			Before:          assistantAIMoveNotePlanLabel(plan.FromBoxName, plan.FromHPath, plan.FromPath),
+			After:           assistantAIMoveNotePlanLabel(plan.ToBoxName, plan.ToHPath, newPath),
+			Notebook:        plan.ToBox,
+			Path:            newPath,
+			TitleBefore:     plan.Title,
+			TitleAfter:      plan.Title,
+		},
+	}, nil
+}
+
+// assistantAIMoveNotePlan 是一次笔记移动的已校验计划，工具执行与 patch apply 共用，
+// 保证“移动到目标路径”只有一套校验与落盘语义。
+type assistantAIMoveNotePlan struct {
+	NoteID        string
+	Title         string
+	FromBox       string
+	FromBoxName   string
+	FromPath      string // 源文档 .sf 存储路径
+	FromHPath     string
+	ToBox         string
+	ToBoxName     string
+	ToParentPath  string // 目标父文档存储路径，根目录为 "/"
+	ToParentHPath string
+	ToHPath       string // 移动后文档的完整可读路径
+}
+
+// resolveAssistantAIMoveNotePlan 校验并归一化一次移动：noteID 必须是有效笔记根，
+// 目标笔记本与路径必须存在，禁止移入自身/子文档，目标存在同名文档时失败关闭。
+func resolveAssistantAIMoveNotePlan(noteID, toNotebook, toPath string) (*assistantAIMoveNotePlan, error) {
+	noteID = strings.TrimSpace(noteID)
+	toNotebook = strings.TrimSpace(toNotebook)
+	if "" == noteID || "" == toNotebook {
+		return nil, fmt.Errorf("moving a note needs both the note ID and the target notebook")
+	}
+	tree, err := LoadTreeByBlockID(noteID)
+	if nil != err {
+		return nil, fmt.Errorf("note to move [%s] was not found", noteID)
+	}
+	if tree.ID != noteID {
+		return nil, fmt.Errorf("[%s] is not a note root; moving requires the note root ID", noteID)
+	}
+	fromBox := Conf.Box(tree.Box)
+	if nil == fromBox {
+		return nil, fmt.Errorf("notebook [%s] of the note to move was not found", tree.Box)
+	}
+	toBox := resolveAssistantAIMoveTargetBox(toNotebook)
+	if nil == toBox {
+		return nil, fmt.Errorf("target notebook [%s] was not found", toNotebook)
+	}
+	toParentPath, err := normalizeAssistantAIMoveTargetPath(toBox, toPath)
+	if nil != err {
+		return nil, err
+	}
+	// MoveDocs 对“移入自身子文档”会静默跳过，这里必须提前显式拒绝，保持失败关闭
+	fromDir := strings.TrimSuffix(tree.Path, ".sf")
+	if "" == fromDir || "/" == fromDir {
+		return nil, fmt.Errorf("cannot move the notebook root")
+	}
+	toParentDir := strings.TrimSuffix(toParentPath, ".sf")
+	if toParentPath == tree.Path || toParentDir == fromDir || strings.HasPrefix(toParentDir, fromDir+"/") {
+		return nil, fmt.Errorf("cannot move a note into itself or its own subdocuments")
+	}
+	toParentHPath := ""
+	if "/" != toParentPath {
+		if !toBox.Exist(toParentPath) {
+			return nil, fmt.Errorf("target path [%s] does not exist in notebook [%s]", toParentPath, toBox.Name)
+		}
+		toParentTree, loadErr := filesys.LoadTree(toBox.ID, toParentPath, util.NewLute())
+		if nil != loadErr || nil == toParentTree {
+			return nil, fmt.Errorf("target path [%s] in notebook [%s] is not a readable document", toParentPath, toBox.Name)
+		}
+		toParentHPath = toParentTree.HPath
+	}
+	title := strings.TrimSpace(tree.Root.IALAttr("title"))
+	if "" == title {
+		title = util.GetTreeID(tree.Path)
+	}
+	toHPath := path.Join(toParentHPath, title)
+	// 目标已有同名文档时明确失败，不静默改名
+	for _, bt := range treenode.GetBlockTreeRootsByHPath(toBox.ID, toHPath) {
+		if nil != bt && bt.ID != tree.ID {
+			return nil, fmt.Errorf("a document named [%s] already exists at the target location", toHPath)
+		}
+	}
+	return &assistantAIMoveNotePlan{
+		NoteID:        noteID,
+		Title:         title,
+		FromBox:       fromBox.ID,
+		FromBoxName:   fromBox.Name,
+		FromPath:      tree.Path,
+		FromHPath:     tree.HPath,
+		ToBox:         toBox.ID,
+		ToBoxName:     toBox.Name,
+		ToParentPath:  toParentPath,
+		ToParentHPath: toParentHPath,
+		ToHPath:       toHPath,
+	}, nil
+}
+
+// performAssistantAIMoveNote 是移动笔记的唯一底层落盘函数，内部走既有 MoveDocs 文件树安全实现。
+func performAssistantAIMoveNote(plan *assistantAIMoveNotePlan) (newPath string, err error) {
+	if nil == plan || "" == plan.NoteID || "" == plan.FromPath || "" == plan.ToBox {
+		return "", fmt.Errorf("move-note plan is incomplete")
+	}
+	if err = MoveDocs([]string{plan.FromPath}, plan.ToBox, plan.ToParentPath, nil); nil != err {
+		return "", err
+	}
+	FlushTxQueue()
+	bt := treenode.GetBlockTree(plan.NoteID)
+	if nil == bt || "" == strings.TrimSpace(bt.Path) {
+		return "", fmt.Errorf("moved note [%s] cannot be located after the move", plan.NoteID)
+	}
+	return bt.Path, nil
+}
+
+// normalizeAssistantAIMoveTargetPath 把 AI 给出的目标父路径归一化为笔记本内的 .sf 存储路径，
+// 空字符串与 "/" 都表示笔记本根目录；拒绝越界路径并要求目标必须是已存在的文档。
+func normalizeAssistantAIMoveTargetPath(toBox *Box, toPath string) (string, error) {
+	toPath = strings.TrimSpace(strings.ReplaceAll(toPath, "\\", "/"))
+	if "" == toPath || "/" == toPath {
+		return "/", nil
+	}
+	toPath = strings.TrimSuffix(toPath, "/")
+	rel, err := util.CleanRelativePath(toPath)
+	if nil != err {
+		return "", fmt.Errorf("unsafe target path [%s]: %v", toPath, err)
+	}
+	if "" == rel {
+		return "/", nil
+	}
+	if !strings.HasSuffix(rel, ".sf") {
+		rel += ".sf"
+	}
+	// 笔记本边界校验：归一化后的路径必须仍然落在目标笔记本目录内
+	if _, err = util.ResolvePathUnder(filepath.Join(util.DataDir, toBox.ID), rel); nil != err {
+		return "", fmt.Errorf("unsafe target path [%s]: %v", toPath, err)
+	}
+	return "/" + rel, nil
+}
+
+// resolveAssistantAIMoveTargetBox 支持按笔记本 ID 或名称指定目标笔记本。
+func resolveAssistantAIMoveTargetBox(toNotebook string) *Box {
+	if box := Conf.Box(toNotebook); nil != box {
+		return box
+	}
+	for _, box := range Conf.GetOpenedBoxes() {
+		if box.Name == toNotebook {
+			return box
+		}
+	}
+	return nil
+}
+
+func assistantAIMoveNotePlanLabel(boxName, hPath, docPath string) string {
+	label := strings.TrimSpace(boxName + " " + hPath)
+	if "" != strings.TrimSpace(docPath) {
+		label += " (" + strings.TrimSpace(docPath) + ")"
+	}
+	return label
 }
 
 func applyAssistantPatchSetAttrs(context *AssistantAINoteContext, operation *AssistantPatchOperation) (*AssistantPatchApplyResult, error) {
@@ -763,10 +961,20 @@ func firstAssistantPatchOperationID(transactions []*Transaction) string {
 	return ""
 }
 
+// assistantPatchZeroWidthPattern 匹配选区文本中常见的零宽字符（DOM 渲染产物），
+// 计数与替换前必须双端归一化，否则内联改写永远无法命中实时原文。
+var assistantPatchZeroWidthPattern = regexp.MustCompile(`[\x{200B}\x{200C}\x{200D}\x{FEFF}]`)
+
+func assistantPatchNormalizeSourceText(text string) string {
+	return assistantPatchZeroWidthPattern.ReplaceAllString(text, "")
+}
+
 func assistantPatchTextOccurrences(text, needle string) int {
 	if "" == needle {
 		return 0
 	}
+	text = assistantPatchNormalizeSourceText(text)
+	needle = assistantPatchNormalizeSourceText(needle)
 	count := 0
 	start := 0
 	for {

@@ -10,6 +10,11 @@ import type {
 
 const patchableSkillActions = new Set(["replace-selection", "insert-below", "append-note"]);
 
+// 选区文本常带 DOM 渲染产生的零宽字符（U+200B 等），与后端 kramdown 实时内容比对前必须剥离。
+export const normalizeAssistantPatchSourceText = (text: string) => {
+    return `${text ?? ""}`.replace(/\u200B|\u200C|\u200D|\uFEFF/gu, "").trim();
+};
+
 export const createAssistantPatchID = (prefix: string) => {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
@@ -105,7 +110,7 @@ const buildStructuredAssistantPatch = (
         const raw = item as Record<string, unknown>;
         const type = normalizeAssistantPatchOperationType(raw.type);
         const after = `${raw.after ?? raw.markdown ?? raw.content ?? raw.text ?? ""}`.trim();
-        const before = `${raw.before ?? ""}`.trim();
+        const before = normalizeAssistantPatchSourceText(`${raw.before ?? ""}`);
         const attrs = raw.attrs && typeof raw.attrs === "object" && !Array.isArray(raw.attrs)
             ? raw.attrs as Record<string, string | null>
             : undefined;
@@ -182,7 +187,7 @@ export const buildAssistantPatchFromSkillResult = (
         operation.type = "replace-selection";
         operation.targetId = context.note.currentBlockID || context.note.rootID;
         operation.targetLabel = assistantText("当前选区", "Current selection");
-        operation.before = context.selectedText || context.note.selectedText || "";
+        operation.before = normalizeAssistantPatchSourceText(context.selectedText || context.note.selectedText || "");
     } else if (definition.action === "append-note") {
         operation.type = "append-note";
         operation.targetId = context.note.rootID;

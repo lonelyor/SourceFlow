@@ -37,8 +37,11 @@ import {renderAIDockMessages, renderAIDockMessageToolResults} from "./AIDockRend
 import {
     renderAIDockAttachmentList,
     renderAIDockComposerAttachments,
+    renderAIDockContextNotice,
     renderAIDockContextStatus,
+    renderAIDockContextUsage,
     renderAIDockModelLauncher,
+    updateAIDockContextNoticeState,
 } from "./AIDockRenderComposer";
 import {
     renderAIDockAuditCard,
@@ -121,6 +124,8 @@ export type TAssistantAIDockRenderRuntime = IAssistantAIDockRenderContext & {
     renderQuickActions: (...args: any[]) => any;
     renderSessionActions: (...args: any[]) => any;
     renderContextStatus: (...args: any[]) => any;
+    renderContextNotice: (...args: any[]) => any;
+    renderContextUsage: (...args: any[]) => any;
     renderComposerAttachments: (...args: any[]) => any;
     renderAttachmentList: (...args: any[]) => any;
     renderModelLauncher: (...args: any[]) => any;
@@ -158,13 +163,15 @@ const createRenderRuntime = (ctx: IAssistantAIDockRenderContext): TAssistantAIDo
     runtime.getTargetLockLabel = () => getAIDockTargetLockLabel(runtime);
     runtime.buildHoverHint = (summary: string, action: string) => buildAIDockHoverHint(runtime, summary, action);
     runtime.getSessionsToggleHint = () => getAIDockSessionsToggleHint(runtime);
-    runtime.getNewSessionHint = () => getAIDockNewSessionHint(runtime);
+    runtime.getNewSessionHint = () => getAIDockNewSessionHint();
     runtime.getSessionPanelHint = () => getAIDockSessionPanelHint(runtime);
-    runtime.getProfilesConfigHint = () => getAIDockProfilesConfigHint(runtime);
+    runtime.getProfilesConfigHint = () => getAIDockProfilesConfigHint();
     runtime.getSessionItemHint = (item: IAssistantAISession) => getAIDockSessionItemHint(runtime, item);
     runtime.renderQuickActions = () => renderAIDockQuickActions(runtime);
     runtime.renderSessionActions = (session?: IAssistantAISession) => renderAIDockSessionActions(runtime, session);
     runtime.renderContextStatus = () => renderAIDockContextStatus(runtime);
+    runtime.renderContextNotice = () => renderAIDockContextNotice(runtime);
+    runtime.renderContextUsage = () => renderAIDockContextUsage(runtime);
     runtime.renderComposerAttachments = () => renderAIDockComposerAttachments(runtime);
     runtime.renderAttachmentList = (attachments: IAssistantAIInputAttachment[], composer = false) => renderAIDockAttachmentList(runtime, attachments, composer);
     runtime.renderModelLauncher = (profile?: IAssistantAIProfile) => renderAIDockModelLauncher(runtime, profile);
@@ -182,6 +189,7 @@ const createRenderRuntime = (ctx: IAssistantAIDockRenderContext): TAssistantAIDo
 
 const render = (ctx: TAssistantAIDockRenderRuntime) => {
     const focusSnapshot = captureInputFocus(ctx.element, AI_DOCK_RESTORABLE_INPUT_ROLES);
+    updateAIDockContextNoticeState(ctx);
     const profile = ctx.getSelectedProfile();
     const session = ctx.getSelectedSession();
     const editingMessage = ctx.editingMessageId ? ctx.getMessageById(ctx.editingMessageId) : null;
@@ -233,6 +241,7 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
         <div class="assistant-ai__composer">
             <div class="assistant-ai__composer-shell">
                 <div class="assistant-ai__composer-card">
+                    ${ctx.renderContextNotice()}
                     ${editingMessage ? `<div class="assistant-ai__composer-edit">
                         <div class="assistant-ai__composer-edit-main">
                             <div class="assistant-ai__composer-edit-title">${escapeHTML(assistantText("正在编辑你的上一条消息", "Editing your previous message"))}</div>
@@ -265,14 +274,15 @@ const render = (ctx: TAssistantAIDockRenderRuntime) => {
                         </div>
                     </div>
                 </div>
-                <div class="assistant-ai__composer-meta">
-                    <div class="assistant-ai__utility-actions">
-                        <button type="button" class="assistant-ai__utility-button" data-action="save-transcript"${ctx.messages.length ? "" : " disabled"}>${assistantText("保存对话", "Save Transcript")}</button>
-                        <button type="button" class="assistant-ai__utility-button" data-action="analyze-session"${ctx.messages.length ? "" : " disabled"}>${assistantText("分析并保存", "Analyze & Save")}</button>
-                        <button type="button" class="assistant-ai__utility-button" data-action="insert-last-reply"${ctx.messages.find((item) => item.role === "assistant") ? "" : " disabled"}>${assistantText("插入回复", "Insert Reply")}</button>
+                    <div class="assistant-ai__composer-meta">
+                        <div class="assistant-ai__utility-actions">
+                            <span class="assistant-ai__utility-label">${assistantText("产出", "Output")}</span>
+                            <button type="button" class="assistant-ai__utility-button" data-action="save-transcript" aria-label="${escapeAttr(assistantText("把本次对话记录保存为新笔记", "Save this transcript as a new note"))}" title="${escapeAttr(assistantText("把本次对话记录保存为新笔记", "Save this transcript as a new note"))}"${ctx.messages.length ? "" : " disabled"}>${assistantText("保存对话", "Save Transcript")}</button>
+                            <button type="button" class="assistant-ai__utility-button" data-action="analyze-session" aria-label="${escapeAttr(assistantText("AI 分析本次对话并保存为新笔记", "Analyze this conversation and save it as a new note"))}" title="${escapeAttr(assistantText("AI 分析本次对话并保存为新笔记", "Analyze this conversation and save it as a new note"))}"${ctx.messages.length ? "" : " disabled"}>${assistantText("分析并保存", "Analyze & Save")}</button>
+                            <button type="button" class="assistant-ai__utility-button" data-action="insert-last-reply" aria-label="${escapeAttr(assistantText("把最后一条回复追加到当前笔记末尾", "Append the last reply to the current note"))}" title="${escapeAttr(assistantText("把最后一条回复追加到当前笔记末尾", "Append the last reply to the current note"))}"${ctx.messages.find((item) => item.role === "assistant") ? "" : " disabled"}>${assistantText("插入回复", "Insert Reply")}</button>
+                        </div>
+                        <div class="assistant-ai__context-status">${ctx.renderContextUsage()}${ctx.renderContextStatus()}</div>
                     </div>
-                    <div class="assistant-ai__context-status">${ctx.renderContextStatus()}</div>
-                </div>
             </div>
         </div>
     </div>

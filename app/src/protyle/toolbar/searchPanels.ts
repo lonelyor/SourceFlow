@@ -4,7 +4,7 @@ import {fetchPost} from "../../util/fetch";
 import {isMobile} from "../../util/functions";
 import {resizeSide} from "../../history/resizeSide";
 import {Constants} from "../../constants";
-import {previewTemplate, toolbarKeyToMenu} from "./util";
+import {previewTemplate} from "./util";
 import {copyPlainText, readClipboard} from "../util/compatibility";
 import {focusByRange, focusByWbr, getEditorRange, getSelectionPosition, selectAll} from "../util/selection";
 import {hideElements} from "../ui/hideElements";

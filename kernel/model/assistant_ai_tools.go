@@ -29,6 +29,7 @@ const (
 	AssistantAIToolAppendCurrentNote       = "append-current-note"
 	AssistantAIToolCreateNote              = "create-note"
 	AssistantAIToolCreateChildNote         = "create-child-note"
+	AssistantAIToolMoveNoteToPath          = "move-note-to-path"
 	AssistantAIToolCreateWorkbench         = "create-workbench-item"
 	AssistantAIToolInsertAfterBlock        = "insert-after-block"
 	AssistantAIToolDeleteBlock             = "delete-block"
@@ -324,6 +325,15 @@ var assistantAIToolCatalog = []*AssistantAIToolDefinition{
 		Risk:        AssistantAIToolRiskLowWrite,
 		Category:    "write",
 		Target:      AssistantAIToolScopeCurrentNote,
+		DefaultMode: AssistantAIToolModeConfirm,
+	},
+	{
+		ID:          AssistantAIToolMoveNoteToPath,
+		Name:        "移动笔记到指定路径",
+		Description: "把指定笔记移动到目标笔记本的目标文档路径下，用于按文件夹归类整理笔记",
+		Risk:        AssistantAIToolRiskMediumWrite,
+		Category:    "write",
+		Target:      AssistantAIToolScopeWorkspace,
 		DefaultMode: AssistantAIToolModeConfirm,
 	},
 	{
@@ -710,6 +720,24 @@ func buildAssistantAIToolPreviewOperation(def *AssistantAIToolDefinition, contex
 		operation["targetId"] = contextID(context)
 		operation["targetLabel"] = firstAssistantAINonEmpty(getAssistantAIStringValue(args, "title", ""), "AI 子文档")
 		operation["after"] = markdown
+	case AssistantAIToolMoveNoteToPath:
+		// 移动笔记的预览只做只读解析，失败时返回 nil，由上层按无预览处理
+		plan, planErr := resolveAssistantAIMoveNotePlan(
+			getAssistantAIStringValue(args, "noteID", ""),
+			getAssistantAIStringValue(args, "toNotebook", ""),
+			getAssistantAIStringValue(args, "toPath", ""))
+		if nil != planErr {
+			return nil
+		}
+		operation["type"] = AssistantPatchOperationMoveNote
+		operation["targetId"] = plan.NoteID
+		operation["targetLabel"] = firstAssistantAINonEmpty(plan.Title, "目标笔记")
+		operation["before"] = assistantAIMoveNotePlanLabel(plan.FromBoxName, plan.FromHPath, plan.FromPath)
+		operation["after"] = assistantAIMoveNotePlanLabel(plan.ToBoxName, plan.ToHPath, plan.ToParentPath)
+		operation["attrs"] = map[string]interface{}{
+			"toNotebook": plan.ToBox,
+			"toPath":     plan.ToParentPath,
+		}
 	case AssistantAIToolInsertAfterBlock:
 		if "" == markdown || "" == targetID {
 			return nil
@@ -750,7 +778,7 @@ func assistantAIToolPatchTarget(def *AssistantAIToolDefinition) string {
 		return "note"
 	case AssistantAIToolInsertAfterBlock, AssistantAIToolReplaceBlock, AssistantAIToolDeleteBlock:
 		return "block"
-	case AssistantAIToolCreateNote, AssistantAIToolCreateChildNote, AssistantAIToolCreateWorkbench:
+	case AssistantAIToolCreateNote, AssistantAIToolCreateChildNote, AssistantAIToolCreateWorkbench, AssistantAIToolMoveNoteToPath:
 		return "notebook"
 	default:
 		return "workspace"

@@ -1,27 +1,9 @@
-import {fetchSyncPost} from "../../../util/fetch";
 import {getColIconByType} from "./col";
-import {Constants} from "../../../constants";
-import {addDragFill, cellScrollIntoView, popTextCell, renderCell} from "./cell";
+import {renderCell} from "./cell";
 import {unicode2Emoji} from "../../../emoji";
-import {focusBlock} from "../../util/selection";
-import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
-import {stickyRow, updateHeader} from "./row";
 import {getCalcValue} from "./calc";
-import {renderAVAttribute} from "./blockAttr";
-import {addClearButton} from "../../../util/addClearButton";
 import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
-import {electronUndo} from "../../undo";
-import {isInMobileApp} from "../../util/compatibility";
-import {isMobile} from "../../../util/functions";
 import {getFieldsByData, getViewIcon} from "./view";
-import {openMenuPanel} from "./openMenuPanel";
-import {getPageSize} from "./groups";
-import {clearSelect} from "../../util/clear";
-import {showMessage} from "../../../dialog/message";
-/// #if MOBILE
-import {activeBlur} from "../../../mobile/util/keyboardToolbar";
-/// #endif
-import {getAVViewAttr} from "../../../util/attrCompat";
 
 export interface IIds {
     groupId: string,
@@ -152,9 +134,9 @@ export const getTableHTMLs = (data: IAVTable, e: HTMLElement) => {
         if (column.hidden) {
             return;
         }
-        contentHTML += `<div class="av__cell av__cell--header" data-col-id="${column.id}"  draggable="true" 
-data-icon="${column.icon}" data-dtype="${column.type}" data-wrap="${column.wrap}" data-pin="${column.pin}" 
-data-desc="${escapeAttr(column.desc)}" data-position="north" 
+        contentHTML += `<div class="av__cell av__cell--header" data-col-id="${column.id}"  draggable="true"
+data-icon="${column.icon}" data-dtype="${column.type}" data-wrap="${column.wrap}" data-pin="${column.pin}"
+data-desc="${escapeAttr(column.desc)}" data-position="north"
 style="width: ${column.width || "200px"};">
     ${column.icon ? unicode2Emoji(column.icon, "av__cellheadericon", true) : `<svg class="av__cellheadericon"><use xlink:href="#${getColIconByType(column.type)}"></use></svg>`}
     <span class="av__celltext fn__flex-1">${escapeHtml(column.name)}</span>
@@ -168,7 +150,7 @@ style="width: ${column.width || "200px"};">
             // lineNumber type 不参与计算操作
             calcHTML += `<div data-col-id="${column.id}" data-dtype="${column.type}" class="av__calc" style="width: ${column.width || "200px"}">&nbsp;</div>`;
         } else {
-            calcHTML += `<div class="av__calc${column.calc && column.calc.operator !== "" ? " av__calc--ashow" : ""}" data-col-id="${column.id}" data-dtype="${column.type}" data-operator="${column.calc?.operator || ""}" 
+            calcHTML += `<div class="av__calc${column.calc && column.calc.operator !== "" ? " av__calc--ashow" : ""}" data-col-id="${column.id}" data-dtype="${column.type}" data-operator="${column.calc?.operator || ""}"
 style="width: ${column.width || "200px"}">${getCalcValue(column) || `<svg><use xlink:href="#iconDown"></use></svg><small>${window.sourceflow.languages.calc}</small>`}</div>`;
         }
         if (column.calc && column.calc.operator !== "") {
@@ -203,10 +185,10 @@ style="width: ${column.width || "200px"}">${getCalcValue(column) || `<svg><use x
             if (cell.valueType === "checkbox") {
                 checkClass = cell.value?.checkbox?.checked ? " av__cell-check" : " av__cell-uncheck";
             }
-            contentHTML += `<div class="av__cell${checkClass}" data-id="${cell.id}" data-col-id="${data.columns[index].id}" 
-data-wrap="${data.columns[index].wrap}" 
-data-dtype="${data.columns[index].type}" 
-${cell.value?.isDetached ? ' data-detached="true"' : ""} 
+            contentHTML += `<div class="av__cell${checkClass}" data-id="${cell.id}" data-col-id="${data.columns[index].id}"
+data-wrap="${data.columns[index].wrap}"
+data-dtype="${data.columns[index].type}"
+${cell.value?.isDetached ? ' data-detached="true"' : ""}
 style="width: ${data.columns[index].width || "200px"};
 ${cell.valueType === "number" ? "text-align: right;" : ""}
 ${cell.bgColor ? `background-color:${cell.bgColor};` : ""}

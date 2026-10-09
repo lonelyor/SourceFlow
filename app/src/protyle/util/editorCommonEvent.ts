@@ -20,7 +20,7 @@ import {getAllEditor} from "../../layout/getAll";
 import {updatePanelByEditor} from "../../editor/util";
 /// #endif
 import {blockRender} from "../render/blockRender";
-import {uploadLocalFiles, uploadDroppedFiles} from "../upload";
+import {uploadDroppedFiles} from "../upload";
 import {insertHTML} from "./insertHTML";
 import {isBrowser} from "../../util/functions";
 import {hideElements} from "../ui/hideElements";

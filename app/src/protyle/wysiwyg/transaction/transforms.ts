@@ -1,26 +1,14 @@
 import {fetchPost, fetchSyncPost} from "../../../util/fetch";
-import {focusBlock, focusByWbr, focusSideBlock, getEditorRange} from "../../util/selection";
-import {getContenteditableElement, getFirstBlock, getTopAloneElement} from "../getBlock";
+import {focusBlock, focusByWbr, getEditorRange} from "../../util/selection";
+import {getContenteditableElement} from "../getBlock";
 import {Constants} from "../../../constants";
 import {blockRender} from "../../render/blockRender";
 import {processRender} from "../../util/processCode";
 import {highlightRender} from "../../render/highlightRender";
-import {hasClosestBlock, hasClosestByAttribute, hasTopClosestByAttribute, isInEmbedBlock} from "../../util/hasClosest";
-import {setFold, zoomOut} from "../../../menus/protyle";
-import {disabledProtyle, enableProtyle, onGet} from "../../util/onGet";
-/// #if !MOBILE
-import {getAllModels} from "../../../layout/getAll";
-/// #endif
-import {avRender, refreshAV} from "../../render/av/render";
-import {removeFoldHeading} from "../../util/heading";
-import {cancelSB, genEmptyElement, genSBElement} from "../../../block/util";
+import {setFold} from "../../../menus/protyle";
+import {avRender} from "../../render/av/render";
+import {cancelSB, genSBElement} from "../../../block/util";
 import {hideElements} from "../../ui/hideElements";
-import {reloadProtyle} from "../../util/reload";
-import {countBlockWord} from "../../../layout/status";
-import {resize} from "../../util/resize";
-import {processClonePHElement} from "../../render/util";
-import {scrollCenter} from "../../../util/highlightById";
-import {getFullWidthAttr, getReadonlyAttr, isAVStaticTextAttr} from "../../../util/attrCompat";
 
 import {transaction, updateTransaction} from "./runtime";
 
@@ -425,5 +413,3 @@ export const turnsOneInto = async (options: {
     highlightRender(options.protyle.wysiwyg.element);
     avRender(options.protyle.wysiwyg.element, options.protyle);
 };
-
-let transactionsTimeout: number;

@@ -16,7 +16,7 @@ import {
     testAssistantAIConnection,
     listAssistantAIModels,
 } from "./api";
-import {applyAssistantAIRecommendedSettings, assistantAISettingDefaults} from "./presets";
+import {applyAssistantAIRecommendedSettings, assistantAISettingDefaults, parseAssistantAIContextWindowOverride, resolveAssistantAIContextWindowDetail} from "./presets";
 import {
     ASSISTANT_SECRET_MASK,
     clearAssistantSecretMaskBeforeEdit,
@@ -47,6 +47,8 @@ interface IAssistantAIProfilesPanelState {
     testResult: { ok: boolean; message: string; latency: number } | null;
     testing: boolean;
     loadingModels: boolean;
+    /** Transient one-line notice, e.g. after an invalid override input is cleared on blur. */
+    windowOverrideHint: string;
 }
 
 const assistantAIToolModeOptions = [
@@ -93,8 +95,14 @@ const cloneToolModes = (settings?: Record<string, unknown>) => {
 };
 
 const cloneSettings = (settings?: Record<string, unknown>) => {
+    // T1.6: keep the context window override only as a clean positive integer;
+    // invalid / empty values are dropped so we never persist 0 or "" (the
+    // backend normalizer also strips those, but do not write dirty data).
+    const rawSettings: Record<string, unknown> = {...settings};
+    const {contextWindowOverride: rawContextWindowOverride, ...rest} = rawSettings;
+    const contextWindowOverride = parseAssistantAIContextWindowOverride(rawContextWindowOverride);
     return {
-        ...settings,
+        ...rest,
         timeout: getIntSetting(settings, "timeout", assistantAISettingDefaults.timeout),
         temperature: getFloatSetting(settings, "temperature", assistantAISettingDefaults.temperature),
         maxTokens: getIntSetting(settings, "maxTokens", assistantAISettingDefaults.maxTokens),
@@ -105,6 +113,7 @@ const cloneSettings = (settings?: Record<string, unknown>) => {
         toolWriteScope: getStringSetting(settings, "toolWriteScope", "current-notebook"),
         toolTraceMode: getStringSetting(settings, "toolTraceMode", "audit-only"),
         toolModes: cloneToolModes(settings),
+        ...(contextWindowOverride > 0 ? {contextWindowOverride} : {}),
     };
 };
 
@@ -229,12 +238,32 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
     const apiKeyMasked = !!state.draft.hasAPIKey && apiKeyValue === ASSISTANT_SECRET_MASK;
     const advancedSummary = assistantText("无响应超时、输出长度、Temperature 和上下文预算。", "No-response timeout, output size, temperature, and context budget.");
     const toolSummary = assistantText("读取/写入范围、留痕和各工具权限。", "Read/write scope, trace mode, and per-tool permissions.");
-    // C4 visibility: show the resolved model context window so users see what
-    // C1/C3 captured for the selected model.
-    const resolvedContextWindow = getIntSetting(state.draft.settings as Record<string, unknown> | undefined, "contextWindow", 0);
-    const contextWindowHint = resolvedContextWindow > 0
-        ? assistantText(`当前模型上下文窗口：约 ${(resolvedContextWindow / 1000).toFixed(0)}K tokens（笔记正文按此动态分配）`, `Current model window: ~${(resolvedContextWindow / 1000).toFixed(0)}K tokens (note context is sized to this)`)
-        : assistantText("当前模型上下文窗口：未知，将按提供商默认预算。", "Current model window: unknown; uses the provider default budget.");
+    // C4/T1.6 visibility: show the effective context window and where it comes
+    // from (model / provider catalog / manual override), plus an editable
+    // override input for deployments whose nominal windows are inflated.
+    const draftSettings = state.draft.settings as Record<string, unknown> | undefined;
+    const windowResolution = resolveAssistantAIContextWindowDetail({settings: draftSettings});
+    const windowSourceZh = windowResolution.source === "override" ? "手动覆写" : windowResolution.source === "model" ? "模型" : windowResolution.source === "budget" ? "提供商目录" : "默认";
+    const windowSourceEn = windowResolution.source === "override" ? "manual override" : windowResolution.source === "model" ? "model" : windowResolution.source === "budget" ? "provider catalog" : "default";
+    const contextWindowHint = assistantText(
+        `生效上下文窗口：约 ${(windowResolution.window / 1000).toFixed(0)}K tokens（来源：${windowSourceZh}；笔记正文按此动态分配）`,
+        `Effective context window: ~${(windowResolution.window / 1000).toFixed(0)}K tokens (source: ${windowSourceEn}; note context is sized to this)`,
+    );
+    const overrideInputValue = windowResolution.override > 0 ? `${windowResolution.override}` : "";
+    const windowOverrideTooltip = assistantText(
+        "留空跟随模型；仅当填入低于模型窗口的正整数时生效。",
+        "Leave empty to follow the model; only a positive integer below the model window takes effect.",
+    );
+    const windowOverrideRuleHint = assistantText(
+        "上下文窗口覆写：留空跟随模型，仅低于模型窗口的正整数生效。",
+        "Context window override: leave empty to follow the model; only values below the model window apply.",
+    );
+    const overrideIgnoredHint = windowResolution.override > 0 && !windowResolution.overrideApplied
+        ? assistantText(
+            `覆写 ${windowResolution.override} 不小于当前解析窗口 ${windowResolution.baseWindow}，暂不生效；调低数值或留空恢复跟随。`,
+            `Override ${windowResolution.override} is not below the resolved window ${windowResolution.baseWindow} and is ignored. Lower it or clear it to follow the model.`,
+        )
+        : "";
     const wrapperClasses = ["assistant-profiles", "fn__flex"];
     if (options.compact) {
         wrapperClasses.push("assistant-profiles--compact");
@@ -327,7 +356,16 @@ const renderPanelContent = (state: IAssistantAIProfilesPanelState, options: IAss
                             <input class="b3-text-field" type="number" min="256" step="256" data-setting="maxContextTokens" value="${escapeAttr(`${settings.maxContextTokens}`)}">
                         </label>
                     </div>
+                    <div class="assistant-profiles__grid">
+                        <label class="fn__flex-column assistant-profiles__field">
+                            <span>${escapeHTML(assistantText("上下文窗口覆写（Tokens）", "Context Window Override (Tokens)"))}</span>
+                            <input class="b3-text-field" type="number" min="1" step="1" data-setting="contextWindowOverride" value="${escapeAttr(overrideInputValue)}" placeholder="${escapeAttr(assistantText("留空跟随模型", "Leave empty to follow the model"))}" title="${escapeAttr(windowOverrideTooltip)}">
+                        </label>
+                    </div>
+                    <div class="assistant-profiles__summary">${escapeHTML(windowOverrideRuleHint)}</div>
                     <div class="assistant-profiles__summary">${escapeHTML(contextWindowHint)}</div>
+                    ${overrideIgnoredHint ? `<div class="assistant-profiles__summary">${escapeHTML(overrideIgnoredHint)}</div>` : ""}
+                    ${state.windowOverrideHint ? `<div class="assistant-profiles__summary">${escapeHTML(state.windowOverrideHint)}</div>` : ""}
                     <div class="assistant-profiles__grid">
                         <label class="fn__flex-column assistant-profiles__field assistant-profiles__field--wide">
                             <span>${escapeHTML(assistantText("上下文消息上限", "Context Message Limit"))}</span>
@@ -421,6 +459,7 @@ export class AssistantAIProfilesPanel {
         testResult: null,
         testing: false,
         loadingModels: false,
+        windowOverrideHint: "",
     };
 
     constructor(element: HTMLElement, options: IAssistantAIProfilesPanelOptions = {}) {
@@ -438,6 +477,7 @@ export class AssistantAIProfilesPanel {
 
     public async refresh(selectedId = this.state.selectedId || this.options.selectedId || "") {
         this.state.loading = true;
+        this.state.windowOverrideHint = "";
         this.render();
         try {
             this.state.providers = await listAssistantAIProviders();
@@ -522,6 +562,16 @@ export class AssistantAIProfilesPanel {
 
         this.element.addEventListener("change", (event: Event) => {
             this.syncFromEvent(event.target as HTMLInputElement | HTMLSelectElement);
+        });
+
+        // T1.6: the context window override silently falls back to "follow the
+        // model" on blur when the input is not a usable positive integer.
+        this.element.addEventListener("focusout", (event: FocusEvent) => {
+            const target = event.target as HTMLInputElement;
+            if (target?.getAttribute?.("data-setting") !== "contextWindowOverride") {
+                return;
+            }
+            this.sanitizeContextWindowOverrideInput(target);
         });
     }
 
@@ -663,13 +713,61 @@ export class AssistantAIProfilesPanel {
             this.state.draft.settings[setting] = trimmed;
             return;
         }
+        if (setting === "contextWindowOverride") {
+            // T1.6: keep the raw text while typing; blur sanitizes it
+            // (sanitizeContextWindowOverrideInput) and cloneSettings drops
+            // invalid values at save time. Clear any stale cleanup notice.
+            this.state.draft.settings[setting] = trimmed;
+            this.state.windowOverrideHint = "";
+            return;
+        }
         const parsed = parseInt(trimmed, 10);
         this.state.draft.settings[setting] = Number.isFinite(parsed) ? parsed : assistantAISettingDefaults[setting as keyof typeof assistantAISettingDefaults];
+    }
+
+    /**
+     * T1.6: on blur, normalize the context window override input. Valid
+     * positive integers are stored as numbers; anything else (empty / 0 /
+     * negative / non-numeric) is cleared so the profile follows the model
+     * window again — no error dialog, just a one-line notice when the input
+     * was invalid.
+     */
+    private sanitizeContextWindowOverrideInput(target: HTMLInputElement) {
+        if (!this.state.draft.settings) {
+            this.state.draft.settings = {};
+        }
+        const rawValue = `${target.value ?? ""}`.trim();
+        const parsed = parseAssistantAIContextWindowOverride(rawValue);
+        const storedValue = parseAssistantAIContextWindowOverride(this.state.draft.settings.contextWindowOverride);
+        if (parsed > 0) {
+            this.state.draft.settings.contextWindowOverride = parsed;
+            this.state.windowOverrideHint = "";
+            if (rawValue !== `${parsed}` || storedValue !== parsed) {
+                target.value = `${parsed}`;
+                this.render();
+            }
+            return;
+        }
+        delete this.state.draft.settings.contextWindowOverride;
+        if (rawValue) {
+            this.state.windowOverrideHint = assistantText(
+                "输入无效，已清空并恢复跟随模型。",
+                "Invalid input cleared; following the model again.",
+            );
+            this.render();
+            return;
+        }
+        // Deliberately emptied: silently restore "follow the model".
+        this.state.windowOverrideHint = "";
+        if (storedValue > 0) {
+            this.render();
+        }
     }
 
     private selectProfile(profileId: string) {
         this.state.selectedId = profileId;
         this.state.draft = createDraft(this.state.providers, this.state.profiles.find((item) => item.id === profileId));
+        this.state.windowOverrideHint = "";
         this.markClean();
         this.render();
     }
@@ -680,6 +778,11 @@ export class AssistantAIProfilesPanel {
     // unsaved edits. API key is secret-managed and intentionally excluded.
     private serializeDraft(draft: Partial<IAssistantAIProfile>): string {
         const settings = (draft.settings || {}) as Record<string, unknown>;
+        // T1.6: include the context window override explicitly (normalized via
+        // parseAssistantAIContextWindowOverride) so dirty tracking notices
+        // adding/clearing the key and ignores raw-text-vs-number noise.
+        // JSON.stringify drops the undefined placeholder, i.e. "follow model".
+        const contextWindowOverride = parseAssistantAIContextWindowOverride(settings.contextWindowOverride);
         return JSON.stringify({
             name: draft.name,
             provider: draft.provider,
@@ -689,7 +792,10 @@ export class AssistantAIProfilesPanel {
             version: draft.version,
             userAgent: draft.userAgent,
             isDefault: draft.isDefault,
-            settings: {...settings},
+            settings: {
+                ...settings,
+                contextWindowOverride: contextWindowOverride > 0 ? contextWindowOverride : undefined,
+            },
         });
     }
 
@@ -746,6 +852,7 @@ export class AssistantAIProfilesPanel {
                         () => {
                             this.state.selectedId = "";
                             this.state.draft = createDraft(this.state.providers);
+                            this.state.windowOverrideHint = "";
                             this.markClean();
                             this.render();
                         },
@@ -754,6 +861,7 @@ export class AssistantAIProfilesPanel {
                 }
                 this.state.selectedId = "";
                 this.state.draft = createDraft(this.state.providers);
+                this.state.windowOverrideHint = "";
                 this.markClean();
                 this.render();
                 return;

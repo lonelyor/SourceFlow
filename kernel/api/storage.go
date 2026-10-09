@@ -164,24 +164,6 @@ func setLocalStorageVal(c *gin.Context) {
 	util.PushEvent(evt)
 }
 
-func setLocalStorage(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	arg, ok := util.JsonArg(c, ret)
-	if !ok {
-		return
-	}
-
-	val := arg["val"].(interface{})
-	err := model.SetLocalStorage(val)
-	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return
-	}
-}
-
 func getLocalStorage(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

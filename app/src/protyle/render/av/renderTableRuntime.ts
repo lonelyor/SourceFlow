@@ -1,23 +1,14 @@
 import {fetchSyncPost} from "../../../util/fetch";
-import {getColIconByType} from "./col";
 import {Constants} from "../../../constants";
-import {addDragFill, cellScrollIntoView, popTextCell, renderCell} from "./cell";
-import {unicode2Emoji} from "../../../emoji";
+import {addDragFill, cellScrollIntoView} from "./cell";
 import {focusBlock} from "../../util/selection";
 import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
 import {stickyRow, updateHeader} from "./row";
-import {getCalcValue} from "./calc";
-import {renderAVAttribute} from "./blockAttr";
 import {addClearButton} from "../../../util/addClearButton";
-import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
 import {electronUndo} from "../../undo";
 import {isInMobileApp} from "../../util/compatibility";
 import {isMobile} from "../../../util/functions";
-import {getFieldsByData, getViewIcon} from "./view";
-import {openMenuPanel} from "./openMenuPanel";
 import {getPageSize} from "./groups";
-import {clearSelect} from "../../util/clear";
-import {showMessage} from "../../../dialog/message";
 /// #if MOBILE
 import {activeBlur} from "../../../mobile/util/keyboardToolbar";
 /// #endif

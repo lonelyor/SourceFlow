@@ -80,3 +80,17 @@ func TestAssistantPatchEscalationTokenSingleUseAndBound(t *testing.T) {
 		t.Fatal("failed mismatched consume must not burn the original token")
 	}
 }
+
+func TestAssistantPatchTextOccurrencesToleratesZeroWidthChars(t *testing.T) {
+	live := "This is a plain sentence for the smoke test."
+	needle := "This is a plain sentence for the smoke test.\u200B"
+	if got := assistantPatchTextOccurrences(live, needle); 1 != got {
+		t.Fatalf("expected 1 occurrence after zero-width normalization, got %d", got)
+	}
+	if got := assistantPatchTextOccurrences(live+"\u200B", needle); 1 != got {
+		t.Fatalf("expected 1 occurrence when live text carries zero-width char, got %d", got)
+	}
+	if got := assistantPatchTextOccurrences(live, assistantPatchNormalizeSourceText(needle)+"x"); 0 != got {
+		t.Fatalf("expected 0 occurrences for mismatched text, got %d", got)
+	}
+}

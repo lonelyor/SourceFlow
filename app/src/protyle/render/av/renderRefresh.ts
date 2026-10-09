@@ -1,54 +1,10 @@
-import {fetchSyncPost} from "../../../util/fetch";
-import {getColIconByType} from "./col";
 import {Constants} from "../../../constants";
-import {addDragFill, cellScrollIntoView, popTextCell, renderCell} from "./cell";
-import {unicode2Emoji} from "../../../emoji";
-import {focusBlock} from "../../util/selection";
-import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
-import {stickyRow, updateHeader} from "./row";
-import {getCalcValue} from "./calc";
+import {addDragFill, popTextCell} from "./cell";
 import {renderAVAttribute} from "./blockAttr";
-import {addClearButton} from "../../../util/addClearButton";
-import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
-import {electronUndo} from "../../undo";
-import {isInMobileApp} from "../../util/compatibility";
-import {isMobile} from "../../../util/functions";
-import {getFieldsByData, getViewIcon} from "./view";
 import {openMenuPanel} from "./openMenuPanel";
-import {getPageSize} from "./groups";
 import {clearSelect} from "../../util/clear";
 import {showMessage} from "../../../dialog/message";
-/// #if MOBILE
-import {activeBlur} from "../../../mobile/util/keyboardToolbar";
-/// #endif
 import {getAVViewAttr} from "../../../util/attrCompat";
-
-interface IIds {
-    groupId: string,
-    rowId: string,
-    colId?: string
-}
-
-interface ITableOptions {
-    protyle: IProtyle,
-    blockElement: HTMLElement,
-    cb: (data: IAV) => void,
-    data: IAV,
-    renderAll: boolean,
-    resetData: {
-        left: number,
-        alignSelf: string,
-        headerTransform: { groupId: string, transform: string },
-        footerTransform: { groupId: string, transform: string },
-        isSearching: boolean,
-        selectCellId: IIds,
-        selectRowIds: IIds[],
-        dragFillId: IIds,
-        activeIds: IIds[],
-        query: string,
-        pageSizes: { [key: string]: string },
-    }
-}
 
 import {avRender} from "./renderTable";
 

@@ -59,6 +59,7 @@ func buildAssistantAIToolPrompt(profile *AssistantAIProfile, context *AssistantA
 		"- Use list-restore-points when the user asks about snapshot recovery, restore points, or backup rollback options.",
 		"- After search-blocks, use read-block when you need the full block content or its exact document context.",
 		"- Use create-child-note when the user wants a subnote, follow-up note, or child document under the current note.",
+		"- Use move-note-to-path when the user clearly wants to move or re-file an existing note into a target notebook folder; set args.dryRun=true first when the destination is unclear.",
 		"- Use insert-after-block when the user wants continuation, expansion, or a follow-up section inserted below the current block.",
 		"- Use delete-block when the user clearly wants a non-root block removed or deleted.",
 		"- Use append-current-note or create-note only when the user clearly wants content to be written.",

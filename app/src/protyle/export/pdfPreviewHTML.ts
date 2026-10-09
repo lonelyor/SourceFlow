@@ -26,7 +26,6 @@ export const buildPDFPreviewHTML = (options: {
     const isCustomMargin = localData.marginType === "custom" ? "" : "fn__none";
     const rootIdLiteral = serializeInlineScriptValue(options.id);
     const currentWindowIdLiteral = serializeInlineScriptValue(options.currentWindowId);
-    const servePathLiteral = serializeInlineScriptValue(options.servePath);
     const servePathWithoutSlashLiteral = serializeInlineScriptValue(options.servePathWithoutTrailingSlash);
     const stageProtylePathLiteral = serializeInlineScriptValue(`${options.servePath}stage/protyle`);
     const loadingImagePathLiteral = escapeHTMLAttribute(`${options.servePath}stage/loading-pure.svg`);

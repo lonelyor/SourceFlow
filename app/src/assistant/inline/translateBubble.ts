@@ -52,7 +52,7 @@ const buildTranslateBubbleMessage = (text: string, targetLanguage: string) => {
     );
 };
 
-const createTranslateBubbleElement = (selectedText: string) => {
+const createTranslateBubbleElement = () => {
     const element = document.createElement("div");
     element.className = "assistant-translate-bubble";
     element.setAttribute("data-assistant-translate-bubble", "");
@@ -107,7 +107,7 @@ export const openAssistantTranslateBubble = async (options: IOpenTranslateBubble
         return;
     }
     bubbleState.closed = false;
-    const bubble = createTranslateBubbleElement(options.selectedText);
+    const bubble = createTranslateBubbleElement();
     bubbleState.element = bubble;
     document.body.appendChild(bubble);
     positionTranslateBubble(bubble, range);

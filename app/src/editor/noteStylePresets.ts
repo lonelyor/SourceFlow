@@ -150,7 +150,7 @@ export const removeNoteStyle = (protyleElement: HTMLElement) => {
     protyleElement.querySelectorAll(`:scope > style[id^="noteStyle_"]`).forEach((el) => el.remove());
 };
 
-export const reapplyNoteStyleFromAttr = (protyleElement: HTMLElement, rootID: string) => {
+export const reapplyNoteStyleFromAttr = (protyleElement: HTMLElement) => {
     const existing = protyleElement.querySelector(`:scope > style[id^="noteStyle_"]`);
     if (existing) {
         existing.remove();

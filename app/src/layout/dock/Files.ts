@@ -6,7 +6,7 @@ import {getDockByType} from "../tabUtil";
 import {Constants} from "../../constants";
 import {getDisplayName, pathPosix, setNoteBook} from "../../util/pathName";
 import {getNewFilePath, newFile} from "../../util/newFile";
-import {initFileMenu, initNavigationMenu, sortMenu} from "../../menus/navigation";
+import {initFileMenu, initNavigationMenu, sortMenu, changeFileTreeSortByDrop} from "../../menus/navigation";
 import {MenuItem} from "../../menus/Menu";
 import {
     getPublishAccessLevel,
@@ -38,8 +38,13 @@ import {
     clearFileTreeDropClasses,
     getFileTreeNotebookElement,
     getFileTreeMoveDropLabel,
+    getFileTreeSortBlockedHint,
+    getFileTreeSortDropLabel,
+    isFileTreeCustomSortActive,
     isFileTreePathInside,
+    isFileTreeSameSiblingList,
     resolveFileTreeMoveDropElement,
+    resolveFileTreeSortPosition,
     setFileTreeDragExpandState,
     setFileTreeDropLabel
 } from "./fileTreeDrag";
@@ -615,10 +620,14 @@ export class Files extends Model {
             element: HTMLElement,
             positionY: number,
             rafId: number,
+            sortPosition: "before" | "after" | null,
+            hintElement: HTMLElement,
         } = {
             element: null,
             positionY: null,
             rafId: null,
+            sortPosition: null,
+            hintElement: null,
         };
         const queueDragExpand = (liElement: HTMLElement) => {
             const targetType = liElement.getAttribute("data-type");
@@ -694,9 +703,7 @@ export class Files extends Model {
                             event.preventDefault();
                             return;
                         }
-                        const notebookSort = notebookElement.getAttribute("data-sortmode");
-                        if (targetType !== "navigation-root" &&
-                            (notebookSort === "6" || (window.sourceflow.config.fileTree.sort === 6 && notebookSort === "15"))) {
+                        if (targetType !== "navigation-root" && isFileTreeCustomSortActive(notebookElement)) {
                             const nodeRect = liElement.getBoundingClientRect();
                             const dragHeight = nodeRect.height * .2;
                             if (event.clientY > nodeRect.bottom - dragHeight) {
@@ -744,6 +751,50 @@ export class Files extends Model {
                     event.preventDefault();
                     return;
                 }
+                const sortNotebookElement = getFileTreeNotebookElement(liElement);
+                if (sortNotebookElement && isFileTreeCustomSortActive(sortNotebookElement) && !event.altKey) {
+                    // 自定义排序模式：普通拖拽 = 同层排序；跨层移动必须按住 Alt
+                    clearDragExpandTimer();
+                    const focusItems = Array.from(this.element.querySelectorAll(".b3-list-item--focus")).filter((item: HTMLElement) => {
+                        return item.getAttribute("data-type") === "navigation-file";
+                    }) as HTMLElement[];
+                    const sourceItem = focusItems.length === 1 ? focusItems[0] : undefined;
+                    if (!sourceItem || sourceItem === liElement || !isFileTreeSameSiblingList(sourceItem, liElement)) {
+                        clearFileTreeDropClasses(this.element);
+                        dragOverLastObj.element = null;
+                        dragOverLastObj.sortPosition = null;
+                        event.dataTransfer.dropEffect = "none";
+                        // 拖拽源自身上静默阻止；其余情况一句话提示跨层移动的修饰键
+                        if (sourceItem && dragOverLastObj.hintElement !== liElement) {
+                            dragOverLastObj.hintElement = liElement;
+                            showTooltip(getFileTreeSortBlockedHint(), liElement);
+                        }
+                        event.preventDefault();
+                        return;
+                    }
+                    const position = resolveFileTreeSortPosition(event, liElement);
+                    if (dragOverLastObj.element !== liElement || dragOverLastObj.sortPosition !== position) {
+                        clearFileTreeDropClasses(this.element);
+                        liElement.classList.add("dragover__sort");
+                        liElement.classList.add(position === "before" ? "dragover__top" : "dragover__bottom");
+                        setFileTreeDropLabel(liElement, getFileTreeSortDropLabel(position));
+                        showTooltip(getFileTreeSortDropLabel(position), liElement);
+                        dragOverLastObj.element = liElement;
+                        dragOverLastObj.sortPosition = position;
+                    }
+                    dragOverLastObj.hintElement = null;
+                    dragOverLastObj.positionY = event.clientY;
+                    event.dataTransfer.dropEffect = "move";
+                    event.preventDefault();
+                    return;
+                }
+                dragOverLastObj.hintElement = null;
+                if (liElement.classList.contains("dragover__sort")) {
+                    // 同一次拖拽中从排序切回移动（如松开/按住 Alt），需清除过期的排序落点
+                    clearFileTreeDropClasses(this.element);
+                    dragOverLastObj.element = null;
+                    dragOverLastObj.sortPosition = null;
+                }
                 if (dragOverLastObj.element !== liElement) {
                     clearFileTreeDropClasses(this.element);
                     liElement.classList.add("dragover");
@@ -763,6 +814,8 @@ export class Files extends Model {
             if (counter === 0) {
                 clearFileTreeDropClasses(this.element);
                 clearDragExpandTimer();
+                dragOverLastObj.hintElement = null;
+                hideTooltip();
             }
         });
         this.element.addEventListener("dragenter", (event) => {
@@ -772,6 +825,7 @@ export class Files extends Model {
         this.element.addEventListener("drop", (event: DragEvent & { target: HTMLElement }) => {
             counter = 0;
             clearDragExpandTimer();
+            hideTooltip();
             const newElement = this.element.querySelector(".dragover, .dragover__bottom, .dragover__top") as HTMLElement;
             if (!newElement) {
                 return;
@@ -828,6 +882,18 @@ export class Files extends Model {
             }
             window.sourceflow.dragElement = undefined;
             if (!event.dataTransfer.getData(Constants.SOURCEFLOW_DROP_FILE)) {
+                clearFileTreeDropClasses(this.element);
+                return;
+            }
+            if (newElement.classList.contains("dragover__sort")) {
+                // 自定义排序模式：落点为同层排序（before/after），不走 moveDocs
+                const position = newElement.classList.contains("dragover__top") ? "before" : "after";
+                const sourceItem = Array.from(this.element.querySelectorAll(".b3-list-item--focus")).find((item: HTMLElement) => {
+                    return item.getAttribute("data-type") === "navigation-file" && item !== newElement;
+                }) as HTMLElement;
+                if (sourceItem && isFileTreeSameSiblingList(sourceItem, newElement)) {
+                    changeFileTreeSortByDrop(sourceItem, newElement, position, toURL);
+                }
                 clearFileTreeDropClasses(this.element);
                 return;
             }

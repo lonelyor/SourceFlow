@@ -68,12 +68,10 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/system/exportConf", model.CheckAuth, model.CheckAdminRole, exportConf)
 	ginServer.Handle("POST", "/api/system/importConf", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importConf)
 	ginServer.Handle("POST", "/api/system/getWorkspaceInfo", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, getWorkspaceInfo)
-	ginServer.Handle("POST", "/api/system/reloadUI", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, reloadUI, deprecated) // TODO 请使用 /api/ui/reloadUI，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15308#issuecomment-3077675356
 	ginServer.Handle("POST", "/api/system/vacuumDataIndex", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, vacuumDataIndex)
 	ginServer.Handle("POST", "/api/system/clearTempFiles", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, clearTempFiles)
 	ginServer.Handle("POST", "/api/system/rebuildDataIndex", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, rebuildDataIndex)
 
-	ginServer.Handle("POST", "/api/storage/setLocalStorage", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setLocalStorage, deprecated) // TODO 请使用 /api/storage/setLocalStorageVal，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/16664#issuecomment-3694774305
 	ginServer.Handle("POST", "/api/storage/getLocalStorage", model.CheckAuth, getLocalStorage)
 	ginServer.Handle("POST", "/api/storage/setLocalStorageVal", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setLocalStorageVal)
 	ginServer.Handle("POST", "/api/storage/removeLocalStorageVals", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, removeLocalStorageVals)
@@ -132,7 +130,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/filetree/removeIndexes", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, removeIndexes)
 	ginServer.Handle("POST", "/api/filetree/listDocTree", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, listDocTree)
 	ginServer.Handle("POST", "/api/filetree/moveLocalShorthands", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, moveLocalShorthands)
-	ginServer.Handle("POST", "/api/filetree/refreshFiletree ", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, rebuildDataIndex, deprecated) // TODO 请使用 /api/system/rebuildDataIndex，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15663#issuecomment-3219296189
 	ginServer.Handle("POST", "/api/filetree/setPublishAccess", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setPublishAccess)
 	ginServer.Handle("POST", "/api/filetree/getPublishAccess", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, getPublishAccess)
 	ginServer.Handle("POST", "/api/filetree/authFilePublishAccess", model.CheckAuth, authFilePublishAccess)
@@ -256,7 +253,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/ref/getBackmentionDoc", model.CheckAuth, getBackmentionDoc)
 
 	ginServer.Handle("POST", "/api/attr/getBookmarkLabels", model.CheckAuth, getBookmarkLabels)
-	ginServer.Handle("POST", "/api/attr/resetBlockAttrs", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, resetBlockAttrs, deprecated) // TODO 请使用 /api/attr/setBlockAttrs，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/pull/17027
 	ginServer.Handle("POST", "/api/attr/setBlockAttrs", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setBlockAttrs)
 	ginServer.Handle("POST", "/api/attr/batchSetBlockAttrs", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, batchSetBlockAttrs)
 	ginServer.Handle("POST", "/api/attr/getBlockAttrs", model.CheckAuth, getBlockAttrs)
@@ -272,6 +268,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/sync/setSyncMode", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncMode)
 	ginServer.Handle("POST", "/api/sync/setSyncProvider", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProvider)
 	ginServer.Handle("POST", "/api/sync/setSyncProviderS3", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderS3)
+	ginServer.Handle("POST", "/api/sync/testSyncProviderS3", model.CheckAuth, model.CheckAdminRole, testSyncProviderS3)
 	ginServer.Handle("POST", "/api/sync/setSyncProviderWebDAV", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderWebDAV)
 	ginServer.Handle("POST", "/api/sync/setSyncProviderLocal", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderLocal)
 	ginServer.Handle("POST", "/api/sync/setCloudSyncDir", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setCloudSyncDir)
@@ -467,7 +464,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/av/searchAttributeView", model.CheckAuth, model.CheckReadonly, searchAttributeView)
 	ginServer.Handle("POST", "/api/av/getAttributeView", model.CheckAuth, model.CheckReadonly, getAttributeView)
 	ginServer.Handle("POST", "/api/av/searchAttributeViewRelationKey", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, searchAttributeViewRelationKey)
-	ginServer.Handle("POST", "/api/av/searchAttributeViewNonRelationKey", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, searchAttributeViewNonRelationKey, deprecated) // TODO 请勿使用，该端点计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15727
 	ginServer.Handle("POST", "/api/av/searchAttributeViewRollupDestKeys", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, searchAttributeViewRollupDestKeys)
 	ginServer.Handle("POST", "/api/av/getAttributeViewFilterSort", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, getAttributeViewFilterSort)
 	ginServer.Handle("POST", "/api/av/addAttributeViewKey", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, addAttributeViewKey)
@@ -530,6 +526,9 @@ func ServeAPI(ginServer *gin.Engine) {
 
 	ginServer.Handle("POST", "/api/assistant/context/search", model.CheckAuth, model.CheckAdminRole, assistantContextSearch)
 	ginServer.Handle("POST", "/api/assistant/context/buildContextPack", model.CheckAuth, model.CheckAdminRole, assistantContextBuildPack)
+	ginServer.Handle("GET", "/api/assistant/asset/ocr", model.CheckAuth, model.CheckAdminRole, assistantAssetOCR)
+	ginServer.Handle("POST", "/api/assistant/asset/ocr", model.CheckAuth, model.CheckAdminRole, assistantAssetOCR)
+	ginServer.Handle("POST", "/api/assistant/asset/ocr/save", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAssetOCRSave)
 	ginServer.Handle("POST", "/api/assistant/patch/issueEscalation", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchIssueEscalation)
 	ginServer.Handle("POST", "/api/assistant/patch/apply", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantPatchApply)
 	ginServer.Handle("POST", "/api/assistant/history/list", model.CheckAuth, model.CheckAdminRole, assistantHistoryList)
@@ -545,6 +544,9 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/assistant/agent/cancelPending", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAgentCancelPending)
 	ginServer.Handle("POST", "/api/assistant/agent/acquireLease", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAgentAcquireLease)
 	ginServer.Handle("POST", "/api/assistant/agent/releaseLease", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantAgentReleaseLease)
+
+	ginServer.Handle("POST", "/api/assistant/rules/run", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantRulesRun)
+	ginServer.Handle("POST", "/api/assistant/rules/validate", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantRulesValidate)
 
 	ginServer.Handle("POST", "/api/assistant/security/getConfig", model.CheckAuth, model.CheckAdminRole, assistantSecurityGetConfig)
 	ginServer.Handle("POST", "/api/assistant/security/setConfig", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, assistantSecuritySetConfig)

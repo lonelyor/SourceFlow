@@ -26,7 +26,6 @@ import (
 	"github.com/lonelyor/sourceflow/kernel/treenode"
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
-	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
 
 func removeUnusedAttributeView(c *gin.Context) {
@@ -625,24 +624,6 @@ func getAttributeViewFilterSort(c *gin.Context) {
 	}
 }
 
-func searchAttributeViewNonRelationKey(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	arg, _ := util.JsonArg(c, ret)
-	if nil == arg {
-		return
-	}
-
-	avID := arg["avID"].(string)
-	keyword := arg["keyword"].(string)
-
-	nonRelationKeys := model.SearchAttributeViewNonRelationKey(avID, keyword)
-	ret.Data = map[string]interface{}{
-		"keys": nonRelationKeys,
-	}
-}
-
 func searchAttributeViewRollupDestKeys(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)
@@ -987,15 +968,7 @@ func setAttributeViewBlockAttr(c *gin.Context) {
 
 	avID := arg["avID"].(string)
 	keyID := arg["keyID"].(string)
-	var itemID string
-	if _, ok := arg["itemID"]; ok {
-		itemID = arg["itemID"].(string)
-	} else if _, ok := arg["rowID"]; ok {
-		// TODO 计划于 2026 年 6 月 30 日后删除 https://github.com/lonelyor/SourceFlow/issues/15708#issuecomment-3239694546
-		itemID = arg["rowID"].(string)
-		logging.LogWarnf("[%s] parameter [%s] is deprecated, it will be removed at [%s], visit [https://github.com/lonelyor/SourceFlow/issues/15727] for details",
-			c.Request.RequestURI, "rowID", "2026-06-30")
-	}
+	itemID := arg["itemID"].(string)
 	value := arg["value"].(interface{})
 	updatedVal, err := model.UpdateAttributeViewCell(nil, avID, keyID, itemID, value)
 	if err != nil {

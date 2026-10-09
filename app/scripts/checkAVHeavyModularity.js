@@ -6,7 +6,6 @@ const repoRoot = path.resolve(appRoot, "..");
 const findings = [];
 
 const toRepoPath = (filePath) => path.relative(repoRoot, filePath).replace(/\\/g, "/");
-const readText = (relativePath) => fs.readFileSync(path.join(appRoot, relativePath), "utf8");
 
 const addFinding = (relativePath, message, pattern = "") => {
     const filePath = path.join(appRoot, relativePath);

@@ -2013,6 +2013,13 @@
     flex-wrap: wrap;
   }
 
+  &__utility-label {
+    color: var(--b3-theme-on-surface-light);
+    opacity: .72;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
   &__utility-button {
     border: 0;
     background: transparent;
@@ -3118,7 +3125,9 @@
 
 @media (max-width: 680px) {
   // S6: stack the profiles panel into a single column on phones so the 304px
-  // sidebar + form doesn't get crushed into two cramped columns.
+  // sidebar + form doesn't get crushed into two cramped columns. The wide
+  // screen `min-height: 520px` on the settings body is intentionally reverted
+  // here so the panel does not force a tall empty canvas on phones.
   .assistant-config--settings .assistant-config__body {
     min-height: 0;
   }
@@ -3135,6 +3144,18 @@
     max-height: 32vh;
     border-right: 0;
     border-bottom: .5px solid var(--b3-border-color);
+  }
+
+  // S6: the embedding/security sections keep the label + control rows on wide
+  // screens; on phones the fixed 200px controls must stretch and the rows may
+  // wrap so nothing is clipped by two-column leftovers.
+  .assistant-config--settings .assistant-config__section .config__item {
+    flex-wrap: wrap;
+  }
+
+  .assistant-config--settings .assistant-config__section .fn__size200 {
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -3858,6 +3879,100 @@
   }
 }
 
+.assistant-related {
+  min-height: 0;
+
+  &__body {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 10px;
+  }
+
+  &__item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: .5px solid var(--b3-border-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--b3-theme-surface) 94%, transparent);
+    text-align: left;
+    cursor: pointer;
+    transition: var(--b3-transition);
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--b3-theme-primary) 22%, var(--b3-border-color));
+      background: color-mix(in srgb, var(--b3-theme-primary) 3%, var(--b3-theme-surface));
+    }
+  }
+
+  &__item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--b3-theme-on-background);
+    line-height: 1.45;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item-summary {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  &__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 2px;
+  }
+
+  &__skeleton-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border: .5px solid var(--b3-border-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--b3-theme-surface) 94%, transparent);
+  }
+
+  &__skeleton-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--b3-theme-on-surface-light) 18%, transparent);
+    animation: assistant-related-skeleton 1.2s ease-in-out infinite;
+
+    &--wide {
+      width: 72%;
+    }
+
+    &--narrow {
+      width: 46%;
+    }
+  }
+}
+
+@keyframes assistant-related-skeleton {
+  0%,
+  100% {
+    opacity: .55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 .assistant-studio {
   height: 100%;
   min-height: 0;
@@ -4115,6 +4230,125 @@
     &:hover {
       background: color-mix(in srgb, var(--b3-theme-primary) 8%, transparent);
       color: var(--b3-theme-primary);
+    }
+  }
+
+  &--input-mode {
+    .assistant-selection-bar__button {
+      display: none;
+    }
+  }
+
+  &__input-row {
+    display: none;
+    align-items: center;
+  }
+
+  &__input {
+    width: 220px;
+    min-height: 28px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: var(--b3-theme-on-background);
+    font-size: 12px;
+    outline: none;
+
+    &::placeholder {
+      color: var(--b3-theme-on-background);
+      opacity: .5;
+    }
+  }
+
+  &--input-mode &__input-row {
+    display: inline-flex;
+  }
+}
+
+.assistant-ai__context-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: .5px solid color-mix(in srgb, var(--b3-theme-primary) 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--b3-theme-primary) 7%, transparent);
+  color: var(--b3-theme-on-background);
+  font-size: 12px;
+
+  &-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--b3-theme-on-background);
+    opacity: .6;
+    cursor: pointer;
+    transition: var(--b3-transition);
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    &:hover {
+      background: color-mix(in srgb, var(--b3-theme-primary) 10%, transparent);
+      opacity: 1;
+    }
+  }
+}
+
+.assistant-ai__context-usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--b3-theme-on-background);
+  opacity: .72;
+
+  &-bar {
+    display: inline-block;
+    width: 64px;
+    height: 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--b3-theme-on-background) 14%, transparent);
+    overflow: hidden;
+  }
+
+  &-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--b3-theme-primary);
+    transition: width 160ms ease;
+  }
+
+  &-text {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  &--warn {
+    opacity: 1;
+
+    .assistant-ai__context-usage-fill {
+      background: var(--b3-theme-warning, #d97706);
+    }
+
+    .assistant-ai__context-usage-text {
+      color: var(--b3-theme-warning, #d97706);
     }
   }
 }

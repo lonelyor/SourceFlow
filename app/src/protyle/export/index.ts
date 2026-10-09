@@ -14,7 +14,7 @@ import {replaceLocalPath} from "../../editor/rename";
 import {getScreenWidth, isInMobileApp, setStorageVal} from "../util/compatibility";
 import {buildPDFPreviewHTML} from "./pdfPreviewHTML";
 import {getExportRuntimeLoaderJS, getExportSafetyJS, getIconScript, getPluginStyle} from "./runtimeAssets";
-import {escapeHTMLAttribute, getSnippetCSS, getSnippetJS, sanitizeExportHTMLContent} from "./shared";
+import {getSnippetCSS, getSnippetJS, sanitizeExportHTMLContent} from "./shared";
 import {buildStaticExportHTML} from "./staticHTML";
 import {getExportThemeStyleTag} from "./theme";
 

@@ -5,7 +5,6 @@ import {
     getGroupsHTML,
     getGroupsMethodHTML,
     getGroupsNumberHTML,
-    getLanguageByIndex,
     goGroupsDate,
     goGroupsSort,
     setGroupMethod

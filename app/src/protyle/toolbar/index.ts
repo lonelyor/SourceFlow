@@ -1,51 +1,14 @@
-import {Divider} from "./Divider";
-import {Font, hasSameTextStyle, setFontStyle} from "./Font";
-import {ToolbarItem} from "./ToolbarItem";
 import {
-    fixTableRange,
-    focusBlock,
-    focusByRange,
-    focusByWbr,
-    getEditorRange,
     getSelectionPosition,
-    selectAll,
     setFirstNodeRange,
     setLastNodeRange
 } from "../util/selection";
-import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName, hasClosestByTag} from "../util/hasClosest";
-import {Link} from "./Link";
+import {hasClosestBlock, hasClosestByTag} from "../util/hasClosest";
 import {setPosition} from "../../util/setPosition";
-import {transaction, updateTransaction} from "../wysiwyg/transaction";
 import {Constants} from "../../constants";
-import {copyPlainText, openByMobile, readClipboard, setStorageVal} from "../util/compatibility";
-import {upDownHint} from "../../util/upDownHint";
-import {highlightRender} from "../render/highlightRender";
-import {getContenteditableElement, hasNextSibling, hasPreviousSibling} from "../wysiwyg/getBlock";
-import {processRender} from "../util/processCode";
-import {BlockRef} from "./BlockRef";
-import {hintRenderTemplate, hintRenderWidget} from "../hint/extend";
-import {blockRender} from "../render/blockRender";
-/// #if !BROWSER
-import {openBy} from "../../editor/util";
-/// #endif
-import {fetchPost} from "../../util/fetch";
-import {isArrayEqual, isMobile} from "../../util/functions";
-import * as dayjs from "dayjs";
-import {insertEmptyBlock} from "../../block/util";
-import {matchHotKey} from "../util/hotKey";
-import {hideElements} from "../ui/hideElements";
-import {electronUndo} from "../undo";
-import {previewTemplate, toolbarKeyToMenu} from "./util";
-import {hideMessage, showMessage} from "../../dialog/message";
-import {InlineMath} from "./InlineMath";
-import {InlineMemo} from "./InlineMemo";
-import {mathRender} from "../render/mathRender";
-import {linkMenu} from "../../menus/protyle";
-import {addScript} from "../util/addScript";
-import {confirmDialog} from "../../dialog/confirmDialog";
-import {paste, pasteAsImage, pasteAsPlainText, pasteAsSmartTable, pasteEscaped, pastePreserveLayout} from "../util/paste";
-import {escapeHtml} from "../../util/escape";
-import {resizeSide} from "../../history/resizeSide";
+import {getContenteditableElement} from "../wysiwyg/getBlock";
+import {isMobile} from "../../util/functions";
+import {toolbarKeyToMenu} from "./util";
 import {showRenderPanel} from "./renderPanel";
 import {buildToolbarItemElement, mergeToolbarNodes, updateToolbarLanguage} from "./shared";
 import {showCodeLanguagePanel, showSelectionContentPanel, showTemplatePanel, showWidgetPanel} from "./searchPanels";

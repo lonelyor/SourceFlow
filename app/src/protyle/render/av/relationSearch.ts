@@ -1,20 +1,10 @@
 import {Menu} from "../../../plugin/Menu";
 import {hasClosestByClassName, hasTopClosestByClassName} from "../../util/hasClosest";
-import {UDLRHint, upDownHint} from "../../../util/upDownHint";
+import {UDLRHint} from "../../../util/upDownHint";
 import {fetchPost} from "../../../util/fetch";
 import {escapeGreat, escapeHtml} from "../../../util/escape";
-import {transaction} from "../../wysiwyg/transaction";
-import {updateCellsValue} from "./cell";
-import {updateAttrViewCellAnimation} from "./cell";
-import {focusBlock} from "../../util/selection";
-import {setPosition} from "../../../util/setPosition";
-import * as dayjs from "dayjs";
-import {getFieldsByData, getViewName} from "./view";
-import {getColId} from "./col";
-import {getFieldIdByCellElement} from "./row";
+import {getViewName} from "./view";
 import {isMobile} from "../../../util/functions";
-import {showMessage} from "../../../dialog/message";
-import {writeText} from "../../util/compatibility";
 
 interface IAVItem {
     avID: string;
@@ -54,7 +44,7 @@ const genSearchList = (element: Element, keyword: string, avId?: string, exclude
                 item.children.forEach((subItem) => {
                     const viewDefaultName = getViewName(subItem.viewLayout);
                     html += `<div style="padding-left: 48px;" class="b3-list-item b3-list-item--narrow" data-av-id="${subItem.avID}" data-view-id="${subItem.viewID}">
-<span class="b3-list-item__text">${escapeHtml(subItem.viewName)}</span> 
+<span class="b3-list-item__text">${escapeHtml(subItem.viewName)}</span>
 <span class="b3-list-item__meta">${viewDefaultName}</span>
 </div>`;
                 });

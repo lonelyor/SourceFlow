@@ -5,22 +5,16 @@ import * as path from "path";
 import {Constants} from "../constants";
 import {escapeAriaLabel, escapeGreat, escapeHtml} from "../util/escape";
 import {fetchPost} from "../util/fetch";
-import {openFile, openFileById} from "../editor/util";
+import {openFile} from "../editor/util";
 import {showMessage} from "../dialog/message";
-import {reloadProtyle} from "../protyle/util/reload";
 import {MenuItem} from "../menus/Menu";
-import {getDisplayName, getNotebookIcon, getNotebookName, movePathTo, pathPosix, useShell} from "../util/pathName";
+import {getNotebookName, movePathTo, pathPosix, useShell} from "../util/pathName";
 import {Protyle} from "../protyle";
-import {onGet} from "../protyle/util/onGet";
-import {addLoading} from "../protyle/ui/initUI";
-import {getIconByType} from "../editor/getIcon";
-import {unicode2Emoji} from "../emoji";
-import {hasClosestBlock, hasClosestByClassName, hasClosestByTag} from "../protyle/util/hasClosest";
+import {hasClosestByClassName} from "../protyle/util/hasClosest";
 import {isIPad, isNotCtrl, setStorageVal, updateHotkeyTip, writeText} from "../protyle/util/compatibility";
 import {newFileByName} from "../util/newFile";
 import {
     filterMenu,
-    getKeyByLiElement,
     initCriteriaMenu,
     moreMenu,
     queryMenu,
@@ -39,28 +33,19 @@ import {
 } from "./assets";
 import {resize} from "../protyle/util/resize";
 import {addClearButton} from "../util/addClearButton";
-import {checkFold} from "../util/noRelyPCFunction";
 import {getUnRefList, openSearchUnRef, unRefMoreMenu} from "./unRef";
 import {getDefaultType} from "./getDefault";
-import {isSupportCSSHL, searchMarkRender} from "../protyle/render/searchMarkRender";
 import {saveKeyList, toggleAssetHistory, toggleReplaceHistory, toggleSearchHistory} from "./toggleHistory";
-import {highlightById} from "../util/highlightById";
-import {getSelectionOffset} from "../protyle/util/selection";
 import {electronUndo} from "../protyle/undo";
-import {getContenteditableElement} from "../protyle/wysiwyg/getBlock";
-import {clearSearchRequestCache, fullTextSearchBlocksCached, getRecentUpdatedBlocksCached} from "./cache";
+import {clearSearchRequestCache} from "./cache";
 import {assistantText} from "../assistant/constants";
-import {escapeAttr as escapeAssistantAttr, escapeHTML as escapeAssistantHTML, truncateText} from "../assistant/common/dom";
-import {ensureAssistantFeatureAvailable, reportAssistantRuntimeError, runAssistantFeature} from "../assistant/runtime";
-import {getSearchAIState, renderSearchAIPanel, resetSearchAI, runSearchAI} from "./searchAI";
+import {reportAssistantRuntimeError, runAssistantFeature} from "../assistant/runtime";
+import {getSearchAIState, resetSearchAI, runSearchAI} from "./searchAI";
 import {closeSemanticSearchPanel, openSemanticSearchPanel} from "../assistant/search/semanticSearch";
 import {focusSearchResultById, getArticle, inputEvent, openSearchEditor, renderNextSearchMark, replace} from "./searchResults";
 
-type IAssistantSearchSource = import("../assistant/search/ask").IAssistantSearchSource;
-
 const loadAssistantNoteModule = () => import("../assistant/common/note");
 const loadAssistantInboxModule = () => import("../assistant/inbox/store");
-const loadAssistantSearchModule = () => import("../assistant/search/ask");
 const loadAssistantAIDockModule = () => import("../assistant/ai/AIDock");
 
 export const openGlobalSearch = (app: App, text: string, replace: boolean, searchData?: Config.IUILayoutTabSearchConfig) => {

@@ -75,6 +75,206 @@ const syncText = (zh: string, en: string) => {
     return isChineseUI() ? zh : en;
 };
 
+type S3PresetId = "custom" | "cloudflare-r2" | "aliyun-oss" | "tencent-cos";
+
+interface IS3Preset {
+    id: S3PresetId;
+    endpointTemplate: string;
+    endpointKeyword: string;
+    regionTemplate: string;
+    pathStyle: boolean;
+    bucketPlaceholder: string;
+    hint: () => string;
+}
+
+const S3_PRESETS: IS3Preset[] = [
+    {
+        id: "cloudflare-r2",
+        endpointTemplate: "https://<AccountID>.r2.cloudflarestorage.com/",
+        endpointKeyword: "r2.cloudflarestorage.com",
+        regionTemplate: "auto",
+        pathStyle: true,
+        bucketPlaceholder: "sourceflow",
+        hint: () => syncText(
+            "Cloudflare R2：在 R2 控制台创建 API 令牌（权限选择“对象读取和写入”，可限定到单个存储桶），Endpoint 形如 https://<AccountID>.r2.cloudflarestorage.com/（AccountID 见 R2 概览页），Region 固定填 auto，寻址方式选 Path-style。R2 无出口流量费。",
+            "Cloudflare R2: create an API token in the R2 dashboard (Object Read & Write, optionally scoped to a single bucket). The endpoint looks like https://<AccountID>.r2.cloudflarestorage.com/ (AccountID is on the R2 overview page), the region must be auto, and addressing must be Path-style. R2 charges no egress fees."),
+    },
+    {
+        id: "aliyun-oss",
+        endpointTemplate: "https://oss-cn-hangzhou.aliyuncs.com/",
+        endpointKeyword: "aliyuncs.com",
+        regionTemplate: "cn-hangzhou",
+        pathStyle: false,
+        bucketPlaceholder: "sourceflow",
+        hint: () => syncText(
+            "阿里云 OSS：建议创建 RAM 子账号并仅授予目标 Bucket 的读写权限（oss:GetObject/PutObject/DeleteObject/ListObjects/ListParts/AbortMultipartUpload）。将 Endpoint 中的地域替换为 Bucket 实际地域（如 oss-cn-beijing.aliyuncs.com），Region 填相同地域 ID，寻址方式选 Virtual-hosted-style。",
+            "Aliyun OSS: create a RAM user and grant access to the target bucket only (oss:GetObject/PutObject/DeleteObject/ListObjects/ListParts/AbortMultipartUpload). Replace the region in the endpoint with the bucket region (e.g. oss-cn-beijing.aliyuncs.com), fill Region with the same region ID, and keep Virtual-hosted-style addressing."),
+    },
+    {
+        id: "tencent-cos",
+        endpointTemplate: "https://cos.ap-guangzhou.myqcloud.com/",
+        endpointKeyword: "myqcloud.com",
+        regionTemplate: "ap-guangzhou",
+        pathStyle: false,
+        bucketPlaceholder: "sourceflow-1250000000",
+        hint: () => syncText(
+            "腾讯云 COS：Bucket 名称必须为“自定义名称-APPID”格式（如 sourceflow-1250000000）。建议创建子账号并仅授予目标 Bucket 的读写权限。将 Endpoint 中的地域替换为 Bucket 实际地域（如 cos.ap-shanghai.myqcloud.com），Region 填相同地域 ID，寻址方式选 Virtual-hosted-style。",
+            "Tencent COS: the bucket name must follow the NAME-APPID format (e.g. sourceflow-1250000000). Create a sub-account with access to the target bucket only. Replace the region in the endpoint with the bucket region (e.g. cos.ap-shanghai.myqcloud.com), fill Region with the same region ID, and keep Virtual-hosted-style addressing."),
+    },
+    {
+        id: "custom",
+        endpointTemplate: "",
+        endpointKeyword: "",
+        regionTemplate: "",
+        pathStyle: false,
+        bucketPlaceholder: "",
+        hint: () => syncText(
+            "自定义 S3 兼容对象存储（MinIO、AWS S3 等）：按服务商文档填写 Endpoint、Region 与寻址方式。",
+            "Custom S3-compatible object storage (MinIO, AWS S3, etc.): fill in the endpoint, region, and addressing style according to your provider's documentation."),
+    },
+];
+
+const S3_PRESET_ORDER: S3PresetId[] = ["cloudflare-r2", "aliyun-oss", "tencent-cos", "custom"];
+
+const getS3Preset = (id: S3PresetId): IS3Preset => {
+    return S3_PRESETS.find((preset) => preset.id === id) || S3_PRESETS[S3_PRESETS.length - 1];
+};
+
+const getS3PresetLabel = (id: S3PresetId): string => {
+    switch (id) {
+        case "aliyun-oss":
+            return syncText("阿里云 OSS", "Aliyun OSS");
+        case "tencent-cos":
+            return syncText("腾讯云 COS", "Tencent COS");
+        case "custom":
+            return syncText("自定义 / 其他 S3 兼容服务", "Custom / other S3-compatible");
+        default:
+            return "Cloudflare R2";
+    }
+};
+
+const detectS3PresetId = (endpoint: string): S3PresetId => {
+    const lowerEndpoint = (endpoint || "").toLowerCase();
+    for (const preset of S3_PRESETS) {
+        if (preset.endpointKeyword && lowerEndpoint.includes(preset.endpointKeyword)) {
+            return preset.id;
+        }
+    }
+    return "custom";
+};
+
+const renderS3PresetHint = (presetId: S3PresetId): string => {
+    const preset = getS3Preset(presetId);
+    const securityNote = syncText(
+        "安全提示：快照数据经仓库密钥加密后才会上传，但 Access Key / Secret Key 以明文保存在工作空间配置文件中。请使用仅授权该 Bucket 的最小权限密钥，不要与他人共享工作空间目录。",
+        "Security note: snapshots are encrypted with the repo key before upload, but the access key / secret key are stored in plaintext inside the workspace configuration. Use least-privilege credentials scoped to this bucket and never share the workspace directory.");
+    return `<div class="b3-label__text">${escapeHtml(preset.hint())}</div>
+<div class="b3-label__text ft__error">${escapeHtml(securityNote)}</div>`;
+};
+
+const renderS3PresetOptions = (currentPresetId: S3PresetId): string => {
+    return S3_PRESET_ORDER.map((presetId) => {
+        return `<option value="${presetId}"${presetId === currentPresetId ? " selected" : ""}>${escapeHtml(getS3PresetLabel(presetId))}</option>`;
+    }).join("");
+};
+
+const applyS3PresetToPanel = (providerPanelElement: Element, presetId: S3PresetId, fillValues: boolean) => {
+    const preset = getS3Preset(presetId);
+    const endpointElement = providerPanelElement.querySelector<HTMLInputElement>("#endpoint");
+    const regionElement = providerPanelElement.querySelector<HTMLInputElement>("#region");
+    const bucketElement = providerPanelElement.querySelector<HTMLInputElement>("#bucket");
+    const pathStyleElement = providerPanelElement.querySelector<HTMLSelectElement>("#pathStyle");
+    if (endpointElement) {
+        endpointElement.placeholder = preset.endpointTemplate;
+        if (fillValues && preset.endpointTemplate) {
+            endpointElement.value = preset.endpointTemplate;
+        }
+    }
+    if (regionElement) {
+        regionElement.placeholder = preset.regionTemplate;
+        if (fillValues && preset.regionTemplate) {
+            regionElement.value = preset.regionTemplate;
+        }
+    }
+    if (bucketElement) {
+        bucketElement.placeholder = preset.bucketPlaceholder;
+    }
+    if (pathStyleElement && fillValues && "custom" !== presetId) {
+        pathStyleElement.value = preset.pathStyle ? "true" : "false";
+    }
+    const hintElement = providerPanelElement.querySelector("#s3PresetHint");
+    if (hintElement) {
+        hintElement.innerHTML = renderS3PresetHint(presetId);
+    }
+};
+
+const collectS3ConfigFromPanel = (providerPanelElement: Element) => {
+    let timeout = parseInt((providerPanelElement.querySelector("#timeout") as HTMLInputElement).value, 10);
+    if (7 > timeout) {
+        if (1 > timeout) {
+            timeout = 30;
+        } else {
+            timeout = 7;
+        }
+    }
+    if (300 < timeout) {
+        timeout = 300;
+    }
+    let concurrentReqs = parseInt((providerPanelElement.querySelector("#s3ConcurrentReqs") as HTMLInputElement).value, 10);
+    if (1 > concurrentReqs) {
+        concurrentReqs = 1;
+    }
+    if (16 < concurrentReqs) {
+        concurrentReqs = 16;
+    }
+    (providerPanelElement.querySelector("#timeout") as HTMLInputElement).value = timeout.toString();
+    let endpoint = (providerPanelElement.querySelector("#endpoint") as HTMLInputElement).value;
+    endpoint = endpoint.trim().replace("http://http(s)://", "https://");
+    endpoint = endpoint.replace("http(s)://", "https://");
+    if (!endpoint.startsWith("http")) {
+        endpoint = "http://" + endpoint;
+    }
+    return {
+        endpoint: endpoint,
+        accessKey: (providerPanelElement.querySelector("#accessKey") as HTMLInputElement).value.trim(),
+        secretKey: (providerPanelElement.querySelector("#secretKey") as HTMLInputElement).value.trim(),
+        bucket: (providerPanelElement.querySelector("#bucket") as HTMLInputElement).value.trim(),
+        pathStyle: (providerPanelElement.querySelector("#pathStyle") as HTMLInputElement).value === "true",
+        region: (providerPanelElement.querySelector("#region") as HTMLInputElement).value.trim(),
+        skipTlsVerify: (providerPanelElement.querySelector("#s3SkipTlsVerify") as HTMLInputElement).value === "true",
+        timeout: timeout,
+        concurrentReqs: concurrentReqs,
+    };
+};
+
+const saveS3ProviderFromPanel = (providerPanelElement: Element) => {
+    const s3 = collectS3ConfigFromPanel(providerPanelElement);
+    fetchPost("/api/sync/setSyncProviderS3", {s3}, () => {
+        window.sourceflow.config.sync.s3 = s3;
+    });
+};
+
+const testS3ConnectionFromPanel = (providerPanelElement: Element, buttonElement: HTMLButtonElement) => {
+    const rawEndpoint = (providerPanelElement.querySelector("#endpoint") as HTMLInputElement)?.value.trim();
+    const rawAccessKey = (providerPanelElement.querySelector("#accessKey") as HTMLInputElement)?.value.trim();
+    const rawSecretKey = (providerPanelElement.querySelector("#secretKey") as HTMLInputElement)?.value.trim();
+    const rawBucket = (providerPanelElement.querySelector("#bucket") as HTMLInputElement)?.value.trim();
+    if (!rawEndpoint || !rawAccessKey || !rawSecretKey || !rawBucket) {
+        showMessage(window.sourceflow.languages.syncS3TestConnectionMissing);
+        return;
+    }
+    const s3 = collectS3ConfigFromPanel(providerPanelElement);
+    setReposInteractable(buttonElement, true);
+    setReposActionStatus(window.sourceflow.languages.syncS3TestConnectionTesting);
+    fetchPost("/api/sync/testSyncProviderS3", {s3}, () => {
+        setReposInteractable(buttonElement, false);
+        setReposActionStatus(window.sourceflow.languages.syncS3TestConnectionSuccess, "success", 8000);
+    }, undefined, (response) => {
+        setReposInteractable(buttonElement, false);
+        setReposActionStatus(`${window.sourceflow.languages.syncS3TestConnectionFailed}: ${response.msg || ""}`, "error", 15000);
+    });
+};
+
 const formatSyncTime = (timestamp?: number) => {
     if (!timestamp) {
         return syncText("暂无", "N/A");
@@ -663,11 +863,20 @@ const refreshSnapshotProtectionStat = () => {
 
 const renderProvider = (provider: number) => {
     if (provider === 2) {
+        const currentPresetId = detectS3PresetId(window.sourceflow.config.sync.s3.endpoint);
         return `<div class="b3-label b3-label--inner">
     ${window.sourceflow.languages.syncThirdPartyProviderS3Intro}
     <div class="fn__hr"></div>
     ${window.sourceflow.languages.syncThirdPartyProviderTip}
 </div>
+<div class="b3-label b3-label--inner fn__flex">
+    <div class="fn__flex-center fn__size200" title="${escapeAttr(window.sourceflow.languages.syncS3PresetProviderTip || "")}">${window.sourceflow.languages.syncS3PresetProvider}</div>
+    <div class="fn__space"></div>
+    <select class="b3-select fn__block" id="s3PresetProvider">
+        ${renderS3PresetOptions(currentPresetId)}
+    </select>
+</div>
+<div class="b3-label b3-label--inner" id="s3PresetHint">${renderS3PresetHint(currentPresetId)}</div>
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">Endpoint</div>
     <div class="fn__space"></div>
@@ -724,6 +933,10 @@ const renderProvider = (provider: number) => {
 </div>
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-1"></div>
+    <button class="b3-button b3-button--outline fn__size200" id="s3TestConnection" title="${escapeAttr(window.sourceflow.languages.syncS3TestConnectionTip || "")}">
+        <svg><use xlink:href="#iconLink"></use></svg>${window.sourceflow.languages.syncS3TestConnection}
+    </button>
+    <div class="fn__space"></div>
     <button class="b3-button b3-button--outline fn__size200" data-action="purgeData">
         <svg><use xlink:href="#iconTrashcan"></use></svg>${window.sourceflow.languages.purge}
     </button>
@@ -846,45 +1059,7 @@ const bindProviderEvent = () => {
     providerPanelElement.querySelectorAll(".b3-text-field, .b3-select").forEach(item => {
         item.addEventListener("blur", () => {
             if (window.sourceflow.config.sync.provider === 2) {
-                let timeout = parseInt((providerPanelElement.querySelector("#timeout") as HTMLInputElement).value, 10);
-                if (7 > timeout) {
-                    if (1 > timeout) {
-                        timeout = 30;
-                    } else {
-                        timeout = 7;
-                    }
-                }
-                if (300 < timeout) {
-                    timeout = 300;
-                }
-                let concurrentReqs = parseInt((providerPanelElement.querySelector("#s3ConcurrentReqs") as HTMLInputElement).value, 10);
-                if (1 > concurrentReqs) {
-                    concurrentReqs = 1;
-                }
-                if (16 < concurrentReqs) {
-                    concurrentReqs = 16;
-                }
-                (providerPanelElement.querySelector("#timeout") as HTMLInputElement).value = timeout.toString();
-                let endpoint = (providerPanelElement.querySelector("#endpoint") as HTMLInputElement).value;
-                endpoint = endpoint.trim().replace("http://http(s)://", "https://");
-                endpoint = endpoint.replace("http(s)://", "https://");
-                if (!endpoint.startsWith("http")) {
-                    endpoint = "http://" + endpoint;
-                }
-                const s3 = {
-                    endpoint: endpoint,
-                    accessKey: (providerPanelElement.querySelector("#accessKey") as HTMLInputElement).value.trim(),
-                    secretKey: (providerPanelElement.querySelector("#secretKey") as HTMLInputElement).value.trim(),
-                    bucket: (providerPanelElement.querySelector("#bucket") as HTMLInputElement).value.trim(),
-                    pathStyle: (providerPanelElement.querySelector("#pathStyle") as HTMLInputElement).value === "true",
-                    region: (providerPanelElement.querySelector("#region") as HTMLInputElement).value.trim(),
-                    skipTlsVerify: (providerPanelElement.querySelector("#s3SkipTlsVerify") as HTMLInputElement).value === "true",
-                    timeout: timeout,
-                    concurrentReqs: concurrentReqs,
-                };
-                fetchPost("/api/sync/setSyncProviderS3", {s3}, () => {
-                    window.sourceflow.config.sync.s3 = s3;
-                });
+                saveS3ProviderFromPanel(providerPanelElement);
             } else if (window.sourceflow.config.sync.provider === 3) {
                 let timeout = parseInt((providerPanelElement.querySelector("#timeout") as HTMLInputElement).value, 10);
                 if (7 > timeout) {
@@ -923,6 +1098,22 @@ const bindProviderEvent = () => {
             }
         });
     });
+
+    const s3PresetElement = providerPanelElement.querySelector<HTMLSelectElement>("#s3PresetProvider");
+    if (s3PresetElement) {
+        applyS3PresetToPanel(providerPanelElement, s3PresetElement.value as S3PresetId, false);
+        s3PresetElement.addEventListener("change", () => {
+            applyS3PresetToPanel(providerPanelElement, s3PresetElement.value as S3PresetId, true);
+            saveS3ProviderFromPanel(providerPanelElement);
+        });
+    }
+
+    const s3TestConnectionElement = providerPanelElement.querySelector<HTMLButtonElement>("#s3TestConnection");
+    if (s3TestConnectionElement) {
+        s3TestConnectionElement.addEventListener("click", () => {
+            testS3ConnectionFromPanel(providerPanelElement, s3TestConnectionElement);
+        });
+    }
 
     const localEndpointElement = providerPanelElement.querySelector<HTMLInputElement>("#endpoint");
     localEndpointElement?.addEventListener("input", () => {

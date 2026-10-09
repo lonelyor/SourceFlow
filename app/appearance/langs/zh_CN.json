@@ -834,6 +834,14 @@
   "syncThirdPartyProviderTip": "在使用该特性前，请注意第三方云端存储服务的技术限制和计费项目等条款：<div class=\"b3-label__text\"><ul class='fn__list'><li>接口调用频率、带宽等技术限制</li><li>存储空间和流量等计费项目</li><li>使用条款和可用性保障等条款</li></ul></div><div class='fn__hr'></div>免责声明：详见源流所使用的开源许可证 AGPLv3 中的相关条款",
   "syncProvider": "云端存储服务提供商",
   "syncProviderTip": "选择后将使用该提供商的云端存储服务实现云端同步和备份功能",
+  "syncS3PresetProvider": "云服务商预设",
+  "syncS3PresetProviderTip": "选择常见的 S3 兼容服务商后，将自动填充 Endpoint、Region 与寻址方式，并显示对应的配置指引",
+  "syncS3TestConnection": "测试连接",
+  "syncS3TestConnectionTip": "上传、下载并删除一个临时对象，用于验证端点、凭证与读写权限；不会更改已保存的配置",
+  "syncS3TestConnectionTesting": "正在测试连接…",
+  "syncS3TestConnectionSuccess": "连接测试通过：临时对象上传、下载、删除成功",
+  "syncS3TestConnectionFailed": "连接测试失败",
+  "syncS3TestConnectionMissing": "请先填写 Endpoint、Access Key、Secret Key 与 Bucket",
   "confirmReset": "确定将所有快捷键都恢复为默认设置？",
   "notBatchRemove": "不支持笔记本批量删除",
   "confirmRemoveAll": "确定删除选中的 ${count} 项及其子文档？",
@@ -1252,6 +1260,8 @@
   "zoomIn": "放大",
   "zoomOut": "缩小",
   "template": "模板",
+  "templateNameDuplicate": "模板「${x}」已存在，请修改名称后再保存",
+  "templateImportFailed": "导入模板失败",
   "move": "移动",
   "layout": "布局",
   "expandLevel": "展开层级",
@@ -2018,5 +2028,8 @@
     "284": "禁止访问",
     "285": "密码不正确",
     "286": "[%s] 已经回滚完毕"
-  }
+  },
+  "fileTreeSortBefore": "排到此条目之前",
+  "fileTreeSortAfter": "排到此条目之后",
+  "fileTreeSortMoveNeedsAlt": "移动请按住 Alt"
 }

@@ -5,7 +5,7 @@ import {processRender} from "./processCode";
 import {highlightRender} from "../render/highlightRender";
 import {blockRender} from "../render/blockRender";
 import {bgFade, scrollCenter} from "../../util/highlightById";
-import {scheduleRender, cancelScheduledRenders, splitByViewport, BATCH_SIZE, observeLazyRender, disconnectLazyObserver, RenderTask} from "./renderScheduler";
+import {scheduleRender, cancelScheduledRenders, splitByViewport, observeLazyRender, RenderTask} from "./renderScheduler";
 /// #if !MOBILE
 import {pushBack} from "../../util/backForward";
 /// #endif

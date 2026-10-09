@@ -43,8 +43,6 @@ import {
     upsertEditorCursorSavedImage,
 } from "../editor/cursor";
 import {
-    DEFAULT_EDITOR_NOTE_BACKGROUND_BLUR,
-    DEFAULT_EDITOR_NOTE_BACKGROUND_OPACITY,
     getEditorNoteBackgroundDisplayValue,
     getEditorNoteBackgroundSettingTexts,
     normalizeEditorNoteBackgroundBlur,
@@ -58,7 +56,6 @@ import {
 } from "../editor/hiddenBlock";
 import {
     DEFAULT_STARTUP_PAGE_IMAGE,
-    DEFAULT_STARTUP_PAGE_BLUR,
     DEFAULT_STARTUP_PAGE_OPACITY,
     getStartupPageDisplayValue,
     getStartupPageSettingTexts,
@@ -68,10 +65,6 @@ import {
     readStartupPageAssetFile
 } from "../appearance/startupPage";
 import {
-    applyMascotWidget,
-    DEFAULT_MASCOT_EFFECT,
-    DEFAULT_MASCOT_OPACITY,
-    DEFAULT_MASCOT_SCALE,
     getMascotDisplayValue,
     getMascotEffectOptions,
     getMascotPositionOptions,
@@ -98,18 +91,10 @@ import {
     normalizeFileTreeFontSize
 } from "../appearance/fileTreeAppearance";
 import {refreshAllFileTreeTotalCounts} from "../layout/dock/fileTreeCounts";
-import {createImageFileFromDataURL, getRenderableImageURL, pickDesktopImageAssetFile} from "../appearance/imageAsset";
 import {escapeAttr, escapeHtml} from "../util/escape";
 import {assistantText} from "../assistant/constants";
 
-import {escapeCSSURL, escapeCSSURLAttr, getAppearancePreviewImageURL, getCursorColorPickerValue, getCursorColorValue, shouldKeepCursorCustomSelection, getCursorImageInput, setCursorImageInputValue, getCursorImageValue, getCursorSavedImages, getCursorImageWidthPercentValue, getCursorImageHeightPercentValue, getCursorImageOffsetXValue, getCursorImageOffsetYValue, getHiddenBlockColorValue, getNoteBackgroundImageInput, setNoteBackgroundImageInputValue, getNoteBackgroundImageValue, getNoteBackgroundOpacityValue, getNoteBackgroundBlurValue, getStartupPageImageInput, setStartupPageImageInputValue, getStartupPageImageValue, getStartupPageOpacityValue, getStartupPageBlurValue, getMascotImageInput, setMascotImageInputValue, getMascotImageValue, getMascotEnabledValue, getMascotPositionValue, getMascotEffectValue, getMascotOpacityValue, getMascotScaleValue, getNoteBackgroundState, applyNoteBackgroundState, getMascotState, applyMascotState, importDesktopAppearanceImageFile, applyImportedNoteBackgroundFile, applyImportedStartupPageFile, applyImportedMascotFile, renderCursorImagePreview, renderNoteBackgroundPreview, renderStartupPagePreview, renderMascotPreview, renderCursorSavedImageList, syncCursorControls, syncNoteBackgroundControls, syncStartupPageControls, syncMascotControls} from "./appearanceHelpers";
-
-const ACCENT_COLOR_VARS = [
-    "--b3-theme-primary",
-    "--b3-theme-primary-light",
-    "--b3-theme-primary-lighter",
-    "--b3-theme-primary-lightest",
-];
+import {getCursorColorPickerValue, getCursorColorValue, shouldKeepCursorCustomSelection, getCursorImageInput, setCursorImageInputValue, getCursorImageValue, getCursorImageWidthPercentValue, getCursorImageHeightPercentValue, getCursorImageOffsetXValue, getCursorImageOffsetYValue, getHiddenBlockColorValue, getNoteBackgroundImageInput, setNoteBackgroundImageInputValue, getNoteBackgroundImageValue, getNoteBackgroundOpacityValue, getNoteBackgroundBlurValue, getStartupPageImageInput, setStartupPageImageInputValue, getStartupPageImageValue, getStartupPageOpacityValue, getStartupPageBlurValue, getMascotImageInput, setMascotImageInputValue, getMascotImageValue, getMascotEnabledValue, getMascotPositionValue, getMascotEffectValue, getMascotOpacityValue, getMascotScaleValue, applyNoteBackgroundState, applyMascotState, applyImportedNoteBackgroundFile, applyImportedStartupPageFile, applyImportedMascotFile, syncCursorControls, syncNoteBackgroundControls, syncStartupPageControls, syncMascotControls} from "./appearanceHelpers";
 
 const hexToRGB = (hex: string) => {
     const h = hex.replace("#", "");

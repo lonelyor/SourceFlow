@@ -51,10 +51,6 @@ async function resolveExistingPath(targetPath) {
   return path.resolve(resolved);
 }
 
-function resolveAnyPath(targetPath) {
-  return path.resolve(targetPath);
-}
-
 function getDefaultTargetWorkspace(sourceWorkspace) {
   return path.join(path.dirname(sourceWorkspace), DEFAULT_TARGET_WORKSPACE_NAME);
 }

@@ -254,6 +254,25 @@ func buildAssistantAIToolParameterSchema(def *AssistantAIToolDefinition) interfa
 			}),
 			"required": []string{"markdown"},
 		}
+	case AssistantAIToolMoveNoteToPath:
+		return map[string]interface{}{
+			"type": "object",
+			"properties": addAssistantAIToolDryRunProperty(map[string]interface{}{
+				"noteID": map[string]interface{}{
+					"type":        "string",
+					"description": "要移动的笔记根块ID（可用 search-notes 或 read-note 的 rootID）",
+				},
+				"toNotebook": map[string]interface{}{
+					"type":        "string",
+					"description": "目标笔记本ID或名称",
+				},
+				"toPath": map[string]interface{}{
+					"type":        "string",
+					"description": "目标父文档的存储路径（以 .sf 结尾），移动到笔记本根目录时为空字符串或\"/\"",
+				},
+			}),
+			"required": []string{"noteID", "toNotebook", "toPath"},
+		}
 	case AssistantAIToolCreateWorkbench:
 		return map[string]interface{}{
 			"type": "object",

@@ -2,61 +2,27 @@ import {Dialog} from "../dialog";
 import {Constants} from "../constants";
 import {fetchSyncPost} from "../util/fetch";
 import {showMessage} from "../dialog/message";
-import {writeText, setStorageVal} from "../protyle/util/compatibility";
 import {App} from "../index";
-import {replaceFileName, validateName} from "../editor/rename";
-import {getAllEditor} from "../layout/getAll";
-import {hasClosestByClassName} from "../protyle/util/hasClosest";
-import {runAssistantFeature} from "../assistant/runtime";
 /// #if MOBILE
-import {openMobileFileById} from "../mobile/editor";
 /// #else
-import {openFileById} from "../editor/util";
 /// #endif
-import {IWorkbenchItem, TWorkbenchTab, WorkbenchAttr} from "./constants";
+import {IWorkbenchItem, TWorkbenchTab} from "./constants";
 import {
-    IWorkbenchActionPreset,
     IWorkbenchAutomationData,
     IWorkbenchBoundViewState,
-    IWorkbenchBuiltinViewNoteOption,
-    IWorkbenchDashboardPreset,
-    IWorkbenchFacet,
-    IWorkbenchQueryResponse,
     IWorkbenchRule,
-    IWorkbenchSearchBlock,
     IWorkbenchState,
-    IWorkbenchSummary,
-    IWorkbenchViewTemplate,
-    WORKBENCH_BLOCK_CACHE_TTL,
-    WORKBENCH_QUERY_CACHE_TTL,
     TWorkbenchBuiltinViewNoteKey,
-    TWorkbenchGroupBy,
-    TWorkbenchResultLayer,
-    TWorkbenchView,
-    WorkbenchViewAttr,
     WORKBENCH_SAVED_VIEWS_QUERY,
     applyWorkbenchDashboard,
     applyWorkbenchViewTemplate,
-    clearWorkbenchDashboardSelection,
     clearWorkbenchSavedSelections,
-    clearWorkbenchViewTemplateSelection,
-    escapeAttr,
     escapeHTML,
     getActiveView,
-    getBatchStatusOptions,
     getBuiltinWorkbenchViewNoteTemplate,
-    getDefaultState,
-    getGroupByOptions,
-    getSortOptions,
     getState,
-    getStatusOptions,
     getViewOptions,
-    getWorkbenchBuiltinViewNoteLabel,
     getWorkbenchBuiltinViewNoteOptionsInternal,
-    getWorkbenchResultLayerLabel,
-    getWorkbenchTabLabel,
-    getWorkbenchViewLabel,
-    groupByLabel,
     normalizeWorkbenchActionPresets,
     normalizeWorkbenchDashboards,
     normalizeWorkbenchGroupBy,
@@ -65,59 +31,22 @@ import {
     normalizeWorkbenchSortBy,
     normalizeWorkbenchView,
     normalizeWorkbenchViewTemplates,
-    loadWorkbenchReminderModule,
     openWorkbenchAssistantDock,
-    openWorkbenchItemDialog,
-    openWorkbenchURLImportDialog,
-    resolveEditorProtyle,
     saveState,
-    sortLabel,
-    splitWorkbenchTags,
-    statusLabel,
-    tabLabel,
-    typeLabel,
-    viewLabel,
-    workbenchBlockCache,
-    workbenchBlockInflight,
-    workbenchQueryCache,
-    workbenchQueryInflight,
 } from "./dialogShared";
 import {
     buildWorkbenchLiveEmbedMarkdown,
     resolveWorkbenchContext,
 } from "./dialogQuery";
 import {
-    buildBlockResultsCSV,
-    buildBlockResultsMarkdown,
-    buildExportFileBaseName,
-    buildQueryEmbedMarkdown,
-    buildQueryEmbedMarkdownByIDs,
-    buildResultsCSV,
-    buildResultsMarkdown,
-    buildWorkbenchDashboardMarkdown,
-    buildWorkbenchReportMarkdown,
-    buildWorkbenchReviewMarkdown,
-    buildWorkbenchSkillNoteMarkdown,
-    buildWorkbenchViewNoteMarkdown,
-    downloadTextFile,
-    formatDateOffset,
-    formatDateTime,
-    getQuickFacetLabel,
-    renderFacetSection,
-    renderSearchBlock,
-    renderWorkbenchDashboardOptions,
-    renderWorkbenchPanelContent,
-    renderWorkbenchViewTemplateOptions,
     shouldDeferWorkbenchPanelRender,
 } from "./dialogRender";
 import {buildWorkbenchDialogHTML} from "./dialogScreen";
 import {bindWorkbenchDialogEvents} from "./dialogEvents";
-import {applyWorkbenchRulesToAttrs, getWorkbenchConversionAttrs} from "./dialogRules";
-import {applyWorkbenchBoundState, appendMarkdownToCurrentNote, applyWorkbenchSavedViewsState, clearWorkbenchViewFromCurrentNote, getCurrentWorkbenchBoundView, parseWorkbenchBoundViewAttrs, saveWorkbenchViewToCurrentNote} from "./dialogBinding";
-import {batchSetAttrs, buildCurrentWorkbenchBlockDraft, buildCurrentWorkbenchItemDraft, openWorkbenchBatchMetaDialog, openWorkbenchItem, openWorkbenchMetaDialog} from "./dialogMeta";
-import {buildWorkbenchAIPrompt, buildWorkbenchDraft, buildWorkbenchViewTemplate, createWorkbenchViewNote} from "./dialogDraft";
+import {applyWorkbenchBoundState, appendMarkdownToCurrentNote, clearWorkbenchViewFromCurrentNote, getCurrentWorkbenchBoundView, parseWorkbenchBoundViewAttrs, saveWorkbenchViewToCurrentNote} from "./dialogBinding";
+import {buildCurrentWorkbenchBlockDraft, buildCurrentWorkbenchItemDraft, openWorkbenchMetaDialog} from "./dialogMeta";
+import {buildWorkbenchAIPrompt, buildWorkbenchDraft, createWorkbenchViewNote} from "./dialogDraft";
 
-const workbenchQueryInputTimer = 0;
 let workbenchRenderToken = 0;
 
 const workbenchText = (zh: string, en: string) => window.sourceflow.config.lang === "zh_CN" ? zh : en;
@@ -231,6 +160,12 @@ const renderWorkbench = async (dialog: Dialog, app: App, state: IWorkbenchState,
             },
             openAssistant: openWorkbenchAssistant,
             openBoundView: (targetApp, id) => openWorkbenchBoundViewByID(targetApp, id),
+        });
+        // 工作台规则「文档事件触发」：工作台打开时武装监听（总开关与规则级开关默认关，均需显式开启才生效）。
+        void import("../assistant/rules/triggers").then((module) => {
+            module.initAssistantRulesEventTrigger();
+        }).catch((error) => {
+            console.error("[workbench] assistant rules event trigger init failed", error);
         });
     } catch (error) {
         if (renderToken !== workbenchRenderToken || !dialog.element.isConnected) {

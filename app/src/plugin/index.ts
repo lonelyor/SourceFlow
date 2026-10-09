@@ -72,7 +72,7 @@ export class Plugin {
         this.i18n = options.i18n;
         this.displayName = options.displayName;
         this.manifest = options.manifest;
-        this.eventBus = new EventBus(options.name);
+        this.eventBus = new EventBus();
 
         // https://github.com/lonelyor/SourceFlow/issues/9943
         Object.defineProperty(this, "name", {

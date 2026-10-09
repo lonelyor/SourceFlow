@@ -175,12 +175,30 @@ export const openSetting = (app: TSettingApp) => {
     });
     dialog.element.setAttribute("data-key", Constants.DIALOG_SETTING);
 
+    // S2: guard closing the settings dialog while the AI panel has unsaved
+    // edits. Capture phase runs before the Dialog's own close/scrim handlers so
+    // destroy() can be held back until the user saves or discards.
+    dialog.element.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (!target?.closest(".b3-dialog__close") && !target?.closest(".b3-dialog__scrim")) {
+            return;
+        }
+        if (!ai.confirmLeave(() => dialog.destroy())) {
+            event.stopImmediatePropagation();
+        }
+    }, true);
+
     initConfigSearch(dialog.element, app);
     (dialog.element.querySelector(".b3-dialog__container") as HTMLElement).style.maxWidth = "1280px";
     dialog.element.querySelectorAll(".b3-tab-bar .b3-list-item").forEach(item => {
         item.addEventListener("click", () => {
             const type = item.getAttribute("data-name");
             const containerElement = dialog.element.querySelector(`.config__tab-container[data-name="${type}"]`);
+            if (type !== "AI" && !ai.confirmLeave(() => item.dispatchEvent(new CustomEvent("click")))) {
+                // S2: AI settings have unsaved edits; the confirm dialog completes
+                // the switch once the user saves or discards.
+                return;
+            }
             dialog.element.querySelectorAll(".config__tab-container").forEach((container) => {
                 container.classList.add("fn__none");
             });

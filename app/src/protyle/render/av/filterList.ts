@@ -1,16 +1,8 @@
 import {Menu} from "../../../plugin/Menu";
-import {transaction} from "../../wysiwyg/transaction";
-import {hasClosestByClassName} from "../../util/hasClosest";
 import {getColIconByType} from "./col";
 import {setPosition} from "../../../util/setPosition";
-import {objEquals} from "../../../util/functions";
 import {genCellValue} from "./cell";
-import * as dayjs from "dayjs";
 import {unicode2Emoji} from "../../../emoji";
-import {openMenuPanel} from "./openMenuPanel";
-import {fetchPost, fetchSyncPost} from "../../../util/fetch";
-import {showMessage} from "../../../dialog/message";
-import {upDownHint} from "../../../util/upDownHint";
 import {getFieldsByData} from "./view";
 import {Constants} from "../../../constants";
 

@@ -6,72 +6,33 @@ import {
     isInAVBlock,
     isInEmbedBlock
 } from "../util/hasClosest";
-import {getIconByType} from "../../editor/getIcon";
-import {enterBack, iframeMenu, setFold, tableMenu, videoMenu, zoomOut} from "../../menus/protyle";
-import {MenuItem} from "../../menus/Menu";
-import {copySubMenu, openAttr, openFileAttr} from "../../menus/commonMenuItem";
+import {setFold, zoomOut} from "../../menus/protyle";
+import {openAttr, openFileAttr} from "../../menus/commonMenuItem";
 import {
-    copyPlainText,
-    isInAndroid,
-    isInHarmony,
     isMac,
     isOnlyMeta,
-    openByMobile,
-    updateHotkeyAfterTip,
-    updateHotkeyTip,
-    writeNativeSourceFlowHTMLClipboard,
-    writeText
+    updateHotkeyAfterTip
 } from "../util/compatibility";
-import {
-    transaction,
-    turnsIntoOneTransaction,
-    turnsIntoTransaction,
-    turnsOneInto,
-    updateBatchTransaction,
-    updateTransaction
-} from "../wysiwyg/transaction";
-import {removeBlock} from "../wysiwyg/remove";
-import {focusBlock, focusByRange, getEditorRange} from "../util/selection";
+import {transaction} from "../wysiwyg/transaction";
+import {focusByRange, getEditorRange} from "../util/selection";
 import {hideElements} from "../ui/hideElements";
-import {highlightRender} from "../render/highlightRender";
-import {blockRender} from "../render/blockRender";
-import {getContenteditableElement, getParentBlock, getTopAloneElement, isNotEditBlock} from "../wysiwyg/getBlock";
+import {getContenteditableElement} from "../wysiwyg/getBlock";
 import * as dayjs from "dayjs";
 import {fetchPost} from "../../util/fetch";
-import {cancelSB, genEmptyElement, getLangByType, insertEmptyBlock, jumpToParent,} from "../../block/util";
-import {countBlockWord} from "../../layout/status";
+import {genEmptyElement, getLangByType} from "../../block/util";
 import {Constants} from "../../constants";
-import {mathRender} from "../render/mathRender";
-import {duplicateBlock} from "../wysiwyg/commonHotkey";
-import {movePathTo, useShell} from "../../util/pathName";
-import {hintMoveBlock} from "../hint/extend";
-import {makeCard, quickMakeCard} from "../../card/makeCard";
-import {transferBlockRef} from "../../menus/block";
-import {isMobile} from "../../util/functions";
-import {AIActions} from "../../ai/actions";
-import {activeBlur, renderTextMenu, showKeyboardToolbarUtil} from "../../mobile/util/keyboardToolbar";
 import {hideTooltip} from "../../dialog/tooltip";
-import {appearanceMenu} from "../toolbar/Font";
-import {setPosition} from "../../util/setPosition";
-import {emitOpenMenu} from "../../plugin/EventBus";
 import {insertAttrViewBlockAnimation, updateHeader} from "../render/av/row";
-import {avContextmenu, duplicateCompletely} from "../render/av/action";
-import {getPlainText} from "../util/paste";
-import {addEditorToDatabase} from "../render/av/addToDatabase";
+import {avContextmenu} from "../render/av/action";
 import {processClonePHElement} from "../render/util";
 /// #if !MOBILE
 import {openFileById} from "../../editor/util";
-import * as path from "path";
 /// #endif
 /// #if MOBILE
 import {openMobileFileById} from "../../mobile/editor";
 /// #endif
-import {hideMessage, showMessage} from "../../dialog/message";
 import {checkFold} from "../../util/noRelyPCFunction";
 import {clearSelect} from "../util/clear";
-import {chartRender} from "../render/chartRender";
-import {appendAssistantContextActions} from "../../assistant/skills/contextActions";
-import {canRunCodeBlock, runCodeBlock} from "../codeRun";
 
 import {isMatchNode} from "./actions";
 import {renderMultipleMenu, renderMenu} from "./menus";

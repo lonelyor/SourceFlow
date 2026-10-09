@@ -1,47 +1,9 @@
-import {App} from "../../index";
-import {openSettingTab} from "../../config";
-import {Custom} from "../../layout/dock/Custom";
-import {getDockByType} from "../../layout/tabUtil";
-import {confirmDialog} from "../../dialog/confirmDialog";
-import {showMessage} from "../../dialog/message";
-import {assistantText, ASSISTANT_AI_DOCK_TYPE, ASSISTANT_ANALYZE_PROMPT, buildAssistantNoteContext} from "../constants";
-import {escapeAttr, escapeHTML, formatDateTime, nl2br, panelEmptyHTML, providerDisplayName, truncateText} from "../common/dom";
+import {assistantText} from "../constants";
+import {escapeAttr, escapeHTML} from "../common/dom";
 import {
-    appendMarkdownToCurrentNote,
-    formatTranscriptMarkdown,
-    getAssistantNoteContextByRootID,
-    getCurrentNoteContext,
-    IAssistantNoteCandidate,
-    saveMarkdownAsAssistantNote,
-    searchAssistantNoteCandidates,
-} from "../common/note";
-import {
-    analyzeAssistantAISession,
-    clearAllAssistantAISessions,
-    clearAssistantAISession,
-    createAssistantAISession,
-    deleteAssistantAISession,
-    getAssistantAISessionMessages,
     IAssistantAIInputAttachment,
     IAssistantAIMessage,
-    IAssistantAIProfile,
-    IAssistantAIProviderType,
-    IAssistantAISession,
-    IAssistantAIToolAudit,
-    IAssistantAIToolDefinition,
-    IAssistantAIToolPolicy,
-    listAssistantAIProfiles,
-    listAssistantAIProviders,
-    listAssistantAISessions,
-    listAssistantAIToolAudits,
-    getAssistantAIToolCatalog,
-    confirmAssistantAITool,
-    editAssistantAIMessageStream,
-    renameAssistantAISession,
-    saveAssistantAIProfile,
-    streamAssistantAI,
 } from "./api";
-import {writeText} from "../../protyle/util/compatibility";
 
 export type TAssistantAIMessageItem = IAssistantAIMessage & {
     localPending?: boolean;

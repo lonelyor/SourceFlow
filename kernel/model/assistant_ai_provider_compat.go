@@ -30,6 +30,13 @@ func normalizeAssistantAIProfileSettings(profile *AssistantAIProfile) {
 	if 1 > getAssistantAIIntSetting(profile.Settings, "maxContextTokens", 0) {
 		profile.Settings["maxContextTokens"] = assistantAIDefaultContextTokens
 	}
+	// contextWindowOverride 仅当为正整数且小于解析出的模型窗口时生效（用于标称窗口虚高的部署），非法/0/负值一律剔除。
+	overrideValue := getAssistantAIFloatSetting(profile.Settings, "contextWindowOverride", 0)
+	if overrideValue == float64(int64(overrideValue)) && 0 < overrideValue {
+		profile.Settings["contextWindowOverride"] = int(overrideValue)
+	} else {
+		delete(profile.Settings, "contextWindowOverride")
+	}
 	if 0 >= getAssistantAIIntSetting(profile.Settings, "maxTokens", 0) && 0 < preset.MaxTokens {
 		profile.Settings["maxTokens"] = preset.MaxTokens
 	}
@@ -254,6 +261,40 @@ func resolveAssistantAIRequestMaxTokens(profile *AssistantAIProfile, fallback in
 	return maxTokens
 }
 
+// resolveAssistantAIEffectiveContextWindow 解析预算计量使用的生效上下文窗口：
+// 优先取配置的模型真实窗口 contextWindow，否则回落 maxContextTokens，再回落默认值。
+// contextWindowOverride 仅当为正整数且小于解析出的窗口时生效（用于标称窗口虚高的部署），否则忽略。
+func resolveAssistantAIEffectiveContextWindow(profile *AssistantAIProfile) int {
+	if nil == profile {
+		return assistantAIDefaultContextTokens
+	}
+	window := getAssistantAIIntSetting(profile.Settings, "contextWindow", 0)
+	if 0 >= window {
+		window = getAssistantAIIntSetting(profile.Settings, "maxContextTokens", assistantAIDefaultContextTokens)
+	}
+	if override := getAssistantAIIntSetting(profile.Settings, "contextWindowOverride", 0); 0 < override && override < window {
+		return override
+	}
+	return window
+}
+
+// resolveAssistantAIHistoryBudget 计算历史消息可用的 token 预算：生效窗口扣除
+// 输出预留、system prompt 与当前用户消息（永不裁剪）后剩余的部分，下限钳到 0。
+func resolveAssistantAIHistoryBudget(profile *AssistantAIProfile, systemPrompt string, currentUserMessage *AssistantAIMessage) int {
+	if nil == profile {
+		return 0
+	}
+	outputReserve := getAssistantAIIntSetting(profile.Settings, "maxTokens", 0)
+	if 0 >= outputReserve {
+		outputReserve = 4096
+	}
+	budget := resolveAssistantAIEffectiveContextWindow(profile) - outputReserve - estimateAssistantAITextTokens(systemPrompt) - estimateAssistantAIMessageTokens(currentUserMessage)
+	if 0 > budget {
+		return 0
+	}
+	return budget
+}
+
 func resolveAssistantAIOpenAICompatibleAPIKey(profile *AssistantAIProfile) string {
 	if nil == profile {
 		return ""
@@ -311,8 +352,12 @@ func persistAssistantAIProfileSettings(profile *AssistantAIProfile) (err error) 
 	return err
 }
 
+// trimAssistantAIContextMessages 按 C4 语义裁剪上下文：system prompt 由调用方
+// 保证不计入此列表；从最旧的消息开始裁，最新一条（即当前用户消息，含正文）
+// 永不裁掉，预算不足以容纳任何历史时仅保留最新一条。maxContextTokens <= 0
+// 同样仅保留最新一条。
 func trimAssistantAIContextMessages(messages []*AssistantAIMessage, maxContextTokens int) []*AssistantAIMessage {
-	if 1 > maxContextTokens || 1 > len(messages) {
+	if 1 > len(messages) {
 		return messages
 	}
 
@@ -324,9 +369,6 @@ func trimAssistantAIContextMessages(messages []*AssistantAIMessage, maxContextTo
 			break
 		}
 		start = i
-	}
-	if start < 0 {
-		start = 0
 	}
 	if start >= len(messages) {
 		return messages[len(messages)-1:]
@@ -347,7 +389,7 @@ func estimateAssistantAITextTokens(text string) int {
 			(r >= 0x3400 && r <= 0x4DBF) || // CJK Extension A
 			(r >= 0x3040 && r <= 0x30FF) || // Hiragana / Katakana
 			(r >= 0xAC00 && r <= 0xD7AF) || // Hangul Syllables
-			(r >= 0xFF00 && r <= 0xFFEF) {  // Fullwidth forms
+			(r >= 0xFF00 && r <= 0xFFEF) { // Fullwidth forms
 			tokens++
 		} else {
 			nonCJK++
@@ -368,5 +410,8 @@ func estimateAssistantAIMessageTokens(message *AssistantAIMessage) int {
 	// Content-based estimate only: summing stored InputTokens across messages
 	// would double-count, since each reflects the cumulative prompt size at
 	// that turn rather than that single message's footprint.
-	return estimateAssistantAITextTokens(message.Content)
+	tokens := estimateAssistantAITextTokens(message.Content)
+	// 图片附件会作为图像块随请求发送、同样占用窗口，按每张固定保守值计入。
+	tokens += assistantAIImageTokenEstimate * len(assistantAIMessageAttachments(message))
+	return tokens
 }

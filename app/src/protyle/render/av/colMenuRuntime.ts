@@ -3,21 +3,14 @@ import {transaction} from "../../wysiwyg/transaction";
 import {fetchPost, fetchSyncPost} from "../../../util/fetch";
 import {getDefaultOperatorByType, setFilter} from "./filter";
 import {genCellValue} from "./cell";
-import {getPropertiesHTML, openMenuPanel} from "./openMenuPanel";
-import {getLabelByNumberFormat} from "./number";
-import {removeAttrViewColAnimation, updateAttrViewCellAnimation} from "./cell";
+import {openMenuPanel} from "./openMenuPanel";
+import {updateAttrViewCellAnimation} from "./cell";
 import {openEmojiPanel, unicode2Emoji} from "../../../emoji";
 import {focusBlock} from "../../util/selection";
-import {toggleUpdateRelationBtn} from "./relation";
-import {bindRollupData, getRollupHTML} from "./rollup";
 import {Constants} from "../../../constants";
-import * as dayjs from "dayjs";
-import {setPosition} from "../../../util/setPosition";
-import {duplicateNameAddOne, isMobile} from "../../../util/functions";
+import {isMobile} from "../../../util/functions";
 import {Dialog} from "../../../dialog";
 import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
-import {getFieldsByData} from "./view";
-import {hasClosestByClassName} from "../../util/hasClosest";
 import {getAVViewAttr} from "../../../util/attrCompat";
 
 import {getColIconByType} from "./colLookups";
@@ -83,7 +76,7 @@ export const showColMenu = (protyle: IProtyle, blockElement: Element, cellElemen
     <div class="fn__flex">
         <span class="fn__space"></span>
         <textarea placeholder="${window.sourceflow.languages.addDesc}" rows="1" class="b3-text-field fn__block" type="text" data-value="${escapeAttr(oldDesc)}">${oldDesc}</textarea>
-        <span class="fn__space"></span>    
+        <span class="fn__space"></span>
     </div>
 </div>
 <div class="fn__hr--small"></div>`,

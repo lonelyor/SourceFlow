@@ -28,6 +28,12 @@ import {recordAssistantExplicitSaveHistory, recordAssistantPatchFailure, recordA
 import {applyAssistantPatch, applyAssistantPatchOperation} from "../patch/apply";
 import type {IAssistantEditPatch} from "../patch/types";
 import type {IAssistantSkillContext} from "../skills/types";
+import {
+    applyAssistantAssetOcrCacheHits,
+    IAssistantAssetVisionPlan,
+    recordAssistantAILastReplyForAssetSave,
+    resolveAssistantAssetVisionForSend,
+} from "../sources/assetVision";
 
 export const focusAIDockComposer = (ctx: IAssistantAIDockRuntime) => {
     const textarea = ctx.element.querySelector("[data-role='message']") as HTMLTextAreaElement;
@@ -316,6 +322,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
     const previousMessages = ctx.messages.slice();
     const messagePreview = ctx.buildUserMessagePreview(message, attachments) || assistantText("图片消息", "Image message");
     const sourcesSnapshot = cloneMentionSources(ctx.sources);
+    // 「让 AI 看图」发送计划：assetAttachments = 需发图的资产路径；cacheHits = 命中 OCR 缓存的转录。
+    let assetVisionPlan: IAssistantAssetVisionPlan = {assetAttachments: [], cacheHits: []};
     ctx.sending = true;
     ctx.render();
     let resolvedSourcesSnapshot = sourcesSnapshot;
@@ -327,6 +335,12 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             ctx.userStoppedGenerating = false;
             ctx.render();
             return;
+        }
+        // 「让 AI 看图」（设计 §2.2）：先查内核 OCR 缓存——命中（transcript 非空）则把转录并入
+        // 该来源元数据段、不发图；未命中才进 assetAttachments 随请求发图。查询失败不阻塞发送。
+        assetVisionPlan = await resolveAssistantAssetVisionForSend(resolvedSourcesSnapshot);
+        if (assetVisionPlan.cacheHits.length) {
+            applyAssistantAssetOcrCacheHits(resolvedSourcesSnapshot, assetVisionPlan.cacheHits);
         }
         if (!session && !isEditing) {
             session = await createAssistantAISession(
@@ -441,6 +455,8 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
             context: currentNote,
             attachments,
             sources: sourceCitations,
+            // 看图未命中 OCR 缓存的图片资产；后端校验扩展名/≤5MB/≤4 张，失败项跳过。
+            ...(assetVisionPlan.assetAttachments.length ? {assetAttachments: assetVisionPlan.assetAttachments} : {}),
         };
         const result = await (isEditing
             ? editAssistantAIMessageStream({
@@ -476,6 +492,10 @@ export const sendAIDockMessage = async (ctx: IAssistantAIDockRuntime) => {
         ctx.selectedSessionId = result.session.id;
         ctx.selectedProfileId = result.profile.id;
         ctx.messages = result.messages;
+        // 记录本次最终回复，供来源面板「保存转录」显式写回该资产的 OCR 缓存
+        // （回复是否为转录无法可靠自动判定，故不自动保存）。
+        const latestAssistantReply = [...(result.messages || [])].reverse().find((item) => item.role === "assistant");
+        recordAssistantAILastReplyForAssetSave(latestAssistantReply?.content || partialReply);
         if (isEditing) {
             ctx.clearEditingMessage(false);
         }

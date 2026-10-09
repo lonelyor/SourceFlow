@@ -2,7 +2,6 @@ import {hasClosestByAttribute} from "../../util/hasClosest";
 import {clearAVPanelDragIndicators, setAVPanelDragIndicator} from "./panelDragShared";
 
 export const bindAVPanelDragHover = (avPanelElement: Element) => {
-    let dragoverElement: HTMLElement;
     let counter = 0;
     avPanelElement.addEventListener("dragover", (event: DragEvent) => {
         if (event.dataTransfer.types.includes("Files")) {
@@ -18,7 +17,6 @@ export const bindAVPanelDragHover = (avPanelElement: Element) => {
             return;
         }
         event.preventDefault();
-        dragoverElement = targetElement;
         setAVPanelDragIndicator(avPanelElement, targetElement, event.clientY);
     });
     avPanelElement.addEventListener("dragleave", () => {
@@ -36,7 +34,6 @@ export const bindAVPanelDragHover = (avPanelElement: Element) => {
             window.sourceflow.dragElement.style.opacity = "";
             window.sourceflow.dragElement = undefined;
         }
-        dragoverElement = undefined;
         clearAVPanelDragIndicators(avPanelElement);
     });
 };

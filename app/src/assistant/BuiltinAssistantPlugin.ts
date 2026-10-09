@@ -6,7 +6,13 @@ import {assistantDockPosition, assistantDockSizes, assistantText, ASSISTANT_AI_D
 import {reportAssistantRuntimeError} from "./runtime";
 import {initAssistantSelectionBar, destroyAssistantSelectionBar} from "./inline/selectionBar";
 
-type TAssistantDockKey = typeof ASSISTANT_AI_DOCK_KEY | typeof ASSISTANT_RESULTS_DOCK_KEY | typeof ASSISTANT_TERMINAL_DOCK_KEY;
+// assistant/constants.ts is off-limits for this workstream, so the related
+// notes dock identity is mirrored here; scripts/testRelatedNotesPanel.js keeps
+// it in sync with the exported constants in ./search/relatedNotesPanel.
+const ASSISTANT_RELATED_DOCK_KEY = "related";
+const assistantRelatedDockTitle = () => assistantText("相关笔记", "Related Notes");
+
+type TAssistantDockKey = typeof ASSISTANT_AI_DOCK_KEY | typeof ASSISTANT_RESULTS_DOCK_KEY | typeof ASSISTANT_TERMINAL_DOCK_KEY | typeof ASSISTANT_RELATED_DOCK_KEY;
 
 type TAssistantDockModule = {
     mount: (custom: Custom, app: App) => void;
@@ -33,6 +39,12 @@ const dockModuleLoaders: Record<TAssistantDockKey, () => Promise<TAssistantDockM
         destroy: module.destroyAssistantTerminalDock,
         resize: module.resizeAssistantTerminalDock,
         update: module.updateAssistantTerminalDock,
+    })),
+    [ASSISTANT_RELATED_DOCK_KEY]: () => import("./search/relatedNotesPanel").then((module) => ({
+        mount: module.mountAssistantRelatedDock,
+        destroy: module.destroyAssistantRelatedDock,
+        resize: module.resizeAssistantRelatedDock,
+        update: module.updateAssistantRelatedDock,
     })),
 };
 
@@ -85,6 +97,27 @@ export class BuiltinAssistantPlugin extends Plugin {
             destroy: () => this.runDockLifecycle(ASSISTANT_RESULTS_DOCK_KEY, (module) => module.destroy()),
             resize: () => this.runDockLifecycle(ASSISTANT_RESULTS_DOCK_KEY, (module) => module.resize()),
             update: () => this.runDockLifecycle(ASSISTANT_RESULTS_DOCK_KEY, (module) => module.update()),
+        });
+        this.addDock({
+            type: ASSISTANT_RELATED_DOCK_KEY,
+            data: {},
+            config: {
+                position: "RightTop" as const,
+                size: {width: 320, height: 0},
+                icon: "iconLink",
+                title: assistantRelatedDockTitle(),
+                show: false,
+            },
+            init: (...args: [Custom?]) => {
+                if (args[0]) {
+                    this.initDock(ASSISTANT_RELATED_DOCK_KEY, args[0], (module) => {
+                        module.mount(args[0], options.app);
+                    });
+                }
+            },
+            destroy: () => this.runDockLifecycle(ASSISTANT_RELATED_DOCK_KEY, (module) => module.destroy()),
+            resize: () => this.runDockLifecycle(ASSISTANT_RELATED_DOCK_KEY, (module) => module.resize()),
+            update: () => this.runDockLifecycle(ASSISTANT_RELATED_DOCK_KEY, (module) => module.update()),
         });
         if (!isStartupFuseEnabled("terminal")) {
             this.addDock({
@@ -168,7 +201,9 @@ export class BuiltinAssistantPlugin extends Plugin {
     private renderDockIsolation(custom: Custom, key: TAssistantDockKey) {
         const title = key === ASSISTANT_AI_DOCK_KEY
             ? this.dockTitles.ai
-            : (key === ASSISTANT_RESULTS_DOCK_KEY ? this.dockTitles.results : this.dockTitles.terminal);
+            : (key === ASSISTANT_RESULTS_DOCK_KEY
+                ? this.dockTitles.results
+                : (key === ASSISTANT_RELATED_DOCK_KEY ? assistantRelatedDockTitle() : this.dockTitles.terminal));
         (custom.element as HTMLElement).innerHTML = `<div class="fn__flex-1 fn__flex-column fn__flex-center" style="padding: 16px; text-align: center; gap: 8px;">
     <div>${title}</div>
     <div class="ft__secondary ft__smaller">${assistantText("该面板初始化失败，已自动隔离，不影响笔记使用。", "This panel failed to initialize and has been isolated. Notes remain usable.")}</div>

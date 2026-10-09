@@ -14,6 +14,7 @@ import {
     syncAssistantOperationHistoryFromBackend,
 } from "../history/operations";
 import {detectMentionTrigger, searchAndShowMentions, insertMentionChip} from "../mentions/trigger";
+import {dismissAIDockContextNotice, updateAIDockContextUsageInPlace} from "./AIDockRenderComposer";
 import type {IMentionSource} from "../mentions/types";
 import type {TSecurityMode} from "../security/types";
 
@@ -233,6 +234,7 @@ export const bindAIDockEvents = (ctx: IAssistantAIDockRuntime) => {
         const role = target.getAttribute("data-role");
         if (role === "message") {
             ctx.draftMessage = target.value;
+            updateAIDockContextUsageInPlace(ctx);
             if (target instanceof HTMLTextAreaElement) {
                 const mentionInfo = detectMentionTrigger(target, target.value, target.selectionStart);
                 if (mentionInfo) {
@@ -559,6 +561,10 @@ export const handleAIDockAction = async (ctx: IAssistantAIDockRuntime, action: s
             return;
         case "reapply-history":
             await reapplyAssistantOperationHistoryItem(target?.getAttribute("data-history-id") || "");
+            ctx.render();
+            return;
+        case "dismiss-context-notice":
+            dismissAIDockContextNotice();
             ctx.render();
             return;
         case "pin-current-note":

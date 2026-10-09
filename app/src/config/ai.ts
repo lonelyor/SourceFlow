@@ -3,8 +3,11 @@ import {assistantText} from "../assistant/constants";
 import {escapeAttr, escapeHTML} from "../assistant/common/dom";
 import {fetchPost} from "../util/fetch";
 import {showMessage} from "../dialog/message";
+import {confirmDialog} from "../dialog/confirmDialog";
 import type {ISecurityConfig, ISecurityCapabilities} from "../assistant/security/types";
 import {getSecurityConfig, setSecurityConfig} from "../assistant/security/api";
+import {listAssistantAIProviders} from "../assistant/ai/api";
+import type {IAssistantAIProviderType} from "../assistant/ai/api";
 import {
     clearAssistantSecretMaskBeforeEdit,
     getAssistantSecretInputValue,
@@ -33,17 +36,61 @@ let bindToken = 0;
 let embeddingConfig: TAssistantEmbeddingConfig | null = null;
 let securityConfig: ISecurityConfig | null = null;
 let securityConfigError = "";
+// S5: provider directory shared with the main panel; falls back to the two
+// embedding-native shapes until /api/assistant/ai/provider/list responds.
+let embeddingProviderCatalog: IAssistantAIProviderType[] = [];
+// S2: last loaded/saved snapshots used by the dirty guards ("" = not loaded).
+let embeddingSavedSnapshot = "";
+let securitySavedSnapshot = "";
+let pendingAiSettingsLeave: (() => void) | null = null;
 
-// S5: the embedding backend always calls {baseURL}/embeddings (OpenAI-compatible),
-// so only these two provider shapes make sense here. Exposing the choice lets
-// users reuse their main-panel provider and keeps the saved config honest
-// (previously it hardcoded "openai-compatible" while defaulting to "ollama").
-const embeddingProviderOptions = [
-    {id: "openai-compatible", name: "OpenAI Compatible", baseURL: "https://api.openai.com/v1"},
-    {id: "ollama", name: "Ollama", baseURL: "http://127.0.0.1:11434/v1"},
+// S5: the embedding backend only speaks the OpenAI-compatible /embeddings
+// protocol, so the provider dropdown is filled from the same directory the
+// main panel uses (listAssistantAIProviders). openai-compatible/ollama are
+// embedding-native; every other entry still works through its OpenAI
+// compatible endpoint and is annotated as such. This replaces the previous
+// hardcoded two-option list, which disagreed with the saved default.
+const EMBEDDING_NATIVE_PROVIDER_IDS = ["openai-compatible", "ollama"];
+
+const embeddingProviderFallback: IAssistantAIProviderType[] = [
+    {id: "openai-compatible", name: "OpenAI Compatible", baseURL: "https://api.openai.com/v1", defaultModel: "", recommendedSettings: {}},
+    {id: "ollama", name: "Ollama", baseURL: "http://127.0.0.1:11434/v1", defaultModel: "", recommendedSettings: {}},
 ];
 
-const embeddingProviderBaseURL = (provider: string) => embeddingProviderOptions.find((opt) => opt.id === provider)?.baseURL || "";
+embeddingProviderCatalog = [...embeddingProviderFallback];
+
+const embeddingProviderDefaultBaseURL = (provider: string) => {
+    return embeddingProviderCatalog.find((opt) => opt.id === provider)?.baseURL || "";
+};
+
+const embeddingProviderOptionHTML = (selectedProvider: string) => {
+    const options = [...embeddingProviderCatalog];
+    if (selectedProvider && !options.some((opt) => opt.id === selectedProvider)) {
+        // Keep unknown saved providers selectable so the form stays truthful.
+        options.unshift({id: selectedProvider, name: selectedProvider, baseURL: "", defaultModel: "", recommendedSettings: {}});
+    }
+    return options.map((opt) => {
+        const native = EMBEDDING_NATIVE_PROVIDER_IDS.includes(opt.id);
+        const label = native ? opt.name : `${opt.name} (${assistantText("OpenAI 兼容协议", "OpenAI-compatible")})`;
+        return `<option value="${escapeAttr(opt.id)}"${opt.id === selectedProvider ? " selected" : ""}>${escapeHTML(label)}</option>`;
+    }).join("");
+};
+
+const loadEmbeddingProviderCatalog = () => {
+    void listAssistantAIProviders().then((providers) => {
+        if (providers.length > 0) {
+            embeddingProviderCatalog = providers;
+        }
+    }).catch(() => {
+        // Keep the fallback (or the previously loaded directory) on failure.
+    }).finally(() => {
+        // Refresh the select in place, keeping the current choice.
+        const select = ai.element?.querySelector("#embeddingConfigSection #embeddingProvider") as HTMLSelectElement | null;
+        if (select) {
+            select.innerHTML = embeddingProviderOptionHTML(select.value);
+        }
+    });
+};
 
 const embeddingSectionHTML = () => {
     const cfg = embeddingConfig || {provider: "openai-compatible", baseURL: "", apiKey: "", model: "", enabled: false};
@@ -62,7 +109,7 @@ const embeddingSectionHTML = () => {
         <div class="fn__flex-center fn__flex-1">${escapeHTML(assistantText("Embedding 提供商", "Embedding Provider"))}</div>
         <span class="fn__space"></span>
         <select class="b3-select fn__flex-center fn__size200" id="embeddingProvider">
-            ${embeddingProviderOptions.map((opt) => `<option value="${escapeAttr(opt.id)}"${opt.id === cfg.provider ? " selected" : ""}>${escapeHTML(opt.name)}</option>`).join("")}
+            ${embeddingProviderOptionHTML(cfg.provider || "openai-compatible")}
         </select>
     </div>
     <div class="fn__hr"></div>
@@ -107,14 +154,17 @@ const loadEmbeddingConfig = (container: HTMLElement) => {
         }
         renderEmbeddingSection(container);
         bindEmbeddingEvents(container);
+        markEmbeddingClean();
+        refreshEmbeddingSaveButton();
     });
 };
 
 const renderEmbeddingSection = (container: HTMLElement) => {
-    const section = container.querySelector("#embeddingConfigSection");
-    if (section) {
-        section.innerHTML = embeddingSectionHTML();
-    }
+    // Callers pass the #embeddingConfigSection wrapper itself; querySelector
+    // only matches descendants, so fall back to the container or nothing
+    // would ever render.
+    const section = container.querySelector("#embeddingConfigSection") || container;
+    section.innerHTML = embeddingSectionHTML();
 };
 
 const bindEmbeddingEvents = (container: HTMLElement) => {
@@ -140,46 +190,25 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
     const baseURLInput = container.querySelector("#embeddingBaseURL") as HTMLInputElement | null;
     if (providerSelect && baseURLInput) {
         providerSelect.addEventListener("change", () => {
+            // Mirror ProfilesPanel: only fill the provider default URL when the
+            // field is empty or still pointing at another provider's default.
             const current = baseURLInput.value.trim();
-            const known = embeddingProviderOptions.some((opt) => opt.baseURL === current);
+            const known = embeddingProviderCatalog.some((opt) => opt.baseURL && opt.baseURL === current);
             if (!current || known) {
-                baseURLInput.value = embeddingProviderBaseURL(providerSelect.value);
+                baseURLInput.value = embeddingProviderDefaultBaseURL(providerSelect.value);
             }
+            refreshEmbeddingSaveButton();
         });
     }
 
     const saveBtn = container.querySelector("#embeddingSave");
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
-            const enabled = (container.querySelector("#embeddingEnabled") as HTMLInputElement)?.checked || false;
-            const baseURL = baseURLInput?.value || "";
-            const model = (container.querySelector("#embeddingModel") as HTMLInputElement)?.value || "";
-            const provider = providerSelect?.value || embeddingConfig?.provider || "openai-compatible";
-            const secret = getAssistantSecretPayloadFromInput(!!embeddingConfig?.hasAPIKey, apiKeyInput);
-            const config: TAssistantEmbeddingConfig = {
-                provider,
-                baseURL,
-                apiKey: secret.apiKey,
-                apiKeyAction: secret.apiKeyAction,
-                model,
-                enabled,
-            };
-            fetchPost("/api/assistant/embedding/setConfig", {config}, (response: {code: number; msg?: string; data?: TAssistantEmbeddingConfig}) => {
-                if (response.code === 0) {
-                    embeddingConfig = response.data || {
-                        ...config,
-                        apiKey: "",
-                        hasAPIKey: secret.apiKeyAction === "replace" || (secret.apiKeyAction === "keep" && !!embeddingConfig?.hasAPIKey),
-                    };
-                    renderEmbeddingSection(container);
-                    bindEmbeddingEvents(container);
-                    showMessage(assistantText("Embedding 配置已保存", "Embedding config saved"));
-                } else {
-                    showMessage(response.msg || assistantText("保存失败", "Save failed"), 5000, "error");
-                }
-            });
+            saveEmbeddingConfig();
         });
     }
+
+    watchSectionDirtyState(container, refreshEmbeddingSaveButton);
 
     const indexAllBtn = container.querySelector("#embeddingIndexAll");
     if (indexAllBtn) {
@@ -204,6 +233,153 @@ const bindEmbeddingEvents = (container: HTMLElement) => {
             });
         });
     }
+};
+
+const saveEmbeddingConfig = (onSaved?: () => void) => {
+    const container = ai.element?.querySelector("#embeddingConfigSection") as HTMLElement | null;
+    if (!container) {
+        onSaved?.();
+        return;
+    }
+    const enabled = (container.querySelector("#embeddingEnabled") as HTMLInputElement)?.checked || false;
+    const baseURL = (container.querySelector("#embeddingBaseURL") as HTMLInputElement)?.value || "";
+    const model = (container.querySelector("#embeddingModel") as HTMLInputElement)?.value || "";
+    // S5: the saved provider is whatever the dropdown currently shows, no
+    // hardcoded default (it used to save "openai-compatible" while the
+    // dropdown defaulted to "ollama").
+    const provider = (container.querySelector("#embeddingProvider") as HTMLSelectElement)?.value || embeddingConfig?.provider || "";
+    const secret = getAssistantSecretPayloadFromInput(!!embeddingConfig?.hasAPIKey, container.querySelector("#embeddingApiKey") as HTMLInputElement | null);
+    const config: TAssistantEmbeddingConfig = {
+        provider,
+        baseURL,
+        apiKey: secret.apiKey,
+        apiKeyAction: secret.apiKeyAction,
+        model,
+        enabled,
+    };
+    fetchPost("/api/assistant/embedding/setConfig", {config}, (response: {code: number; msg?: string; data?: TAssistantEmbeddingConfig}) => {
+        if (response.code === 0) {
+            embeddingConfig = response.data || {
+                ...config,
+                apiKey: "",
+                hasAPIKey: secret.apiKeyAction === "replace" || (secret.apiKeyAction === "keep" && !!embeddingConfig?.hasAPIKey),
+            };
+            renderEmbeddingSection(container);
+            bindEmbeddingEvents(container);
+            markEmbeddingClean();
+            refreshEmbeddingSaveButton();
+            showMessage(assistantText("Embedding 配置已保存", "Embedding config saved"));
+            onSaved?.();
+        } else {
+            showMessage(response.msg || assistantText("保存失败", "Save failed"), 5000, "error");
+        }
+    });
+};
+
+// --- Dirty tracking (S2) -----------------------------------------------------
+// Same approach as ProfilesPanel.serializeDraft: compare the on-screen values
+// with the last loaded/saved snapshot via deterministic serializers (fixed key
+// order, trimmed strings). The secret-managed API key input is intentionally
+// excluded from the comparison, exactly like the main panel; a typed key is
+// still written whenever the config is saved.
+const serializeEmbeddingValues = (provider: string, baseURL: string, model: string, enabled: boolean) => {
+    return JSON.stringify({provider: provider || "", baseURL: (baseURL || "").trim(), model: (model || "").trim(), enabled: !!enabled});
+};
+
+const markEmbeddingClean = () => {
+    embeddingSavedSnapshot = embeddingConfig ? serializeEmbeddingValues(embeddingConfig.provider, embeddingConfig.baseURL, embeddingConfig.model, !!embeddingConfig.enabled) : "";
+};
+
+const isEmbeddingDirty = () => {
+    if (!embeddingSavedSnapshot) {
+        return false;
+    }
+    const container = ai.element?.querySelector("#embeddingConfigSection");
+    if (!container) {
+        return false;
+    }
+    const provider = (container.querySelector("#embeddingProvider") as HTMLSelectElement | null)?.value || "";
+    const baseURL = (container.querySelector("#embeddingBaseURL") as HTMLInputElement | null)?.value || "";
+    const model = (container.querySelector("#embeddingModel") as HTMLInputElement | null)?.value || "";
+    const enabled = (container.querySelector("#embeddingEnabled") as HTMLInputElement | null)?.checked || false;
+    return serializeEmbeddingValues(provider, baseURL, model, enabled) !== embeddingSavedSnapshot;
+};
+
+const SECURITY_CAPABILITY_KEYS: (keyof ISecurityCapabilities)[] = ["read", "write", "execute", "create", "deleteBlock", "deleteNote", "move"];
+
+const parseSecurityBatchThreshold = (raw: string | undefined, fallback: number) => {
+    const parsed = parseInt(raw || "", 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const serializeSecurityValues = (defaultMode: string, batchThreshold: number, capabilities: ISecurityCapabilities, blacklist: ISecurityConfig["blacklist"], whitelist: ISecurityConfig["whitelist"]) => {
+    return JSON.stringify({
+        defaultMode: defaultMode || "default",
+        batchThreshold,
+        // Fixed key order so DOM-collected and snapshot capabilities compare equal.
+        capabilities: SECURITY_CAPABILITY_KEYS.map((key) => [key, !!capabilities[key]]),
+        blacklist: blacklist || [],
+        whitelist: whitelist || [],
+    });
+};
+
+const markSecurityClean = () => {
+    securitySavedSnapshot = securityConfig ? serializeSecurityValues(securityConfig.defaultMode, securityConfig.batchThreshold, securityConfig.capabilities, securityConfig.blacklist, securityConfig.whitelist) : "";
+};
+
+const isSecurityDirty = () => {
+    const cfg = securityConfig;
+    if (!cfg || !securitySavedSnapshot) {
+        return false;
+    }
+    const container = ai.element?.querySelector("#securityConfigSection");
+    if (!container) {
+        return false;
+    }
+    const defaultMode = (container.querySelector("#securityDefaultMode") as HTMLSelectElement | null)?.value || cfg.defaultMode;
+    const batchThreshold = parseSecurityBatchThreshold((container.querySelector("#securityBatchThreshold") as HTMLInputElement | null)?.value, cfg.batchThreshold);
+    const capabilities = {} as ISecurityCapabilities;
+    container.querySelectorAll(".security-cap-switch").forEach((el) => {
+        const input = el as HTMLInputElement;
+        const cap = input.getAttribute("data-cap") as keyof ISecurityCapabilities;
+        if (cap) {
+            capabilities[cap] = input.checked;
+        }
+    });
+    // Blacklist edits mutate `securityConfig` directly (add/remove buttons), so
+    // the lists come from state while mode/threshold/capabilities come from DOM.
+    return serializeSecurityValues(defaultMode, batchThreshold, capabilities, cfg.blacklist, cfg.whitelist) !== securitySavedSnapshot;
+};
+
+export const isAiSettingsDirty = () => isEmbeddingDirty() || isSecurityDirty();
+
+// Save buttons echo the dirty state: "保存" while there are unsaved edits,
+// "已保存" once the draft matches the snapshot. The toast on save is kept.
+const refreshEmbeddingSaveButton = () => {
+    const button = ai.element?.querySelector("#embeddingSave") as HTMLButtonElement | null;
+    if (!button) {
+        return;
+    }
+    button.textContent = isEmbeddingDirty() ? assistantText("保存", "Save") : assistantText("已保存", "Saved");
+};
+
+const refreshSecuritySaveButton = () => {
+    const button = ai.element?.querySelector("#securitySave") as HTMLButtonElement | null;
+    if (!button) {
+        return;
+    }
+    button.textContent = isSecurityDirty() ? assistantText("保存", "Save") : assistantText("已保存", "Saved");
+};
+
+// Sections are re-rendered in place (innerHTML swap) and rebound, so the
+// delegated input/change listeners go on the stable section wrapper, once.
+const watchSectionDirtyState = (container: HTMLElement, refresh: () => void) => {
+    if (container.getAttribute("data-dirty-watch") === "on") {
+        return;
+    }
+    container.setAttribute("data-dirty-watch", "on");
+    container.addEventListener("input", refresh);
+    container.addEventListener("change", refresh);
 };
 
 const securitySectionHTML = () => {
@@ -287,44 +463,62 @@ const loadSecurityConfig = (container: HTMLElement) => {
         securityConfigError = "";
         renderSecuritySection(container);
         bindSecurityEvents(container);
+        markSecurityClean();
+        refreshSecuritySaveButton();
     }).catch((error) => {
         securityConfig = null;
         securityConfigError = error instanceof Error ? error.message : assistantText("安全配置加载失败", "Failed to load security config");
         renderSecuritySection(container);
         bindSecurityEvents(container);
+        markSecurityClean();
+        refreshSecuritySaveButton();
     });
 };
 
 const renderSecuritySection = (container: HTMLElement) => {
-    const section = container.querySelector("#securityConfigSection");
-    if (section) {
-        section.innerHTML = securitySectionHTML();
+    // Same as renderEmbeddingSection: the container is the section itself.
+    const section = container.querySelector("#securityConfigSection") || container;
+    section.innerHTML = securitySectionHTML();
+};
+
+const saveSecurityConfig = (onSaved?: () => void) => {
+    if (!securityConfig) {
+        onSaved?.();
+        return;
     }
+    const container = ai.element?.querySelector("#securityConfigSection") as HTMLElement | null;
+    const cfg = {...securityConfig, capabilities: {...securityConfig.capabilities}, blacklist: [...securityConfig.blacklist], whitelist: [...securityConfig.whitelist]};
+    if (container) {
+        cfg.defaultMode = ((container.querySelector("#securityDefaultMode") as HTMLSelectElement)?.value || "default") as ISecurityConfig["defaultMode"];
+        cfg.batchThreshold = parseSecurityBatchThreshold((container.querySelector("#securityBatchThreshold") as HTMLInputElement)?.value, securityConfig.batchThreshold);
+        container.querySelectorAll(".security-cap-switch").forEach((el) => {
+            const input = el as HTMLInputElement;
+            const cap = input.getAttribute("data-cap") as keyof ISecurityCapabilities;
+            if (cap) {
+                cfg.capabilities[cap] = input.checked;
+            }
+        });
+    }
+    void setSecurityConfig(cfg).then((saved) => {
+        securityConfig = saved;
+        if (container) {
+            renderSecuritySection(container);
+            bindSecurityEvents(container);
+        }
+        markSecurityClean();
+        refreshSecuritySaveButton();
+        showMessage(assistantText("安全配置已保存", "Security config saved"));
+        onSaved?.();
+    }).catch((err) => {
+        showMessage(err instanceof Error ? err.message : assistantText("保存失败", "Save failed"), 5000, "error");
+    });
 };
 
 const bindSecurityEvents = (container: HTMLElement) => {
     const saveBtn = container.querySelector("#securitySave");
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
-            if (!securityConfig) return;
-            const cfg = {...securityConfig, capabilities: {...securityConfig.capabilities}};
-            cfg.defaultMode = ((container.querySelector("#securityDefaultMode") as HTMLSelectElement)?.value || "default") as ISecurityConfig["defaultMode"];
-            cfg.batchThreshold = parseInt((container.querySelector("#securityBatchThreshold") as HTMLInputElement)?.value || "10", 10) || 10;
-            container.querySelectorAll(".security-cap-switch").forEach((el) => {
-                const input = el as HTMLInputElement;
-                const cap = input.getAttribute("data-cap") as keyof ISecurityCapabilities;
-                if (cap) {
-                    cfg.capabilities[cap] = input.checked;
-                }
-            });
-            void setSecurityConfig(cfg).then((saved) => {
-                securityConfig = saved;
-                renderSecuritySection(container);
-                bindSecurityEvents(container);
-                showMessage(assistantText("安全配置已保存", "Security config saved"));
-            }).catch((err) => {
-                showMessage(err instanceof Error ? err.message : assistantText("保存失败", "Save failed"), 5000, "error");
-            });
+            saveSecurityConfig();
         });
     }
 
@@ -340,6 +534,7 @@ const bindSecurityEvents = (container: HTMLElement) => {
             input.value = "";
             renderSecuritySection(container);
             bindSecurityEvents(container);
+            refreshSecuritySaveButton();
         });
     }
 
@@ -350,8 +545,76 @@ const bindSecurityEvents = (container: HTMLElement) => {
             securityConfig.blacklist.splice(idx, 1);
             renderSecuritySection(container);
             bindSecurityEvents(container);
+            refreshSecuritySaveButton();
         });
     });
+
+    watchSectionDirtyState(container, refreshSecuritySaveButton);
+};
+
+// --- Leave guard (S2) --------------------------------------------------------
+// One confirm dialog for both sections: confirm = save what is dirty and
+// leave, cancel = discard and leave, dismissing the dialog stays. The pending
+// navigation is remembered so the user is asked exactly once per leave.
+const performAiSettingsLeave = () => {
+    const leave = pendingAiSettingsLeave;
+    pendingAiSettingsLeave = null;
+    leave?.();
+};
+
+const saveDirtySectionsAndLeave = () => {
+    const tasks: Array<(done: () => void) => void> = [];
+    if (isEmbeddingDirty()) {
+        tasks.push(saveEmbeddingConfig);
+    }
+    if (isSecurityDirty()) {
+        tasks.push(saveSecurityConfig);
+    }
+    if (tasks.length === 0) {
+        performAiSettingsLeave();
+        return;
+    }
+    // A failed save keeps the user here (error toast is shown by the savers).
+    let remaining = tasks.length;
+    tasks.forEach((run) => {
+        run(() => {
+            remaining -= 1;
+            if (remaining === 0) {
+                performAiSettingsLeave();
+            }
+        });
+    });
+};
+
+const discardAiSettingsAndLeave = () => {
+    // Clear the snapshots first so the re-dispatched navigation cannot
+    // re-trigger the guard, then reload both sections from the backend so the
+    // UI shows the saved state again (the tab is not re-bound on re-entry).
+    embeddingSavedSnapshot = "";
+    securitySavedSnapshot = "";
+    const embeddingSection = ai.element?.querySelector("#embeddingConfigSection") as HTMLElement | null;
+    if (embeddingSection) {
+        loadEmbeddingConfig(embeddingSection);
+    }
+    const securitySection = ai.element?.querySelector("#securityConfigSection") as HTMLElement | null;
+    if (securitySection) {
+        loadSecurityConfig(securitySection);
+    }
+    performAiSettingsLeave();
+};
+
+const confirmAiSettingsLeave = (leave: () => void): boolean => {
+    if (!isAiSettingsDirty()) {
+        return true;
+    }
+    pendingAiSettingsLeave = leave;
+    confirmDialog(
+        assistantText("有未保存的改动", "Unsaved changes"),
+        assistantText("AI 设置有未保存的改动。确定将保存并离开，取消将放弃改动并离开。", "AI settings have unsaved changes. Confirm saves and leaves; cancel discards and leaves."),
+        saveDirtySectionsAndLeave,
+        discardAiSettingsAndLeave,
+    );
+    return false;
 };
 
 export const ai = {
@@ -392,6 +655,7 @@ export const ai = {
         });
 
         if (embeddingSection) {
+            loadEmbeddingProviderCatalog();
             loadEmbeddingConfig(embeddingSection);
         }
 
@@ -400,4 +664,8 @@ export const ai = {
             loadSecurityConfig(securitySection);
         }
     },
+    // S2: leave guard for the settings dialog. Returns true when leaving is
+    // safe right now; when dirty it shows the confirm dialog and completes the
+    // navigation itself via `leave`, so callers just abort when false.
+    confirmLeave: (leave: () => void): boolean => confirmAiSettingsLeave(leave),
 };

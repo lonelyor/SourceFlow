@@ -1,5 +1,5 @@
 import {assistantText} from "../constants";
-import {escapeHTML} from "../common/dom";
+import {escapeAttr, escapeHTML} from "../common/dom";
 import {runAssistantFeature} from "../runtime";
 import {getAllEditor} from "../../layout/getAll";
 
@@ -33,7 +33,8 @@ const createSelectionBarElement = () => {
     element.innerHTML = `<button type="button" class="assistant-selection-bar__button" data-action="translate">${escapeHTML(assistantText("翻译", "Translate"))}</button>
 <button type="button" class="assistant-selection-bar__button" data-action="summarize">${escapeHTML(assistantText("总结", "Summarize"))}</button>
 <button type="button" class="assistant-selection-bar__button" data-action="rewrite">${escapeHTML(assistantText("改写", "Rewrite"))}</button>
-<button type="button" class="assistant-selection-bar__button" data-action="more">${escapeHTML(assistantText("更多", "More"))}</button>`;
+<button type="button" class="assistant-selection-bar__button" data-action="more">${escapeHTML(assistantText("更多", "More"))}</button>
+<span class="assistant-selection-bar__input-row"><input type="text" class="assistant-selection-bar__input" data-role="assistant-selection-inline-input" placeholder="${escapeAttr(assistantText("输入指令，Enter 生成", "Type an instruction, press Enter"))}" title="${escapeAttr(assistantText("Enter 生成修改，Esc 返回", "Enter to generate, Esc to go back"))}"></span>`;
     return element;
 };
 
@@ -104,18 +105,55 @@ export const hideSelectionBar = () => {
     }
     if (state.element) {
         state.element.classList.remove("assistant-selection-bar--visible");
+        state.element.classList.remove("assistant-selection-bar--input-mode");
+        const input = state.element.querySelector("[data-role='assistant-selection-inline-input']") as HTMLInputElement | null;
+        if (input) {
+            input.value = "";
+        }
     }
     state.currentProtyle = null;
     state.currentRange = null;
 };
 
+const isSelectionBarInInputMode = () => !!state.element?.classList.contains("assistant-selection-bar--input-mode");
+
+const enterSelectionBarInputMode = (bar: HTMLElement) => {
+    bar.classList.add("assistant-selection-bar--input-mode");
+    if (state.hideTimer) {
+        window.clearTimeout(state.hideTimer);
+        state.hideTimer = 0;
+    }
+    const input = bar.querySelector("[data-role='assistant-selection-inline-input']") as HTMLInputElement | null;
+    if (input) {
+        input.value = "";
+        window.setTimeout(() => input.focus(), 16);
+    }
+};
+
+const exitSelectionBarInputMode = (bar: HTMLElement) => {
+    bar.classList.remove("assistant-selection-bar--input-mode");
+    const input = bar.querySelector("[data-role='assistant-selection-inline-input']") as HTMLInputElement | null;
+    if (input) {
+        input.value = "";
+    }
+};
+
 const resetAutoHideTimer = () => {
+    if (isSelectionBarInInputMode()) {
+        return;
+    }
     if (state.hideTimer) {
         window.clearTimeout(state.hideTimer);
     }
     state.hideTimer = window.setTimeout(() => {
         hideSelectionBar();
     }, AUTO_HIDE_MS);
+};
+
+const runInlineInstructionFromBar = (instruction: string, protyle: IProtyle, range: Range | null, selectedText: string) => {
+    runAssistantFeature("selection-bar:inline-input", loadAssistantInlineModule, ({runAssistantInlineInstruction}) => {
+        return runAssistantInlineInstruction({protyle, range, fallbackSelectionText: selectedText}, instruction);
+    });
 };
 
 const bindSelectionBarEvents = (bar: HTMLElement) => {
@@ -126,7 +164,39 @@ const bindSelectionBarEvents = (bar: HTMLElement) => {
         }
     });
     bar.addEventListener("mouseleave", () => {
+        if (isSelectionBarInInputMode()) {
+            return;
+        }
         resetAutoHideTimer();
+    });
+    bar.addEventListener("keydown", (event) => {
+        const target = event.target as HTMLElement;
+        if (!target.classList.contains("assistant-selection-bar__input")) {
+            return;
+        }
+        if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            exitSelectionBarInputMode(bar);
+            resetAutoHideTimer();
+            return;
+        }
+        if (event.key !== "Enter" || event.isComposing) {
+            event.stopPropagation();
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const instruction = (target as HTMLInputElement).value;
+        const protyle = state.currentProtyle;
+        const range = state.currentRange;
+        const selectedText = range?.toString() || "";
+        hideSelectionBar();
+        if (!instruction.trim() || !protyle || !selectedText) {
+            hideSelectionBar();
+            return;
+        }
+        runInlineInstructionFromBar(instruction, protyle, range, selectedText);
     });
     bar.addEventListener("click", (event) => {
         const target = event.target as HTMLElement;
@@ -136,6 +206,10 @@ const bindSelectionBarEvents = (bar: HTMLElement) => {
         }
         event.preventDefault();
         event.stopPropagation();
+        if (action === "more") {
+            enterSelectionBarInputMode(bar);
+            return;
+        }
         const protyle = state.currentProtyle;
         const range = state.currentRange;
         const selectedText = range?.toString() || "";
@@ -177,15 +251,12 @@ const handleSelectionBarAction = (action: string, protyle: IProtyle, range: Rang
         });
         return;
     }
-    if (action === "more") {
-        runAssistantFeature("selection-bar:more", loadAssistantInlineModule, ({openAssistantInlineCommandPanel}) => {
-            openAssistantInlineCommandPanel({protyle, range, fallbackSelectionText: selectedText});
-        });
-        return;
-    }
 };
 
 const onSelectionChange = () => {
+    if (isSelectionBarInInputMode()) {
+        return;
+    }
     if (state.debounceTimer) {
         window.clearTimeout(state.debounceTimer);
     }

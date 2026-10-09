@@ -52,6 +52,9 @@ export const initConfigSearch = (element: HTMLElement, app: App) => {
         ["AI"].concat(getLang(["ai",
             "aiAssistant", "aiAskCurrentNote", "aiPinCurrentNoteTarget", "aiClearTargetNote", "aiAskCurrentBlock", "aiAnalyzeCurrentBlockContext", "aiAnalyzeCurrentBlockReferences", "aiReadCurrentNoteAssets", "aiSummarizeCurrentNote", "aiAnalyzeCurrentNoteLinks", "aiAnalyzeCurrentNoteOutline", "aiAnalyzeCurrentNoteHistory", "aiAnalyzeRestorePoints", "aiPolishCurrentNote", "aiExtractTasksCurrentNote", "aiCreateChildNoteCurrentNote", "aiContinueAfterCurrentBlock", "aiCreateProjectCurrentNote", "aiSummarizeWorkbench", "aiPlanWorkbench"])),
 
+        // 模板库（与设置页 tab 顺序对齐，缺少该组会导致其后所有分组索引偏移）
+        getLang(["template", "import", "export", "builtIn", "custom"]),
+
         // 资源
         getLang(["assets", "unreferencedAssets", "missingAssets"]),
 

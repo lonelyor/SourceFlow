@@ -292,6 +292,9 @@ export const chatAssistantAI = async (payload: {
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
     sources?: IAssistantAISourceCitation[];
+    // 「让 AI 看图」：随请求发送图片块的资产相对引用路径（如 assets/foo.png）。
+    // 后端校验图片扩展名/≤5MB/≤4 张，失败项跳过不阻塞请求。
+    assetAttachments?: string[];
 }, options: { signal?: AbortSignal } = {}) => {
     const data = ensureOK(await fetchSyncPost("/api/assistant/ai/chat", payload, {signal: options.signal})) as IAssistantAIChatResult;
     return {
@@ -312,6 +315,9 @@ export const streamAssistantAI = async (payload: {
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
     sources?: IAssistantAISourceCitation[];
+    // 「让 AI 看图」：随请求发送图片块的资产相对引用路径（如 assets/foo.png）。
+    // 后端校验图片扩展名/≤5MB/≤4 张，失败项跳过不阻塞请求。
+    assetAttachments?: string[];
 }, options?: {
     signal?: AbortSignal;
     onDelta?: (delta: string) => void;
@@ -408,6 +414,9 @@ export const editAssistantAIMessageStream = async (payload: {
     context?: IAssistantAINoteContext | null;
     attachments?: IAssistantAIInputAttachment[];
     sources?: IAssistantAISourceCitation[];
+    // 「让 AI 看图」：随请求发送图片块的资产相对引用路径（如 assets/foo.png）。
+    // 后端校验图片扩展名/≤5MB/≤4 张，失败项跳过不阻塞请求。
+    assetAttachments?: string[];
 }, options?: {
     signal?: AbortSignal;
     onDelta?: (delta: string) => void;

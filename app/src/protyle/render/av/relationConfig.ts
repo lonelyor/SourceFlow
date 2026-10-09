@@ -1,20 +1,7 @@
-import {Menu} from "../../../plugin/Menu";
-import {hasClosestByClassName, hasTopClosestByClassName} from "../../util/hasClosest";
-import {UDLRHint, upDownHint} from "../../../util/upDownHint";
-import {fetchPost} from "../../../util/fetch";
-import {escapeGreat, escapeHtml} from "../../../util/escape";
 import {transaction} from "../../wysiwyg/transaction";
-import {updateCellsValue} from "./cell";
 import {updateAttrViewCellAnimation} from "./cell";
 import {focusBlock} from "../../util/selection";
-import {setPosition} from "../../../util/setPosition";
 import * as dayjs from "dayjs";
-import {getFieldsByData, getViewName} from "./view";
-import {getColId} from "./col";
-import {getFieldIdByCellElement} from "./row";
-import {isMobile} from "../../../util/functions";
-import {showMessage} from "../../../dialog/message";
-import {writeText} from "../../util/compatibility";
 
 export const updateRelation = (options: {
     protyle: IProtyle,

@@ -19,6 +19,7 @@ import {
     renderWorkbenchPanelContent,
     renderWorkbenchViewTemplateOptions,
 } from "./dialogRender";
+import {renderWorkbenchRulesCard} from "./dialogRulesUI";
 
 export interface IWorkbenchDialogScreenInput {
     state: IWorkbenchState;
@@ -208,6 +209,7 @@ ${renderWorkbenchSearchBar(state)}
 ${state.resultLayer === "items" ? renderWorkbenchQuickFilters(summary) : ""}
 ${renderWorkbenchSelectionBar(state, selectedVisible)}
 ${state.resultLayer === "items" ? renderWorkbenchAdvancedFilters(summary) : ""}
+${renderWorkbenchRulesCard(state, {selectedCount: selectedVisible.length})}
 ${renderWorkbenchMoreActions(state, activeView, viewOptions)}
 <div class="b3-label__text" style="margin-bottom: 8px;">${state.resultLayer === "blocks" ? blockSummary : window.sourceflow.languages.workbenchSummary.replace("${x}", String(summary.filtered))}</div>
 ${renderWorkbenchSummaryChips(state, summary, relatedBlocks)}

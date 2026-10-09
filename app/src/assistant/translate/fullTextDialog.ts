@@ -1,6 +1,6 @@
 import {Dialog} from "../../dialog";
 import {assistantText} from "../constants";
-import {escapeAttr, escapeHTML} from "../common/dom";
+import {escapeHTML} from "../common/dom";
 
 type TAssistantTranslateMode = "mixed" | "replace";
 

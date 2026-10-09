@@ -226,6 +226,10 @@ export const resolveLinkDest = (text: string, lute: Lute): string => {
  * Shared between Ctrl+K link handler and paste URL auto-convert.
  * @param stripScheme When true, removes https:// and http:// prefixes (used by Ctrl+K).
  */
+// `_decodeURI` stays in the signature on purpose: both Link.ts and protyleMenu/inline/link.ts
+// pass `true` as the third argument (asserted verbatim by scripts/testUiRegressionFixes.js),
+// so removing the parameter would break that pinned call shape.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const genLinkText = (href: string, stripScheme: boolean = true, _decodeURI: boolean = false): string => {
     try {
         let text = stripScheme

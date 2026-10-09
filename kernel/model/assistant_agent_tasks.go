@@ -63,17 +63,32 @@ type AssistantAgentTask struct {
 	LeaseOwner     string                    `json:"leaseOwner,omitempty"`
 	LeaseExpiresAt int64                     `json:"leaseExpiresAt,omitempty"`
 	LeaseToken     string                    `json:"leaseToken,omitempty"`
+	// Metadata 记录任务来源（如规则运行）与循环防护标记，前端据此抑制再触发。
+	Metadata *AssistantAgentTaskMetadata `json:"metadata,omitempty"`
+}
+
+// AssistantAgentTaskMetadata 是任务的可选来源元数据。
+// RuleRunID/TriggeredBy 由规则运行写入，用于标识「本次写入由自动化规则触发」。
+type AssistantAgentTaskMetadata struct {
+	RuleRunID    string `json:"ruleRunId,omitempty"`
+	TriggeredBy  string `json:"triggeredBy,omitempty"`
+	RuleName     string `json:"ruleName,omitempty"`
+	Mode         string `json:"mode,omitempty"`
+	PausedReason string `json:"pausedReason,omitempty"`
 }
 
 type AssistantAgentTaskItemInput struct {
 	Title    string                  `json:"title"`
 	TargetID string                  `json:"targetId,omitempty"`
 	Context  *AssistantAINoteContext `json:"context,omitempty"`
+	// Patch 可选：规则运行在创建任务时即带编译好的 patch，供逐项执行。
+	Patch *AssistantEditPatch `json:"patch,omitempty"`
 }
 
 type AssistantAgentTaskCreateRequest struct {
-	Title string                         `json:"title"`
-	Items []*AssistantAgentTaskItemInput `json:"items"`
+	Title    string                         `json:"title"`
+	Items    []*AssistantAgentTaskItemInput `json:"items"`
+	Metadata *AssistantAgentTaskMetadata    `json:"metadata,omitempty"`
 }
 
 type AssistantAgentTaskListRequest struct {
@@ -148,6 +163,7 @@ func CreateAssistantAgentTask(req *AssistantAgentTaskCreateRequest) (*AssistantA
 		Items:     normalizeAssistantAgentTaskInputItems(req.Items, now),
 		CreatedAt: now,
 		UpdatedAt: now,
+		Metadata:  cloneAssistantAgentTaskMetadata(req.Metadata),
 	}
 	if "" == task.Title {
 		task.Title = "AI Agent Task"
@@ -410,6 +426,7 @@ func normalizeAssistantAgentTask(task *AssistantAgentTask) *AssistantAgentTask {
 		}
 	}
 	task.Items = normalizedItems
+	task.Metadata = normalizeAssistantAgentTaskMetadata(task.Metadata)
 	task.LeaseOwner = strings.TrimSpace(task.LeaseOwner)
 	task.LeaseToken = strings.TrimSpace(task.LeaseToken)
 	if "" == task.LeaseToken {
@@ -431,6 +448,7 @@ func normalizeAssistantAgentTaskInputItems(items []*AssistantAgentTaskItemInput,
 			TargetID:  item.TargetID,
 			Status:    AssistantAgentItemPending,
 			Context:   cloneAssistantAINoteContext(item.Context),
+			Patch:     cloneAssistantEditPatchForTask(item.Patch),
 			UpdatedAt: now,
 		}, now))
 		if len(ret) >= assistantAgentTaskItemLimit {
@@ -565,6 +583,57 @@ func cloneAssistantAgentTaskItem(item *AssistantAgentTaskItem) *AssistantAgentTa
 		return nil
 	}
 	cloned := &AssistantAgentTaskItem{}
+	if err = json.Unmarshal(data, cloned); nil != err {
+		return nil
+	}
+	return cloned
+}
+
+func cloneAssistantAgentTaskMetadata(metadata *AssistantAgentTaskMetadata) *AssistantAgentTaskMetadata {
+	return normalizeAssistantAgentTaskMetadata(cloneJSONAssistantAgentTaskMetadata(metadata))
+}
+
+func cloneJSONAssistantAgentTaskMetadata(metadata *AssistantAgentTaskMetadata) *AssistantAgentTaskMetadata {
+	if nil == metadata {
+		return nil
+	}
+	data, err := json.Marshal(metadata)
+	if nil != err {
+		return nil
+	}
+	cloned := &AssistantAgentTaskMetadata{}
+	if err = json.Unmarshal(data, cloned); nil != err {
+		return nil
+	}
+	return cloned
+}
+
+func normalizeAssistantAgentTaskMetadata(metadata *AssistantAgentTaskMetadata) *AssistantAgentTaskMetadata {
+	if nil == metadata {
+		return nil
+	}
+	metadata.RuleRunID = strings.TrimSpace(metadata.RuleRunID)
+	metadata.TriggeredBy = strings.TrimSpace(metadata.TriggeredBy)
+	metadata.RuleName = strings.TrimSpace(metadata.RuleName)
+	metadata.Mode = strings.TrimSpace(metadata.Mode)
+	metadata.PausedReason = strings.TrimSpace(metadata.PausedReason)
+	if "" == metadata.RuleRunID && "" == metadata.TriggeredBy && "" == metadata.RuleName &&
+		"" == metadata.Mode && "" == metadata.PausedReason {
+		return nil
+	}
+	return metadata
+}
+
+// cloneAssistantEditPatchForTask 深拷贝任务项携带的编译产物 patch，避免外部修改影响已入库任务。
+func cloneAssistantEditPatchForTask(patch *AssistantEditPatch) *AssistantEditPatch {
+	if nil == patch {
+		return nil
+	}
+	data, err := json.Marshal(patch)
+	if nil != err {
+		return nil
+	}
+	cloned := &AssistantEditPatch{}
 	if err = json.Unmarshal(data, cloned); nil != err {
 		return nil
 	}

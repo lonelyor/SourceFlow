@@ -206,6 +206,8 @@ func runAssistantAITool(def *AssistantAIToolDefinition, policy *AssistantAIToolP
 		return ret, "已创建新笔记", id, nil
 	case AssistantAIToolCreateChildNote:
 		return createAssistantAIChildNote(def, policy, context, args)
+	case AssistantAIToolMoveNoteToPath:
+		return moveAssistantAINoteToPath(policy, context, args)
 	case AssistantAIToolCreateWorkbench:
 		return createAssistantAIWorkbenchItem(def, policy, context, args)
 	case AssistantAIToolInsertAfterBlock:
@@ -435,6 +437,44 @@ func createAssistantAIChildNote(def *AssistantAIToolDefinition, policy *Assistan
 		"path":         hPath,
 	}
 	return ret, "已创建当前笔记子文档", id, nil
+}
+
+// moveAssistantAINoteToPath 把指定笔记移动到目标笔记本的目标路径下。
+// 真实落盘走 performAssistantAIMoveNote（与 patch apply 共用），这里只做参数与写入范围校验。
+func moveAssistantAINoteToPath(policy *AssistantAIToolPolicy, context *AssistantAINoteContext, args map[string]interface{}) (ret map[string]interface{}, summary, targetID string, err error) {
+	noteID := strings.TrimSpace(getAssistantAIStringValue(args, "noteID", ""))
+	toNotebook := strings.TrimSpace(getAssistantAIStringValue(args, "toNotebook", ""))
+	toPath := getAssistantAIStringValue(args, "toPath", "")
+	if "" == noteID {
+		return nil, "", "", fmt.Errorf("要移动的笔记 ID 不能为空，可先用 search-notes 或 get-current-note 获取 rootID")
+	}
+	if "" == toNotebook {
+		return nil, "", "", fmt.Errorf("目标笔记本不能为空")
+	}
+	plan, planErr := resolveAssistantAIMoveNotePlan(noteID, toNotebook, toPath)
+	if nil != planErr {
+		return nil, "", "", planErr
+	}
+	scope := normalizeAssistantAIToolScope(policy.WriteScope, AssistantAIToolScopeCurrentNotebook)
+	if !assistantAINoteMatchesScope(scope, context, plan.FromBox, plan.FromPath, plan.NoteID) {
+		return nil, "", "", fmt.Errorf("当前写入范围不允许移动该笔记")
+	}
+	newPath, moveErr := performAssistantAIMoveNote(plan)
+	if nil != moveErr {
+		return nil, "", "", moveErr
+	}
+	ret = map[string]interface{}{
+		"targetID":     plan.NoteID,
+		"rootID":       plan.NoteID,
+		"title":        plan.Title,
+		"fromNotebook": plan.FromBox,
+		"fromPath":     plan.FromPath,
+		"fromHPath":    plan.FromHPath,
+		"toNotebook":   plan.ToBox,
+		"toPath":       newPath,
+		"toHPath":      plan.ToHPath,
+	}
+	return ret, fmt.Sprintf("已把笔记移动到 %s %s", plan.ToBoxName, plan.ToHPath), plan.NoteID, nil
 }
 
 func insertAssistantAIBlockAfter(policy *AssistantAIToolPolicy, context *AssistantAINoteContext, args map[string]interface{}) (ret map[string]interface{}, summary, targetID string, err error) {

@@ -763,6 +763,41 @@ func setSyncProviderS3(c *gin.Context) {
 	}
 }
 
+func testSyncProviderS3(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	s3Arg := arg["s3"].(interface{})
+	data, err := gulu.JSON.MarshalJSON(s3Arg)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 10000}
+		return
+	}
+
+	s3 := &conf.S3{}
+	if err = gulu.JSON.UnmarshalJSON(data, s3); err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 10000}
+		return
+	}
+
+	if err = model.TestSyncProviderS3(s3); err != nil {
+		logging.LogErrorf("test S3 sync provider failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 10000}
+		return
+	}
+}
+
 func setSyncProviderWebDAV(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

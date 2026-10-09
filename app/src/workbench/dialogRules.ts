@@ -2,6 +2,8 @@ import {IWorkbenchItem, WorkbenchAttr} from "./constants";
 import {
     IWorkbenchRule,
     getState,
+    isWorkbenchRuleActionId,
+    isWorkbenchRuleSkillActionId,
     splitWorkbenchTags,
 } from "./dialogShared";
 
@@ -59,6 +61,15 @@ export const applyWorkbenchRulesToAttrs = (item: Partial<IWorkbenchItem>, attrs:
         }
         Object.entries(rule.actions || {}).forEach(([key, value]) => {
             if (value == null || `${value}`.trim() === "") {
+                return;
+            }
+            // 语义动作（setAttrs / moveToPath / appendContent / toInbox）不是属性，
+            // 被动属性应用只处理旧版属性键，语义动作由规则运行（/api/assistant/rules/run）负责。
+            if (isWorkbenchRuleActionId(key)) {
+                return;
+            }
+            // 技能动作（runSkill）是前端执行器语义，同样绝不落入被动属性。
+            if (isWorkbenchRuleSkillActionId(key)) {
                 return;
             }
             if (nextAttrs[key] != null && `${nextAttrs[key]}`.trim() !== "") {

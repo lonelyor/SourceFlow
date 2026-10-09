@@ -487,6 +487,9 @@ func extractToolTargetIDs(args map[string]interface{}, context *AssistantAINoteC
 		addID(context.CurrentBlockID)
 	}
 	if nil != args {
+		if id, ok := args["noteID"].(string); ok {
+			addID(id)
+		}
 		if id, ok := args["rootID"].(string); ok {
 			addID(id)
 		}
@@ -529,6 +532,8 @@ func toolSecurityCapability(def *AssistantAIToolDefinition) string {
 		return AISecurityCapabilityCreate
 	case AssistantAIToolDeleteBlock:
 		return AISecurityCapabilityDeleteBlock
+	case AssistantAIToolMoveNoteToPath:
+		return AISecurityCapabilityMove
 	case AssistantAIToolReplaceBlock, AssistantAIToolAppendCurrentNote, AssistantAIToolInsertAfterBlock:
 		return AISecurityCapabilityWrite
 	default:

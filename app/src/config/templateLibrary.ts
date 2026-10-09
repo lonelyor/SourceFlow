@@ -1,5 +1,6 @@
 import {fetchPost} from "../util/fetch";
 import {escapeHtml, escapeAttr} from "../util/escape";
+import {showMessage} from "../dialog/message";
 
 interface ITemplateItem {
     path: string;
@@ -29,6 +30,34 @@ const BUILTIN_TEMPLATES: { name: string; content: string }[] = [
     },
 ];
 
+// 与后端 kernel/util/file.go FilterFileName 对齐：非法字符替换为下划线
+const sanitizeTemplateName = (name: string): string => {
+    const cleaned = name.replace(/[\\/:*?"'<>|]/g, "_").trim();
+    return cleaned || "template";
+};
+
+const getTemplateName = (path: string): string => {
+    return (path.split(/[\\/]/).pop() || path).replace(/\.md$/i, "");
+};
+
+const findDuplicateTemplate = (templates: ITemplateItem[], name: string, excludeIndex?: number) => {
+    const normalizedName = sanitizeTemplateName(name).toLowerCase();
+    return templates.find((item, index) =>
+        index !== excludeIndex && getTemplateName(item.path).toLowerCase() === normalizedName);
+};
+
+const downloadTemplate = (item: ITemplateItem) => {
+    const blob = new Blob([item.content], {type: "text/markdown;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${sanitizeTemplateName(getTemplateName(item.path))}.md`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 const genCardHTML = (item: ITemplateItem, index: number) => {
     const name = escapeHtml(item.path.split(/[\\/]/).pop() || item.path);
     const preview = escapeHtml(item.content.slice(0, 120));
@@ -36,16 +65,17 @@ const genCardHTML = (item: ITemplateItem, index: number) => {
     <div class="template-library__card-name">${name}</div>
     <div class="template-library__card-preview">${preview}</div>
     <div class="template-library__card-actions">
+        <button class="b3-button b3-button--small" data-action="export" data-index="${index}">${window.sourceflow.languages.export || "Export"}</button>
         <button class="b3-button b3-button--small" data-action="edit" data-index="${index}">${window.sourceflow.languages.edit || "Edit"}</button>
         <button class="b3-button b3-button--small b3-button--error" data-action="delete" data-index="${index}">${window.sourceflow.languages.remove || "Delete"}</button>
     </div>
 </div>`;
 };
 
-const genEditorDialogHTML = (name?: string, content?: string) => {
-    const title = name
+const genEditorDialogHTML = (name?: string, content?: string, titleText?: string) => {
+    const title = titleText || (name
         ? (window.sourceflow.languages.edit || "Edit Template")
-        : (window.sourceflow.languages.newFile || "New Template");
+        : (window.sourceflow.languages.newFile || "New Template"));
     return `<div class="template-library__editor">
     <div class="template-library__editor-title">${escapeHtml(title)}</div>
     <label class="fn__flex-column">
@@ -63,14 +93,12 @@ const genEditorDialogHTML = (name?: string, content?: string) => {
 </div>`;
 };
 
-let cachedTemplates: ITemplateItem[] = [];
 let editorDialog: HTMLDivElement | null = null;
 
 const loadTemplates = (): Promise<ITemplateItem[]> => {
     return new Promise((resolve) => {
         fetchPost("/api/search/searchTemplate", {k: ""}, (response) => {
             const templates: ITemplateItem[] = response.data?.templates || [];
-            cachedTemplates = templates;
             resolve(templates);
         });
     });
@@ -84,23 +112,35 @@ const renderTemplateGrid = (container: HTMLElement, templates: ITemplateItem[]) 
     container.innerHTML = templates.map((item, index) => genCardHTML(item, index)).join("");
 };
 
-const openEditor = (parentElement: HTMLElement, templates: ITemplateItem[], editIndex?: number) => {
+interface IEditorOptions {
+    presetName?: string;
+    presetContent?: string;
+    title?: string;
+    preventDuplicate?: boolean;
+    onClose?: () => void;
+    grid?: HTMLElement;
+}
+
+const openEditor = (parentElement: HTMLElement, templates: ITemplateItem[], editIndex?: number, options?: IEditorOptions) => {
     if (editorDialog) {
         editorDialog.remove();
     }
     const item = editIndex !== undefined ? templates[editIndex] : undefined;
-    const name = item ? (item.path.split(/[\\/]/).pop() || "") : "";
-    const content = item ? item.content : "";
+    const name = options?.presetName ?? (item ? getTemplateName(item.path) : "");
+    const content = options?.presetContent ?? (item ? item.content : "");
 
     editorDialog = document.createElement("div");
     editorDialog.className = "template-library__editor-overlay";
-    editorDialog.innerHTML = genEditorDialogHTML(name, content);
+    editorDialog.innerHTML = genEditorDialogHTML(name, content, options?.title);
     parentElement.appendChild(editorDialog);
 
     const closeEditor = () => {
         if (editorDialog) {
             editorDialog.remove();
             editorDialog = null;
+        }
+        if (options?.onClose) {
+            options.onClose();
         }
     };
 
@@ -112,6 +152,15 @@ const openEditor = (parentElement: HTMLElement, templates: ITemplateItem[], edit
             return;
         }
         const isEdit = editIndex !== undefined && templates[editIndex];
+        // 后端 saveTemplate 会直接覆盖同名文件，这里先拦截重名，避免导入/新建时静默覆盖已有模板
+        if (options?.preventDuplicate) {
+            const duplicate = findDuplicateTemplate(templates, inputName, isEdit ? editIndex : undefined);
+            if (duplicate) {
+                showMessage((window.sourceflow.languages.templateNameDuplicate || 'Template "${x}" already exists, please rename it')
+                    .replace("${x}", inputName));
+                return;
+            }
+        }
         if (isEdit) {
             const oldItem = templates[editIndex];
             if (oldItem.path) {
@@ -128,7 +177,7 @@ const openEditor = (parentElement: HTMLElement, templates: ITemplateItem[], edit
             }
             closeEditor();
             renderTemplateGrid(
-                parentElement.querySelector(".template-library__grid") as HTMLElement,
+                (options?.grid || parentElement.querySelector(".template-library__grid--custom")) as HTMLElement,
                 templates
             );
         });
@@ -142,12 +191,16 @@ export const templateLibrary = {
         return `<div class="template-library fn__flex-column">
     <div class="template-library__header">
         <span class="template-library__title">${window.sourceflow.languages.template || "Templates"}</span>
+        <button class="b3-button b3-button--outline" id="templateImportBtn">
+            <svg><use xlink:href="#iconDownload"></use></svg>${window.sourceflow.languages.import || "Import"}
+        </button>
+        <input type="file" id="templateImportInput" accept=".md,.txt" multiple class="fn__none" />
         <button class="b3-button b3-button--outline" id="templateNewBtn">
             <svg><use xlink:href="#iconAdd"></use></svg>${window.sourceflow.languages.newFile || "New Template"}
         </button>
     </div>
     <div class="template-library__section">
-        <div class="template-library__section-title">${window.sourceflow.languages.builtin || "Built-in"}</div>
+        <div class="template-library__section-title">${window.sourceflow.languages.builtIn || "Built-in"}</div>
         <div class="template-library__grid template-library__grid--builtin"></div>
     </div>
     <div class="template-library__section">
@@ -176,7 +229,51 @@ export const templateLibrary = {
             renderTemplateGrid(customGrid, templates);
 
             container.querySelector("#templateNewBtn").addEventListener("click", () => {
-                openEditor(container, templates);
+                openEditor(container, templates, undefined, {preventDuplicate: true, grid: customGrid});
+            });
+
+            const importQueue: File[] = [];
+            let importing = false;
+            const processImportQueue = () => {
+                const file = importQueue.shift();
+                if (!file) {
+                    importing = false;
+                    return;
+                }
+                importing = true;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const content = typeof reader.result === "string" ? reader.result : "";
+                    openEditor(container, templates, undefined, {
+                        presetName: sanitizeTemplateName(file.name.replace(/\.(md|txt)$/i, "")),
+                        presetContent: content,
+                        title: window.sourceflow.languages.import || "Import",
+                        preventDuplicate: true,
+                        onClose: processImportQueue,
+                        grid: customGrid,
+                    });
+                };
+                reader.onerror = () => {
+                    showMessage(window.sourceflow.languages.templateImportFailed || "Failed to import template");
+                    processImportQueue();
+                };
+                reader.readAsText(file);
+            };
+
+            container.querySelector("#templateImportBtn").addEventListener("click", () => {
+                (container.querySelector("#templateImportInput") as HTMLInputElement).click();
+            });
+            container.querySelector("#templateImportInput").addEventListener("change", (event) => {
+                const input = event.target as HTMLInputElement;
+                const files = Array.from(input.files || []);
+                input.value = "";
+                if (files.length === 0) {
+                    return;
+                }
+                importQueue.push(...files);
+                if (!importing) {
+                    processImportQueue();
+                }
             });
 
             customGrid.addEventListener("click", (event) => {
@@ -187,8 +284,13 @@ export const templateLibrary = {
                 }
                 const action = actionBtn.getAttribute("data-action");
                 const index = parseInt(actionBtn.getAttribute("data-index") || "0", 10);
-                if (action === "edit") {
-                    openEditor(container, templates, index);
+                if (action === "export") {
+                    const item = templates[index];
+                    if (item) {
+                        downloadTemplate(item);
+                    }
+                } else if (action === "edit") {
+                    openEditor(container, templates, index, {grid: customGrid});
                 } else if (action === "delete") {
                     const item = templates[index];
                     if (!item) {
@@ -218,8 +320,10 @@ export const templateLibrary = {
             if (!item) {
                 return;
             }
-            if (action === "edit") {
-                openEditor(container, builtinCards, index);
+            if (action === "export") {
+                downloadTemplate(item);
+            } else if (action === "edit") {
+                openEditor(container, builtinCards, index, {grid: builtinGrid});
             }
         });
     },

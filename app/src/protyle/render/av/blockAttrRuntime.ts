@@ -1,19 +1,15 @@
 import {fetchPost} from "../../../util/fetch";
-import {addCol, getColIconByType} from "./col";
+import {getColIconByType} from "./col";
 import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
 import * as dayjs from "dayjs";
-import {popTextCell, updateCellsValue} from "./cell";
+import {updateCellsValue} from "./cell";
 import {hasClosestBlock, hasClosestByAttribute, hasClosestByClassName} from "../../util/hasClosest";
-import {openEmojiPanel, unicode2Emoji} from "../../../emoji";
+import {unicode2Emoji} from "../../../emoji";
 import {transaction} from "../../wysiwyg/transaction";
-import {openMenuPanel} from "./openMenuPanel";
 import {uploadFiles} from "../../upload";
-import {openLink} from "../../../editor/openLink";
-import {dragUpload, editAssetItem} from "./asset";
-import {previewImages} from "../../preview/image";
+import {dragUpload} from "./asset";
 import {isBrowser} from "../../../util/functions";
 import {Constants} from "../../../constants";
-import {getCompressURL, removeCompressURL} from "../../../util/image";
 import {genAVValueHTML} from "./blockAttrValue";
 import {openEdit} from "./blockAttrEditor";
 
@@ -59,9 +55,9 @@ export const renderAVAttribute = (element: HTMLElement, id: string, protyle: IPr
         ${item.key.icon ? unicode2Emoji(item.key.icon, "block__logoicon", true) : `<svg class="block__logoicon"><use xlink:href="#${getColIconByType(item.key.type)}"></use></svg>`}
         <span>${escapeHtml(item.key.name)}</span>
     </div>
-    <div data-av-id="${table.avID}" data-col-id="${item.values[0].keyID}" data-row-id="${item.values[0].blockID}" data-id="${item.values[0].id}" data-type="${item.values[0].type}" 
-data-options="${item.key?.options ? escapeAttr(JSON.stringify(item.key.options)) : "[]"}" 
-${["text", "number", "date", "url", "phone", "template", "email"].includes(item.values[0].type) ? "" : `placeholder="${window.sourceflow.languages.empty}"`}  
+    <div data-av-id="${table.avID}" data-col-id="${item.values[0].keyID}" data-row-id="${item.values[0].blockID}" data-id="${item.values[0].id}" data-type="${item.values[0].type}"
+data-options="${item.key?.options ? escapeAttr(JSON.stringify(item.key.options)) : "[]"}"
+${["text", "number", "date", "url", "phone", "template", "email"].includes(item.values[0].type) ? "" : `placeholder="${window.sourceflow.languages.empty}"`}
 class="fn__flex-1 fn__flex${["url", "text", "number", "email", "phone", "block"].includes(item.values[0].type) ? "" : " custom-attr__avvalue"}${["created", "updated"].includes(item.values[0].type) ? " custom-attr__avvalue--readonly" : ""}">${genAVValueHTML(item.values[0])}</div>
 </div>`;
             });

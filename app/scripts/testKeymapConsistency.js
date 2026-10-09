@@ -38,7 +38,6 @@ const test = (name, fn) => {
 
 test("INLINE_FORMAT_KEYMAP_KEYS: all dot-notation keys exist in SOURCEFLOW_KEYMAP.editor.insert", () => {
     for (const key of INLINE_FORMAT_KEYMAP_KEYS) {
-        const pattern = `${key}:`;
         assert(constantsSource.includes(`${key}: {default:`) || constantsSource.includes(`"${key}": {default:`),
             `Key "${key}" not found in SOURCEFLOW_KEYMAP.editor.insert. Check constants.ts`);
     }

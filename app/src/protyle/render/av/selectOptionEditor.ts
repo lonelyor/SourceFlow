@@ -1,13 +1,11 @@
 import {Menu} from "../../../plugin/Menu";
 import {transaction} from "../../wysiwyg/transaction";
-import {hasClosestBlock, hasClosestByClassName} from "../../util/hasClosest";
+import {hasClosestByClassName} from "../../util/hasClosest";
 import {confirmDialog} from "../../../dialog/confirmDialog";
-import {upDownHint} from "../../../util/upDownHint";
 import {bindEditEvent, getColId, getEditHTML} from "./col";
 import {updateAttrViewCellAnimation} from "./cell";
-import {genAVValueHTML, isCustomAttr} from "./blockAttr";
+import {genAVValueHTML} from "./blockAttr";
 import {escapeAriaLabel, escapeAttr, escapeHtml} from "../../../util/escape";
-import {genCellValueByElement, getTypeByCellElement} from "./cell";
 import * as dayjs from "dayjs";
 import {getFieldsByData} from "./view";
 import {getFieldIdByCellElement} from "./row";

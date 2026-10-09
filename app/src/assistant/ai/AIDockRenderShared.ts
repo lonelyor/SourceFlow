@@ -60,7 +60,7 @@ export const getAIDockSessionsToggleHint = (ctx: TAssistantAIDockRenderRuntime) 
     );
 };
 
-export const getAIDockNewSessionHint = (_ctx: TAssistantAIDockRenderRuntime) => {
+export const getAIDockNewSessionHint = () => {
     return assistantText("新建会话", "Start a new chat");
 };
 
@@ -71,7 +71,7 @@ export const getAIDockSessionPanelHint = (ctx: TAssistantAIDockRenderRuntime) =>
     );
 };
 
-export const getAIDockProfilesConfigHint = (_ctx: TAssistantAIDockRenderRuntime) => {
+export const getAIDockProfilesConfigHint = () => {
     return assistantText("模型与提供商配置", "Model and provider settings");
 };
 

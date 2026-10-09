@@ -21,7 +21,7 @@ export const bindEvent = (wysiwyg: WYSIWYGEventContext, protyle: IProtyle) => {
     };
 
     registerFocusOutEvent(wysiwyg, protyle);
-    registerCutEvent(wysiwyg, protyle, state);
+    registerCutEvent(wysiwyg, protyle);
     registerContextMenuEvent(wysiwyg, protyle, state);
     registerPointerDownEvent(wysiwyg, protyle, state);
     registerMouseWheelEvent(wysiwyg, protyle, state);

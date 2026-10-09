@@ -107,22 +107,78 @@ const ASSISTANT_AI_MIN_NOTE_TOKENS = 2000;
 const ASSISTANT_AI_SYSTEM_OVERHEAD_TOKENS = 1500;
 
 /**
- * Resolve the effective model context window (tokens) for a profile.
- * Priority: model-resolved contextWindow → profile budget (maxContextTokens,
- * which already inherits the provider catalog default at profile creation) →
- * conservative fallback. Never returns 0.
+ * Strictly parse the contextWindowOverride setting. Only a positive integer
+ * survives; 0 / negative / fractional / non-numeric values all resolve to 0
+ * ("no override"), mirroring the backend normalizer in
+ * kernel/model/assistant_ai_provider_compat.go.
  */
-export const resolveAssistantAIContextWindow = (profile: { settings?: Record<string, unknown> } | null | undefined): number => {
+export const parseAssistantAIContextWindowOverride = (raw: unknown): number => {
+    if (typeof raw === "number") {
+        return Number.isInteger(raw) && raw > 0 ? raw : 0;
+    }
+    if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (/^\d+$/.test(trimmed)) {
+            const parsed = parseInt(trimmed, 10);
+            return parsed > 0 ? parsed : 0;
+        }
+    }
+    return 0;
+};
+
+export type TAssistantAIContextWindowSource = "override" | "model" | "budget" | "fallback";
+
+export interface IAssistantAIContextWindowResolution {
+    /** Effective window used for budgeting (override applied when valid). */
+    window: number;
+    /** Window resolved before the override gate (model → budget → fallback). */
+    baseWindow: number;
+    /** Stored override if it is a positive integer, else 0 (even when ignored). */
+    override: number;
+    /** True when the override is a positive integer strictly below baseWindow. */
+    overrideApplied: boolean;
+    /** Where the effective window comes from: manual override / model / catalog budget / fallback. */
+    source: TAssistantAIContextWindowSource;
+}
+
+/**
+ * Resolve the effective model context window (tokens) for a profile, with the
+ * full resolution detail. Priority: model-resolved contextWindow → profile
+ * budget (maxContextTokens, which already inherits the provider catalog
+ * default at profile creation) → conservative fallback; then a stored
+ * contextWindowOverride replaces the result only when it is a positive
+ * integer strictly smaller than the resolved window (mirrors the backend
+ * resolveAssistantAIEffectiveContextWindow). Never returns 0.
+ */
+export const resolveAssistantAIContextWindowDetail = (profile: { settings?: Record<string, unknown> } | null | undefined): IAssistantAIContextWindowResolution => {
     const settings = profile?.settings;
     const modelWindow = getIntSetting(settings, "contextWindow", 0);
-    if (modelWindow > 0) {
-        return modelWindow;
-    }
     const budget = getIntSetting(settings, "maxContextTokens", 0);
-    if (budget > 0) {
-        return budget;
+    let baseWindow: number;
+    let baseSource: TAssistantAIContextWindowSource;
+    if (modelWindow > 0) {
+        baseWindow = modelWindow;
+        baseSource = "model";
+    } else if (budget > 0) {
+        baseWindow = budget;
+        baseSource = "budget";
+    } else {
+        baseWindow = ASSISTANT_AI_FALLBACK_CONTEXT_WINDOW;
+        baseSource = "fallback";
     }
-    return ASSISTANT_AI_FALLBACK_CONTEXT_WINDOW;
+    const override = parseAssistantAIContextWindowOverride(settings?.contextWindowOverride);
+    const overrideApplied = override > 0 && override < baseWindow;
+    return {
+        window: overrideApplied ? override : baseWindow,
+        baseWindow,
+        override,
+        overrideApplied,
+        source: overrideApplied ? "override" : baseSource,
+    };
+};
+
+export const resolveAssistantAIContextWindow = (profile: { settings?: Record<string, unknown> } | null | undefined): number => {
+    return resolveAssistantAIContextWindowDetail(profile).window;
 };
 
 /**
