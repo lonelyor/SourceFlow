@@ -29,7 +29,8 @@ const {
     Tray,
     dialog,
     systemPreferences,
-    powerMonitor
+    powerMonitor,
+    safeStorage
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -210,6 +211,8 @@ if (isPortableMode) {
 }
 
 const confDir = isPortableMode ? portableConfigDir : getPreferredConfigRootDir(app.getPath("home"));
+const {createSyncCredentialVault} = require(resolveAppFile("electron", "syncCredentialVault.js"));
+const syncCredentialVault = createSyncCredentialVault({safeStorage, userDataPath: app.getPath("userData")});
 const workspaceStatePath = isPortableMode ? path.join(portableWorkspaceStateDir, "workspace.json") : path.join(confDir, "workspace.json");
 const windowStatePath = path.join(confDir, "windowState.json");
 let bootWindow;
@@ -1405,13 +1408,21 @@ const initKernel = (workspace, port, lang, portRetryAttempt = 0) => {
         writeLog(cmd);
         if (!isDevEnv || workspaces.length > 0) {
             const cp = require("child_process");
+            const syncCredentials = syncCredentialVault.loadForKernel(startupWorkspaceDir);
+            const hasSyncCredentials = !!(syncCredentials.s3SecretKey || syncCredentials.webdavPassword || syncCredentials.repoKey);
+            if (hasSyncCredentials) {
+                cmds.push("--syncCredentialsStdin");
+            }
             const kernelProcess = cp.spawn(kernelPath, cmds, {
                 detached: false, // 桌面端内核进程不再以游离模式拉起 https://github.com/lonelyor/SourceFlow/issues/6336
                 env: Object.assign({}, process.env, {
                     SOURCEFLOW_DEFAULT_AI_USER_AGENT: defaultAIUserAgent,
                 }),
-                stdio: "ignore",
+                stdio: hasSyncCredentials ? ["pipe", "ignore", "ignore"] : "ignore",
             },);
+            if (hasSyncCredentials) {
+                kernelProcess.stdin.end(JSON.stringify(syncCredentials));
+            }
 
             const currentKernelPort = kernelPort;
             writeLog("booted kernel process [pid=" + kernelProcess.pid + ", port=" + kernelPort + "]");
@@ -1707,6 +1718,16 @@ app.whenReady().then(() => {
         resolvePendingPDFExportWorker(event.sender.id, new Error(data?.message || `PDF export worker failed: ${event.sender.id}`));
     });
     handleBrandedIPC("sourceflow-get", async (event, data) => {
+        if (data.cmd === "saveSyncCredentials") {
+            const currentWorkspace = workspaces.find((item) => item.browserWindow?.webContents.id === event.sender.id);
+            if (!currentWorkspace?.workspaceDir) {
+                return {stored: false, reason: "workspace-unavailable"};
+            }
+            return syncCredentialVault.save(currentWorkspace.workspaceDir, data.credentials);
+        }
+        if (data.cmd === "getSyncCredentialStorageStatus") {
+            return {available: syncCredentialVault.available()};
+        }
         if (data.cmd === "getStartupGuard") {
             return getStartupSafeModeState();
         }

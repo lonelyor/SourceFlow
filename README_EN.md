@@ -133,7 +133,7 @@ More screenshots will continue to be added over time.
 - SourceFlow supports `Local file system`, `S3`, and `WebDAV` as sync providers, and `Local file system` is the default provider rather than just a cloud fallback.
 - It is much closer to “observable snapshot backup and restore” than to silent black-box sync.
 - Startup protection, continue-offline behavior, sync diagnostics, conflict documents, data history, and point-in-time restore are all part of one flow.
-- Workspace paths, sync directories, data repo keys, and recovery profile files stay explicit, which is better for people who care about long-term data ownership.
+- Workspace paths, sync directories, master-password recovery, and secret-free recovery profiles stay explicit for long-term data ownership.
 
 ### 5. Extensible, but with boundaries by default
 
@@ -171,7 +171,7 @@ For local debugging, you can also load the source directory directly: [browser-e
 
 ## Sync and Restore Backup
 
-SourceFlow currently supports `Local file system`, `S3`, and `WebDAV` as sync providers. For most self-hosted users, I still recommend starting with `Local file system` because it is the most direct and the easiest to troubleshoot. It also fits local backup folders, external SSDs, removable drives, mounted NAS paths, or mapped network drives that already appear to the OS as local directories.
+SourceFlow currently supports `Local file system`, `S3`, and `WebDAV` as sync providers. Synology NAS / generic WebDAV is the recommended self-hosted multi-device path, and S3 also supports bidirectional multi-device sync. Local file system remains suitable for local folders, external SSDs, removable drives, mounted NAS paths, or mapped network drives, but acts as a snapshot backup target rather than a multi-device merge target.
 
 ### Understand these three concepts first
 
@@ -181,20 +181,21 @@ SourceFlow currently supports `Local file system`, `S3`, and `WebDAV` as sync pr
 
 ### Recommended setup steps
 
-1. Go to `Settings -> About` and initialize the `Data repo key`. This key is used for end-to-end encryption of sync data. If you generate it from a passphrase, remember the passphrase and keep the generated `backup-profile.json` restore profile file safe.
+1. Create a master password when enabling backup for the first time. SourceFlow generates a random repository key and wraps it with the master password, so users no longer need to copy or retain a raw repo key. Remember the password and keep `backup-profile.json`, which contains neither plaintext keys nor cloud passwords.
 2. Open `Settings -> Sync and Restore Backup` and choose a sync provider.
    `Local file system`: enter the full path of an existing directory in `Endpoint`. A dedicated backup directory is strongly recommended. Do not point it to the workspace itself, and do not point it to the parent directory of the workspace. In portable mode, paths inside the portable root are stored relatively; paths outside it are stored absolutely.
-   `S3`: fill in `Endpoint`, `Access Key`, `Secret Key`, `Bucket`, `Region`, and other values according to your storage provider.
-   `WebDAV`: fill in `Endpoint`, username, and password. It works, but performance and stability are usually weaker than `S3`, so it is best treated as a compatibility option.
-3. Set `Remote backup directory`. If you only sync one workspace, the default `main` is usually enough. One local workspace should stay tied to one remote backup directory over time. If you change the `Data repo key`, you should also switch to a new backup directory.
+   `Synology NAS / generic WebDAV`: the Synology preset uses HTTPS port `5006` by default. Fill in the endpoint, username, and password, then run the connection test. Generic mode works with other standards-compliant WebDAV services. See [Synology NAS and generic WebDAV multi-device sync guide](SYNC_WEBDAV_PROVIDERS.md).
+   `S3`: fill in `Endpoint`, `Access Key`, `Secret Key`, `Bucket`, `Region`, and other values according to your storage provider. Both S3 and WebDAV support bidirectional sync between independent local workspaces.
+3. Set `Remote backup directory`. If you only sync one workspace, the default `main` is usually enough. Changing the master password only re-wraps the repository key and does not require a new remote directory.
 4. Enable remote backup and run the first sync manually. After enabling it, trigger one manual sync so the current workspace is backed up immediately. After that, snapshot backups can also run on startup, on exit, after changes settle, and on the background interval. Manual sync remains available.
-5. When restoring on another device or in a fresh environment, prefer an empty workspace or a new portable directory. Then import `backup-profile.json`, or manually use the same `Data repo key`, the same provider, and the same `Remote backup directory`, and only then run sync or restore.
+5. When restoring on another device or in a fresh environment, prefer an empty workspace or a new portable directory. Import `backup-profile.json`, enter the original master password, provide the provider credentials for that device, and then run sync or restore.
 
 ### Practical advice
 
 - Keep `Generate conflict documentation when syncing conflicts` enabled so conflicts are easier to inspect.
 - If multiple devices are often online together, `Sync perception` can help them exchange sync signals more quickly.
 - `Sync interval` controls the automatic backup delay after data stops changing. It is not a forced full re-upload timer.
+- Every device must use its own local workspace with the same master password, provider, and remote backup directory. Never have multiple devices open one workspace directly from a network share.
 - If you import `backup-profile.json` but the `Local file system` backup directory has moved, you do not need to edit the file manually. Just reselect the current directory after import.
 - Do not place the workspace itself inside OneDrive, Dropbox, iCloud, or similar third-party sync folders. SourceFlow actively checks for that class of risk and tries to block it.
 

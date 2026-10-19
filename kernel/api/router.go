@@ -270,6 +270,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/sync/setSyncProviderS3", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderS3)
 	ginServer.Handle("POST", "/api/sync/testSyncProviderS3", model.CheckAuth, model.CheckAdminRole, testSyncProviderS3)
 	ginServer.Handle("POST", "/api/sync/setSyncProviderWebDAV", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderWebDAV)
+	ginServer.Handle("POST", "/api/sync/testSyncProviderWebDAV", model.CheckAuth, model.CheckAdminRole, testSyncProviderWebDAV)
 	ginServer.Handle("POST", "/api/sync/setSyncProviderLocal", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncProviderLocal)
 	ginServer.Handle("POST", "/api/sync/setCloudSyncDir", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setCloudSyncDir)
 	ginServer.Handle("POST", "/api/sync/performSync", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, performSync)
@@ -405,6 +406,8 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/bazaar/batchUpdatePackage", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, batchUpdatePackage)
 
 	ginServer.Handle("POST", "/api/repo/initRepoKey", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, initRepoKey)
+	ginServer.Handle("POST", "/api/repo/setMasterPassword", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setRepoMasterPassword)
+	ginServer.Handle("POST", "/api/repo/unlockWithMasterPassword", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, unlockRepoWithMasterPassword)
 	ginServer.Handle("POST", "/api/repo/initRepoKeyFromPassphrase", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, initRepoKeyFromPassphrase)
 	ginServer.Handle("POST", "/api/repo/resetRepo", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, resetRepo)
 	ginServer.Handle("POST", "/api/repo/purgeRepo", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, purgeRepo)

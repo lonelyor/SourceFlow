@@ -13,6 +13,7 @@ app/node_modules
 node_modules
 app/stage/build
 app/build
+app/build-windows-cross
 app/build-linux-portable
 app/build-linux-arm64-portable
 app/build-darwin-portable

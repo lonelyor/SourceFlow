@@ -1,12 +1,15 @@
 import {showMessage} from "../dialog/message";
 import {fetchPost} from "../util/fetch";
 import {Dialog} from "../dialog";
-import {confirmDialog} from "../dialog/confirmDialog";
 import {isMobile} from "../util/functions";
 import {processSync} from "../dialog/processSystem";
 import {App} from "../index";
 import {Constants} from "../constants";
-import {originalPath} from "../util/pathName";
+/// #if !BROWSER
+import {ipcRenderer} from "electron";
+/// #endif
+
+const masterText = (zh: string, en: string) => `${window.sourceflow.config.lang || ""}`.toLowerCase().startsWith("zh") ? zh : en;
 
 export const syncGuide = (app?: App) => {
     if (window.sourceflow.config.readonly) {
@@ -40,16 +43,11 @@ export const ensureSelfHostedSyncReady = (cb: () => void) => {
             cb();
         });
     };
-    if (window.sourceflow.config.repo.key) {
+    if (window.sourceflow.config.repo.keyConfigured && window.sourceflow.config.repo.keyEnvelope) {
         finish();
         return;
     }
-    fetchPost("/api/repo/initRepoKey", {}, (response) => {
-        window.sourceflow.config.repo.key = response.data.key;
-        const backupProfilePath = originalPath().join(window.sourceflow.config.system.confDir, "backup-profile.json");
-        showMessage(`已自动生成数据仓库密钥。repo key 用于打开同步数据仓库；如果只剩远端备份而它或恢复描述文件丢失，恢复可能失败。请妥善保存 ${backupProfilePath}`, 8000, "info");
-        finish();
-    });
+    setKey(false, finish);
 };
 
 const syncNow = () => {
@@ -108,27 +106,29 @@ const enableSync = (cb?: () => void) => {
 };
 
 export const setKey = (isSync: boolean, cb?: () => void) => {
+    const isUnlock = !!window.sourceflow.config.repo.keyEnvelope && !window.sourceflow.config.repo.keyConfigured;
+    const title = isUnlock ? masterText("输入主密码解锁备份", "Unlock backup") : masterText("创建备份主密码", "Create backup master password");
     const dialog = new Dialog({
-        title: "🔑 " + window.sourceflow.languages.syncConfGuide1,
+        title: "🔑 " + title,
         content: `<div class="b3-dialog__content ft__center">
     <img style="width: 260px" src="/stage/images/sync-guide.svg"/>
     <div class="fn__hr--b"></div>
-    <div class="ft__on-surface">${window.sourceflow.languages.syncConfGuide2}</div>
+    <div class="ft__on-surface">${isUnlock ? masterText("输入创建备份时使用的主密码，即可恢复同一个加密仓库。", "Enter the master password used for this backup to recover the same encrypted repository.") : masterText("以后在新设备恢复备份时，只需输入这个主密码；无需再保存 repo key。", "On a new device, enter this password to restore. You do not need to retain a raw repo key.")}</div>
+    ${isUnlock ? "" : `<div class="b3-label__text ft__error">${masterText("如果忘记主密码且没有任何已授权设备，端到端加密备份无法恢复。", "If the password is forgotten and no authorized device remains, the end-to-end encrypted backup cannot be recovered.")}</div>`}
     <div class="fn__hr--b"></div>
-    <input class="b3-text-field fn__block ft__center" placeholder="${window.sourceflow.languages.passphrase}">
-    <div class="fn__hr"></div>
-    <input class="b3-text-field fn__block ft__center" placeholder="${window.sourceflow.languages.reEnterPassphrase}">
+    <input type="password" class="b3-text-field fn__block ft__center" placeholder="${masterText("主密码（至少 8 个字符）", "Master password (at least 8 characters)")}">
+    ${isUnlock ? "" : `<div class="fn__hr"></div><input type="password" class="b3-text-field fn__block ft__center" placeholder="${window.sourceflow.languages.reEnterPassphrase}">`}
 </div>
 <div class="b3-dialog__action">
     <label class="fn__flex">
-        <input type="checkbox" class="b3-switch fn__flex-center">
+        <input type="checkbox" id="rememberRepoKey" class="b3-switch fn__flex-center" checked>
         <span class="fn__space"></span>
-        ${window.sourceflow.languages.confirmPassword}
+        ${masterText("在本机安全记住（公司或共享电脑可取消）", "Remember securely on this device (disable on work/shared computers)")}
     </label>
     <span class="fn__flex-1"></span>
     <button class="b3-button b3-button--cancel">${window.sourceflow.languages.cancel}</button>
     <span class="fn__space"></span>
-    <button class="b3-button b3-button--text" id="initKeyByPW" disabled>
+    <button class="b3-button b3-button--text" id="initKeyByPW">
         ${window.sourceflow.languages.confirm}
     </button>
 </div>`,
@@ -138,42 +138,43 @@ export const setKey = (isSync: boolean, cb?: () => void) => {
     dialog.element.querySelector(".b3-button--cancel").addEventListener("click", () => {
         dialog.destroy();
     });
-    const genBtnElement = dialog.element.querySelector("#initKeyByPW");
-    dialog.element.querySelector(".b3-switch").addEventListener("change", function () {
-        if (this.checked) {
-            genBtnElement.removeAttribute("disabled");
-        } else {
-            genBtnElement.setAttribute("disabled", "disabled");
-        }
-    });
+    const genBtnElement = dialog.element.querySelector("#initKeyByPW") as HTMLButtonElement;
     const inputElements = dialog.element.querySelectorAll(".b3-text-field") as NodeListOf<HTMLInputElement>;
     genBtnElement.addEventListener("click", () => {
-        if (!inputElements[0].value || !inputElements[1].value) {
-            showMessage(window.sourceflow.languages._kernel[142]);
+        if (!inputElements[0].value || 8 > Array.from(inputElements[0].value.trim()).length) {
+            showMessage(masterText("主密码至少需要 8 个字符", "The master password must contain at least 8 characters"));
             return;
         }
-        if (inputElements[0].value !== inputElements[1].value) {
+        if (!isUnlock && inputElements[0].value !== inputElements[1].value) {
             showMessage(window.sourceflow.languages.passwordNoMatch);
             return;
         }
-        confirmDialog("🔑 " + window.sourceflow.languages.genKeyByPW, window.sourceflow.languages.initRepoKeyTip, () => {
-            if (!isSync) {
-                dialog.destroy();
+        const endpoint = isUnlock ? "/api/repo/unlockWithMasterPassword" : "/api/repo/setMasterPassword";
+        fetchPost(endpoint, {password: inputElements[0].value}, (response) => {
+            if (response.data.keyEnvelope) {
+                window.sourceflow.config.repo.keyEnvelope = response.data.keyEnvelope;
             }
-            fetchPost("/api/repo/initRepoKeyFromPassphrase", {pass: inputElements[0].value}, (response) => {
-                window.sourceflow.config.repo.key = response.data.key;
-                if (cb) {
-                    cb();
-                }
-                if (isSync) {
-                    dialog.destroy();
-                    ensureSelfHostedSyncReady(() => {
-                        enableSync(() => {
-                            syncNow();
-                        });
-                    });
-                }
-            });
+            window.sourceflow.config.repo.key = "";
+            window.sourceflow.config.repo.keyConfigured = true;
+            const remember = (dialog.element.querySelector("#rememberRepoKey") as HTMLInputElement).checked;
+            if (remember) {
+                /// #if !BROWSER
+                ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                    cmd: "saveSyncCredentials",
+                    credentials: {repoKey: response.data.key},
+                }).then((result) => {
+                    if (!result?.stored) {
+                        showMessage(masterText("系统安全存储不可用；本次可正常使用，重启后需要重新输入主密码。", "Secure storage is unavailable. This session remains unlocked, but the master password is required after restart."), 10000, "info");
+                    }
+                });
+                /// #endif
+            }
+            inputElements.forEach((input) => input.value = "");
+            dialog.destroy();
+            cb?.();
+            if (isSync) {
+                ensureSelfHostedSyncReady(() => enableSync(syncNow));
+            }
         });
     });
     inputElements[0].focus();

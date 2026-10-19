@@ -11,9 +11,17 @@ import (
 	"github.com/lonelyor/sourceflow/kernel/util"
 	"github.com/lonelyor/sourceflow/third_party/go/dejavu"
 	"github.com/lonelyor/sourceflow/third_party/go/dejavu/cloud"
+	"github.com/lonelyor/sourceflow/third_party/go/eventbus"
 	"github.com/lonelyor/sourceflow/third_party/go/go-humanize"
 	"github.com/lonelyor/sourceflow/third_party/go/gulu"
+	"github.com/lonelyor/sourceflow/third_party/go/logging"
 )
+
+// silentSyncContext 感知探针等后台静默路径使用的同步上下文：
+// 不向界面推送进度，同时保证事件处理器读取 CtxPushMsg 时不会得到 nil。
+func silentSyncContext() map[string]interface{} {
+	return map[string]interface{}{eventbus.CtxPushMsg: eventbus.CtxPushMsgToNone}
+}
 
 type SyncDiagnosticRecord struct {
 	ID                string `json:"id"`
@@ -193,7 +201,7 @@ func updateSyncPerceptionBaseline(repo *dejavu.Repo) {
 		return
 	}
 
-	cloudLatest, err := repo.GetCloudLatest(nil)
+	cloudLatest, err := repo.GetCloudLatest(silentSyncContext())
 	if err != nil && !errors.Is(err, cloud.ErrCloudObjectNotFound) {
 		updateSyncPerceptionObservation("", err.Error())
 		return
@@ -217,7 +225,7 @@ func probeSyncPerception() {
 		return
 	}
 
-	cloudLatest, err := repo.GetCloudLatest(nil)
+	cloudLatest, err := repo.GetCloudLatest(silentSyncContext())
 	if err != nil && !errors.Is(err, cloud.ErrCloudObjectNotFound) {
 		updateSyncPerceptionObservation("", err.Error())
 		return
@@ -246,7 +254,10 @@ func probeSyncPerception() {
 
 	markSyncPerceptionRemoteChange(latestID, "remote-latest-changed")
 	recordSyncDiagnostic("perception", "observe", "noticed", time.Now(), false, false, false, "Remote latest snapshot changed, scheduled an immediate sync", nil, nil)
-	go syncData(false, false, "perception")
+	go func() {
+		defer logging.Recover()
+		syncData(false, false, "perception")
+	}()
 }
 
 func startSyncPerceptionLoop() {
@@ -269,6 +280,7 @@ func startSyncPerceptionLoop() {
 	perceptionRuntime.lock.Unlock()
 
 	go func(stop <-chan struct{}) {
+		defer logging.Recover()
 		defer perceptionRuntime.running.Store(false)
 
 		warmup := time.NewTimer(syncPerceptionWarmup)

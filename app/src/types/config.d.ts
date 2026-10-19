@@ -1289,6 +1289,15 @@ declare namespace Config {
          * Snapshot encryption key (base64 encoded 256-bit key)
          */
         key: string;
+        /** Whether the repository key is unlocked, without exposing the key. */
+        keyConfigured: boolean;
+        /** Password-wrapped repository key metadata; safe to include in backups. */
+        keyEnvelope?: {
+            version: number;
+            kdf: string;
+            salt: string;
+            ciphertext: string;
+        };
         /**
          * Sync index timing, if it exceeds this time, the user is prompted that the index
          * performance is degraded (unit: milliseconds)
@@ -1586,6 +1595,8 @@ declare namespace Config {
          * Security key
          */
         secretKey: string;
+        /** Whether the secret is available in this process or the OS credential vault. */
+        secretConfigured: boolean;
         /**
          * Whether to skip TLS verification
          */
@@ -1612,6 +1623,8 @@ declare namespace Config {
          * Password
          */
         password: string;
+        /** Whether the password is available without exposing it to the renderer. */
+        secretConfigured: boolean;
         /**
          * Whether to skip TLS verification
          */

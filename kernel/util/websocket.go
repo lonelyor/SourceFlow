@@ -260,7 +260,12 @@ type BlockStatResult struct {
 }
 
 func ContextPushMsg(context map[string]interface{}, msg string) {
-	switch context[eventbus.CtxPushMsg].(int) {
+	// context 可能为 nil（后台静默路径不构造推送上下文），此处必须容忍缺失
+	pushMsg, ok := context[eventbus.CtxPushMsg].(int)
+	if !ok {
+		pushMsg = eventbus.CtxPushMsgToNone
+	}
+	switch pushMsg {
 	case eventbus.CtxPushMsgToNone:
 		break
 	case eventbus.CtxPushMsgToProgress:

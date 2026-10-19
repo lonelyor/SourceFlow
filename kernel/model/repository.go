@@ -58,7 +58,6 @@ import (
 	"github.com/lonelyor/sourceflow/third_party/go/lute/html"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/parse"
 	"github.com/lonelyor/sourceflow/third_party/go/lute/render"
-	"github.com/studio-b12/gowebdav"
 )
 
 // AutoPurgeRepoJob 自动清理数据仓库 https://github.com/lonelyor/SourceFlow/issues/13091
@@ -624,6 +623,8 @@ func ResetRepo() (err error) {
 	logging.LogInfof("reset data repo completed")
 
 	Conf.Repo.Key = nil
+	Conf.Repo.KeyEnvelope = nil
+	Conf.Repo.KeyConfigured = false
 	Conf.Sync.Enabled = false
 	Conf.Save()
 
@@ -1371,6 +1372,7 @@ func bootSyncRepo() (err error) {
 
 	if 0 < len(fetchedFiles) {
 		go func() {
+			defer logging.Recover()
 			_, syncErr := syncRepo(false, false, "boot-background")
 			isBootSyncing.Store(false)
 			if syncErr != nil {
@@ -1475,6 +1477,7 @@ func syncRepo(exit, byHand bool, trigger string) (dataChanged bool, err error) {
 
 	if !exit {
 		go func() {
+			defer logging.Recover()
 			// 首次数据同步执行完成后再执行索引订正 Index fixing should not be performed before data synchronization https://github.com/lonelyor/SourceFlow/issues/10761
 			checkIndex()
 			// 索引订正结束后执行数据仓库清理 Automatic purge for local data repo https://github.com/lonelyor/SourceFlow/issues/13091
@@ -1767,6 +1770,7 @@ func processSyncMergeResult(exit, byHand bool, mergeResult *dejavu.MergeResult, 
 	}
 
 	go func() {
+		defer logging.Recover()
 		util.WaitForUILoaded()
 
 		if 0 < len(upsertRootIDs) || 0 < len(removeRootIDs) || 0 < len(conflictPayloads) {
@@ -1890,6 +1894,7 @@ func indexRepoBeforeCloudSync(repo *dejavu.Repo) (beforeIndex, afterIndex *entit
 		logging.LogWarnf("index data repo before cloud sync elapsed [%dms]", elapsed.Milliseconds())
 		if !promotedPurgeDataRepo {
 			go func() {
+				defer logging.Recover()
 				util.WaitForUILoaded()
 				time.Sleep(3 * time.Second)
 
@@ -1936,14 +1941,7 @@ func newCloudRepo(cloudConf *cloud.Conf) (cloudRepo cloud.Cloud, err error) {
 		s3HTTPClient.Timeout = time.Duration(cloudConf.S3.Timeout) * time.Second
 		cloudRepo = cloud.NewS3(&cloud.BaseCloud{Conf: cloudConf}, s3HTTPClient)
 	case conf.ProviderWebDAV:
-		webdavClient := gowebdav.NewClient(cloudConf.WebDAV.Endpoint, cloudConf.WebDAV.Username, cloudConf.WebDAV.Password)
-		a := cloudConf.WebDAV.Username + ":" + cloudConf.WebDAV.Password
-		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(a))
-		webdavClient.SetHeader("Authorization", auth)
-		webdavClient.SetHeader("User-Agent", util.UserAgent)
-		webdavClient.SetTimeout(time.Duration(cloudConf.WebDAV.Timeout) * time.Second)
-		webdavClient.SetTransport(httpclient.NewTransport(cloudConf.WebDAV.SkipTlsVerify))
-		cloudRepo = cloud.NewWebDAV(&cloud.BaseCloud{Conf: cloudConf}, webdavClient)
+		cloudRepo = newWebDAVCloud(cloudConf)
 	case conf.ProviderLocal:
 		cloudRepo = cloud.NewLocal(&cloud.BaseCloud{Conf: cloudConf})
 	default:

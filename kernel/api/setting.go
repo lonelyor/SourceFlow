@@ -76,7 +76,10 @@ func setEditorReadOnly(c *gin.Context) {
 		return
 	}
 
-	readOnly := arg["readonly"].(bool)
+	readOnly, ok := util.ParseJsonArg[bool]("readonly", true, arg, ret)
+	if !ok {
+		return
+	}
 
 	oldReadOnly := model.Conf.Editor.ReadOnly
 	model.Conf.Editor.ReadOnly = readOnly
@@ -136,7 +139,7 @@ func addVirtualBlockRefExclude(c *gin.Context) {
 	}
 
 	model.AddVirtualBlockRefExclude(keywords)
-	util.BroadcastByType("main", "setConf", 0, "", model.Conf)
+	model.BroadcastMaskedConf()
 }
 
 func addVirtualBlockRefInclude(c *gin.Context) {
@@ -157,7 +160,7 @@ func addVirtualBlockRefInclude(c *gin.Context) {
 	}
 
 	model.AddVirtualBlockRefInclude(keywords)
-	util.BroadcastByType("main", "setConf", 0, "", model.Conf)
+	model.BroadcastMaskedConf()
 }
 
 func refreshVirtualBlockRef(c *gin.Context) {
@@ -167,7 +170,7 @@ func refreshVirtualBlockRef(c *gin.Context) {
 	defer c.JSON(http.StatusOK, ret)
 
 	model.ResetVirtualBlockRefCache()
-	util.BroadcastByType("main", "setConf", 0, "", model.Conf)
+	model.BroadcastMaskedConf()
 }
 
 func setBazaar(c *gin.Context) {
@@ -1343,10 +1346,18 @@ func setEmoji(c *gin.Context) {
 		return
 	}
 
-	argEmoji := arg["emoji"].([]interface{})
+	argEmoji, ok := util.ParseJsonArg[[]interface{}]("emoji", true, arg, ret)
+	if !ok {
+		return
+	}
 	var emoji []string
-	for _, ae := range argEmoji {
-		e := ae.(string)
+	for i, ae := range argEmoji {
+		e, isString := ae.(string)
+		if !isString {
+			ret.Code = -1
+			ret.Msg = fmt.Sprintf("Field [emoji][%d] should be of type [String]", i)
+			return
+		}
 		if strings.Contains(e, ".") {
 			// XSS through emoji name https://github.com/lonelyor/SourceFlow/issues/15034
 			e = util.FilterUploadEmojiFileName(e)

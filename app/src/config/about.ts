@@ -220,7 +220,7 @@ export const about = {
         <svg><use xlink:href="#iconLink"></use></svg>${window.sourceflow.languages.about4}
     </button>
 </div>
-<div class="b3-label fn__flex config__item">
+<div class="b3-label fn__flex config__item fn__none">
     <div class="fn__flex-1 fn__flex-center">
         ${window.sourceflow.languages.dataRepoKey}
         <div class="b3-label__text">${window.sourceflow.languages.dataRepoKeyTip1}</div>

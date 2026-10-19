@@ -144,6 +144,7 @@ func MaintainSnapshotProtectionInBackground(reason string) {
 	}
 
 	go func() {
+		defer logging.Recover()
 		defer snapshotProtectionRunning.Store(false)
 		if err := maintainSnapshotProtection(false); nil != err {
 			logging.LogWarnf("maintain snapshot protection [%s] failed: %s", reason, err)

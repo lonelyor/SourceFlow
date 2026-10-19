@@ -458,6 +458,7 @@ func InitConf() {
 	if nil == Conf.Repo {
 		Conf.Repo = conf.NewRepo()
 	}
+	applyRuntimeSyncCredentials()
 	if timingEnv := util.GetEnv(util.SyncIndexTimingEnv); "" != timingEnv {
 		val, err := strconv.Atoi(timingEnv)
 		if err == nil {
@@ -866,13 +867,64 @@ func (conf *AppConf) cloneForSave() *AppConf {
 	if nil != Conf.Sync {
 		syncConf := *Conf.Sync
 		clone.Sync = &syncConf
+		if nil != Conf.Sync.S3 {
+			s3 := *Conf.Sync.S3
+			s3.SecretKey = ""
+			clone.Sync.S3 = &s3
+		}
+		if nil != Conf.Sync.WebDAV {
+			webdav := *Conf.Sync.WebDAV
+			webdav.Password = ""
+			clone.Sync.WebDAV = &webdav
+		}
 		if nil != Conf.Sync.Local {
 			local := *Conf.Sync.Local
 			local.Endpoint = serializePortableLocalEndpoint(local.Endpoint)
 			clone.Sync.Local = &local
 		}
 	}
+	if nil != Conf.Repo && nil != Conf.Repo.KeyEnvelope {
+		repo := *Conf.Repo
+		repo.Key = nil
+		repo.KeyConfigured = false
+		clone.Repo = &repo
+	}
 	return &clone
+}
+
+type runtimeSyncCredentials struct {
+	S3SecretKey    string `json:"s3SecretKey"`
+	WebDAVPassword string `json:"webdavPassword"`
+	RepoKey        string `json:"repoKey"`
+}
+
+func applyRuntimeSyncCredentials() {
+	defer func() {
+		for i := range util.SyncCredentialsJSON {
+			util.SyncCredentialsJSON[i] = 0
+		}
+		util.SyncCredentialsJSON = nil
+	}()
+	if 0 == len(util.SyncCredentialsJSON) || nil == Conf.Sync {
+		return
+	}
+	credentials := &runtimeSyncCredentials{}
+	if err := gulu.JSON.UnmarshalJSON(util.SyncCredentialsJSON, credentials); nil != err {
+		logging.LogWarnf("load transient sync credentials failed")
+		return
+	}
+	if nil != Conf.Sync.S3 && "" != credentials.S3SecretKey {
+		Conf.Sync.S3.SecretKey = credentials.S3SecretKey
+	}
+	if nil != Conf.Sync.WebDAV && "" != credentials.WebDAVPassword {
+		Conf.Sync.WebDAV.Password = credentials.WebDAVPassword
+	}
+	if nil != Conf.Repo && nil != Conf.Repo.KeyEnvelope && "" != credentials.RepoKey {
+		if key, err := base64.StdEncoding.DecodeString(credentials.RepoKey); nil == err && 32 == len(key) {
+			Conf.Repo.Key = key
+			Conf.Repo.KeyConfigured = true
+		}
+	}
 }
 
 func (conf *AppConf) save0(data []byte) {
@@ -900,28 +952,31 @@ func (conf *AppConf) save0(data []byte) {
 }
 
 type syncBackupProfile struct {
-	Type            string       `json:"type"`
-	Version         int          `json:"version"`
-	Updated         string       `json:"updated"`
-	ContainsSecrets bool         `json:"containsSecrets"`
-	Provider        int          `json:"provider"`
-	ProviderName    string       `json:"providerName"`
-	CloudName       string       `json:"cloudName"`
-	RepoKey         string       `json:"repoKey"`
-	S3              *conf.S3     `json:"s3,omitempty"`
-	WebDAV          *conf.WebDAV `json:"webdav,omitempty"`
-	Local           *conf.Local  `json:"local,omitempty"`
+	Type            string                `json:"type"`
+	Version         int                   `json:"version"`
+	Updated         string                `json:"updated"`
+	ContainsSecrets bool                  `json:"containsSecrets"`
+	Provider        int                   `json:"provider"`
+	ProviderName    string                `json:"providerName"`
+	CloudName       string                `json:"cloudName"`
+	RepoKey         string                `json:"repoKey,omitempty"`
+	RepoKeyEnvelope *conf.RepoKeyEnvelope `json:"repoKeyEnvelope,omitempty"`
+	S3              *conf.S3              `json:"s3,omitempty"`
+	WebDAV          *conf.WebDAV          `json:"webdav,omitempty"`
+	Local           *conf.Local           `json:"local,omitempty"`
 }
 
 type SyncBackupProfileInfo struct {
-	Key          string       `json:"key"`
-	Provider     int          `json:"provider"`
-	ProviderName string       `json:"providerName"`
-	CloudName    string       `json:"cloudName"`
-	Enabled      bool         `json:"enabled"`
-	S3           *conf.S3     `json:"s3,omitempty"`
-	WebDAV       *conf.WebDAV `json:"webdav,omitempty"`
-	Local        *conf.Local  `json:"local,omitempty"`
+	Key          string                `json:"key"`
+	Provider     int                   `json:"provider"`
+	ProviderName string                `json:"providerName"`
+	CloudName    string                `json:"cloudName"`
+	Enabled      bool                  `json:"enabled"`
+	NeedsUnlock  bool                  `json:"needsUnlock"`
+	KeyEnvelope  *conf.RepoKeyEnvelope `json:"keyEnvelope,omitempty"`
+	S3           *conf.S3              `json:"s3,omitempty"`
+	WebDAV       *conf.WebDAV          `json:"webdav,omitempty"`
+	Local        *conf.Local           `json:"local,omitempty"`
 }
 
 const syncBackupProfileCloudPath = "_meta/backup-profile.json"
@@ -930,6 +985,11 @@ func writeSyncBackupProfile() {
 	profilePath := filepath.Join(util.GetUserConfDir(), "backup-profile.json")
 	profile := newSyncBackupProfile()
 	if nil == profile {
+		// Legacy workspaces keep their existing recovery profile until the
+		// plaintext repo key has been safely wrapped by a master password.
+		if nil != Conf && nil != Conf.Repo && 32 == len(Conf.Repo.Key) && nil == Conf.Repo.KeyEnvelope {
+			return
+		}
 		if err := os.Remove(profilePath); nil != err && !os.IsNotExist(err) {
 			logging.LogWarnf("remove sync backup profile [%s] failed: %s", profilePath, err)
 		}
@@ -959,19 +1019,19 @@ func writeSyncBackupProfile() {
 }
 
 func newSyncBackupProfile() *syncBackupProfile {
-	if nil == Conf || nil == Conf.Sync || nil == Conf.Repo || 1 > len(Conf.Repo.Key) {
+	if nil == Conf || nil == Conf.Sync || nil == Conf.Repo || nil == Conf.Repo.KeyEnvelope {
 		return nil
 	}
 
 	profile := &syncBackupProfile{
 		Type:            "sourceflow-sync-backup-profile",
-		Version:         1,
+		Version:         2,
 		Updated:         time.Now().Format(time.RFC3339),
-		ContainsSecrets: true,
+		ContainsSecrets: false,
 		Provider:        Conf.Sync.Provider,
 		ProviderName:    conf.ProviderToStr(Conf.Sync.Provider),
 		CloudName:       Conf.Sync.CloudName,
-		RepoKey:         base64.StdEncoding.EncodeToString(Conf.Repo.Key),
+		RepoKeyEnvelope: Conf.Repo.KeyEnvelope,
 	}
 	if "" == profile.CloudName {
 		profile.CloudName = "main"
@@ -979,16 +1039,18 @@ func newSyncBackupProfile() *syncBackupProfile {
 
 	switch Conf.Sync.Provider {
 	case conf.ProviderS3:
-		if nil == Conf.Sync.S3 || "" == Conf.Sync.S3.Endpoint || "" == Conf.Sync.S3.AccessKey || "" == Conf.Sync.S3.SecretKey || "" == Conf.Sync.S3.Bucket {
+		if nil == Conf.Sync.S3 || "" == Conf.Sync.S3.Endpoint || "" == Conf.Sync.S3.AccessKey || "" == Conf.Sync.S3.Bucket {
 			return nil
 		}
 		s3 := *Conf.Sync.S3
+		s3.SecretKey = ""
 		profile.S3 = &s3
 	case conf.ProviderWebDAV:
 		if nil == Conf.Sync.WebDAV || "" == Conf.Sync.WebDAV.Endpoint {
 			return nil
 		}
 		webdav := *Conf.Sync.WebDAV
+		webdav.Password = ""
 		profile.WebDAV = &webdav
 	case conf.ProviderLocal:
 		if nil == Conf.Sync.Local || "" == Conf.Sync.Local.Endpoint {
@@ -1097,7 +1159,7 @@ func ImportSyncBackupProfile(data []byte) (ret *SyncBackupProfileInfo, err error
 	if err = gulu.JSON.UnmarshalJSON(data, profile); nil != err {
 		return
 	}
-	if "sourceflow-sync-backup-profile" != profile.Type || 1 != profile.Version {
+	if "sourceflow-sync-backup-profile" != profile.Type || (1 != profile.Version && 2 != profile.Version) {
 		err = fmt.Errorf("invalid sync backup profile")
 		return
 	}
@@ -1123,9 +1185,18 @@ func ImportSyncBackupProfile(data []byte) (ret *SyncBackupProfileInfo, err error
 		return
 	}
 
-	key, err := ImportRepoKey(profile.RepoKey)
-	if nil != err {
-		return
+	key := ""
+	if 1 == profile.Version {
+		key, err = ImportRepoKey(profile.RepoKey)
+		if nil != err {
+			return
+		}
+	} else {
+		if nil == profile.RepoKeyEnvelope {
+			return nil, fmt.Errorf("missing encrypted repository key in sync backup profile")
+		}
+		Conf.Repo.Key = nil
+		Conf.Repo.KeyEnvelope = profile.RepoKeyEnvelope
 	}
 
 	switch profile.Provider {
@@ -1168,6 +1239,8 @@ func ImportSyncBackupProfile(data []byte) (ret *SyncBackupProfileInfo, err error
 		ProviderName: conf.ProviderToStr(Conf.Sync.Provider),
 		CloudName:    Conf.Sync.CloudName,
 		Enabled:      Conf.Sync.Enabled,
+		NeedsUnlock:  true, // v1 must migrate; v2 must unlock
+		KeyEnvelope:  profile.RepoKeyEnvelope,
 	}
 	switch Conf.Sync.Provider {
 	case conf.ProviderS3:
@@ -1323,7 +1396,17 @@ func GetMaskedConf() (ret *AppConf, err error) {
 	if "" != ret.AccessAuthCode {
 		ret.AccessAuthCode = MaskedAccessAuthCode
 	}
+	if nil != ret.Repo {
+		ret.Repo.KeyConfigured = 32 == len(ret.Repo.Key)
+		ret.Repo.Key = []byte{}
+	}
 	return
+}
+
+func BroadcastMaskedConf() {
+	if masked, err := GetMaskedConf(); nil == err {
+		util.BroadcastByType("main", "setConf", 0, "", masked)
+	}
 }
 
 // HideConfSecret 隐藏设置中的秘密信息
@@ -1563,6 +1646,6 @@ func subscribeConfEvents() {
 		logging.LogInfof("pandoc params set to [%s]", Conf.Export.PandocParams)
 		logging.LogInfof("pandoc resources [%s, %s]", util.PandocTemplatePath, util.PandocColorFilterPath)
 		Conf.Save()
-		util.BroadcastByType("main", "setConf", 0, "", Conf)
+		BroadcastMaskedConf()
 	})
 }

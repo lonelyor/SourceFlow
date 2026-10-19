@@ -340,6 +340,14 @@ const runEditorStructureGuideBugfixTest = () => {
     return runNodeScript("testStructureGuideBugfix.js");
 };
 
+const runSyncWebDAVProvidersTest = () => {
+    return runNodeScript("testSyncWebDAVProviders.js");
+};
+
+const runNoDefenderExclusionTest = () => {
+    return runNodeScript("testNoDefenderExclusion.js");
+};
+
 const runFileTreeAppearanceSettingsTest = () => {
     return runNodeScript("testFileTreeAppearanceSettings.js");
 };
@@ -690,6 +698,18 @@ if (exitCode !== 0) {
 
 console.log("\n[typecheck] editor structure guide bugfix");
 exitCode = runEditorStructureGuideBugfixTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] sync WebDAV providers");
+exitCode = runSyncWebDAVProvidersTest();
+if (exitCode !== 0) {
+    process.exit(exitCode);
+}
+
+console.log("\n[typecheck] no Defender exclusion");
+exitCode = runNoDefenderExclusionTest();
 if (exitCode !== 0) {
     process.exit(exitCode);
 }

@@ -22,7 +22,7 @@ import time
 import uuid
 import urllib.request
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -1284,6 +1284,32 @@ def try_install_linux_compiler(target: BuildTarget) -> bool:
     )
 
 
+def ensure_linux_windows_cross_tools() -> None:
+    if not is_linux():
+        return
+    compiler = resolve_command_path("x86_64-w64-mingw32-gcc")
+    wine = resolve_command_path("wine")
+    if compiler and wine:
+        return
+
+    install_linux_package_group(
+        "Windows x64 cross-build toolchain",
+        {
+            "apt-get": ("gcc-mingw-w64-x86-64", "wine"),
+            "dnf": ("mingw64-gcc", "wine"),
+            "yum": ("mingw64-gcc", "wine"),
+            "pacman": ("mingw-w64-gcc", "wine"),
+            "zypper": ("mingw64-cross-gcc", "wine"),
+            "apk": ("mingw-w64-gcc", "wine"),
+        },
+    )
+    if not resolve_command_path("x86_64-w64-mingw32-gcc") or not resolve_command_path("wine"):
+        raise RuntimeError(
+            "Linux-to-Windows packaging requires x86_64-w64-mingw32-gcc and Wine. "
+            "Automatic installation did not make both commands available."
+        )
+
+
 def build_missing_command_message(name: str) -> str:
     base = f"Required command not found: {name}"
     detail = related_install_failure(name)
@@ -1357,7 +1383,7 @@ def get_command_version_major(binary_path: str, *, flag: str = "--version") -> i
     return int(match.group(1)) if match else -1
 
 
-# pnpm 10 / electron-builder 26 需要 Node.js >= 18。环境里可能并存多个 node（例如
+# pnpm / electron-builder 需要现代 Node.js。环境里可能并存多个 node（例如
 # /usr/local/bin/node v16 与 /opt/homebrew/bin/node v24），shutil.which 只返回 PATH 中
 # 第一个，未必满足版本要求。此处收集所有候选并优先选择满足最低版本的 node。
 MIN_NODE_MAJOR_VERSION = 18
@@ -1408,7 +1434,7 @@ def require_compatible_node() -> None:
     """确保解析到满足版本要求的 node，并将其目录前置到 PATH。
 
     旧版 node（如 v16）被前置后，electron-builder 内部的 `pnpm config list` 子进程
-    会因 pnpm 10 要求 Node >= 18 而失败。优先把含现代 node 的目录前置，使 pnpm 也随之
+    会因 pnpm 的 Node.js 版本要求而失败。优先把含现代 node 的目录前置，使 pnpm 也随之
     解析到同一目录下的可用版本。
     """
     node_path = resolve_compatible_node()
@@ -1492,7 +1518,7 @@ def resolve_compatible_pnpm() -> str:
 def require_compatible_pnpm() -> None:
     """确保解析到可运行的 pnpm 并前置其目录。
 
-    corepack shim 可能因 node 版本不匹配而失败（pnpm 10 要求 Node >= 18）。
+    corepack shim 可能因 Node.js 版本不匹配而失败。
     本函数在 node 已被正确前置后，找到能真正运行的 pnpm。
     """
     pnpm_path = resolve_compatible_pnpm()
@@ -1513,6 +1539,16 @@ def require_compatible_pnpm() -> None:
         )
     clear_install_failure(PNPM)
     prepend_path_entry(Path(pnpm_path).parent)
+
+
+def project_pnpm_command() -> list[str]:
+    """Return pnpm pinned by app/package.json when Corepack is available."""
+    package = json.loads(APP_PACKAGE_PATH.read_text(encoding="utf-8"))
+    package_manager = str(package.get("packageManager", "")).strip()
+    corepack = resolve_command_path("corepack") or resolve_command_path("corepack.cmd")
+    if corepack and re.fullmatch(r"pnpm@[^\s]+", package_manager):
+        return [corepack, package_manager]
+    return [PNPM]
 
 
 def ensure_macos_build_prerequisites() -> None:
@@ -2048,7 +2084,11 @@ def pick_windows_compiler(target: BuildTarget, args: argparse.Namespace) -> str:
     if os.environ.get("SOURCEFLOW_WINDOWS_CC"):
         candidates.append(os.environ["SOURCEFLOW_WINDOWS_CC"])
 
-    if target.arch == "arm64":
+    if is_linux():
+        if target.arch != "x64":
+            raise RuntimeError("Linux automatic Windows cross-build currently supports x64 only.")
+        candidates.append("x86_64-w64-mingw32-gcc")
+    elif target.arch == "arm64":
         candidates.extend(("aarch64-w64-mingw32-gcc", "clang"))
     else:
         candidates.extend(("x86_64-w64-mingw32-gcc", "gcc", "clang"))
@@ -2057,7 +2097,7 @@ def pick_windows_compiler(target: BuildTarget, args: argparse.Namespace) -> str:
         if Path(candidate).exists() or resolve_command_path(candidate):
             return candidate
 
-    if try_auto_install_windows_command("clang"):
+    if not is_linux() and try_auto_install_windows_command("clang"):
         clang = resolve_command_path("clang")
         if clang:
             return clang
@@ -2101,7 +2141,7 @@ def pick_linux_compiler(target: BuildTarget, args: argparse.Namespace) -> str:
 
 def install_app_dependencies(target: BuildTarget) -> None:
     print_step("Install app dependencies")
-    install_args = [PNPM, "install"]
+    install_args = [*project_pnpm_command(), "install"]
     if target.platform_key != "win" or is_wsl():
         install_args.append("--force")
     try:
@@ -2123,6 +2163,8 @@ def app_dependency_inputs() -> tuple[Path, ...]:
         for path in (
             APP_PACKAGE_PATH,
             APP_DIR / "pnpm-lock.yaml",
+            APP_DIR / "pnpm-workspace.yaml",
+            APP_DIR / ".npmrc",
         )
         if path.is_file()
     )
@@ -2261,6 +2303,7 @@ def should_skip_wsl_native_copy(relative_path: Path, args: argparse.Namespace, t
         if app_child in {
             ".tmp-tscheck",
             "build",
+            "build-windows-cross",
             "build-linux-portable",
             "build-linux-arm64-portable",
             "build-darwin-portable",
@@ -2503,10 +2546,6 @@ def build_target_kernel(target: BuildTarget, args: argparse.Namespace) -> None:
                 cwd=KERNEL_DIR,
                 env=env,
             )
-            elevator_source = APP_DIR / "elevator" / f"elevator-{'arm64' if target.arch == 'arm64' else 'amd64'}.exe"
-            elevator_target = target.portable_kernel_dir / "elevator.exe"
-            ensure_path_exists(elevator_source, f"Portable build requires {elevator_source}")
-            shutil.copy2(elevator_source, elevator_target)
             return
 
         if target.platform_key == "linux":
@@ -2981,7 +3020,9 @@ def run_build_quality_gate(parallel_jobs: int) -> None:
     with timed_stage("Quality gate: frontend typecheck"):
         print_step("Frontend typecheck")
         require_command(PNPM)
-        run([PNPM, "--dir", "app", "run", "typecheck"], cwd=PROJECT_ROOT)
+        # Run from the package directory so Corepack/pnpm honors app/package.json's
+        # packageManager pin before checking devEngines.packageManager.
+        run([*project_pnpm_command(), "run", "typecheck"], cwd=APP_DIR)
 
 
 def find_free_port() -> int:
@@ -3439,8 +3480,8 @@ def validate_windows_portable_output(version: str) -> None:
     print(f"Portable validation passed: {portable_root}", flush=True)
 
 
-def validate_windows_installer_output(version: str) -> None:
-    installer_path = APP_DIR / "build" / f"sourceflow-{version}-win.exe"
+def validate_windows_installer_output(version: str, output_dir: Path) -> None:
+    installer_path = output_dir / f"sourceflow-{version}-win.exe"
     if not installer_path.is_file():
         raise RuntimeError(f"Windows installer not found: {installer_path}")
     seven_zip = resolve_7zip_command()
@@ -3465,12 +3506,15 @@ def validate_windows_installer_output(version: str) -> None:
             ),
             f"Extracted installer app at {extracted_app_dir}",
         )
-        validate_kernel_boot(
-            extracted_app_dir / "resources" / "kernel" / "SourceFlow-Kernel.exe",
-            extracted_app_dir / "resources",
-            Path(tempfile.mkdtemp(prefix="sourceflow-installer-kernel-smoke-")),
-            version,
-        )
+        if IS_WINDOWS:
+            validate_kernel_boot(
+                extracted_app_dir / "resources" / "kernel" / "SourceFlow-Kernel.exe",
+                extracted_app_dir / "resources",
+                Path(tempfile.mkdtemp(prefix="sourceflow-installer-kernel-smoke-")),
+                version,
+            )
+        else:
+            print("Cross-built Windows installer passed structural validation; runtime smoke requires Windows.", flush=True)
     finally:
         remove_path_with_retry(extract_root)
     print(f"Installer validation passed: {installer_path}", flush=True)
@@ -3481,7 +3525,7 @@ def validate_build_outputs(target: BuildTarget, *, include_installer: bool, incl
     if target.platform_key == "win" and target.arch == "x64":
         if include_installer:
             print_step("Validate installer output")
-            validate_windows_installer_output(version)
+            validate_windows_installer_output(version, target.installer_output_dir)
         if include_portable:
             print_step("Validate portable output")
             validate_windows_portable_output(version)
@@ -3538,11 +3582,12 @@ def resolve_target(platform_text: str, arch_text: str) -> tuple[BuildTarget, str
     target = TARGETS.get((target_platform, target_arch))
     if not target:
         raise RuntimeError(f"Unsupported build target: {target_platform}/{target_arch}")
-    if target_platform != host_name:
+    linux_windows_cross = host_name == "linux" and target_platform == "win" and target_arch == "x64"
+    if target_platform != host_name and not linux_windows_cross:
         raise RuntimeError(
-            "Cross-OS desktop packaging is not enabled in this script. "
+            "This cross-OS desktop target is not enabled in this script. "
             f"Current host is {host_name}/{host_arch}, requested {target_platform}/{target_arch}. "
-            "Run 编译.py on the target operating system, or choose --platform matching the current host."
+            "Linux can additionally build Windows x64; other targets must be built on their native operating system."
         )
     return target, host_name, host_arch
 
@@ -3553,7 +3598,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Build native SourceFlow desktop artifacts for the current machine.\n"
             "The script auto-detects the host OS and CPU architecture, or accepts\n"
-            "an explicit same-OS --platform/--arch target, prepares the frontend\n"
+            "an explicit --platform/--arch target, prepares the frontend\n"
             "and Go kernel, then builds the installer and, when supported, the\n"
             "portable package.\n"
             "Before building, the script checks the required desktop toolchain.\n"
@@ -3575,13 +3620,14 @@ def build_parser() -> argparse.ArgumentParser:
             "  python 编译.py --open-output\n"
             "\n"
             "Notes:\n"
-            "  - Build on the target OS. Same-OS x64/arm64 targets are supported when the local toolchain can build them.\n"
+            "  - Windows builds Windows artifacts; macOS builds macOS artifacts.\n"
+            "  - Linux builds native Linux artifacts and a Windows x64 installer by default.\n"
             "  - WSL Linux builds started from /mnt/* are copied to a native temporary workspace automatically.\n"
             "  - Windows arm64 currently builds the installer only; portable packaging is skipped automatically.\n"
             "  - Desktop targets only. Android and iOS build environments are not managed by this script."
         ),
     )
-    parser.add_argument("--platform", choices=("win", "linux", "mac"), default="", help="Optional explicit target platform. Defaults to the host platform.")
+    parser.add_argument("--platform", choices=("win", "linux", "mac"), default="", help="Optional single target override. By default the host build matrix is selected automatically.")
     parser.add_argument("--arch", choices=("x64", "arm64"), default="", help="Optional explicit target architecture. Defaults to the host architecture.")
     parser.add_argument("--fast", action="store_true", help="Unsafe local iteration build: skip dependency installation, full quality gate, and output validation.")
     parser.add_argument("--jobs", type=int, default=0, help="Parallel build jobs. Defaults to an auto value based on CPU count; use 1 for serial builds.")
@@ -3593,6 +3639,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-kernel", action="store_true", help="Skip the Go kernel build and reuse an existing kernel binary.")
     parser.add_argument("--skip-installer", action="store_true", help="Do not build the native installer package.")
     parser.add_argument("--skip-portable", action="store_true", help="Do not build the portable package.")
+    parser.add_argument("--skip-arch-package", action="store_true", help="Linux x64: skip the pacman package even when makepkg is available.")
     parser.add_argument("--rebuild-portable", action="store_true", help="Do not reuse the installer unpacked app when building the Windows portable package.")
     parser.add_argument("--skip-validate", action="store_true", help="Skip post-build artifact validation.")
     parser.add_argument("--stability-gate-only", action="store_true", help="Run the self-contained SourceFlow stability gate and exit without building.")
@@ -3601,6 +3648,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dynamic", action="store_true", help="Linux only. Prefer dynamic linking instead of musl static linking for the portable preparation path.")
     parser.add_argument("--signed", action="store_true", help="macOS only. Force the signed portable config instead of the unsigned fallback.")
     parser.add_argument("--cc", default="", help="Override the C compiler used for the kernel build when a platform-specific compiler is required.")
+    parser.add_argument("--single-target", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--output-dir", default="", help=argparse.SUPPRESS)
     return parser
 
 
@@ -3733,10 +3782,28 @@ def build_installer(target: BuildTarget, args: argparse.Namespace) -> None:
             config_name,
             "--publish=never",
         ]
+        default_output_dir = APP_DIR / "build"
+        if target.installer_output_dir != default_output_dir:
+            output_name = target.installer_output_dir.relative_to(APP_DIR).as_posix()
+            command.append(f"-c.directories.output={output_name}")
         run_electron_builder(command, cwd=APP_DIR, env=env, log_name="installer")
     finally:
         if temp_config_path:
             remove_path(temp_config_path)
+
+
+def should_build_arch_package(target: BuildTarget, args: argparse.Namespace) -> bool:
+    if args.skip_installer or args.skip_arch_package:
+        return False
+    if target.platform_key != "linux" or target.arch != "x64":
+        return False
+    return shutil.which("makepkg") is not None
+
+
+def build_arch_package() -> None:
+    print_step("Build Arch Linux pacman package")
+    script_path = PROJECT_ROOT / "scripts" / "build-arch-package.py"
+    run([sys.executable, str(script_path)], cwd=PROJECT_ROOT)
 
 
 def try_reuse_windows_unpacked_for_portable(target: BuildTarget, stable_zip_path: Path, *, installer_built: bool) -> bool:
@@ -3823,9 +3890,85 @@ def main_output_dir(target: BuildTarget, build_portable_artifact: bool) -> Path:
 def ensure_build_prerequisites(target: BuildTarget) -> None:
     if target.platform_key == "mac":
         ensure_macos_build_prerequisites()
+    if is_linux() and target.platform_key == "win":
+        ensure_linux_windows_cross_tools()
     require_compatible_node()
     require_compatible_pnpm()
     require_command("go")
+
+
+def configure_installer_output(target: BuildTarget, output_dir: str) -> BuildTarget:
+    if not output_dir:
+        return target
+    relative = Path(output_dir)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RuntimeError("--output-dir must be a relative directory inside app/.")
+    resolved = (APP_DIR / relative).resolve()
+    if resolved == APP_DIR or APP_DIR.resolve() not in resolved.parents:
+        raise RuntimeError("--output-dir must resolve to a child directory of app/.")
+    return replace(target, installer_output_dir=resolved)
+
+
+def strip_matrix_only_args(raw_argv: Sequence[str]) -> list[str]:
+    value_options = {"--platform", "--arch", "--output-dir", "--cc"}
+    flag_options = {"--single-target", "--open-output", "--install", "--rebuild-portable"}
+    filtered: list[str] = []
+    index = 0
+    while index < len(raw_argv):
+        arg = raw_argv[index]
+        option_name = arg.split("=", 1)[0]
+        if option_name in value_options:
+            index += 1 if "=" in arg else 2
+            continue
+        if option_name in flag_options:
+            index += 1
+            continue
+        filtered.append(arg)
+        index += 1
+    return filtered
+
+
+def run_linux_host_matrix(args: argparse.Namespace, raw_argv: Sequence[str]) -> int:
+    print_step("Automatic host build matrix")
+    print("Linux detected: build native Linux packages, then cross-build the Windows x64 installer.", flush=True)
+    script_path = Path(__file__).resolve()
+
+    linux_args = [arg for arg in raw_argv if arg != "--open-output"]
+    linux_command = [sys.executable, str(script_path), *linux_args, "--single-target", "--platform", "linux"]
+    linux_result = run(linux_command, cwd=PROJECT_ROOT, check=False)
+    if linux_result.returncode != 0:
+        return linux_result.returncode
+    if args.skip_installer:
+        print("Windows cross-build skipped because --skip-installer was requested.", flush=True)
+        return 0
+
+    cross_args = strip_matrix_only_args(raw_argv)
+    windows_command = [
+        sys.executable,
+        str(script_path),
+        *cross_args,
+        "--single-target",
+        "--platform",
+        "win",
+        "--arch",
+        "x64",
+        "--output-dir",
+        "build-windows-cross",
+        "--skip-portable",
+        "--skip-arch-package",
+        "--skip-quality-gate",
+        "--skip-ui",
+    ]
+    windows_result = run(windows_command, cwd=PROJECT_ROOT, check=False)
+    if windows_result.returncode != 0:
+        return windows_result.returncode
+
+    print_step("Automatic host build matrix complete")
+    print(f"Linux artifacts: {APP_DIR / 'build'}", flush=True)
+    print(f"Windows x64 installer: {APP_DIR / 'build-windows-cross'}", flush=True)
+    if args.open_output:
+        open_directory(APP_DIR / "build")
+    return 0
 
 
 def run_build_main(argv: list[str] | None = None) -> int:
@@ -3836,6 +3979,15 @@ def run_build_main(argv: list[str] | None = None) -> int:
     if args.stability_gate_only and (args.fast or args.skip_quality_gate):
         raise RuntimeError("--stability-gate-only must run the quality gate; remove --fast or --skip-quality-gate.")
 
+    if (
+        resolve_host_platform() == "linux"
+        and not args.platform
+        and not args.arch
+        and not args.single_target
+        and not args.stability_gate_only
+    ):
+        return run_linux_host_matrix(args, raw_argv)
+
     if args.fast:
         args.skip_install = True
         args.skip_quality_gate = True
@@ -3845,7 +3997,9 @@ def run_build_main(argv: list[str] | None = None) -> int:
     parallel_jobs = resolve_parallel_jobs(args)
 
     target, host_name, host_arch = resolve_target(args.platform, args.arch)
+    target = configure_installer_output(target, args.output_dir)
     build_portable_artifact = (not args.skip_portable) and target.portable_supported
+    build_arch_package_artifact = should_build_arch_package(target, args)
     if args.skip_installer and not build_portable_artifact:
         raise RuntimeError("Nothing to build for this target. Remove --skip-installer or choose a portable-supported target.")
     if should_use_wsl_native_workspace(args, target):
@@ -3861,6 +4015,7 @@ def run_build_main(argv: list[str] | None = None) -> int:
     print(f"Target: {target.display_name}", flush=True)
     print(f"Build installer: {not args.skip_installer}", flush=True)
     print(f"Build portable: {build_portable_artifact}", flush=True)
+    print(f"Build Arch pacman package: {build_arch_package_artifact}", flush=True)
     print(f"Bundle browser extension zip in portable: {build_portable_artifact}", flush=True)
     print(f"Build mode: {'unsafe fast iteration' if args.fast else 'safe high-performance'}", flush=True)
     print(f"Parallel jobs: {parallel_jobs}", flush=True)
@@ -3892,6 +4047,12 @@ def run_build_main(argv: list[str] | None = None) -> int:
         with timed_stage("Installer package"):
             build_installer(target, args)
 
+    if build_arch_package_artifact:
+        with timed_stage("Arch pacman package"):
+            build_arch_package()
+    elif target.platform_key == "linux" and target.arch == "x64" and not args.skip_installer and not args.skip_arch_package:
+        print("Arch package: skipped because makepkg is unavailable on this host.", flush=True)
+
     if build_portable_artifact:
         with timed_stage("Portable package"):
             build_portable(target, args, installer_built=not args.skip_installer)
@@ -3906,7 +4067,11 @@ def run_build_main(argv: list[str] | None = None) -> int:
     output_dir = main_output_dir(target, build_portable_artifact)
     print_step("Done")
     print(f"Installer output: {target.installer_output_dir}", flush=True)
-    if target.portable_output_dir:
+    if build_arch_package_artifact:
+        version = load_version_field(APP_PACKAGE_PATH, "app/package.json")
+        packages = sorted(target.installer_output_dir.glob(f"sourceflow-bin-{version}-*-x86_64.pkg.tar.*"))
+        print(f"Arch package: {packages[-1] if packages else target.installer_output_dir}", flush=True)
+    if build_portable_artifact and target.portable_output_dir:
         print(f"Portable output: {target.portable_output_dir}", flush=True)
 
     if args.open_output and output_dir.exists():

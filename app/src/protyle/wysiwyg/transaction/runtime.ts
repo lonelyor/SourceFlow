@@ -77,7 +77,7 @@ const promiseTransaction = () => {
             promiseTransaction();
         }
         /// #if MOBILE
-        if (window.sourceflow.config.repo.key && window.sourceflow.config.sync.enabled) {
+        if (window.sourceflow.config.repo.keyConfigured && window.sourceflow.config.sync.enabled) {
             document.getElementById("toolbarSync").classList.remove("fn__none");
         }
         /// #endif

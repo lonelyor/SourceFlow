@@ -493,6 +493,44 @@ func initRepoKey(c *gin.Context) {
 	}
 }
 
+func setRepoMasterPassword(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+	var password string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("password", true, &password)) {
+		return
+	}
+	key, err := model.SetRepoMasterPassword(password)
+	if nil != err {
+		ret.Code, ret.Msg = -1, err.Error()
+		return
+	}
+	ret.Data = map[string]interface{}{"key": key, "keyEnvelope": model.Conf.Repo.KeyEnvelope}
+}
+
+func unlockRepoWithMasterPassword(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+	var password string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("password", true, &password)) {
+		return
+	}
+	key, err := model.UnlockRepoWithMasterPassword(password)
+	if nil != err {
+		ret.Code, ret.Msg = -1, err.Error()
+		return
+	}
+	ret.Data = map[string]interface{}{"key": key}
+}
+
 func resetRepo(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)

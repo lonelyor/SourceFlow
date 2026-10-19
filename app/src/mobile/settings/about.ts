@@ -22,7 +22,7 @@ export const initAbout = () => {
         title: window.sourceflow.languages.about,
         icon: "iconInfo",
         html: `<div>
-<div class="b3-label${window.sourceflow.config.readonly ? " fn__none" : ""}">
+<div class="b3-label">
     <label class="fn__flex">
         <div class="fn__flex-1">
             ${window.sourceflow.languages.about11}
@@ -94,7 +94,7 @@ export const initAbout = () => {
     </button>
     <div class="b3-label__text">${window.sourceflow.languages.about6}</div>
 </div>
-<div class="b3-label${window.sourceflow.config.readonly ? " fn__none" : ""}">
+<div class="b3-label fn__none">
     ${window.sourceflow.languages.dataRepoKey}
     <div class="fn__hr"></div>
     <div class="${window.sourceflow.config.repo.key ? "fn__none" : ""}">

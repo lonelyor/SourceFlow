@@ -576,7 +576,10 @@ func setAPIToken(c *gin.Context) {
 		return
 	}
 
-	token := arg["token"].(string)
+	token, ok := util.ParseJsonArg[string]("token", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.Conf.Api.Token = token
 	model.Conf.Save()
 }
@@ -596,7 +599,10 @@ func setAccessAuthCode(c *gin.Context) {
 		return
 	}
 
-	aac := arg["accessAuthCode"].(string)
+	aac, ok := util.ParseJsonArg[string]("accessAuthCode", true, arg, ret)
+	if !ok {
+		return
+	}
 	if model.MaskedAccessAuthCode == aac {
 		aac = model.Conf.AccessAuthCode
 	}
@@ -612,6 +618,7 @@ func setAccessAuthCode(c *gin.Context) {
 	workspaceSession.AccessAuthCode = aac
 	session.Save(c)
 	go func() {
+		defer logging.Recover()
 		time.Sleep(200 * time.Millisecond)
 		util.ReloadUI()
 	}()
@@ -627,7 +634,11 @@ func setFollowSystemLockScreen(c *gin.Context) {
 		return
 	}
 
-	lockScreenMode := int(arg["lockScreenMode"].(float64))
+	lockScreenModeArg, ok := util.ParseJsonArg[float64]("lockScreenMode", true, arg, ret)
+	if !ok {
+		return
+	}
+	lockScreenMode := int(lockScreenModeArg)
 
 	model.Conf.System.LockScreenMode = lockScreenMode
 	model.Conf.Save()
@@ -671,7 +682,11 @@ func setAppearanceMode(c *gin.Context) {
 		return
 	}
 
-	mode := int(arg["mode"].(float64))
+	modeArg, ok := util.ParseJsonArg[float64]("mode", true, arg, ret)
+	if !ok {
+		return
+	}
+	mode := int(modeArg)
 	model.Conf.Appearance.Mode = mode
 	if 0 == mode {
 		model.Conf.Appearance.ThemeJS = gulu.File.IsExist(filepath.Join(util.ThemesPath, model.Conf.Appearance.ThemeLight, "theme.js"))
@@ -694,7 +709,10 @@ func setNetworkServe(c *gin.Context) {
 		return
 	}
 
-	networkServe := arg["networkServe"].(bool)
+	networkServe, ok := util.ParseJsonArg[bool]("networkServe", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.Conf.System.NetworkServe = networkServe
 	model.Conf.Save()
 
@@ -711,7 +729,10 @@ func setNetworkServeTLS(c *gin.Context) {
 		return
 	}
 
-	networkServeTLS := arg["networkServeTLS"].(bool)
+	networkServeTLS, ok := util.ParseJsonArg[bool]("networkServeTLS", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.Conf.System.NetworkServeTLS = networkServeTLS
 	model.Conf.Save()
 
@@ -878,7 +899,11 @@ func setAutoLaunch(c *gin.Context) {
 		return
 	}
 
-	autoLaunch := int(arg["autoLaunch"].(float64))
+	autoLaunchArg, ok := util.ParseJsonArg[float64]("autoLaunch", true, arg, ret)
+	if !ok {
+		return
+	}
+	autoLaunch := int(autoLaunchArg)
 	if "" != util.GetPortableRootDir() {
 		autoLaunch = 0
 	}
@@ -895,7 +920,10 @@ func setDownloadInstallPkg(c *gin.Context) {
 		return
 	}
 
-	downloadInstallPkg := arg["downloadInstallPkg"].(bool)
+	downloadInstallPkg, ok := util.ParseJsonArg[bool]("downloadInstallPkg", true, arg, ret)
+	if !ok {
+		return
+	}
 	if util.IsPortableMode() {
 		downloadInstallPkg = false
 	}
@@ -912,9 +940,13 @@ func setNetworkProxy(c *gin.Context) {
 		return
 	}
 
-	scheme := arg["scheme"].(string)
-	host := arg["host"].(string)
-	port := arg["port"].(string)
+	var scheme, host, port string
+	if !util.ParseJsonArgs(arg, ret,
+		util.BindJsonArg("scheme", true, &scheme),
+		util.BindJsonArg("host", true, &host),
+		util.BindJsonArg("port", true, &port)) {
+		return
+	}
 	model.Conf.System.NetworkProxy = &conf.NetworkProxy{
 		Scheme: scheme,
 		Host:   host,

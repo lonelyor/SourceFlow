@@ -174,6 +174,7 @@ assert.ok(modelSyncSource.includes("func validateS3ConnectionTestConfig("), "mod
 assert.ok(modelSyncSource.includes("UploadBytes(testPath"), "test should upload a temporary object");
 assert.ok(modelSyncSource.includes("DownloadObject(testPath)"), "test should download the temporary object");
 assert.ok(modelSyncSource.includes("RemoveObject(testPath)"), "test should remove the temporary object");
+assert.ok(modelSyncSource.includes("delete test object failed"), "test should fail when temporary object deletion fails");
 console.log("[go-backend] route, handler, and model test flow ok");
 
 // ---- Documentation ----

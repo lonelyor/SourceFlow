@@ -1,6 +1,6 @@
 import {fetchPost} from "../util/fetch";
 import {showMessage} from "../dialog/message";
-import {ensureSelfHostedSyncReady} from "../sync/syncGuide";
+import {ensureSelfHostedSyncReady, setKey} from "../sync/syncGuide";
 import {processSync} from "../dialog/processSystem";
 import {openByMobile, setStorageVal} from "../protyle/util/compatibility";
 import {confirmDialog} from "../dialog/confirmDialog";
@@ -10,8 +10,16 @@ import {isBrowser, isMobile} from "../util/functions";
 import {originalPath, useShell} from "../util/pathName";
 import {escapeAttr, escapeHtml} from "../util/escape";
 import {openHistory} from "../history/history";
-import {writeText} from "../protyle/util/compatibility";
 import {openBootSyncSettingTarget} from "../sync/bootSyncGuard";
+import {
+    applyWebDAVPresetToPanel,
+    collectWebDAVConfigFromPanel,
+    detectWebDAVPresetId,
+    renderMultiDeviceSyncGuide,
+    renderWebDAVPresetHint,
+    renderWebDAVPresetOptions,
+    WebDAVPresetId,
+} from "./syncWebdav";
 /// #if !BROWSER
 import {ipcRenderer} from "electron";
 /// #endif
@@ -166,8 +174,8 @@ const detectS3PresetId = (endpoint: string): S3PresetId => {
 const renderS3PresetHint = (presetId: S3PresetId): string => {
     const preset = getS3Preset(presetId);
     const securityNote = syncText(
-        "安全提示：快照数据经仓库密钥加密后才会上传，但 Access Key / Secret Key 以明文保存在工作空间配置文件中。请使用仅授权该 Bucket 的最小权限密钥，不要与他人共享工作空间目录。",
-        "Security note: snapshots are encrypted with the repo key before upload, but the access key / secret key are stored in plaintext inside the workspace configuration. Use least-privilege credentials scoped to this bucket and never share the workspace directory.");
+        "安全提示：Secret Key 不写入工作空间或恢复描述文件；桌面端使用系统凭证库，每台设备需单独授权。仍请使用仅授权该 Bucket 的最小权限密钥。",
+        "Security note: the Secret Key is excluded from the workspace and recovery profile. Desktop builds use the OS credential vault, and each device must be authorized separately. Use a least-privilege key scoped to this bucket.");
     return `<div class="b3-label__text">${escapeHtml(preset.hint())}</div>
 <div class="b3-label__text ft__error">${escapeHtml(securityNote)}</div>`;
 };
@@ -250,7 +258,23 @@ const collectS3ConfigFromPanel = (providerPanelElement: Element) => {
 const saveS3ProviderFromPanel = (providerPanelElement: Element) => {
     const s3 = collectS3ConfigFromPanel(providerPanelElement);
     fetchPost("/api/sync/setSyncProviderS3", {s3}, () => {
-        window.sourceflow.config.sync.s3 = s3;
+        if (s3.secretKey) {
+            /// #if !BROWSER
+            ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                cmd: "saveSyncCredentials",
+                credentials: {s3SecretKey: s3.secretKey},
+            }).then((result) => {
+                if (!result?.stored) {
+                    setReposActionStatus(syncText("系统安全存储不可用：密钥仅在本次运行中保留，重启后需重新输入。", "Secure storage is unavailable. The key is kept for this session only and must be entered again after restart."), "error", 12000);
+                }
+            });
+            /// #endif
+        }
+        window.sourceflow.config.sync.s3 = {
+            ...s3,
+            secretKey: "",
+            secretConfigured: !!s3.secretKey || !!window.sourceflow.config.sync.s3.secretConfigured,
+        };
     });
 };
 
@@ -259,7 +283,7 @@ const testS3ConnectionFromPanel = (providerPanelElement: Element, buttonElement:
     const rawAccessKey = (providerPanelElement.querySelector("#accessKey") as HTMLInputElement)?.value.trim();
     const rawSecretKey = (providerPanelElement.querySelector("#secretKey") as HTMLInputElement)?.value.trim();
     const rawBucket = (providerPanelElement.querySelector("#bucket") as HTMLInputElement)?.value.trim();
-    if (!rawEndpoint || !rawAccessKey || !rawSecretKey || !rawBucket) {
+    if (!rawEndpoint || !rawAccessKey || (!rawSecretKey && !window.sourceflow.config.sync.s3.secretConfigured) || !rawBucket) {
         showMessage(window.sourceflow.languages.syncS3TestConnectionMissing);
         return;
     }
@@ -272,6 +296,47 @@ const testS3ConnectionFromPanel = (providerPanelElement: Element, buttonElement:
     }, undefined, (response) => {
         setReposInteractable(buttonElement, false);
         setReposActionStatus(`${window.sourceflow.languages.syncS3TestConnectionFailed}: ${response.msg || ""}`, "error", 15000);
+    });
+};
+
+const saveWebDAVProviderFromPanel = (providerPanelElement: Element) => {
+    const webdav = collectWebDAVConfigFromPanel(providerPanelElement);
+    fetchPost("/api/sync/setSyncProviderWebDAV", {webdav}, () => {
+        if (webdav.password) {
+            /// #if !BROWSER
+            ipcRenderer.invoke(Constants.SOURCEFLOW_GET, {
+                cmd: "saveSyncCredentials",
+                credentials: {webdavPassword: webdav.password},
+            }).then((result) => {
+                if (!result?.stored) {
+                    setReposActionStatus(syncText("系统安全存储不可用：密码仅在本次运行中保留，重启后需重新输入。", "Secure storage is unavailable. The password is kept for this session only and must be entered again after restart."), "error", 12000);
+                }
+            });
+            /// #endif
+        }
+        window.sourceflow.config.sync.webdav = {
+            ...webdav,
+            password: "",
+            secretConfigured: !!webdav.password || !!window.sourceflow.config.sync.webdav.secretConfigured,
+        };
+    });
+};
+
+const testWebDAVConnectionFromPanel = (providerPanelElement: Element, buttonElement: HTMLButtonElement) => {
+    const rawEndpoint = providerPanelElement.querySelector<HTMLInputElement>("#endpoint")?.value.trim();
+    if (!rawEndpoint) {
+        showMessage(window.sourceflow.languages.syncWebDAVTestConnectionMissing);
+        return;
+    }
+    const webdav = collectWebDAVConfigFromPanel(providerPanelElement);
+    setReposInteractable(buttonElement, true);
+    setReposActionStatus(window.sourceflow.languages.syncWebDAVTestConnectionTesting);
+    fetchPost("/api/sync/testSyncProviderWebDAV", {webdav}, () => {
+        setReposInteractable(buttonElement, false);
+        setReposActionStatus(window.sourceflow.languages.syncWebDAVTestConnectionSuccess, "success", 8000);
+    }, undefined, (response) => {
+        setReposInteractable(buttonElement, false);
+        setReposActionStatus(`${window.sourceflow.languages.syncWebDAVTestConnectionFailed}: ${response.msg || ""}`, "error", 15000);
     });
 };
 
@@ -721,7 +786,7 @@ const restoreIntoNewWorkspace = (workspace: string) => {
 const showRestoreBackupDialog = (switchElement: HTMLInputElement) => {
     if (!canRestoreToNewWorkspace()) {
         const localTip = isLocalSyncProvider() ? `<br><br>如果本地备份目录已经移动，不需要手改 backup-profile.json，请先重新选择当前备份目录。` : "";
-        confirmDialog("从远端恢复备份", `<div class="b3-typography">已恢复 repo key 和自托管同步配置。是否立即从远端恢复到当前工作空间？<br><br>恢复会下载远端最新数据并与当前工作空间合并。若要精确替换，请在空工作空间或新便携目录中执行。${localTip}</div>`, () => {
+        confirmDialog("从远端恢复备份", `<div class="b3-typography">主密码验证通过，同步配置已恢复。是否立即从远端恢复到当前工作空间？<br><br>恢复会下载远端最新数据并与当前工作空间合并。若要精确替换，请在空工作空间或新便携目录中执行。${localTip}</div>`, () => {
             restoreIntoCurrentWorkspace(switchElement);
         }, undefined, true);
         return;
@@ -741,7 +806,7 @@ const showRestoreBackupDialog = (switchElement: HTMLInputElement) => {
         title: "恢复自托管备份",
         content: `<div class="b3-dialog__content">
     <div class="b3-label">
-        已恢复 repo key 和自托管同步配置。
+        主密码验证通过，同步配置已恢复。
         <div class="b3-label__text">你可以直接合并到当前工作空间，也可以新建空工作空间做精确恢复。</div>
     </div>
     ${localRestoreTip}
@@ -877,6 +942,7 @@ const renderProvider = (provider: number) => {
     </select>
 </div>
 <div class="b3-label b3-label--inner" id="s3PresetHint">${renderS3PresetHint(currentPresetId)}</div>
+	${renderMultiDeviceSyncGuide()}
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">Endpoint</div>
     <div class="fn__space"></div>
@@ -891,7 +957,7 @@ const renderProvider = (provider: number) => {
     <div class="fn__flex-center fn__size200">Secret Key</div>
     <div class="fn__space"></div>
     <div class="b3-form__icona fn__block">
-        <input id="secretKey" type="password" class="b3-text-field b3-form__icona-input" value="${window.sourceflow.config.sync.s3.secretKey}">
+        <input id="secretKey" type="password" class="b3-text-field b3-form__icona-input" value="" placeholder="${window.sourceflow.config.sync.s3.secretConfigured ? syncText("已配置；留空保持不变", "Configured; leave blank to keep") : ""}">
         <svg class="b3-form__icona-icon" data-action="togglePassword"><use xlink:href="#iconEye"></use></svg>
     </div>
 </div>
@@ -951,26 +1017,36 @@ const renderProvider = (provider: number) => {
     </button>
 </div>`;
     } else if (provider === 3) {
+		const currentPresetId = detectWebDAVPresetId(window.sourceflow.config.sync.webdav.endpoint);
         return `<div class="b3-label b3-label--inner">
     ${window.sourceflow.languages.syncThirdPartyProviderWebDAVIntro}
     <div class="fn__hr"></div>
     ${window.sourceflow.languages.syncThirdPartyProviderTip}
 </div>
 <div class="b3-label b3-label--inner fn__flex">
+    <div class="fn__flex-center fn__size200" title="${escapeAttr(window.sourceflow.languages.syncWebDAVPresetProviderTip)}">${window.sourceflow.languages.syncWebDAVPresetProvider}</div>
+    <div class="fn__space"></div>
+    <select class="b3-select fn__block" id="webdavPresetProvider">
+        ${renderWebDAVPresetOptions(currentPresetId)}
+    </select>
+</div>
+<div class="b3-label b3-label--inner" id="webdavPresetHint">${renderWebDAVPresetHint(currentPresetId)}</div>
+${renderMultiDeviceSyncGuide()}
+<div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">Endpoint</div>
     <div class="fn__space"></div>
-    <input id="endpoint" class="b3-text-field fn__block" value="${window.sourceflow.config.sync.webdav.endpoint}">
+	<input id="endpoint" class="b3-text-field fn__block" value="${escapeAttr(window.sourceflow.config.sync.webdav.endpoint)}">
 </div>
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">Username</div>
     <div class="fn__space"></div>
-    <input id="username" class="b3-text-field fn__block" value="${window.sourceflow.config.sync.webdav.username}">
+	<input id="username" class="b3-text-field fn__block" value="${escapeAttr(window.sourceflow.config.sync.webdav.username)}">
 </div>
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">Password</div>
     <div class="fn__space"></div>
     <div class="b3-form__icona fn__block">
-        <input id="password" type="password" class="b3-text-field b3-form__icona-input" value="${window.sourceflow.config.sync.webdav.password}">
+		<input id="password" type="password" class="b3-text-field b3-form__icona-input" value="" placeholder="${window.sourceflow.config.sync.webdav.secretConfigured ? syncText("已配置；留空保持不变", "Configured; leave blank to keep") : ""}">
         <svg class="b3-form__icona-icon" data-action="togglePassword"><use xlink:href="#iconEye"></use></svg>
     </div>
 </div>
@@ -994,6 +1070,10 @@ const renderProvider = (provider: number) => {
 </div>
 <div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-1"></div>
+	<button class="b3-button b3-button--outline fn__size200" id="webdavTestConnection" title="${escapeAttr(window.sourceflow.languages.syncWebDAVTestConnectionTip)}">
+        <svg><use xlink:href="#iconLink"></use></svg>${window.sourceflow.languages.syncWebDAVTestConnection}
+    </button>
+    <div class="fn__space"></div>
     <button class="b3-button b3-button--outline fn__size200" data-action="purgeData">
         <svg><use xlink:href="#iconTrashcan"></use></svg>${window.sourceflow.languages.purge}
     </button>
@@ -1061,38 +1141,7 @@ const bindProviderEvent = () => {
             if (window.sourceflow.config.sync.provider === 2) {
                 saveS3ProviderFromPanel(providerPanelElement);
             } else if (window.sourceflow.config.sync.provider === 3) {
-                let timeout = parseInt((providerPanelElement.querySelector("#timeout") as HTMLInputElement).value, 10);
-                if (7 > timeout) {
-                    timeout = 7;
-                }
-                if (300 < timeout) {
-                    timeout = 300;
-                }
-                let concurrentReqs = parseInt((providerPanelElement.querySelector("#webdavConcurrentReqs") as HTMLInputElement).value, 10);
-                if (1 > concurrentReqs) {
-                    concurrentReqs = 1;
-                }
-                if (16 < concurrentReqs) {
-                    concurrentReqs = 16;
-                }
-                (providerPanelElement.querySelector("#timeout") as HTMLInputElement).value = timeout.toString();
-                let endpoint = (providerPanelElement.querySelector("#endpoint") as HTMLInputElement).value;
-                endpoint = endpoint.trim().replace("http://http(s)://", "https://");
-                endpoint = endpoint.replace("http(s)://", "https://");
-                if (!endpoint.startsWith("http")) {
-                    endpoint = "http://" + endpoint;
-                }
-                const webdav = {
-                    endpoint: endpoint,
-                    username: (providerPanelElement.querySelector("#username") as HTMLInputElement).value.trim(),
-                    password: (providerPanelElement.querySelector("#password") as HTMLInputElement).value.trim(),
-                    skipTlsVerify: (providerPanelElement.querySelector("#webdavSkipTlsVerify") as HTMLInputElement).value === "true",
-                    timeout: timeout,
-                    concurrentReqs: concurrentReqs,
-                };
-                fetchPost("/api/sync/setSyncProviderWebDAV", {webdav}, () => {
-                    window.sourceflow.config.sync.webdav = webdav;
-                });
+				saveWebDAVProviderFromPanel(providerPanelElement);
             } else if (window.sourceflow.config.sync.provider === 4) {
                 saveLocalSyncProvider(providerPanelElement);
             }
@@ -1115,6 +1164,21 @@ const bindProviderEvent = () => {
         });
     }
 
+	const webdavPresetElement = providerPanelElement.querySelector<HTMLSelectElement>("#webdavPresetProvider");
+	if (webdavPresetElement) {
+		applyWebDAVPresetToPanel(providerPanelElement, webdavPresetElement.value as WebDAVPresetId);
+		webdavPresetElement.addEventListener("change", () => {
+			applyWebDAVPresetToPanel(providerPanelElement, webdavPresetElement.value as WebDAVPresetId);
+		});
+	}
+
+	const webdavTestConnectionElement = providerPanelElement.querySelector<HTMLButtonElement>("#webdavTestConnection");
+	if (webdavTestConnectionElement) {
+		webdavTestConnectionElement.addEventListener("click", () => {
+			testWebDAVConnectionFromPanel(providerPanelElement, webdavTestConnectionElement);
+		});
+	}
+
     const localEndpointElement = providerPanelElement.querySelector<HTMLInputElement>("#endpoint");
     localEndpointElement?.addEventListener("input", () => {
         updateLocalSyncPathInfo(providerPanelElement, localEndpointElement.value);
@@ -1124,7 +1188,8 @@ const bindProviderEvent = () => {
 export const repos = {
     element: undefined as Element,
     genHTML: () => {
-        const hasRepoKey = !!window.sourceflow.config.repo.key;
+        const hasRepoKey = !!window.sourceflow.config.repo.keyConfigured;
+        const hasMasterPassword = !!window.sourceflow.config.repo.keyEnvelope;
         const lang = window.sourceflow;
         const backupBannerZH = "工作空间目录不可放置于同步网盘（如 OneDrive、iCloud 等），否则会导致数据损坏。如需云端备份，请使用下方的快照备份功能，将备份目录设置到云盘同步文件夹中。";
         const backupBannerEN = "Do NOT place the workspace directory in sync cloud drives (e.g. OneDrive, iCloud), which will corrupt data. For cloud backup, use the snapshot backup below and set the backup directory to a cloud-synced folder.";
@@ -1136,16 +1201,26 @@ export const repos = {
 </div>
 <div class="b3-label fn__flex config__item">
     <div class="fn__flex-1 fn__flex-center">
-        ${window.sourceflow.languages.dataRepoKey}
-        <div class="b3-label__text">${window.sourceflow.languages.dataRepoKeyTip1}</div>
-        <div class="b3-label__text"><span class="ft__error">${window.sourceflow.languages.dataRepoKeyTip2}</span></div>
+        ${syncText("备份主密码", "Backup master password")}
+        <div class="b3-label__text">${syncText("主密码只用于加密备份与同步仓库；本地笔记和附件保持轻量，不做落盘加密。", "The master password encrypts only backups and the sync repository; local notes and attachments remain unencrypted.")}</div>
+        <div class="b3-label__text">${hasMasterPassword ? (hasRepoKey ? syncText("当前设备已解锁", "Unlocked on this device") : syncText("需要输入主密码解锁", "Master password required")) : syncText("首次启用备份时必须创建；恢复时只需输入同一个密码。", "Create one before enabling backup; enter the same password when restoring.")}</div>
     </div>
     <div class="fn__space"></div>
-    <div class="fn__size200 config__item-line fn__flex-center${hasRepoKey ? "" : " fn__none"}">
-        <button class="b3-button b3-button--outline fn__block" id="reposCopyKey">
-            <svg><use xlink:href="#iconCopy"></use></svg>${window.sourceflow.languages.copyKey}
+    <div class="fn__size200 config__item-line fn__flex-center">
+        <button class="b3-button b3-button--outline fn__block" id="reposSetMasterPassword">
+            <svg><use xlink:href="#iconKey"></use></svg>${hasMasterPassword ? (hasRepoKey ? syncText("修改主密码", "Change password") : syncText("输入主密码", "Unlock")) : syncText("创建主密码", "Create password")}
         </button>
     </div>
+</div>
+<div class="fn__flex b3-label config__item">
+    <div class="fn__flex-1">
+        ${window.sourceflow.languages.syncSynologyQuickConnect}
+        <div class="b3-label__text">${window.sourceflow.languages.syncSynologyQuickConnectTip}</div>
+    </div>
+    <span class="fn__space"></span>
+    <button id="synologyQuickConnect" class="b3-button b3-button--outline fn__size200">
+        <svg><use xlink:href="#iconCloud"></use></svg>${window.sourceflow.languages.syncSynologyQuickConnect}
+    </button>
 </div>
 <div class="fn__flex b3-label config__item">
     <div class="fn__flex-1">
@@ -1154,8 +1229,8 @@ export const repos = {
     </div>
     <span class="fn__space"></span>
     <select id="syncProvider" class="b3-select fn__flex-center fn__size200">
-        <option value="2" ${window.sourceflow.config.sync.provider === 2 ? "selected" : ""}>S3</option>
-        <option value="3" ${window.sourceflow.config.sync.provider === 3 ? "selected" : ""}>WebDAV</option>
+		<option value="3" ${window.sourceflow.config.sync.provider === 3 ? "selected" : ""}>${syncText("群晖 NAS / 通用 WebDAV（推荐）", "Synology NAS / WebDAV (recommended)")}</option>
+		<option value="2" ${window.sourceflow.config.sync.provider === 2 ? "selected" : ""}>S3</option>
         <option class="${!["std", "docker"].includes(window.sourceflow.config.system.container) ? "fn__none" : ""}" value="4" ${window.sourceflow.config.sync.provider === 4 ? "selected" : ""}>${window.sourceflow.languages.localFileSystem}</option>
     </select>
 </div>
@@ -1197,7 +1272,7 @@ export const repos = {
         <div class="fn__flex config__item">
             <div class="fn__flex-1">
                 从恢复描述文件恢复
-                <div class="b3-label__text">导入 userdata\\backup-profile.json 后，可恢复 repo key 和自托管同步配置。</div>
+                <div class="b3-label__text">导入 userdata\\backup-profile.json 后，输入原主密码即可恢复加密仓库配置；云端服务凭证需在每台设备单独填写。</div>
                 <div class="b3-label__text">如果 Local File System 备份目录已经移动，不需要手改 backup-profile.json；导入后可直接重新选择当前备份目录。</div>
                 <div class="b3-label__text">恢复会从远端拉取最新数据并与当前工作空间合并；若要精确替换，请在空工作空间或新便携目录中执行。</div>
             </div>
@@ -1254,9 +1329,11 @@ export const repos = {
 </div>`;
     },
     bindEvent: () => {
-        repos.element.querySelector("#reposCopyKey")?.addEventListener("click", () => {
-            showMessage(window.sourceflow.languages.copied);
-            writeText(window.sourceflow.config.repo.key);
+        repos.element.querySelector("#reposSetMasterPassword")?.addEventListener("click", () => {
+            setKey(false, () => {
+                repos.element.querySelector("#reposSetMasterPassword").textContent = syncText("修改主密码", "Change password");
+                setReposActionStatus(syncText("备份主密码已就绪", "Backup master password is ready"), "success", 5000);
+            });
         });
         bindProviderEvent();
         refreshSnapshotProtectionStat();
@@ -1366,7 +1443,11 @@ export const repos = {
             fetchPost("/api/sync/importSyncBackupProfile", formData, (response) => {
                 setReposInteractable(importBackupProfileElement, false);
                 importBackupProfileElement.value = "";
-                window.sourceflow.config.repo.key = response.data.key;
+                window.sourceflow.config.repo.key = "";
+                window.sourceflow.config.repo.keyConfigured = !!response.data.key;
+                if (response.data.keyEnvelope) {
+                    window.sourceflow.config.repo.keyEnvelope = response.data.keyEnvelope;
+                }
                 window.sourceflow.config.sync.provider = response.data.provider;
                 window.sourceflow.config.sync.cloudName = response.data.cloudName;
                 window.sourceflow.config.sync.enabled = response.data.enabled;
@@ -1390,19 +1471,31 @@ export const repos = {
                 processSync();
                 queueSyncDiagnosticsRefresh();
                 showMessage("已导入恢复描述文件");
-                setReposActionStatus(isChineseUI() ? "恢复描述文件已导入，请选择恢复方式" : "Backup profile imported, choose a restore mode", "success", 6000);
-                showRestoreBackupDialog(switchElement);
+                if (response.data.needsUnlock) {
+                    setReposActionStatus(isChineseUI() ? "恢复描述已导入，请输入主密码解锁" : "Profile imported. Enter the master password to unlock.");
+                    setKey(false, () => {
+                        if (response.data.provider === 4) {
+                            showRestoreBackupDialog(switchElement);
+                        } else {
+                            setReposActionStatus(isChineseUI() ? "已解锁。请为本机填写 S3/WebDAV 凭证，再开启同步恢复。" : "Unlocked. Enter S3/WebDAV credentials for this device, then enable sync to restore.", "success", 12000);
+                        }
+                    });
+                } else {
+                    setReposActionStatus(isChineseUI() ? "恢复描述文件已导入，请选择恢复方式" : "Backup profile imported, choose a restore mode", "success", 6000);
+                    showRestoreBackupDialog(switchElement);
+                }
             });
         });
-        syncProviderElement.addEventListener("change", () => {
+        const selectSyncProvider = (provider: number, afterRender?: () => void) => {
             const previousProvider = window.sourceflow.config.sync.provider;
-            fetchPost("/api/sync/setSyncProvider", {provider: parseInt(syncProviderElement.value, 10)}, (response) => {
+            syncProviderElement.value = provider.toString();
+            fetchPost("/api/sync/setSyncProvider", {provider}, (response) => {
                 if (response.code !== 0) {
                     showMessage(response.msg);
                     syncProviderElement.value = previousProvider.toString();
                     window.sourceflow.config.sync.provider = previousProvider;
                 } else {
-                    window.sourceflow.config.sync.provider = parseInt(syncProviderElement.value, 10);
+                    window.sourceflow.config.sync.provider = provider;
                     window.sourceflow.config.sync.mode = 1;
                     refreshSnapshotProtectionStat();
                 }
@@ -1410,6 +1503,23 @@ export const repos = {
                 bindProviderEvent();
                 processSync();
                 queueSyncDiagnosticsRefresh();
+                if (response.code === 0) {
+                    afterRender?.();
+                }
+            });
+        };
+        syncProviderElement.addEventListener("change", () => {
+            selectSyncProvider(parseInt(syncProviderElement.value, 10));
+        });
+        repos.element.querySelector("#synologyQuickConnect")?.addEventListener("click", () => {
+            selectSyncProvider(3, () => {
+                const providerPanelElement = repos.element.querySelector("#syncProviderPanel");
+                const presetElement = providerPanelElement.querySelector<HTMLSelectElement>("#webdavPresetProvider");
+                if (presetElement) {
+                    presetElement.value = "synology";
+                    applyWebDAVPresetToPanel(providerPanelElement, "synology");
+                }
+                providerPanelElement.querySelector<HTMLInputElement>("#endpoint")?.focus();
             });
         });
         repos.element.firstElementChild.addEventListener("click", (event) => {

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"net/url"
@@ -45,8 +46,12 @@ import (
 // var Mode = "dev"
 var Mode = "prod"
 
+// SyncCredentialsJSON is supplied once through stdin by the desktop shell and
+// cleared after configuration initialization. It is never written to disk.
+var SyncCredentialsJSON []byte
+
 const (
-	Ver       = "0.1.12"
+	Ver       = "0.1.13"
 	IsInsider = false
 )
 
@@ -106,7 +111,11 @@ func Boot() {
 	ssl := flag.Bool("ssl", false, "for https and wss")
 	lang := flag.String("lang", "", "en_US/zh_CN")
 	mode := flag.String("mode", "prod", "dev/prod")
+	syncCredentialsStdin := flag.Bool("syncCredentialsStdin", false, "read transient sync credentials from stdin")
 	flag.Parse()
+	if *syncCredentialsStdin {
+		SyncCredentialsJSON, _ = io.ReadAll(io.LimitReader(os.Stdin, 64*1024))
+	}
 
 	// Fallback to env vars if commandline args are not set
 	// valid only for CLI args that default to "", as the
@@ -178,7 +187,7 @@ func Boot() {
 	initPathDir()
 
 	bootBanner := figure.NewColorFigure("SourceFlow", "isometric3", "green", true)
-	logging.LogInfof("%s", "\n" + bootBanner.String())
+	logging.LogInfof("%s", "\n"+bootBanner.String())
 	logBootInfo()
 }
 

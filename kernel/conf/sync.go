@@ -16,6 +16,8 @@
 
 package conf
 
+import "encoding/json"
+
 type Sync struct {
 	CloudName           string  `json:"cloudName"`           // 云端同步目录名称
 	Enabled             bool    `json:"enabled"`             // 是否开启同步
@@ -44,24 +46,52 @@ func NewSync() *Sync {
 }
 
 type S3 struct {
-	Endpoint       string `json:"endpoint"`       // 服务端点
-	AccessKey      string `json:"accessKey"`      // Access Key
-	SecretKey      string `json:"secretKey"`      // Secret Key
-	Bucket         string `json:"bucket"`         // 存储空间
-	Region         string `json:"region"`         // 存储区域
-	PathStyle      bool   `json:"pathStyle"`      // 是否使用路径风格
-	SkipTlsVerify  bool   `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
-	Timeout        int    `json:"timeout"`        // 超时时间，单位：秒
-	ConcurrentReqs int    `json:"concurrentReqs"` // 并发请求数
+	Endpoint         string `json:"endpoint"`                   // 服务端点
+	AccessKey        string `json:"accessKey"`                  // Access Key
+	SecretKey        string `json:"secretKey"`                  // Secret Key
+	SecretConfigured bool   `json:"secretConfigured,omitempty"` // 仅用于前端显示，不含密钥
+	Bucket           string `json:"bucket"`                     // 存储空间
+	Region           string `json:"region"`                     // 存储区域
+	PathStyle        bool   `json:"pathStyle"`                  // 是否使用路径风格
+	SkipTlsVerify    bool   `json:"skipTlsVerify"`              // 是否跳过 TLS 验证
+	Timeout          int    `json:"timeout"`                    // 超时时间，单位：秒
+	ConcurrentReqs   int    `json:"concurrentReqs"`             // 并发请求数
+}
+
+func (s *S3) MarshalJSON() ([]byte, error) {
+	type publicS3 S3
+	return json.Marshal(struct {
+		*publicS3
+		SecretKey        string `json:"secretKey"`
+		SecretConfigured bool   `json:"secretConfigured"`
+	}{
+		publicS3:         (*publicS3)(s),
+		SecretKey:        "",
+		SecretConfigured: nil != s && "" != s.SecretKey,
+	})
 }
 
 type WebDAV struct {
-	Endpoint       string `json:"endpoint"`       // 服务端点
-	Username       string `json:"username"`       // 用户名
-	Password       string `json:"password"`       // 密码
-	SkipTlsVerify  bool   `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
-	Timeout        int    `json:"timeout"`        // 超时时间，单位：秒
-	ConcurrentReqs int    `json:"concurrentReqs"` // 并发请求数
+	Endpoint         string `json:"endpoint"`                   // 服务端点
+	Username         string `json:"username"`                   // 用户名
+	Password         string `json:"password"`                   // 密码
+	SecretConfigured bool   `json:"secretConfigured,omitempty"` // 仅用于前端显示，不含密码
+	SkipTlsVerify    bool   `json:"skipTlsVerify"`              // 是否跳过 TLS 验证
+	Timeout          int    `json:"timeout"`                    // 超时时间，单位：秒
+	ConcurrentReqs   int    `json:"concurrentReqs"`             // 并发请求数
+}
+
+func (webdav *WebDAV) MarshalJSON() ([]byte, error) {
+	type publicWebDAV WebDAV
+	return json.Marshal(struct {
+		*publicWebDAV
+		Password         string `json:"password"`
+		SecretConfigured bool   `json:"secretConfigured"`
+	}{
+		publicWebDAV:     (*publicWebDAV)(webdav),
+		Password:         "",
+		SecretConfigured: nil != webdav && "" != webdav.Password,
+	})
 }
 
 type Local struct {

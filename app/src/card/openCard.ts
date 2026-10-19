@@ -720,7 +720,7 @@ export const bindCardEvent = async (options: {
             }, () => {
                 /// #if MOBILE
                 if (type !== "-3" &&
-                    window.sourceflow.config.repo.key && window.sourceflow.config.sync.enabled) {
+                    window.sourceflow.config.repo.keyConfigured && window.sourceflow.config.sync.enabled) {
                     document.getElementById("toolbarSync").classList.remove("fn__none");
                 }
                 /// #endif

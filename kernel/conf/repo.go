@@ -23,7 +23,11 @@ import (
 )
 
 type Repo struct {
-	Key []byte `json:"key"` // AES 密钥
+	Key           []byte `json:"key"`           // AES 密钥
+	KeyConfigured bool   `json:"keyConfigured"` // 仅用于前端状态，不包含密钥材料
+	// KeyEnvelope allows the same repository key to be recovered from a user
+	// password without storing either the password or plaintext key.
+	KeyEnvelope *RepoKeyEnvelope `json:"keyEnvelope,omitempty"`
 
 	// 同步索引计时，单位毫秒，超过该时间则提示用户索引性能下降
 	// If the data repo indexing time is greater than 12s, prompt user to purge the data repo https://github.com/lonelyor/SourceFlow/issues/9613
@@ -37,6 +41,13 @@ type Repo struct {
 	// 远端恢复点保留策略。当前仅提供默认值，后续再开放前端配置入口。
 	RemoteRetentionRecentHours int `json:"remoteRetentionRecentHours"` // 最近 N 小时每小时保留一个恢复点
 	RemoteRetentionRecentDays  int `json:"remoteRetentionRecentDays"`  // 最近 N 天每天保留一个恢复点
+}
+
+type RepoKeyEnvelope struct {
+	Version    int    `json:"version"`
+	KDF        string `json:"kdf"`
+	Salt       string `json:"salt"`
+	Ciphertext string `json:"ciphertext"`
 }
 
 func NewRepo() *Repo {

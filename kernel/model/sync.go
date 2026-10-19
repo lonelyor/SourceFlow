@@ -129,7 +129,8 @@ func IsBootSyncReadonlyGuardAllowed(path string) bool {
 		return true
 	}
 	switch path {
-	case "/api/repo/initRepoKey", "/api/repo/initRepoKeyFromPassphrase", "/api/repo/importRepoKey":
+	case "/api/repo/initRepoKey", "/api/repo/initRepoKeyFromPassphrase", "/api/repo/importRepoKey",
+		"/api/repo/setMasterPassword", "/api/repo/unlockWithMasterPassword":
 		return true
 	default:
 		return false
@@ -670,10 +671,16 @@ func SetSyncProvider(provider int) (err error) {
 }
 
 func SetSyncProviderS3(s3 *conf.S3) (err error) {
+	if nil == s3 {
+		return errors.New("S3 sync provider config is required")
+	}
 	s3.Endpoint = strings.TrimSpace(s3.Endpoint)
 	s3.Endpoint = util.NormalizeEndpoint(s3.Endpoint)
 	s3.AccessKey = strings.TrimSpace(s3.AccessKey)
 	s3.SecretKey = strings.TrimSpace(s3.SecretKey)
+	if "" == s3.SecretKey && nil != Conf.Sync.S3 {
+		s3.SecretKey = Conf.Sync.S3.SecretKey
+	}
 	s3.Bucket = strings.TrimSpace(s3.Bucket)
 	s3.Region = strings.TrimSpace(s3.Region)
 	s3.Timeout = util.NormalizeTimeout(s3.Timeout)
@@ -684,6 +691,9 @@ func SetSyncProviderS3(s3 *conf.S3) (err error) {
 		return
 	}
 
+	if "" == s3.SecretKey && nil != Conf.Sync.S3 {
+		s3.SecretKey = Conf.Sync.S3.SecretKey
+	}
 	Conf.Sync.S3 = s3
 	Conf.Save()
 	resetSyncPerceptionState()
@@ -729,6 +739,9 @@ func TestSyncProviderS3(s3 *conf.S3) (err error) {
 
 	if removeErr := testCloud.RemoveObject(testPath); nil != removeErr {
 		logging.LogWarnf("remove S3 connection test object [%s] failed: %s", testPath, removeErr)
+		if nil == err {
+			err = fmt.Errorf("delete test object failed: %s", removeErr)
+		}
 	}
 	return
 }
@@ -781,19 +794,19 @@ func newS3ConnectionTestCloud(s3 *conf.S3) (testCloud cloud.Cloud, testPath stri
 }
 
 func SetSyncProviderWebDAV(webdav *conf.WebDAV) (err error) {
-	webdav.Endpoint = strings.TrimSpace(webdav.Endpoint)
-	webdav.Endpoint = util.NormalizeEndpoint(webdav.Endpoint)
+	if nil == webdav {
+		return errors.New("WebDAV sync provider config is required")
+	}
+	normalizeWebDAVConfig(webdav)
 
 	// 不支持配置坚果云 WebDAV 进行同步 https://github.com/lonelyor/SourceFlow/issues/7657
 	if strings.Contains(strings.ToLower(webdav.Endpoint), "dav.jianguoyun.com") {
 		err = errors.New(Conf.Language(194))
 		return
 	}
-
-	webdav.Username = strings.TrimSpace(webdav.Username)
-	webdav.Password = strings.TrimSpace(webdav.Password)
-	webdav.Timeout = util.NormalizeTimeout(webdav.Timeout)
-	webdav.ConcurrentReqs = util.NormalizeConcurrentReqs(webdav.ConcurrentReqs, conf.ProviderWebDAV)
+	if "" == webdav.Password && nil != Conf.Sync.WebDAV {
+		webdav.Password = Conf.Sync.WebDAV.Password
+	}
 
 	Conf.Sync.WebDAV = webdav
 	Conf.Save()
@@ -827,6 +840,9 @@ func serializePortableLocalEndpoint(endpoint string) string {
 }
 
 func prepareSyncProviderLocal(local *conf.Local, validateExist bool) (err error) {
+	if nil == local {
+		return errors.New("local sync provider config is required")
+	}
 	local.Endpoint = strings.TrimSpace(local.Endpoint)
 	local.Endpoint = util.ResolvePortablePath(util.NormalizeLocalPath(local.Endpoint))
 	if "" == local.Endpoint {

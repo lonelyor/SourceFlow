@@ -519,7 +519,14 @@ func performSync(c *gin.Context) {
 	// Android 端前后台切换时自动触发同步 https://github.com/lonelyor/SourceFlow/issues/7122
 	var mobileSwitch bool
 	if mobileSwitchArg := arg["mobileSwitch"]; nil != mobileSwitchArg {
-		mobileSwitch = mobileSwitchArg.(bool)
+		var parsed bool
+		parsed, ok = mobileSwitchArg.(bool)
+		if !ok {
+			ret.Code = -1
+			ret.Msg = "Field [mobileSwitch] should be of type [Boolean]"
+			return
+		}
+		mobileSwitch = parsed
 	}
 	if mobileSwitch {
 		if !model.Conf.Sync.Enabled {
@@ -539,7 +546,12 @@ func performSync(c *gin.Context) {
 		return
 	}
 
-	upload := uploadArg.(bool)
+	upload, ok := uploadArg.(bool)
+	if !ok {
+		ret.Code = -1
+		ret.Msg = "Field [upload] should be of type [Boolean]"
+		return
+	}
 	if upload {
 		model.SyncDataUpload()
 	} else {
@@ -649,7 +661,10 @@ func setSyncGenerateConflictDoc(c *gin.Context) {
 		return
 	}
 
-	enabled := arg["enabled"].(bool)
+	enabled, ok := util.ParseJsonArg[bool]("enabled", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.SetSyncGenerateConflictDoc(enabled)
 }
 
@@ -662,7 +677,10 @@ func setSyncEnable(c *gin.Context) {
 		return
 	}
 
-	enabled := arg["enabled"].(bool)
+	enabled, ok := util.ParseJsonArg[bool]("enabled", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.SetSyncEnable(enabled)
 }
 
@@ -692,7 +710,10 @@ func setSyncPerception(c *gin.Context) {
 		return
 	}
 
-	enabled := arg["enabled"].(bool)
+	enabled, ok := util.ParseJsonArg[bool]("enabled", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.SetSyncPerception(enabled)
 }
 
@@ -705,7 +726,11 @@ func setSyncMode(c *gin.Context) {
 		return
 	}
 
-	mode := int(arg["mode"].(float64))
+	modeArg, ok := util.ParseJsonArg[float64]("mode", true, arg, ret)
+	if !ok {
+		return
+	}
+	mode := int(modeArg)
 	model.SetSyncMode(mode)
 }
 
@@ -718,7 +743,11 @@ func setSyncProvider(c *gin.Context) {
 		return
 	}
 
-	provider := int(arg["provider"].(float64))
+	providerArg, ok := util.ParseJsonArg[float64]("provider", true, arg, ret)
+	if !ok {
+		return
+	}
+	provider := int(providerArg)
 	err := model.SetSyncProvider(provider)
 	if err != nil {
 		ret.Code = -1
@@ -737,24 +766,12 @@ func setSyncProviderS3(c *gin.Context) {
 		return
 	}
 
-	s3Arg := arg["s3"].(interface{})
-	data, err := gulu.JSON.MarshalJSON(s3Arg)
-	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
-		return
-	}
-
 	s3 := &conf.S3{}
-	if err = gulu.JSON.UnmarshalJSON(data, s3); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+	if !decodeSyncProviderArg("s3", arg, ret, s3, 5000) {
 		return
 	}
 
-	err = model.SetSyncProviderS3(s3)
+	err := model.SetSyncProviderS3(s3)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -772,24 +789,12 @@ func testSyncProviderS3(c *gin.Context) {
 		return
 	}
 
-	s3Arg := arg["s3"].(interface{})
-	data, err := gulu.JSON.MarshalJSON(s3Arg)
-	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 10000}
-		return
-	}
-
 	s3 := &conf.S3{}
-	if err = gulu.JSON.UnmarshalJSON(data, s3); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 10000}
+	if !decodeSyncProviderArg("s3", arg, ret, s3, 10000) {
 		return
 	}
 
-	if err = model.TestSyncProviderS3(s3); err != nil {
+	if err := model.TestSyncProviderS3(s3); err != nil {
 		logging.LogErrorf("test S3 sync provider failed: %s", err)
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -807,29 +812,39 @@ func setSyncProviderWebDAV(c *gin.Context) {
 		return
 	}
 
-	webdavArg := arg["webdav"].(interface{})
-	data, err := gulu.JSON.MarshalJSON(webdavArg)
+	webdav := &conf.WebDAV{}
+	if !decodeSyncProviderArg("webdav", arg, ret, webdav, 5000) {
+		return
+	}
+
+	err := model.SetSyncProviderWebDAV(webdav)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
 		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+		return
+	}
+}
+
+func testSyncProviderWebDAV(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
 		return
 	}
 
 	webdav := &conf.WebDAV{}
-	if err = gulu.JSON.UnmarshalJSON(data, webdav); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+	if !decodeSyncProviderArg("webdav", arg, ret, webdav, 10000) {
 		return
 	}
 
-	err = model.SetSyncProviderWebDAV(webdav)
-	if err != nil {
+	if err := model.TestSyncProviderWebDAV(webdav); nil != err {
+		logging.LogErrorf("test WebDAV sync provider failed: %s", err)
 		ret.Code = -1
 		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
-		return
+		ret.Data = map[string]interface{}{"closeTimeout": 10000}
 	}
 }
 
@@ -842,24 +857,12 @@ func setSyncProviderLocal(c *gin.Context) {
 		return
 	}
 
-	localArg := arg["local"].(interface{})
-	data, err := gulu.JSON.MarshalJSON(localArg)
-	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
-		return
-	}
-
 	local := &conf.Local{}
-	if err = gulu.JSON.UnmarshalJSON(data, local); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		ret.Data = map[string]interface{}{"closeTimeout": 5000}
+	if !decodeSyncProviderArg("local", arg, ret, local, 5000) {
 		return
 	}
 
-	err = model.SetSyncProviderLocal(local)
+	err := model.SetSyncProviderLocal(local)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -881,6 +884,29 @@ func setCloudSyncDir(c *gin.Context) {
 		return
 	}
 
-	name := arg["name"].(string)
+	name, ok := util.ParseJsonArg[string]("name", true, arg, ret)
+	if !ok {
+		return
+	}
 	model.SetCloudSyncDir(name)
+}
+
+func decodeSyncProviderArg(key string, arg map[string]any, ret *gulu.Result, dest any, closeTimeout int) bool {
+	providerArg, ok := util.ParseJsonArg[map[string]any](key, true, arg, ret)
+	if !ok {
+		ret.Data = map[string]interface{}{"closeTimeout": closeTimeout}
+		return false
+	}
+
+	data, err := gulu.JSON.MarshalJSON(providerArg)
+	if nil == err {
+		err = gulu.JSON.UnmarshalJSON(data, dest)
+	}
+	if nil != err {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": closeTimeout}
+		return false
+	}
+	return true
 }
